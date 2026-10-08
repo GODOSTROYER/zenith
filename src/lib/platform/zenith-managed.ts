@@ -23,9 +23,12 @@
  * `ProductPort` the execution worker uses (workspace slug, environment id). The
  * environment id is the environment segment of its hostnames: it is globally
  * unique and already a DNS-safe label, whereas names are neither. The plan tier
- * has no billing source yet, so it is the operator-set default
- * (`ZENITH_MANAGED_DEFAULT_PLAN`, default `free`): PROVISIONAL, not a price.
+ * comes from its billing assignment when billing is managed. With billing disabled,
+ * `ZENITH_MANAGED_DEFAULT_PLAN` (default `free`) is the operator capacity tier.
  */
+import { billingConfigFromEnv } from "@/lib/billing/config";
+import { getAccount } from "@/lib/billing/store";
+import { getPlan, isPlanId } from "@/lib/billing/plans";
 import { readSecretValueAsync } from "@/lib/secrets";
 import { isVaultRef } from "@/lib/secrets/refs";
 import type { ProductPort } from "@/lib/execution/ports";
@@ -77,6 +80,8 @@ export function createPlatformCredentialResolver(deps: PlatformCredentialDeps): 
 export interface ProductTenantOptions {
   /** plan tier of every managed workspace until billing supplies one; default `free` */
   defaultPlanTier?: PlanTier;
+  /** Production composition supplies the workspace billing assignment in managed billing mode. */
+  loadPlanTier?: (workspaceId: string) => Promise<PlanTier>;
 }
 
 /** Tenants from the control plane's product store. Never trusts a caller's slugs or tier. */
@@ -95,7 +100,8 @@ export function createProductTenantResolver(product: Pick<ProductPort, "loadCont
       const environmentSlug = context.environment.id.toLowerCase() === context.environment.id ? context.environment.id : "";
       if (!isHostLabel(workspaceSlug)) throw new ManagedSubstrateError("tenant_invalid", "The workspace slug is not a valid DNS label, so it cannot form managed hostnames.");
       if (!isHostLabel(environmentSlug)) throw new ManagedSubstrateError("tenant_invalid", "The environment id is not a valid lowercase DNS label, so it cannot form managed hostnames.");
-      return { workspaceId: ref.workspaceId, environmentId: ref.environmentId, workspaceSlug, environmentSlug, planTier };
+      const assignedTier = options.loadPlanTier ? await options.loadPlanTier(ref.workspaceId) : planTier;
+      return { workspaceId: ref.workspaceId, environmentId: ref.environmentId, workspaceSlug, environmentSlug, planTier: assignedTier };
     },
   };
 }
@@ -131,7 +137,18 @@ export function createDefaultManagedSubstrate(options: DefaultManagedSubstrateOp
   let problem: ManagedSubstrateError | undefined;
   try {
     credentials = createPlatformCredentialResolver({ scope: platformVaultScope(env), ...(options.readPlatformSecret ? { read: options.readPlatformSecret } : {}) });
-    tenants = createProductTenantResolver(options.product ?? createProductPort(), { defaultPlanTier: planTierOf(env) });
+    tenants = createProductTenantResolver(options.product ?? createProductPort(), billingConfigFromEnv(env).mode === "managed" ? {
+      async loadPlanTier(workspaceId) {
+        try {
+          const account = await getAccount(options.db ?? await platformDb(), workspaceId);
+          if (!account || !isPlanId(account.planId)) throw new Error("unknown assignment");
+          // Suspension is enforced at dispatch; reads and teardown still need a tenant session.
+          return getPlan(account.planId).managedTier;
+        } catch {
+          throw new ManagedSubstrateError("tenant_unresolved", "The workspace billing plan is unknown or unavailable; managed hosting refuses an operator-tier fallback.");
+        }
+      },
+    } : { defaultPlanTier: planTierOf(env) });
   } catch (err) {
     problem = err instanceof ManagedSubstrateError ? err : new ManagedSubstrateError("not_configured", "The Zenith-managed platform configuration is invalid.");
     credentials = { resolve: async () => { throw problem; } };

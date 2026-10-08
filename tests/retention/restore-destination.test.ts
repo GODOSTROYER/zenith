@@ -1,5 +1,5 @@
 /**
- * PROD-OPS-07 follow-up: tenant-owned archive destinations and archive verify/restore, on real PGlite SQL. The tenant
+ * PROD-OPS-07 follow-up: tenant-owned archive destinations and archive verify/restore, on real PGlite SQL (or explicitly gated owned PostgreSQL). The tenant
  * bucket is an in-memory S3 client double behind the real S3 adapter (contract level, no live S3 claim); the operator
  * bucket is a real temp directory. Keys are generated at runtime.
  */
@@ -17,6 +17,7 @@ import { retentionPass, type RetentionOptions } from "@/lib/retention/job";
 import { parseRetentionPolicy, type PolicyLoad } from "@/lib/retention/policy";
 import { restoreArchive, verifyArchive } from "@/lib/retention/restore";
 import { listArchives } from "@/lib/retention/store";
+import { retentionArchiveMain } from "../../scripts/retention-archive";
 import { newWorkspace, seedApprovedOperation, uid } from "../controlplane/_support/harness";
 
 const PUBKEY = "A".repeat(43);
@@ -28,13 +29,16 @@ const LOAD: PolicyLoad = (() => {
   return { ok: true, policy, source: "inline", digest: "0".repeat(64) };
 })();
 
+const nativePostgres = process.env.ZENITH_TEST_RETENTION_PG === "1";
 let db: PlatformDbHandle;
 let dir: string;
 let operator: FilesystemTarget;
 let operatorPuts = 0;
 const operatorTarget: ArchiveTarget = { label: "operator dir", put: async (k, b) => { operatorPuts++; await operator.put(k, b); }, get: (k) => operator.get(k) };
 beforeAll(async () => {
-  db = await openPlatformDb({ kind: "pglite" });
+  const pgUrl = process.env.ZENITH_TEST_PLATFORM_PG_URL;
+  if (nativePostgres && !pgUrl) throw new Error("Explicit retention PostgreSQL gate requires an owned disposable ZENITH_TEST_PLATFORM_PG_URL.");
+  db = await openPlatformDb(nativePostgres ? { kind: "postgres", url: pgUrl!, max: 2 } : { kind: "pglite" });
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-retention-restore-"));
   operator = new FilesystemTarget(dir);
 }, 60_000);
@@ -165,6 +169,27 @@ describe("restore", () => {
     }
     expect((await restoreArchive(db, { archiveId: "arc_nope", mode: "source", actor: "op" }, { deps, key: KEY })).verdict).toBe("refused");
     expect((await restoreArchive(db, { archiveId: archive.id, mode: "source", actor: "op", workspaceId: "ws_other" }, { deps, key: KEY })).verdict).toBe("refused");
+  });
+
+  it("restores a legacy raw-backup archive only with explicit privileged purpose and key id, auditing refusals and success", async () => {
+    const { ws, archive } = await archivedAndPruned(2);
+    const env = { ZENITH_BACKUP_KEY: KEY.toString("base64") };
+    const legacyKey = { originalPurpose: "enc:backup", keyId: archive.keyId, reason: "restore pre-separation archive" } as const;
+    const guessed = await restoreArchive(db, { archiveId: archive.id, mode: "source", actor: "op" }, { deps, env });
+    expect(guessed.verdict).toBe("refused"); expect(await logCount(ws)).toBe(0);
+    const denied = await restoreArchive(db, { archiveId: archive.id, mode: "source", actor: "op", legacyKey }, { deps, env });
+    expect(denied.verdict).toBe("refused"); expect(await logCount(ws)).toBe(0);
+    const wrong = await restoreArchive(db, { archiveId: archive.id, mode: "source", actor: "op", legacyKey: { ...legacyKey, keyId: "wrong-key" } }, { deps, env, privileged: true });
+    expect(wrong.verdict).toBe("refused"); expect(await logCount(ws)).toBe(0);
+    const secretReason = `Bearer ${randomBytes(24).toString("hex")}`;
+    const leaked = await restoreArchive(db, { archiveId: archive.id, mode: "source", actor: "op", legacyKey: { ...legacyKey, reason: secretReason } }, { deps, env, privileged: true });
+    expect(leaked.verdict).toBe("refused"); expect(await logCount(ws)).toBe(0);
+    expect((await db.query<{ legacy_reason: string | null }>("select legacy_reason from platform.retention_restores where id = $1", [leaked.auditId]))[0].legacy_reason).toBeNull();
+    const restored = await restoreArchive(db, { archiveId: archive.id, mode: "source", actor: "op", legacyKey }, { deps, env, privileged: true });
+    expect(restored).toMatchObject({ verdict: "verified", inserted: 2 }); expect(await logCount(ws)).toBe(2);
+    const audit = await db.query<{ key_purpose: string; restore_key_id: string; legacy_reason: string; verdict: string }>("select key_purpose, restore_key_id, legacy_reason, verdict from platform.retention_restores where id = $1", [restored.auditId]);
+    expect(audit[0]).toEqual({ key_purpose: "enc:backup", restore_key_id: archive.keyId, legacy_reason: legacyKey.reason, verdict: "verified" });
+    expect(JSON.stringify(audit)).not.toContain(env.ZENITH_BACKUP_KEY);
   });
 
   it("keeps the restore audit append-only", async () => {
@@ -310,5 +335,28 @@ describe("tenant-owned archive destinations", () => {
     await expect(db.query("update platform.retention_destinations set bucket = 'other-bucket' where id = $1", [a.id])).rejects.toThrow();
     await expect(db.query("update platform.retention_destinations set revoked_at = null, revoked_by = null where id = $1", [a.id])).rejects.toThrow();
     await expect(connectTenantDestination(db, { workspaceId: ws, environmentId: env, resourceAddress: addr, credentialsRef: "vault:a" }, { secret: async () => creds("wrong-bucket-name"), s3Client: s3.client })).rejects.toThrow(/bucket/);
+  });
+});
+
+
+if (nativePostgres) describe("legacy archive CLI [real PostgreSQL]", () => {
+  it("uses the real privileged CLI and original-purpose key, with independent row and audit readback", async () => {
+    const { ws, archive } = await archivedAndPruned(2);
+    const env = { ZENITH_PLATFORM_DB: "postgres", ZENITH_PLATFORM_DB_URL: process.env.ZENITH_TEST_PLATFORM_PG_URL,
+      ZENITH_RETENTION_ARCHIVE_TARGET: "filesystem", ZENITH_RETENTION_ARCHIVE_DIR: dir, ZENITH_BACKUP_KEY: KEY.toString("base64") };
+    const output: string[] = [], errors: string[] = [];
+    const runCli = (args: string[]) => retentionArchiveMain(args, line => output.push(line), line => errors.push(line), env);
+    expect(await runCli(["list", "--workspace", ws])).toBe(0);
+    expect(JSON.parse(output.at(-1)!)).toMatchObject({ id: archive.id, keyId: archive.keyId });
+    expect(await runCli(["restore", archive.id, "--source"])).toBe(1);
+    expect(await logCount(ws)).toBe(0);
+    const named = ["restore", archive.id, "--source", "--legacy-purpose", "enc:backup", "--legacy-key-id", archive.keyId, "--reason", "native legacy rehearsal"];
+    expect(await runCli(named)).toBe(0); expect(await logCount(ws)).toBe(2);
+    const rows = await db.query<{ key_purpose: string; restore_key_id: string; requested_by: string; verdict: string; rows_inserted: number }>(
+      "select key_purpose,restore_key_id,requested_by,verdict,rows_inserted from platform.retention_restores where workspace_id=$1 and archive_id=$2 and verdict='verified'", [ws, archive.id]);
+    expect(rows).toEqual([{ key_purpose: "enc:backup", restore_key_id: archive.keyId, requested_by: "cli:operator", verdict: "verified", rows_inserted: 2 }]);
+    expect(await runCli(named)).toBe(0); expect(await logCount(ws)).toBe(2);
+    expect([...output, ...errors].join(" ")).not.toContain(env.ZENITH_BACKUP_KEY);
+    expect([...output, ...errors].join(" ")).not.toContain(env.ZENITH_PLATFORM_DB_URL);
   });
 });

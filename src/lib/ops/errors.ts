@@ -17,6 +17,7 @@ export type BackpressureCode =
   | "maintenance_read_only"
   | "maintenance_dispatch_paused"
   // PROD-MAN-06: only ever raised in `billing: managed` mode; BYOC and self-hosted installs never see them.
+  | "billing_unavailable"
   | "billing_suspended"
   | "plan_quota_exceeded";
 
@@ -30,6 +31,7 @@ export const BACKPRESSURE_STATUS: Readonly<Record<BackpressureCode, 402 | 429 | 
   overloaded: 503,
   maintenance_read_only: 503,
   maintenance_dispatch_paused: 503,
+  billing_unavailable: 503,
   billing_suspended: 402,
   plan_quota_exceeded: 429,
 };

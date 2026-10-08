@@ -624,10 +624,11 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       expect(await refused(ws, "deploy")).toBeUndefined();
     });
 
-    it("is protection, not a dependency: a store outage neither suspends nor un-suspends", async () => {
+    it("fails closed on a store outage without mutating suspension or running workloads", async () => {
       const outage = async () => { throw new Error("store down"); };
       const fresh = newWorkspace();
-      expect(await refused(fresh, "deploy", opts({ store: outage }))).toBeUndefined();
+      expect(await refused(fresh, "deploy", opts({ store: outage }))).toMatchObject({ code: "billing_unavailable", status: 503 });
+      for (const kind of ["destroy", "export"]) expect(await refused(fresh, kind, opts({ store: outage }))).toBeUndefined();
       const held = newWorkspace();
       await assignPlan(db(), { workspaceId: held, planId: "team_provisional", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: held, actor: "op", reason: "x", now: NOW });

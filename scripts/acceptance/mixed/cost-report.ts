@@ -19,6 +19,7 @@ type ManifestShape = {
   services: { id: string; name: string; kind: string; size?: string; replicas?: number }[];
   resources: { id: string; name: string; kind: string; size?: string; config?: Record<string, string | number | boolean> }[];
   bindings: { from: string; to: string; capability: string }[];
+  functions?: { id: string; name: string; provider: string; region: string; memoryMb?: number; invokedBy: string[] }[];
   nodePlacement: Record<string, { provider: string; region?: string }>;
 };
 
@@ -35,12 +36,14 @@ export function referenceCostGraph(source: ManifestShape = manifest as ManifestS
     // Public workloads: the protected endpoints are reached over public addresses (mutual TLS plus allowlist), so no NAT is assumed.
     nodes.push({ address: `service/${s.name}`, kind: "container_service", ...where, spec: { size: s.size ?? "small", replicas: s.replicas ?? 1, publicIp: true }, ownership: "managed" });
   }
+  for (const f of source.functions ?? []) nodes.push({ address: `function/${f.name}`, kind: "function", provider: f.provider, region: f.region, spec: { memoryMb: f.memoryMb ?? 256 }, ownership: "managed" });
   for (const r of source.resources) {
     const where = placed(r.id, r.name);
     nodes.push({ address: `resource/${r.name}`, kind: r.kind === "postgres" ? "postgres" : "object_store", ...where, spec: { size: r.size ?? "small", ...(r.config?.storageGb ? { storageGb: r.config.storageGb } : {}) }, ownership: "managed" });
   }
   const addressOf = new Map<string, string>([...source.services.flatMap((s) => [[s.id, `service/${s.name}`], [s.name, `service/${s.name}`]] as const), ...source.resources.flatMap((r) => [[r.id, `resource/${r.name}`], [r.name, `resource/${r.name}`]] as const)]);
   const edges = source.bindings.filter((b) => addressOf.has(b.from) && addressOf.has(b.to)).map((b) => ({ from: addressOf.get(b.from)!, to: addressOf.get(b.to)!, relation: "connects_to" }));
+  for (const f of source.functions ?? []) for (const id of f.invokedBy) if (addressOf.has(id)) edges.push({ from: addressOf.get(id)!, to: `function/${f.name}`, relation: "connects_to" });
   return { nodes, edges };
 }
 

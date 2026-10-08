@@ -52,6 +52,7 @@ export interface SloReport {
   budgetWindowDays: number;
   objectives: ObjectiveReport[];
   burning: string[];
+  restoreMilestones?: { database: Measurement[]; application: Measurement[] };
 }
 
 const pct = (x: number): string => `${Math.round(x * 100_000) / 1000}%`;
@@ -117,5 +118,6 @@ export async function buildSloReport(sql: Sql): Promise<SloReport> {
     }
   }
   const burning = objectives.filter((r) => r.alerts?.some((a) => a.firing)).map((r) => r.id);
-  return { generatedAt: new Date().toISOString(), definitionVersion: defs.definitionVersion, label: PROVISIONAL_LABEL, approval: defs.approval, budgetWindowDays: defs.budgetWindowDays, objectives, burning };
+  const restoreMilestones = { database: await listMeasurements(sql, "database_restore", 5), application: await listMeasurements(sql, "application_health", 5) };
+  return { restoreMilestones, generatedAt: new Date().toISOString(), definitionVersion: defs.definitionVersion, label: PROVISIONAL_LABEL, approval: defs.approval, budgetWindowDays: defs.budgetWindowDays, objectives, burning };
 }

@@ -327,6 +327,25 @@ function emitSecrets(ctx: Ctx): void {
 }
 
 
+/** Functions carry their own scoped role/logs in the driver, with no container/network stand-in. */
+function emitFunctions(ctx: Ctx): void {
+  for (const f of [...(ctx.v2?.functions ?? [])].sort((a, b) => cmp(a.id, b.id))) {
+    const address = `function/${f.name}`;
+    if (ctx.addrByKey.has(f.id) || ctx.b.nodes.has(address)) throw new ManifestExpansionError(`Duplicate function ${f.id}.`);
+    ctx.b.add({ address, kind: "function", place: { provider: f.provider, region: f.region }, nativeType: "aws:lambda_function",
+      spec: { runtime: f.runtime, handler: f.handler, memoryMb: f.memoryMb, timeoutSec: f.timeoutSec, architecture: f.architecture, artifact: { ...f.source }, env: f.env }, origin: [f.id] });
+    ctx.addrByKey.set(f.id, address); ctx.addrByKey.set(f.name, address);
+    for (const id of f.invokedBy) {
+      const svc = ctx.svcs.get(id);
+      const consumer = svc && ctx.b.nodes.get(svc.address);
+      if (!consumer || !svc?.managed) throw new ManifestExpansionError(`Function ${f.id} must name a managed invoking service.`);
+      consumer.dependsOn = uniqSorted([...consumer.dependsOn, address]);
+      ctx.b.edge(consumer.address, address, "connects_to", "function.invoke: SigV4 IAM, exact published function ARN; credentials supplied separately");
+    }
+    ctx.b.note("function", `${address} is experimental Lambda: S3 version and source/package SHA-256 pinned, IAM-authenticated SDK invocation only; caller IAM credentials must be provisioned separately.`);
+  }
+}
+
 /* --------------------------------- natives -------------------------------- */
 
 function emitNatives(ctx: Ctx): void {
@@ -424,6 +443,7 @@ export function expandManifest(manifest: AnyManifest, env: ExpandEnv): ResourceG
   emitSecrets(ctx);
   emitRouting(ctx, uses, topo, firewalls);
   emitFirewalls(ctx, firewalls);
+  emitFunctions(ctx);
   emitNatives(ctx);
   propagateNamespaces(ctx, topo);
   noteCrossings(ctx);

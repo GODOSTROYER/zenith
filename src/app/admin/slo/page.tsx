@@ -59,6 +59,10 @@ function Report({ report }: { report: SloReport }) {
         approved them, and they are not commitments to customers.
       </p>
       <p className={styles.meta}>Definitions {report.definitionVersion}. Error budget over {report.budgetWindowDays} days. Generated {report.generatedAt}.</p>
+      {report.restoreMilestones ? <section aria-label="Restore milestones"><h2>Restore completion evidence</h2>
+        <p>Database completion: {report.restoreMilestones.database[0] ? `${report.restoreMilestones.database[0].value} seconds after restore start` : "Not measured"}.</p>
+        <p>First healthy application readiness: {report.restoreMilestones.application[0] ? `${report.restoreMilestones.application[0].value} seconds after restore start` : "Not measured"}. RTO uses application readiness.</p>
+      </section> : null}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead><tr><th scope="col">Objective</th><th scope="col">Provisional target</th><th scope="col">Current</th><th scope="col">Status</th><th scope="col">Error budget</th></tr></thead>

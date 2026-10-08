@@ -15,7 +15,7 @@ import { buildRuntime, setOpsRuntimeForTests } from "@/lib/ops/runtime";
 import { opsLimitsFromEnv } from "@/lib/ops/config";
 import { metricsRegistry } from "@/lib/ops/telemetry/metrics";
 import { opsMetrics } from "@/lib/ops/telemetry/catalog";
-import { reportCapacityTest, reportRecoveryRehearsal } from "@/lib/slo/recovery";
+import { reportCapacityTest, reportRecoveryRehearsal, reportRestoreCompletion } from "@/lib/slo/recovery";
 import { flushSloSamples, resetSloRecorderForTests } from "@/lib/slo/recorder";
 import { buildSloReport } from "@/lib/slo/report";
 import { addSamples, dispatchLatencyWindows, listMeasurements, recordMeasurement, sampleWindows, workflowCompletionWindows } from "@/lib/slo/store";
@@ -31,6 +31,7 @@ vi.mock("@/lib/ops/operator", async (importOriginal) => ({ ...(await importOrigi
 vi.mock("@/lib/server/cron", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/server/cron")>()), ensurePlatformCron: async () => true }));
 vi.mock("@/lib/controlplane/db", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/controlplane/db")>()), platformDb: async () => mocks.db }));
 
+const readinessRoute = await import("@/app/api/internal/recovery/readiness/route");
 const sloRoute = await import("@/app/api/admin/ops/slo/route");
 const measurementsRoute = await import("@/app/api/internal/slo/measurements/route");
 
@@ -51,6 +52,34 @@ describe.each(LANES)("service objectives [$name]", (lane) => {
     mocks.session.mockReset();
   });
   afterEach(() => { vi.unstubAllEnvs(); setOpsRuntimeForTests(undefined); });
+
+  it("records database completion separately, withholding RTO until first application health, idempotently", async () => {
+    const reference = `restore_${randomBytes(8).toString("hex")}`;
+    const f = new Date(Date.now() - 3600_000);
+    const input = { reference, recordedBy: "operator", failureAt: f, dataRecoveredThrough: new Date(f.getTime() - 60_000), restoreStartedAt: new Date(f.getTime() + 60_000), databaseRestoreFinishedAt: new Date(f.getTime() + 180_000) };
+    expect((await reportRestoreCompletion(db(), input)).map(m => m.kind)).toEqual(["database_restore"]);
+    expect(await reportRestoreCompletion(db(), input)).toEqual([]);
+    const applicationHealthyAt = new Date(f.getTime() + 420_000);
+    const rows = await reportRestoreCompletion(db(), { ...input, applicationHealthyAt });
+    expect(rows.map(m => [m.kind, m.value])).toEqual([["application_health", 360], ["rpo", 60], ["rto", 420]]);
+    expect(await reportRestoreCompletion(db(), { ...input, applicationHealthyAt })).toEqual([]);
+    const samples = await db().query<{ kind: string }>("select kind from platform.slo_measurements where details->>'reference' = $1 order by seq", [reference]);
+    expect(samples.map(m => m.kind)).toEqual(["database_restore", "application_health", "rpo", "rto"]);
+    await expect(reportRestoreCompletion(db(), { ...input, applicationHealthyAt: input.restoreStartedAt })).rejects.toThrow(/order/);
+  });
+
+  it("readiness refuses unauthenticated, unknown and old epochs and answers the current fenced application", async () => {
+    const restoreRunId = `restore_${randomBytes(8).toString("hex")}`;
+    const url = `/api/internal/recovery/readiness?restoreRunId=${restoreRunId}`;
+    expect((await readinessRoute.GET(request("GET", url))).status).toBe(401);
+    const auth = { authorization: `Bearer ${SECRET}` };
+    expect((await readinessRoute.GET(request("GET", url, undefined, auth))).status).toBe(503);
+    await db().query("insert into platform.recovery_epochs (epoch, kind, actor, reason, restore_run_id) select max(epoch)+1, 'restore', 'operator', 'test recovery readiness', $1 from platform.recovery_epochs", [restoreRunId]);
+    const ready = await readinessRoute.GET(request("GET", url, undefined, auth));
+    expect(ready.status).toBe(200); expect(await ready.json()).toMatchObject({ ready: true, restoreRunId });
+    await db().query("insert into platform.recovery_epochs (epoch, kind, actor, reason, restore_run_id) select max(epoch)+1, 'restore', 'operator', 'new recovery', $1 from platform.recovery_epochs", [`${restoreRunId}_later`]);
+    expect((await readinessRoute.GET(request("GET", url, undefined, auth))).status).toBe(503);
+  });
 
   describe("samples", () => {
     it("adds counts additively and windows include only the buckets inside them", async () => {

@@ -21,6 +21,7 @@ import { assertNoSecretValues } from "@/lib/controlplane/db/secrets";
 import { randomUUID } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { canonical } from "@/lib/controlplane/digest";
+import { KeyRing } from "@/lib/keycustody/registry";
 import { archiveKey } from "./key";
 import { keyIdOf } from "@/lib/hosted/backup/crypto";
 import { CLASS_SPECS, assertPrunableClass } from "./classes";
@@ -30,6 +31,10 @@ import { getArchive, type ArchiveRecord } from "./store";
 
 export const RESTORE_BATCH = 500;
 const STAGING_SUFFIX = /^[a-z0-9_]{1,40}$/;
+const legacyAuditReason = (reason: string | undefined): string | null => {
+  if (!reason || !/^[A-Za-z0-9 ._:/()-]{1,200}$/.test(reason)) return null;
+  try { assertNoSecretValues(reason); return reason; } catch { return null; }
+};
 
 export type RestoreMode = "staging" | "source";
 
@@ -38,14 +43,29 @@ export interface VerifyResult { ok: boolean; problems: string[]; archive: Archiv
 export interface RestoreContext {
   deps: ResolveDeps;
   key?: Buffer;
+  /** Set only by the authenticated operator route or the database-credential CLI. */
+  privileged?: boolean;
+  env?: Readonly<Record<string, string | undefined>>;
+
 }
 
-async function loadVerified(db: Sql, archive: ArchiveRecord, ctx: RestoreContext): Promise<{ payload: ArchivePayload } | { problems: string[] }> {
+async function loadVerified(db: Sql, archive: ArchiveRecord, ctx: RestoreContext, legacy?: RestoreInput["legacyKey"]): Promise<{ payload: ArchivePayload } | { problems: string[] }> {
   const dest = await resolveDestination(db, archive.workspaceId, ctx.deps, { destinationId: archive.destinationId });
   if (!dest.ok) return { problems: [dest.detail] };
   let key: Buffer;
-  try { key = ctx.key ?? archiveKey(); } catch { return { problems: ["The sealing key (ZENITH_BACKUP_KEY) is not available."] }; }
-  if (keyIdOf(key) !== archive.keyId) return { problems: ["The sealing key is not the key this archive was sealed with."] };
+  try {
+    if (legacy) {
+      if (!ctx.privileged || legacy.originalPurpose !== "enc:backup" || legacy.keyId !== archive.keyId
+        || !legacyAuditReason(legacy.reason))
+        return { problems: ["Legacy restore requires operator privilege, original purpose enc:backup, the recorded key id and a plain audit reason."] };
+      // Explicit purpose and exact key id only. Never try other purposes after authentication failure.
+      // Archive headers use the historical 8-hex fingerprint, while the custody registry uses its own key ids.
+      const matches = KeyRing.fromEnv(ctx.env ?? process.env, { purposes: [legacy.originalPurpose] }).materialFor(legacy.originalPurpose, "decrypt").filter(k => keyIdOf(k.key) === legacy.keyId);
+      if (matches.length !== 1) throw new Error("Named legacy key missing or ambiguous");
+      key = matches[0].key;
+    } else key = ctx.key ?? archiveKey(ctx.env);
+  } catch { return { problems: ["The named restore key is unavailable for its explicit purpose."] }; }
+  if (keyIdOf(key) !== archive.keyId) return { problems: ["The archive key does not match. Pre-purpose-separation archives require an explicit privileged legacy restore naming enc:backup and the recorded key id; keys are never guessed."] };
   let payload: ArchivePayload | null = null;
   try { payload = await readBack(dest.destination.target as ArchiveTarget, key, archive.objectKey, archive.rowsDigest); } catch { /* unreadable */ }
   if (!payload) return { problems: ["The archive object is missing, cannot be unsealed, or its rows digest does not match the verified record."] };
@@ -65,6 +85,8 @@ export async function verifyArchive(db: Sql, archiveId: string, ctx: RestoreCont
 }
 
 export interface RestoreInput {
+  /** Pre-purpose-separation archives only. This is an audited, privileged decrypt operation. */
+  legacyKey?: { originalPurpose: "enc:backup"; keyId: string; reason: string };
   archiveId: string;
   mode: RestoreMode;
   /** staging mode: the schema becomes `retention_stage_<suffix>` */
@@ -92,9 +114,9 @@ async function audit(db: Sql, archive: ArchiveRecord, input: RestoreInput, r: Om
   assertNoSecretValues(r.detail);
   const id = `rrest_${randomUUID()}`;
   await db.query(
-    `insert into platform.retention_restores (id, workspace_id, archive_id, data_class, mode, staging_schema, requested_by, rows_selected, rows_inserted, rows_existing_identical, rows_existing_differ, rows_skipped_no_parent, verdict, detail)
-     values ($1, $2, $3, $4, $5, $6, $7, $8::int, $9::int, $10::int, $11::int, $12::int, $13, $14)`,
-    [id, archive.workspaceId, archive.id, archive.dataClass, r.mode, r.stagingSchema, input.actor.slice(0, 128), r.selected, r.inserted, r.existingIdentical, r.existingDiffer, r.skippedNoParent, r.verdict, r.detail.slice(0, 500)]);
+    `insert into platform.retention_restores (id, workspace_id, archive_id, data_class, mode, staging_schema, requested_by, rows_selected, rows_inserted, rows_existing_identical, rows_existing_differ, rows_skipped_no_parent, verdict, detail, key_purpose, restore_key_id, legacy_reason)
+     values ($1, $2, $3, $4, $5, $6, $7, $8::int, $9::int, $10::int, $11::int, $12::int, $13, $14, $15, $16, $17)`,
+    [id, archive.workspaceId, archive.id, archive.dataClass, r.mode, r.stagingSchema, input.actor.slice(0, 128), r.selected, r.inserted, r.existingIdentical, r.existingDiffer, r.skippedNoParent, r.verdict, r.detail.slice(0, 500), input.legacyKey?.originalPurpose === "enc:backup" ? "enc:backup" : "enc:archive", input.legacyKey?.keyId?.slice(0, 128) || archive.keyId, legacyAuditReason(input.legacyKey?.reason)]);
   return id;
 }
 
@@ -109,6 +131,10 @@ export async function restoreArchive(db: Sql, input: RestoreInput, ctx: RestoreC
     const r = { ...base, verdict: "refused" as const, detail };
     return { ...r, auditId: await audit(db, archive, input, r) };
   };
+  if (input.legacyKey && (!ctx.privileged || input.legacyKey.originalPurpose !== "enc:backup"
+    || !/^[A-Za-z0-9_-]{1,128}$/.test(input.legacyKey.keyId) || input.legacyKey.keyId !== archive.keyId
+    || !legacyAuditReason(input.legacyKey.reason)))
+    return refuse("Legacy restore requires operator privilege, original purpose enc:backup, the recorded key id and a plain audit reason.");
   const cls = assertPrunableClass(archive.dataClass);
   const spec = CLASS_SPECS[cls];
   let stagingSchema: string | null = null;
@@ -117,7 +143,7 @@ export async function restoreArchive(db: Sql, input: RestoreInput, ctx: RestoreC
     stagingSchema = `retention_stage_${input.stagingSuffix}`;
   } else if (mode !== "source") return refuse("mode must be staging or source.");
 
-  const loaded = await loadVerified(db, archive, ctx);
+  const loaded = await loadVerified(db, archive, ctx, input.legacyKey);
   if (!("payload" in loaded)) return refuse(`The archive failed verification: ${loaded.problems.join(" ")}`);
   let rows = loaded.payload.rows;
   if (input.rowIds) {

@@ -51,6 +51,15 @@ export const EXTERNAL_ACCEPTANCE = [
     releaseBlocker: "External Temporal mTLS execution remains unverified until separate authorized acceptance passes.",
   },
 
+  { id: "wave5-mixed-lambda", file: "tests/acceptance/mixed-lambda.gated.test.ts", suite: "mixed Lambda endpoint [needs explicit LocalStack or deferred live AWS gate and credential files]", wholeFile: true,
+    prerequisites: ["ZENITH_TEST_MIXED_LAMBDA=1 (owned LocalStack) or ZENITH_LIVE_AWS_LAMBDA=1 (separately authorized live target)", "Published numeric Lambda ARN, reviewed package digest, explicit private credential file"],
+    releaseBlocker: "Real Lambda endpoint acceptance remains unverified; live cloud acceptance is deferred." },
+  { id: "wave5-legacy-archive-postgres", file: "tests/retention/restore-destination.test.ts", suite: "legacy archive CLI [real PostgreSQL]", wholeFile: false,
+    prerequisites: ["ZENITH_TEST_RETENTION_PG=1", "Owned disposable ZENITH_TEST_PLATFORM_PG_URL with current schema and no shared tenant data"], releaseBlocker: "Real PostgreSQL legacy archive CLI verification remains unverified until the gated Mac test passes." },
+  { id: "wave5-mixed-lambda-package", file: "tests/acceptance/mixed-lambda-package.gated.test.ts", suite: "mixed Lambda package [real zip and unzip]", wholeFile: true,
+    prerequisites: ["ZENITH_TEST_MIXED_LAMBDA_PACKAGE=1", "zip and unzip on the Mac verifier"], releaseBlocker: "Real ZIP/source binding CLI acceptance remains unverified until the gated Mac test passes." },
+  { id: "wave5-gaps-ui", file: "tests/acceptance/w5-gaps-ui.gated.test.ts", suite: "W5 gaps UI [owned local server and browser]", wholeFile: true,
+    prerequisites: ["ZENITH_TEST_W5_GAPS_UI=1", "Owned local Zenith server, real browser and private authenticated operator browser state"], releaseBlocker: "W5 gaps UI browser acceptance remains unverified until the gated Mac test passes." },
   {"id": "wave5-managed-onboarding", "file": "tests/isolation/managed-onboarding-readiness.test.ts", "suite": "managed onboarding readiness", "wholeFile": false, "prerequisites": ["ZENITH_TEST_MANAGED_ONBOARDING=1", "Docker, kind, kubectl", "KUBECONFIG, prepared approved tenant namespace"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
   {"id": "wave5-tenant-isolation", "file": "tests/isolation/tenant-isolation-acceptance.test.ts", "suite": "PROD-MAN-04/05 acceptance (gated)", "wholeFile": false, "prerequisites": ["ZENITH_TEST_TENANT_ISOLATION=1", "KUBECONFIG", "Calico or pinned Cilium, digest-pinned probe image"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
   {"id": "wave5-mixed-connectivity", "file": "tests/live/mixed-connectivity.live.test.ts", "suite": "live protected-endpoint probes", "wholeFile": false, "prerequisites": ["ZENITH_LIVE_MIXED=1", "Separate DEC-CLOUD approval and budget", "Deployed endpoints, external credential files"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
@@ -5851,6 +5860,11 @@ export const REPLAY_OPT_IN_FILES = ["tests/workflows/history-record.test.ts"];
 
 /** Wave 5 contract controls use local doubles/PGlite; no engine or cloud acceptance is inferred. */
 export const WAVE5_CONTRACT_FILES = [
+  "tests/billing/managed-tier.engine.test.ts",
+  "tests/resources/function-manifest.test.ts",
+  "tests/acceptance/mixed-lambda.test.ts",
+  "tests/ops/recovery-health.test.ts",
+
   "tests/acceptance/mixed-connectivity-probe.test.ts",
   "tests/acceptance/mixed-failure-scenarios.test.ts",
   "tests/acceptance/mixed-live-recovery.test.ts",
@@ -5927,6 +5941,9 @@ export const WAVE5_CONTRACT_FILES = [
   "tests/supply-chain/sbom.test.ts"
 ];
 export const WAVE5_EXTERNAL_FILES = [
+  "tests/acceptance/mixed-lambda-package.gated.test.ts",
+  "tests/acceptance/w5-gaps-ui.gated.test.ts",
+  "tests/acceptance/mixed-lambda.gated.test.ts",
   "tests/isolation/managed-onboarding-readiness.test.ts",
   "tests/isolation/tenant-isolation-acceptance.test.ts",
   "tests/live/mixed-connectivity.live.test.ts",

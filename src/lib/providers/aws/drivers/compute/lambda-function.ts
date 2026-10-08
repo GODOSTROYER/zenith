@@ -1,8 +1,8 @@
 /**
  * `aws:lambda_function` — EXPERIMENTAL. Kind `function`.
  *
- * Expansion does not produce `function` nodes yet (specs.ts), so this driver
- * reads the private `FunctionSpec` (types.ts) from hand-built graphs. It is a
+ * V2 functions[] expands into runnable function nodes with immutable artifact
+ * and source digests. The shared FunctionSpec is also enforced on hand-built graphs. It is a
  * minimal, honest version: a zip from S3, its own execution role and log
  * group, nothing else. Evidence for every operation is `contract`, and the
  * driver marks itself experimental with `capabilities.experimental`.
@@ -53,7 +53,8 @@ function normalized(node: ResourceNode) {
   if (!HANDLER.test(spec.handler ?? "")) throw new ComputeCompileError("invalid_spec", "handler is not valid.");
   const a = spec.artifact;
   if (!a || a.type !== "s3" || !BUCKET.test(a.bucket ?? "") || !KEY.test(a.key ?? "") || a.key.includes("..")) throw new ComputeCompileError("invalid_spec", "artifact must be an S3 object { type: 's3', bucket, key }.");
-  if (a.version !== undefined && !/^[A-Za-z0-9._-]{1,1024}$/.test(a.version)) throw new ComputeCompileError("invalid_spec", "artifact.version is not a valid S3 object version id.");
+  if (!a.version || a.version === "null" || !/^[A-Za-z0-9._-]{1,1024}$/.test(a.version)) throw new ComputeCompileError("invalid_spec", "artifact.version must pin an immutable S3 object version.");
+  if (!/^[a-f0-9]{64}$/.test(a.sha256 ?? "") || !/^[a-f0-9]{64}$/.test(a.sourceDigest ?? "")) throw new ComputeCompileError("invalid_spec", "artifact requires package sha256 and bound sourceDigest.");
   const variables: Record<string, string> = {};
   for (const e of spec.env ?? []) {
     if (!("value" in e)) throw new ComputeCompileError("unsupported", `environment variable ${e.key} is a secret reference; Lambda cannot inject secrets — read it at runtime with the SDK.`);
@@ -108,7 +109,8 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
       s3_bucket: spec.artifact.bucket,
       s3_key: spec.artifact.key,
       ...(spec.artifact.version ? { s3_object_version: spec.artifact.version } : {}),
-      publish: false,
+      source_code_hash: Buffer.from(spec.artifact.sha256, "hex").toString("base64"),
+      publish: true,
       ...(Object.keys(variables).length ? { environment: [{ variables }] } : {}),
       logging_config: [{ log_format: "Text", log_group: attr(logs, "name") }],
       tags: tagsFor(ctx, node, fname),
@@ -116,6 +118,8 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     });
     b.expose("arn", attr(fn, "arn"));
     b.expose("name", attr(fn, "function_name"));
+    b.expose("qualified_arn", attr(fn, "qualified_arn"));
+    b.expose("version", attr(fn, "version"));
     return b.build(fn);
   });
 
@@ -123,7 +127,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
 
 function expected(node: ResourceNode): Record<string, unknown> {
   const n = normalized(node);
-  return { runtime: n.spec.runtime, handler: n.spec.handler, memoryMb: n.memoryMb, timeoutSec: n.timeoutSec, architecture: n.architecture };
+  return { runtime: n.spec.runtime, handler: n.spec.handler, memoryMb: n.memoryMb, timeoutSec: n.timeoutSec, architecture: n.architecture, codeSha256: Buffer.from(n.spec.artifact.sha256, "hex").toString("base64") };
 }
 
 /* --------------------------------- observe -------------------------------- */
@@ -160,6 +164,7 @@ const observe: NonNullable<ResourceDriver<AwsSession>["observe"]> = async (ctx, 
   }
   if (!cfg) return failedObservation(ctx, node, ID, names, { kind: "missing", code: "FunctionNotFound", summary: "GetFunction returned no configuration." }, located.arn);
   const attributes = attributesOf(ctx, names, {
+    ...(cfg.CodeSha256 ? { codeSha256: cfg.CodeSha256 } : {}),
     ...(cfg.Runtime ? { runtime: cfg.Runtime } : {}),
     ...(cfg.Handler ? { handler: cfg.Handler } : {}),
     ...(cfg.MemorySize !== undefined ? { memoryMb: cfg.MemorySize } : {}),
@@ -272,18 +277,24 @@ export const invokeFunction: NativeOperation<AwsSession> = async (ctx, node, inp
     const located = await locate(ctx, node, typeof input.externalId === "string" ? input.externalId : undefined);
     if (!located.arn) throw new OperationRefused(`cannot find the function of ${node.address}: ${located.failure?.summary ?? "unknown"}`);
     const lambda = ctx.session.client(LambdaClient);
-    const fn = await lambda.send(new GetFunctionCommand({ FunctionName: located.arn }), { abortSignal: ctx.signal });
+    const requestedVersion = input.version ?? /:([1-9][0-9]*)$/.exec(located.arn)?.[1];
+    if (requestedVersion !== undefined && (typeof requestedVersion !== "string" || !/^[1-9][0-9]*$/.test(requestedVersion))) throw new OperationRefused("Invoke requires an exact published numeric version, never an alias or $LATEST.");
+    const fn = await lambda.send(new GetFunctionCommand({ FunctionName: located.arn, ...(requestedVersion ? { Qualifier: requestedVersion } : {}) }), { abortSignal: ctx.signal });
+    const version = fn.Configuration?.Version;
+    if (!version || !/^[1-9][0-9]*$/.test(version) || (requestedVersion && version !== requestedVersion)) throw new OperationRefused("Invoke requires a published version ARN or input.version; mutable $LATEST and aliases are refused.");
     const tags = fn.Tags ?? {};
     assertNodeTags(ctx, node, tags, "the Lambda function");
+    const reviewed = normalized(node);
+    if (fn.Configuration?.CodeSha256 !== Buffer.from(reviewed.spec.artifact.sha256, "hex").toString("base64")) throw new OperationRefused("Lambda code digest differs from the reviewed artifact; invocation refused.");
     if (ctx.operationId && !dryRun && tags["zenith:operation"] === ctx.operationId) {
       return { ok: true, summary: `${node.address} was already invoked for this operation; not invoking again (the earlier response was not retained).`, data: { alreadyInvoked: true }, simulated: false };
     }
-    const res = await lambda.send(new InvokeCommand({ FunctionName: located.arn, InvocationType: dryRun ? "DryRun" : "RequestResponse", LogType: "None", Payload: payload }), { abortSignal: ctx.signal });
-    const failed = Boolean(res.FunctionError) || (res.StatusCode ?? 500) >= 300;
+    const res = await lambda.send(new InvokeCommand({ FunctionName: located.arn, Qualifier: version, InvocationType: dryRun ? "DryRun" : "RequestResponse", LogType: "None", Payload: payload }), { abortSignal: ctx.signal });
+    const failed = Boolean(res.FunctionError) || (res.StatusCode ?? 500) >= 300 || (!dryRun && res.ExecutedVersion !== version);
     const bounded = boundResponse(res.Payload);
     if (!dryRun && ctx.operationId) {
       try {
-        await lambda.send(new TagResourceCommand({ Resource: located.arn, Tags: { "zenith:operation": ctx.operationId } }), { abortSignal: ctx.signal });
+        await lambda.send(new TagResourceCommand({ Resource: located.arn.replace(/:([1-9][0-9]*)$/, ""), Tags: { "zenith:operation": ctx.operationId } }), { abortSignal: ctx.signal });
       } catch (e) {
         failureOf(ctx, e);
         ctx.log("function.invoke: could not record the operation marker; a retry may invoke again.", "warn");

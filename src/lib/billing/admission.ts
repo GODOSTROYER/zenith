@@ -10,8 +10,7 @@
  * `billing: disabled` (the default, and every BYOC or self-hosted install) returns before ANY I/O: no store read, no
  * cache, no import of the store module.
  *
- * Protection, never a dependency: when the control store cannot be read, the last known standing is used (default
- * active). A billing outage can therefore neither suspend a paying tenant nor lift an existing suspension.
+ * Unknown billing standing, assignment or quota refuses NEW work. Running workloads and data are never changed.
  */
 import { billingConfigFromEnv, type Env } from "./config";
 import { BackpressureError } from "@/lib/ops/errors";
@@ -31,16 +30,14 @@ export interface BillingAdmissionOptions {
   ttlMs?: number;
 }
 
-const STATE_TTL_MS = 5_000;
 const USAGE_TTL_MS = 30_000;
-const stateCache = new Map<string, Snapshot>();
 const usageCache = new Map<string, { exceeded?: { meter: string; cap: number; used: number }; at: number }>();
 const MAX_ENTRIES = 5_000;
 
-/** Called by every standing change in this process so the next dispatch sees it. Other processes converge within the TTL. */
+/** Called by every standing change in this process so the next dispatch sees it. Standing is always read afresh; usage totals converge within their TTL. */
 export function invalidateBillingState(workspaceId?: string): void {
-  if (workspaceId) { stateCache.delete(workspaceId); for (const k of usageCache.keys()) if (k.startsWith(`${workspaceId}|`)) usageCache.delete(k); }
-  else { stateCache.clear(); usageCache.clear(); }
+  if (workspaceId) { for (const k of usageCache.keys()) if (k.startsWith(`${workspaceId}|`)) usageCache.delete(k); }
+  else { usageCache.clear(); }
 }
 
 function remember<T>(map: Map<string, T>, key: string, value: T): void {
@@ -58,20 +55,18 @@ export async function assertBillingAdmitted(input: BillingAdmissionInput, option
   if (billingConfigFromEnv(options.env ?? process.env).mode !== "managed") return;
   if (BILLING_EXEMPT_KINDS.has(input.kind)) return;
   const now = options.now ?? Date.now;
-  const ttl = options.ttlMs ?? STATE_TTL_MS;
   const getStore = options.store ?? defaultStore;
   const store = await import("./store");
   const plans = await import("./plans");
 
-  let snap = stateCache.get(input.workspaceId);
-  if (!snap || now() - snap.at >= ttl) {
-    try {
-      const account = await store.getAccount(await getStore(), input.workspaceId);
-      snap = { standing: account?.status ?? "active", ...(account?.suspensionReason ? { reason: account.suspensionReason } : {}), ...(account ? { planId: account.planId } : {}), at: now() };
-    } catch {
-      snap = { standing: snap?.standing ?? "active", ...(snap?.reason ? { reason: snap.reason } : {}), ...(snap?.planId ? { planId: snap.planId } : {}), at: now() };
-    }
-    remember(stateCache, input.workspaceId, snap);
+  // Re-read at every dispatch: neither a cached upgrade nor an outage may lift a restriction.
+  let snap: Snapshot;
+  try {
+    const account = await store.getAccount(await getStore(), input.workspaceId);
+    if (!account || !plans.isPlanId(account.planId) || !["active", "past_due", "suspended"].includes(account.status)) throw new Error("unknown assignment");
+    snap = { standing: account.status, planId: account.planId, reason: account.suspensionReason, at: now() };
+  } catch {
+    throw new BackpressureError("billing_unavailable", "billing", "Billing standing or plan assignment is unknown. New work is refused; reads, running workloads, export and user-requested destroy remain available.", 30, input.workspaceId);
   }
 
   if (snap.standing === "suspended") {
@@ -99,7 +94,7 @@ export async function assertBillingAdmitted(input: BillingAdmissionInput, option
     }
   } catch (error) {
     if (error instanceof BackpressureError) throw error;
-    // store unavailable: admit (protection, not a dependency)
+    throw new BackpressureError("billing_unavailable", "billing", "Billing quota state is unavailable. New work is refused; reads, export and user-requested destroy remain available.", 30, input.workspaceId);
   }
 }
 

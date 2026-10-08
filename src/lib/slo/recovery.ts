@@ -97,3 +97,44 @@ export async function reportCapacityTest(sql: Sql, input: CapacityTestReport): P
     measuredAt: input.measuredAt,
   });
 }
+
+/** Actual restore milestones. RTO is only emitted after application readiness, never at database completion. */
+export interface RestoreCompletionReport {
+  failureAt?: Date;
+  dataRecoveredThrough: Date;
+  restoreStartedAt: Date;
+  databaseRestoreFinishedAt: Date;
+  applicationHealthyAt?: Date;
+  recordedBy: string;
+  reference: string;
+}
+
+export async function reportRestoreCompletion(sql: Sql, input: RestoreCompletionReport): Promise<Measurement[]> {
+  if (!REFERENCE.test(input.reference)) bad("reference must identify the restore run.", "reference");
+  const start = input.restoreStartedAt.getTime(), db = input.databaseRestoreFinishedAt.getTime(), health = input.applicationHealthyAt?.getTime();
+  if (![start, db, ...(health === undefined ? [] : [health])].every(Number.isFinite) || db < start || (health !== undefined && health < db))
+    bad("Restore milestones must be valid times in restore/database/health order.", "databaseRestoreFinishedAt");
+  const defs = sloDefinitions();
+  const details = { reference: input.reference, restoreStartedAt: input.restoreStartedAt.toISOString(), databaseRestoreFinishedAt: input.databaseRestoreFinishedAt.toISOString(),
+    dataRecoveredThrough: input.dataRecoveredThrough.toISOString(), ...(input.failureAt ? { failureAt: input.failureAt.toISOString() } : {}),
+    ...(input.applicationHealthyAt ? { applicationHealthyAt: input.applicationHealthyAt.toISOString() } : {}) };
+  return sql.tx(async tx => {
+    // Serializes duplicate CLI observers for one run; evidence remains append-only.
+    await tx.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [`restore-slo:${input.reference}`]);
+    const recorded: Measurement[] = [];
+    const once = async (kind: import("./store").MeasurementKind, value: number, measuredAt: Date, withinTarget?: boolean) => {
+      const existing = await tx.query("select id from platform.slo_measurements where kind = $1 and source = 'recovery-drill' and details->>'reference' = $2 limit 1", [kind, input.reference]);
+      if (!existing.length) recorded.push(await recordMeasurement(tx, { kind, value, measuredAt, withinTarget, source: "recovery-drill", recordedBy: input.recordedBy, targetVersion: defs.definitionVersion, details }));
+    };
+    await once("database_restore", (db - start) / 1000, input.databaseRestoreFinishedAt);
+    if (input.applicationHealthyAt) {
+      await once("application_health", (health! - start) / 1000, input.applicationHealthyAt);
+      if (input.failureAt) {
+        const values = computeRecovery({ failureAt: input.failureAt, dataRecoveredThrough: input.dataRecoveredThrough, serviceRestoredAt: input.applicationHealthyAt });
+        await once("rpo", values.rpoSeconds, input.applicationHealthyAt, values.rpoSeconds <= objective<RecoveryObjective>("rpo").maxSeconds);
+        await once("rto", values.rtoSeconds, input.applicationHealthyAt, values.rtoSeconds <= objective<RecoveryObjective>("rto").maxSeconds);
+      }
+    }
+    return recorded;
+  });
+}

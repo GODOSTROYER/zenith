@@ -470,7 +470,8 @@ describe("canonical gate manifest", () => {
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {
-    expect(EXTERNAL_ACCEPTANCE).toHaveLength(7);
+    expect(EXTERNAL_ACCEPTANCE).toHaveLength(11);
+    expect(EXTERNAL_ACCEPTANCE.find(g => g.id === "wave5-mixed-lambda")).toMatchObject({ file: "tests/acceptance/mixed-lambda.gated.test.ts", wholeFile: true });
     expect(EXTERNAL_ACCEPTANCE[0]).toMatchObject({ file: "tests/workflows/mtls-live.test.ts", wholeFile: true });
     expect(EXTERNAL_ACCEPTANCE[0].prerequisites).toContain("ZENITH_TEMPORAL_TLS_KEY_FILE");
     expect(EXTERNAL_ACCEPTANCE[0].releaseBlocker).toContain("unverified");
@@ -3171,8 +3172,8 @@ describe("Wave 5 additive gate inventory", () => {
       expect(manifestFor(lane, root).command).toContain(file.startsWith("tests/adversarial/") ? "tests/adversarial" : file);
       expect(requirementsFor(lane, root).some(r => r.file === file)).toBe(true);
     }
-    expect(files).toHaveLength(74);
-    expect(WAVE5_EXTERNAL_FILES).toHaveLength(9);
+    expect(files).toHaveLength(78);
+    expect(WAVE5_EXTERNAL_FILES).toHaveLength(12);
     for (const file of WAVE5_EXTERNAL_FILES) expect([
       ...EXTERNAL_ACCEPTANCE.map(g=>g.file),
       ...requirementsFor("tofu", root).map(required => required.file),

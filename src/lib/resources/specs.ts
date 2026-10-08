@@ -8,7 +8,7 @@
  * `expectedAttributes` / `compile`. Every spec is plain JSON and holds NO
  * secret value: a secret appears only as `{ key, secretRef }`.
  *
- * Kinds not listed (compute_instance, function, mysql, pubsub, kubernetes_*)
+ * Kinds not listed (compute_instance, mysql, pubsub, kubernetes_*)
  * and the typed volume kind are never produced by expansion today;
  * `provider_native` nodes carry `{ type, config }` where `config` is validated
  * by the native registry.
@@ -261,4 +261,15 @@ export interface VolumeSpec {
   sizeGb: number;
   storageClass?: string;
   accessModes?: ("ReadWriteOnce" | "ReadOnlyMany" | "ReadWriteMany" | "ReadWriteOncePod")[];
+}
+
+/** Experimental AWS Lambda desired state, produced by the V2 functions manifest. */
+export interface FunctionSpec {
+  runtime: string;
+  handler: string;
+  memoryMb?: number;
+  timeoutSec?: number;
+  architecture?: "x86_64" | "arm64";
+  artifact: { type: "s3"; bucket: string; key: string; version: string; sha256: string; sourceDigest: string };
+  env?: EnvEntry[];
 }

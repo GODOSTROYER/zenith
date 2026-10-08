@@ -45,6 +45,7 @@ const USAGE = [
   "  restore  --backup DIR --target-url-env VAR --run-id ID --actor NAME --reason TEXT --report FILE --confirm-customer-state",
   "           [--accept-skipped ID]... [--observed-epoch N] [--incident-at ISO] [--product-data-dir DIR] [--hosted-bundle-out FILE]",
   "           [--artifact-dir DIR] [--temporal-namespace NS [--temporal-address A] --terminate-temporal] [--no-privileges]",
+  "  health --report FILE --readiness-url URL --token-file FILE --target-url-env VAR --actor NAME [--timeout-seconds N]",
   "  status   [--workspace ID]",
   "  continue list   --workspace ID [--state pending|resumed|abandoned|kept_uncertain]",
   "  continue resume|abandon|keep --workspace ID --item ID --binding DIGEST --actor NAME --reason TEXT",
@@ -142,6 +143,25 @@ export async function recoveryMain(
       } finally { await db.close(); }
     }
 
+    if (command === "health") {
+      const p = parse(args.slice(1), ["--report", "--readiness-url", "--token-file", "--timeout-seconds", "--target-url-env", "--actor"], []);
+      if (!p || ["--report", "--readiness-url", "--token-file", "--target-url-env", "--actor"].some(f => !one(p, f))) return usage();
+      const targetUrl = env[one(p, "--target-url-env")!]?.trim();
+      if (!targetUrl) throw new RecoveryToolError("invalid_input", "The target database URL variable is unset.");
+      const { completeRestoreHealth } = await import("@/lib/ops/recovery/health");
+      const { registerRecoveryMeasurementSink } = await import("@/lib/ops/recovery/report");
+      const { restoreSloSink } = await import("@/lib/slo/restore-sink");
+      const { reportRestoreCompletion } = await import("@/lib/slo/recovery");
+      const unregister = registerRecoveryMeasurementSink(restoreSloSink(async m => {
+        const db = await openPlatformDb({ kind: "postgres", url: targetUrl, max: 2, migrate: false });
+        try { return await reportRestoreCompletion(db, m); } finally { await db.close(); }
+      }, one(p, "--actor")!));
+      const report = await completeRestoreHealth({ reportFile: path.resolve(one(p, "--report")!), readinessUrl: one(p, "--readiness-url")!, tokenFile: path.resolve(one(p, "--token-file")!),
+        ...(one(p, "--timeout-seconds") ? { timeoutSeconds: Number(one(p, "--timeout-seconds")) } : {}) }).finally(unregister);
+      output(`First healthy application readiness: ${report.measurement!.applicationHealthyAt}; RTO ${report.measurement!.rtoSeconds ?? "not measured (incident time missing)"}.`);
+      return 0;
+    }
+
     if (command === "restore") {
       const p = parse(args.slice(1), ["--backup", "--target-url-env", "--run-id", "--actor", "--reason", "--report", "--accept-skipped", "--observed-epoch", "--incident-at", "--product-data-dir", "--hosted-bundle-out", "--artifact-dir", "--temporal-namespace", "--temporal-address"],
         ["--confirm-customer-state", "--terminate-temporal", "--no-privileges"], ["--accept-skipped"]);
@@ -161,10 +181,10 @@ export async function recoveryMain(
       await mkdir(path.dirname(path.resolve(report)), { recursive: true });
       const { registerRecoveryMeasurementSink } = await import("@/lib/ops/recovery/report");
       const { restoreSloSink } = await import("@/lib/slo/restore-sink");
-      const { reportRecoveryRehearsal } = await import("@/lib/slo/recovery");
+      const { reportRestoreCompletion } = await import("@/lib/slo/recovery");
       const unregister = registerRecoveryMeasurementSink(restoreSloSink(async measurement => {
         const sql = await openPlatformDb({ kind: "postgres", url: targetUrl, max: 2, migrate: false });
-        try { return await reportRecoveryRehearsal(sql, measurement); } finally { await sql.close(); }
+        try { return await reportRestoreCompletion(sql, measurement); } finally { await sql.close(); }
       }, actor));
       const result = await runRestore({
         run: execRunner, tools: toolsFromEnv(env), env,

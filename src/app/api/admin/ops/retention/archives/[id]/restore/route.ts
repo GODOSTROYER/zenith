@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 
 const Body = z.object({
   mode: z.enum(["staging", "source"]),
+  legacyKey: z.object({ originalPurpose: z.literal("enc:backup"), keyId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), reason: z.string().regex(/^[A-Za-z0-9 ._:/()-]{1,200}$/) }).strict().optional(),
   stagingSuffix: z.string().regex(/^[a-z0-9_]{1,40}$/).optional(),
   rowIds: z.array(z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/)).min(1).max(500).optional(),
 }).strict();
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     const parsed = Body.safeParse(await readWaitlistJson(request, 65_536));
     if (!parsed.success) throw new ApiError("Send { mode: staging | source, stagingSuffix? (a-z, 0-9, _), rowIds? (up to 500 ids) }.", 400);
     const { id } = await context.params;
-    const result = await restoreArchive(await opsStore(), { archiveId: id, ...parsed.data, actor: operator.id }, { deps: restoreDepsFromEnv() });
+    const result = await restoreArchive(await opsStore(), { archiveId: id, ...parsed.data, actor: operator.id }, { deps: restoreDepsFromEnv(), privileged: true });
     log.info("retention restore", { scope: "ops", archiveId: id, mode: result.mode, verdict: result.verdict, actor: operator.id });
     return json(result, result.verdict === "refused" ? 409 : 200);
   } catch (error) { return errorResponse(error); }

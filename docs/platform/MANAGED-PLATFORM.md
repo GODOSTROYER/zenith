@@ -109,7 +109,7 @@ account, with the verification commands and every limit, is
 [verify/PROD-MAN-01.md](../build/production/verify/PROD-MAN-01.md).
 
 - **Session opener.** A session is requested by `{ workspaceId, environmentId }` only. The tenant (workspace slug,
-  environment id as the hostname segment, plan tier) comes from the control plane's product store, never from the
+  environment id as the hostname segment) comes from the control plane's product store; the plan tier comes from the workspace billing assignment when billing is enabled, never from the
   caller. The platform's own cluster credential is a `vault:` reference resolved from the PLATFORM scope of the encrypted
   vault (`ZENITH_MANAGED_VAULT_SCOPE`, default `zenith-platform`), written only by
   `scripts/managed/seed-platform-vault.ts`. The session allows exactly the tenant namespace (and, in `gateway_api` mode, a
@@ -134,7 +134,7 @@ Variables of this path (the substrate variables below are unchanged):
 | Variable | Required | Meaning |
 | --- | --- | --- |
 | `ZENITH_MANAGED_VAULT_SCOPE` | no | vault scope the platform credentials are sealed under (default `zenith-platform`) |
-| `ZENITH_MANAGED_DEFAULT_PLAN` | no | plan tier of every managed workspace until billing supplies one: `free` (default), `starter`, `pro`. Provisional |
+| `ZENITH_MANAGED_DEFAULT_PLAN` | no | operator-configured tier only while billing is disabled: `free` (default), `starter`, `pro`. Ignored when `ZENITH_BILLING=managed`; settings show the actual source |
 | `ZENITH_MANAGED_BUILDER_IMAGE` | for builds | builder image pinned by sha256 digest; no default |
 | `ZENITH_MANAGED_BUILD_NAMESPACE` | no | platform build namespace (default `zenith-build`) |
 | `ZENITH_MANAGED_BUILD_PUSH_SECRET` | no | name of a `kubernetes.io/dockerconfigjson` Secret in the build namespace the builder pushes with |
@@ -509,3 +509,9 @@ cluster should show, with evidence recorded:
 
 Until that exists, every statement in this document about runtime behaviour is a
 design intention backed by contract tests.
+
+## Billing assignment and tier changes (W5-GAPS)
+
+With `ZENITH_BILLING=managed`, `free_provisional`, `team_provisional`, and `scale_provisional` map explicitly to the managed `free`, `starter`, and `pro` capacity tiers. Every tenant resolution reads that workspace's current billing assignment. Missing, unknown, or unavailable billing state refuses before credentials; it never selects the operator tier. New-work dispatch also reads standing afresh and fails closed on a billing-store outage. Billing remains disabled by default, with no billing reads or charges, and the operator-configured tier is shown honestly in project settings and `GET /api/platform/v1/billing`.
+
+Upgrades and downgrades govern subsequent reviewed plans; billing assignment alone never applies quotas, deletes data, or stops workloads. Session readiness verifies the exact capacity bundle already applied to the namespace against its recorded tier, so a changed assignment does not invalidate observation or teardown credentials. Desired resource limits still use the current billing tier. Suspension blocks new provisioning/build/deploy/scale work; reads, export and destroy retain their existing authorization paths. The dedicated first-deploy isolation and isolated-build jobs remain separate. See [W5-GAPS](../build/production/verify/W5-GAPS.md).

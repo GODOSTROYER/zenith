@@ -146,7 +146,7 @@ export function buildFullFixture(opts: GraphOptions = {}): Fixture & { site: Res
     "function/resize",
     "function",
     "aws:lambda_function",
-    { runtime: "nodejs22.x", handler: "index.handler", memoryMb: 512, timeoutSec: 20, artifact: { type: "s3", bucket: "acme-artifacts", key: "fn/resize.zip" }, env: [{ key: "MODE", value: "fast" }] },
+    { runtime: "nodejs22.x", handler: "index.handler", memoryMb: 512, timeoutSec: 20, artifact: { type: "s3", bucket: "acme-artifacts", key: "fn/resize.zip", version: "fixture-version-1", sha256: "a".repeat(64), sourceDigest: "b".repeat(64) }, env: [{ key: "MODE", value: "fast" }] },
     {}
   );
   const box = mkNode("compute_instance/bastion", "compute_instance", "aws:ec2_instance", { instanceType: "t3.micro", rootVolumeGb: 30 }, { dependsOn: ["network/main", "subnet/private-a"] });

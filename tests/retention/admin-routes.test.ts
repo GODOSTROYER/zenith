@@ -113,6 +113,7 @@ describe("archives, verify and restore routes", () => {
     expect((await archivesRoute.GET(req("GET", "/api/admin/ops/retention/archives"))).status).toBe(403);
     expect((await verifyRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/verify"), ctx("a"))).status).toBe(403);
     expect((await restoreRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/restore", { mode: "source" }), ctx("a"))).status).toBe(403);
+    expect((await restoreRoute.POST(req("POST", "/api/admin/ops/retention/archives/a/restore", { mode: "source", legacyKey: { originalPurpose: "enc:backup", keyId: "recorded", reason: "case 42" } }), ctx("a"))).status).toBe(403);
     asOperator();
     const list = await archivesRoute.GET(req("GET", "/api/admin/ops/retention/archives?limit=5"));
     expect(list.status).toBe(200);

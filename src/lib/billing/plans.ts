@@ -43,6 +43,8 @@ export interface MeterAllowance {
 
 export interface PlanDefinition {
   id: string;
+  /** Capacity tier selected by this billing assignment. */
+  managedTier: import("@/lib/providers/zenith/types").PlanTier;
   name: string;
   provisional: true;
   decision: "DEC-BUSINESS";
@@ -57,7 +59,7 @@ const freeze = (plan: PlanDefinition): PlanDefinition => Object.freeze({ ...plan
 
 export const PLANS: Readonly<Record<string, PlanDefinition>> = Object.freeze({
   free_provisional: freeze({
-    id: "free_provisional", name: "Free (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 0, maxActiveOperations: 3,
+    id: "free_provisional", managedTier: "free", name: "Free (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 0, maxActiveOperations: 3,
     meters: {
       managed_resource_hours: { included: 750, rateCents: 0, hardCap: 1500 },
       build_minutes: { included: 100, rateCents: 0, hardCap: 300 },
@@ -65,7 +67,7 @@ export const PLANS: Readonly<Record<string, PlanDefinition>> = Object.freeze({
     },
   }),
   team_provisional: freeze({
-    id: "team_provisional", name: "Team (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 2900, maxActiveOperations: 15,
+    id: "team_provisional", managedTier: "starter", name: "Team (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 2900, maxActiveOperations: 15,
     meters: {
       managed_resource_hours: { included: 5000, rateCents: 0.5 },
       build_minutes: { included: 1000, rateCents: 1 },
@@ -73,7 +75,7 @@ export const PLANS: Readonly<Record<string, PlanDefinition>> = Object.freeze({
     },
   }),
   scale_provisional: freeze({
-    id: "scale_provisional", name: "Scale (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 19900, maxActiveOperations: 60,
+    id: "scale_provisional", managedTier: "pro", name: "Scale (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 19900, maxActiveOperations: 60,
     meters: {
       managed_resource_hours: { included: 40000, rateCents: 0.4 },
       build_minutes: { included: 10000, rateCents: 0.8 },

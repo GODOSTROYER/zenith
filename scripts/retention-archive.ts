@@ -18,7 +18,7 @@ import { restoreArchive, verifyArchive } from "@/lib/retention/restore";
 import { restoreDepsFromEnv } from "@/lib/retention/runtime";
 import { listArchives } from "@/lib/retention/store";
 
-const USAGE = "Usage: scripts/retention-archive.ts list [--workspace ID] | verify ARCHIVE_ID | restore ARCHIVE_ID (--staging SUFFIX | --source) [--ids ID,ID]";
+const USAGE = "Usage: scripts/retention-archive.ts list [--workspace ID] | verify ARCHIVE_ID | restore ARCHIVE_ID (--staging SUFFIX | --source) [--ids ID,ID] [--legacy-purpose enc:backup --legacy-key-id ID --reason TEXT]";
 
 function flag(args: readonly string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -37,6 +37,11 @@ export async function retentionArchiveMain(
   const staging = flag(args, "--staging");
   const source = args.includes("--source");
   if (command === "restore" && (!!staging === source)) { error(USAGE); return 2; }
+  const legacyPurpose = flag(args, "--legacy-purpose");
+  const legacyId = flag(args, "--legacy-key-id");
+  const legacyReason = flag(args, "--reason");
+  const legacyRequested = args.some(a => ["--legacy-purpose", "--legacy-key-id", "--reason"].includes(a));
+  if (legacyRequested && (command !== "restore" || legacyPurpose !== "enc:backup" || !legacyId || !legacyReason)) { error(USAGE); return 2; }
   let db: PlatformDb | undefined;
   try {
     const config = platformDbConfigFromEnv(env);
@@ -45,7 +50,7 @@ export async function retentionArchiveMain(
     const deps = restoreDepsFromEnv(env);
     if (command === "list") {
       const rows = await listArchives(db, { workspaceId: flag(args, "--workspace"), limit: 200 });
-      for (const a of rows) output(JSON.stringify({ id: a.id, workspaceId: a.workspaceId, dataClass: a.dataClass, rows: a.rowCount, prunedRows: a.prunedRows, destination: a.destinationLabel, verifiedAt: a.verifiedAt, completed: a.completedAt !== null }));
+      for (const a of rows) output(JSON.stringify({ id: a.id, workspaceId: a.workspaceId, dataClass: a.dataClass, keyId: a.keyId, rows: a.rowCount, prunedRows: a.prunedRows, destination: a.destinationLabel, verifiedAt: a.verifiedAt, completed: a.completedAt !== null }));
       return 0;
     }
     if (command === "verify") {
@@ -54,7 +59,7 @@ export async function retentionArchiveMain(
       return r.ok ? 0 : 1;
     }
     const ids = flag(args, "--ids")?.split(",").map((s) => s.trim()).filter(Boolean);
-    const r = await restoreArchive(db, { archiveId: id!, mode: source ? "source" : "staging", stagingSuffix: staging, rowIds: ids, actor: "cli:operator" }, { deps });
+    const r = await restoreArchive(db, { archiveId: id!, mode: source ? "source" : "staging", stagingSuffix: staging, rowIds: ids, actor: "cli:operator", ...(legacyRequested ? { legacyKey: { originalPurpose: "enc:backup", keyId: legacyId!, reason: legacyReason! } as const } : {}) }, { deps, privileged: true, env });
     output(JSON.stringify(r));
     return r.verdict === "verified" ? 0 : 1;
   } catch {

@@ -12,7 +12,7 @@ import { ManifestV2 } from "@/lib/resources/manifest-v2";
 import { referenceCostGraph } from "../../scripts/acceptance/mixed/cost-report";
 import { expectedChecksum, expectedPriceCents, memoryReadback, verifyReadback, type SourceInfo, type StoredOrder } from "../../scripts/acceptance/mixed/readback";
 import { nodeRequester, planOrders, runTraffic, summarize, type Requester, type TrafficLedger, type WriteRecord } from "../../scripts/acceptance/mixed/traffic";
-import manifest from "../../fixtures/mixed-app/zenith.app.json";
+import manifest from "../../fixtures/mixed-app/zenith.app.container.json";
 import spec from "../../fixtures/mixed-app/spec.json";
 // The fixture is plain ESM (it ships to the clouds as-is).
 import { createEnricherServer } from "../../fixtures/mixed-app/enricher/server.mjs";
@@ -250,7 +250,7 @@ describe("the reference app's manifest and placement", () => {
   });
 
   it("derives a cost graph whose placements match the manifest and whose edges cross clouds", () => {
-    const graph = referenceCostGraph();
+    const graph = referenceCostGraph(manifest);
     expect(graph.nodes.map((n) => `${n.address}@${n.provider}/${n.region}`).sort()).toEqual(["resource/db@azure/eastus", "service/enricher@aws/us-east-1", "service/web@gcp/us-central1"]);
     expect(graph.edges!.map((e) => `${e.from}->${e.to}`).sort()).toEqual(["service/web->resource/db", "service/web->service/enricher"]);
   });

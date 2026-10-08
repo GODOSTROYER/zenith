@@ -98,12 +98,13 @@ export async function runRestore(deps: RestoreDeps, options: RestoreOptions): Pr
   let continuation: ContinuationMeasurement | null = null;
   let measurement: RecoveryMeasurement | null = null;
   let ok = false;
+  let databaseFinishedAt: string | undefined;
 
   const finish = async (): Promise<RestoreReport> => {
     const finishedAt = now().toISOString();
     if (manifest) {
       measurement = measureRecovery({
-        backupSnapshotAt: manifest.platform.snapshotAt, backupFinishedAt: manifest.finishedAt, restoreStartedAt: startedAt, restoreFinishedAt: finishedAt,
+        backupSnapshotAt: manifest.platform.snapshotAt, backupFinishedAt: manifest.finishedAt, restoreStartedAt: startedAt, restoreFinishedAt: databaseFinishedAt ?? finishedAt,
         incidentAt: options.incidentAt, targets: targetsFromEnv(deps.env ?? process.env),
       });
     }
@@ -202,6 +203,7 @@ export async function runRestore(deps: RestoreDeps, options: RestoreOptions): Pr
     step("epoch", "ok", `${bump.replayed ? "Already at" : "Advanced to"} recovery epoch ${bump.epoch} (was ${bump.priorEpoch}); ${bump.counts.itemsOpened} in-flight item(s) need a decision.`);
     if (bump.counts.itemsOpened > 0) needsPerson.push(`${bump.counts.itemsOpened} operation/intent/effect item(s) were in flight at the backup: decide each (npm run ops:recovery -- continue list / resume / abandon / keep, or POST /api/platform/v1/recovery/items/:id/decide).`);
     continuation = await measureContinuation(target, bump.epoch);
+    databaseFinishedAt = now().toISOString();
   } catch (error) {
     if (target) await target.close().catch(() => undefined);
     const detail = error instanceof RecoveryToolError ? error.message : `Unexpected failure: ${scrub(error instanceof Error ? error.message : "unknown")}`;
@@ -269,6 +271,7 @@ export async function runRestore(deps: RestoreDeps, options: RestoreOptions): Pr
     needsPerson.push("Terminate open operation and reconcile workflows in Temporal before any worker starts.");
   }
   needsPerson.push("Keep workers and runners stopped until the Temporal step is done; reconcile provider state for the window after the backup snapshot (work done after it left no trace here).");
+  needsPerson.push("After reopening the application, run recovery health --report FILE --readiness-url URL --token-file FILE to record first healthy readiness and application RTO.");
   ok = steps.every((s) => s.status === "ok" || s.status === "handed_off" || s.status === "skipped");
   return finish();
 }

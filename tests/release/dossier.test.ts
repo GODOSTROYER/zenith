@@ -53,15 +53,16 @@ describe("verify document coverage", () => {
 });
 
 describe("the dossier rows", () => {
-  it("is verified only when the ledger says so AND every required level has an entry", () => {
-    expect(row("PROD-TST-01").status).toBe("verified");
+  it("does not verify ledger claims without actual passing evidence files at a coherent commit", () => {
+    // These historical fixture entries have no file/hash bindings, and the local entry also includes a skip.
+    expect(row("PROD-TST-01").status).not.toBe("verified");
     // The ledger says verified but a required live level has no entry: never verified.
     expect(row("PROD-TST-05").status).not.toBe("verified");
-    expect(row("PROD-TST-05").levels).toEqual({ contract: "performed", live_sandbox: "unperformed" });
+    expect(row("PROD-TST-05").levels).toEqual({ contract: "pending", live_sandbox: "unperformed" });
   });
 
   it("shows deferred and never-run evidence as unperformed and the rest as pending", () => {
-    expect(row("PROD-TST-02").levels).toEqual({ contract: "performed", live_sandbox: "unperformed" });
+    expect(row("PROD-TST-02").levels).toEqual({ contract: "pending", live_sandbox: "unperformed" });
     expect(row("PROD-TST-03").levels).toEqual({ contract: "pending", local_engine: "pending", live_sandbox: "unperformed", operational_rehearsal: "unperformed" });
     expect(row("PROD-TST-03").status).toBe("not_assessed");
     expect(row("PROD-TST-04").status).toBe("implementation_complete_unverified");
@@ -90,9 +91,9 @@ describe("the dossier rows", () => {
   it("counts everything and copies the release status verbatim", () => {
     const d = build();
     expect(d.summary.total).toBe(5);
-    expect(d.summary.byStatus.verified).toBe(1);
+    expect(d.summary.byStatus.verified).toBe(0);
     expect(d.summary.unperformedLevels).toBe(4);
-    expect(d.summary.pendingLevels).toBe(3);
+    expect(d.summary.pendingLevels).toBe(8);
     expect(d.releaseStatus).toEqual(ledger.releaseStatus);
     expect(d.statement).toContain("does not approve a release");
   });

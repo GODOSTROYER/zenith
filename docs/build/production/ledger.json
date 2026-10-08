@@ -4275,6 +4275,7 @@
       "state": "in_progress",
       "dependencies": [],
       "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J12: dossier validates real file/hash/source bindings and coherent evidence; historical, skipped and unperformed results remain visible. RC verification pending; see verify/REL-02.md.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4282,10 +4283,13 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": "production verifier",
+      "owner": "production verifier / J12-RELEASE-STATUS",
       "testPaths": [
         "tests/release/checkpoint.test.ts",
-        "tests/release/scope.test.ts"
+        "tests/release/scope.test.ts",
+        "tests/release/dossier.test.ts",
+        "tests/release/status.test.ts",
+        "tests/release/candidate.live.test.ts"
       ]
     },
     {
@@ -4294,9 +4298,10 @@
       "acceptance": [
         "Implementation complete, sandbox verified, pilot ready and production approved are separate; production requires relevant live/operational evidence and accountable signoff."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J12: separate candidate evidence gates and accountable Ed25519 sign-off with external identity/key pins. Live/operational evidence and human sign-off pending; see verify/REL-03.md.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4304,8 +4309,8 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "J12-RELEASE-STATUS",
+      "testPaths": ["tests/release/status.test.ts", "tests/release/dossier.test.ts", "tests/release/candidate.live.test.ts"]
     },
     {
       "id": "PROD-REL-04",

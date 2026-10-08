@@ -10,11 +10,11 @@
  *               -> environment -> commit(s) -> evidence by required level
  *
  * Honesty rules, enforced here and by `tests/release/dossier.test.ts`:
- *  - evidence is only what the ledger records or the evidence directory holds; nothing is inferred;
+ *  - ledger claims are shown with the validation of their real referenced files and original result sources;
  *  - a required evidence level with no recorded entry is `unperformed` (live_sandbox, operational_rehearsal,
  *    production_signoff: deferred or never run) or `pending` (everything else); it is never shown as passed;
  *  - the word "passed" never appears as a requirement status: a row is `verified` only when the ledger says so AND every
- *    required level has an entry; otherwise it reads implementation-complete-unverified, in progress, planned or
+ *    required level has passing file/hash/source-bound evidence at one coherent commit; otherwise it reads implementation-complete-unverified, in progress, planned or
  *    not assessed;
  *  - skips and failures mentioned by an evidence entry or counted in an evidence file are flagged on the row;
  *  - the ledger's `releaseStatus` flags are copied verbatim and this tool never changes them.
@@ -22,20 +22,21 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { AcceptanceReport } from "./acceptance-orchestrator";
+import { inspectEvidence, readRepositoryFile, validateReleaseStatus, type ReleaseEvidence, type SignoffKey } from "./status.mjs";
 
 export const DEFERRED_LEVELS: readonly string[] = ["live_sandbox", "operational_rehearsal", "production_signoff"];
 
-interface LedgerEvidence { level: string; commit?: string; command?: string; environment?: string; logs?: string; artifact?: string; runId?: number; url?: string; result?: string }
+type LedgerEvidence = ReleaseEvidence;
 interface LedgerRequirement {
   id: string; title: string; acceptance: string[]; state: string; dependencies: string[]; implementationStatus: string; evidence: LedgerEvidence[]; requiredEvidence: string[]; owner: string | null; testPaths: string[];
 }
-export interface Ledger { requirements: LedgerRequirement[]; releaseStatus?: Record<string, boolean>; evidenceLevels?: string[]; baseline?: { commit?: string } }
+export interface Ledger { requirements: LedgerRequirement[]; releaseStatus?: Record<string, boolean>; releaseCandidate?: { commit: string }; releaseSignoffs?: string[]; evidenceLevels?: string[]; baseline?: { commit?: string } }
 
 export interface VerifyDoc { file: string; text: string }
-export interface EvidenceFile { requirement: string; file: string; json?: Record<string, unknown> }
+export interface EvidenceFile { requirement: string; file: string; json?: Record<string, unknown>; bytes?: Buffer }
 
 export type RowStatus = "verified" | "implementation_complete_unverified" | "in_progress" | "planned" | "not_assessed";
-export type LevelState = "performed" | "pending" | "unperformed";
+export type LevelState = "performed" | "pending" | "unperformed" | "failed" | "skipped" | "invalid";
 
 export interface DossierRow {
   id: string;
@@ -48,7 +49,7 @@ export interface DossierRow {
   tests: { declared: string[]; namedInVerifyDocs: string[]; missingOnDisk: string[] };
   environments: string[];
   commits: string[];
-  evidence: { level: string; commit: string | null; where: string | null; summary: string }[];
+  evidence: { level: string; commit: string | null; where: string | null; summary: string; validation: string[] }[];
   levels: Record<string, LevelState>;
   evidenceFiles: { file: string; status: string }[];
   scenarios: { id: string; status: string }[];
@@ -59,7 +60,9 @@ export interface Dossier {
   schema: 1;
   generatedAt: string;
   ledgerBaseline: string | null;
+  releaseCandidate: string | null;
   releaseStatus: Record<string, boolean>;
+  releaseStatusErrors: string[];
   rows: DossierRow[];
   summary: { total: number; byStatus: Record<RowStatus, number>; unperformedLevels: number; pendingLevels: number; flagged: number };
   instructions: { topic: string; file: string; present: boolean }[];
@@ -103,9 +106,9 @@ export function testsNamedIn(text: string): string[] {
   return [...new Set([...text.matchAll(TEST_PATH)].map((m) => m[1]!))].sort();
 }
 
-function rowStatus(req: LedgerRequirement, levels: Record<string, LevelState>): RowStatus {
+function rowStatus(req: LedgerRequirement, levels: Record<string, LevelState>, coherent: boolean): RowStatus {
   const allPerformed = req.requiredEvidence.length > 0 && req.requiredEvidence.every((l) => levels[l] === "performed");
-  if (req.state === "verified" && allPerformed) return "verified";
+  if (req.state === "verified" && allPerformed && coherent) return "verified";
   if (/^implementation_complete/.test(req.implementationStatus)) return "implementation_complete_unverified";
   if (req.state === "planned" || req.implementationStatus === "not_assessed") return req.implementationStatus === "not_assessed" ? "not_assessed" : "planned";
   return "in_progress";
@@ -113,8 +116,14 @@ function rowStatus(req: LedgerRequirement, levels: Record<string, LevelState>): 
 
 const excerpt = (text: unknown, n = 220): string => (typeof text === "string" ? text : text === undefined ? "" : JSON.stringify(text)).replace(/\s+/g, " ").trim().slice(0, n);
 
-export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly VerifyDoc[]; evidenceFiles: readonly EvidenceFile[]; acceptance?: AcceptanceReport; exists?: (relative: string) => boolean; now?: () => Date }): Dossier {
-  const exists = input.exists ?? (() => true);
+export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly VerifyDoc[]; evidenceFiles: readonly EvidenceFile[]; acceptance?: AcceptanceReport; exists?: (relative: string) => boolean; readEvidence?: (relative: string) => Buffer; keys?: SignoffKey[]; now?: () => Date }): Dossier {
+  const exists = input.exists ?? (() => false);
+  const readEvidence = input.readEvidence ?? ((relative: string): Buffer => {
+    const file = input.evidenceFiles.find((f) => f.file === relative);
+    if (!file?.bytes && !file?.json) throw new Error("No evidence file loaded");
+    return file.bytes ?? Buffer.from(JSON.stringify(file.json));
+  });
+  const releaseStatusErrors = validateReleaseStatus(input.ledger, { readEvidence, keys: input.keys, now: input.now?.() });
   const docsById = new Map<string, VerifyDoc[]>();
   for (const doc of input.verifyDocs) for (const id of idsCoveredBy(doc)) docsById.set(id, [...(docsById.get(id) ?? []), doc]);
   const rows: DossierRow[] = input.ledger.requirements.map((req) => {
@@ -122,7 +131,18 @@ export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly Verif
     const named = [...new Set(docs.flatMap((d) => testsNamedIn(d.text)))].sort();
     const declared = [...req.testPaths].sort();
     const levels: Record<string, LevelState> = {};
-    for (const level of req.requiredEvidence) levels[level] = req.evidence.some((e) => e.level === level) ? "performed" : DEFERRED_LEVELS.includes(level) ? "unperformed" : "pending";
+    const assessments = req.evidence.map((e) => inspectEvidence(req.id, e, { readEvidence, ...(input.ledger.releaseCandidate ? { commit: input.ledger.releaseCandidate.commit } : {}) }));
+    for (const level of req.requiredEvidence) {
+      const candidates = assessments.filter((_, i) => req.evidence[i]!.level === level);
+      levels[level] = candidates.some((a) => a.valid) ? "performed"
+        : candidates.some((a) => a.receipt && (a.receipt.failed > 0 || a.receipt.exitCode !== 0 || a.receipt.status === "failed")) ? "failed"
+        : candidates.some((a) => a.receipt && (a.receipt.skipped > 0 || a.receipt.status === "skipped")) ? "skipped"
+        : candidates.some((a) => a.receipt?.status === "not_run") ? "unperformed"
+        : candidates.some((a) => a.recorded) ? "invalid"
+        : DEFERRED_LEVELS.includes(level) ? "unperformed" : "pending";
+    }
+    const commits = [...new Set(assessments.filter((a) => a.valid).map((a) => a.receipt!.commit))];
+    const coherent = commits.some((commit) => req.requiredEvidence.every((level) => assessments.some((a) => a.valid && a.receipt!.commit === commit && a.receipt!.level === level)));
     const files = input.evidenceFiles.filter((f) => f.requirement === req.id).map((f) => {
       const j = f.json;
       const failed = typeof j?.failed === "number" ? j.failed : 0;
@@ -135,15 +155,17 @@ export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly Verif
     const missing = [...new Set([...declared, ...named])].filter((t) => !exists(t));
     if (missing.length) flags.push(`${missing.length} named test file(s) do not exist on disk`);
     if (req.evidence.some((e) => /skip/i.test(e.result ?? ""))) flags.push("evidence mentions skipped tests");
+    if (assessments.some((a) => !a.valid)) flags.push("recorded ledger evidence is missing, invalid, historical or nonpassing; it does not satisfy verification");
+    if (req.state === "verified" && !coherent) flags.push("ledger verification lacks passing evidence at one coherent commit");
     if (input.evidenceFiles.some((f) => f.requirement === req.id && ((typeof f.json?.failed === "number" && f.json.failed > 0) || f.json === undefined))) flags.push("an evidence file reports failures or is unreadable");
     for (const [level, state] of Object.entries(levels)) if (state === "unperformed") flags.push(`${level} evidence unperformed`);
     const scenarios = (input.acceptance?.scenarios ?? []).filter((s) => s.requirements.includes(req.id)).map((s) => ({ id: s.id, status: s.status }));
     return {
-      id: req.id, title: req.title, acceptance: req.acceptance, ledgerState: req.state, implementationStatus: req.implementationStatus, status: rowStatus(req, levels),
+      id: req.id, title: req.title, acceptance: req.acceptance, ledgerState: req.state, implementationStatus: req.implementationStatus, status: rowStatus(req, levels, coherent),
       implementation: { verifyDocs: docs.map((d) => d.file).sort() }, tests: { declared, namedInVerifyDocs: named, missingOnDisk: missing.sort() },
-      environments: [...new Set(req.evidence.map((e) => e.environment).filter((e): e is string => !!e).map((e) => excerpt(e, 160)))],
+      environments: [...new Set(req.evidence.map((e, i) => assessments[i]!.receipt?.environment ?? e.environment).filter((e): e is string => !!e).map((e) => excerpt(e, 160)))],
       commits: [...new Set(req.evidence.map((e) => e.commit).filter((c): c is string => !!c))],
-      evidence: req.evidence.map((e) => ({ level: e.level, commit: e.commit ?? null, where: e.logs ?? e.artifact ?? e.url ?? null, summary: excerpt(e.result) })),
+      evidence: req.evidence.map((e, i) => ({ level: e.level, commit: e.commit ?? null, where: e.artifact ?? e.logs ?? e.url ?? null, summary: excerpt(e.result), validation: assessments[i]!.errors })),
       levels, evidenceFiles: files, scenarios, flags,
     };
   });
@@ -154,8 +176,9 @@ export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly Verif
     for (const state of Object.values(r.levels)) { if (state === "unperformed") unperformed += 1; if (state === "pending") pending += 1; }
   }
   return {
-    schema: 1, generatedAt: (input.now ?? (() => new Date()))().toISOString(), ledgerBaseline: input.ledger.baseline?.commit ?? null,
+    schema: 1, generatedAt: (input.now ?? (() => new Date()))().toISOString(), ledgerBaseline: input.ledger.baseline?.commit ?? null, releaseCandidate: input.ledger.releaseCandidate?.commit ?? null,
     releaseStatus: { ...(input.ledger.releaseStatus ?? {}) }, rows,
+    releaseStatusErrors,
     summary: { total: rows.length, byStatus, unperformedLevels: unperformed, pendingLevels: pending, flagged: rows.filter((r) => r.flags.length > 0).length },
     instructions: INSTRUCTIONS.map((i) => ({ ...i, present: exists(i.file) })),
     acceptance: input.acceptance ? { runId: input.acceptance.runId, generatedAt: input.acceptance.generatedAt, sourceCommit: input.acceptance.sourceCommit, summary: input.acceptance.summary } : null,
@@ -173,6 +196,8 @@ export function renderMarkdown(d: Dossier): string {
     "## Summary", "", `- Requirements: ${d.summary.total}`, ...Object.entries(d.summary.byStatus).map(([k, v]) => `- ${k}: ${v}`),
     `- Required evidence levels unperformed (deferred or never run): ${d.summary.unperformedLevels}`, `- Required evidence levels pending: ${d.summary.pendingLevels}`, `- Rows with flags: ${d.summary.flagged}`, ""];
   if (d.acceptance) out.push("## Acceptance orchestrator run", "", `Run ${d.acceptance.runId} at ${d.acceptance.generatedAt}${d.acceptance.sourceCommit ? ` on ${short(d.acceptance.sourceCommit)}` : ""}: ${JSON.stringify(d.acceptance.summary)}`, "");
+  out.push(`Release candidate: ${d.releaseCandidate ?? "not declared"}.`, "");
+  if (d.releaseStatusErrors.length) out.push("Release status validation errors:", ...d.releaseStatusErrors.map((e) => `- ${e}`), "");
   out.push("## Requirement to evidence", "", "| Requirement | Status | Implementation | Tests | Environment | Commit(s) | Evidence by required level |", "| --- | --- | --- | --- | --- | --- | --- |");
   for (const r of d.rows) {
     const levels = Object.entries(r.levels).map(([level, state]) => `${level}: ${state.toUpperCase()}`).join("; ") || "no evidence level required";
@@ -181,7 +206,7 @@ export function renderMarkdown(d: Dossier): string {
   out.push("", "## Per requirement detail", "");
   for (const r of d.rows) {
     out.push(`### ${r.id} ${r.title}`, "", `Status ${r.status}; ledger state ${r.ledgerState}; implementation status \`${r.implementationStatus}\`.`, "", ...r.acceptance.map((a) => `Acceptance: ${a}`), "");
-    if (r.evidence.length) out.push("Recorded evidence:", ...r.evidence.map((e) => `- ${e.level}${e.commit ? ` at ${short(e.commit)}` : ""}${e.where ? ` (${e.where})` : ""}: ${e.summary}`), "");
+    if (r.evidence.length) out.push("Recorded evidence:", ...r.evidence.map((e) => `- ${e.level}${e.commit ? ` at ${short(e.commit)}` : ""}${e.where ? ` (${e.where})` : ""}: ${e.summary}${e.validation.length ? ` [DOES NOT SATISFY VERIFICATION: ${e.validation.join("; ")}]` : " [validated passing receipt]"}`), "");
     if (r.evidenceFiles.length) out.push("Evidence files:", ...r.evidenceFiles.map((f) => `- ${f.file}: ${f.status}`), "");
     if (r.scenarios.length) out.push("Acceptance scenarios:", ...r.scenarios.map((s) => `- ${s.id}: ${s.status}`), "");
     if (r.flags.length) out.push("Flags:", ...r.flags.map((f) => `- ${f}`), "");
@@ -200,7 +225,7 @@ function walk(dir: string, accept: (name: string) => boolean): string[] {
   });
 }
 
-export function loadDossierInputs(root: string): { ledger: Ledger; verifyDocs: VerifyDoc[]; evidenceFiles: EvidenceFile[] } {
+export function loadDossierInputs(root: string): { ledger: Ledger; verifyDocs: VerifyDoc[]; evidenceFiles: EvidenceFile[]; readEvidence: (relative: string) => Buffer } {
   const base = path.join(root, "docs/build/production");
   const ledger = JSON.parse(readFileSync(path.join(base, "ledger.json"), "utf8")) as Ledger;
   const verifyDocs = walk(path.join(base, "verify"), (n) => n.endsWith(".md")).sort().map((file) => ({ file: path.relative(root, file).replaceAll("\\", "/"), text: readFileSync(file, "utf8") }));
@@ -208,10 +233,11 @@ export function loadDossierInputs(root: string): { ledger: Ledger; verifyDocs: V
   const evidenceFiles = walk(evidenceRoot, (n) => n.endsWith(".json")).sort().filter((f) => statSync(f).size < 5_000_000).map((file) => {
     const rel = path.relative(evidenceRoot, file).replaceAll("\\", "/");
     let json: Record<string, unknown> | undefined;
-    try { json = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>; } catch { json = undefined; }
-    return { requirement: rel.split("/")[0]!, file: path.relative(root, file).replaceAll("\\", "/"), ...(json ? { json } : {}) };
+    let bytes: Buffer | undefined;
+    try { bytes = readRepositoryFile(root, path.relative(root, file).replaceAll("\\", "/")); json = JSON.parse(bytes.toString("utf8")) as Record<string, unknown>; } catch { json = undefined; }
+    return { requirement: rel.split("/")[0]!, file: path.relative(root, file).replaceAll("\\", "/"), ...(json && typeof json === "object" ? { json } : {}), ...(bytes ? { bytes } : {}) };
   });
-  return { ledger, verifyDocs, evidenceFiles };
+  return { ledger, verifyDocs, evidenceFiles, readEvidence: (relative) => readRepositoryFile(root, relative) };
 }
 
 export function runDossierCli(argv: readonly string[], io: { out: (s: string) => void; err: (s: string) => void } = { out: (s) => { process.stdout.write(s); }, err: (s) => { process.stderr.write(s); } }, root: string = process.cwd()): number {
@@ -220,14 +246,16 @@ export function runDossierCli(argv: readonly string[], io: { out: (s: string) =>
     const inputs = loadDossierInputs(root);
     const acceptanceFile = value("--acceptance");
     const acceptance = acceptanceFile ? (JSON.parse(readFileSync(acceptanceFile, "utf8")) as AcceptanceReport) : undefined;
-    const dossier = buildDossier({ ...inputs, ...(acceptance ? { acceptance } : {}), exists: (rel) => existsSync(path.join(root, rel)) });
+    const keyFile = value("--signoff-keys");
+    const keys = keyFile ? JSON.parse(readFileSync(keyFile, "utf8")) as SignoffKey[] : undefined;
+    const dossier = buildDossier({ ...inputs, ...(acceptance ? { acceptance } : {}), ...(keys ? { keys } : {}), exists: (rel) => existsSync(path.join(root, rel)) });
     const md = renderMarkdown(dossier);
     const outFile = value("--out");
     if (outFile) writeFileSync(outFile, md); else io.out(md);
     const jsonFile = value("--json");
     if (jsonFile) writeFileSync(jsonFile, `${JSON.stringify(dossier, null, 2)}\n`);
     io.err(`${dossier.summary.total} requirements; ${dossier.summary.byStatus.verified} verified; ${dossier.summary.unperformedLevels} unperformed and ${dossier.summary.pendingLevels} pending evidence level(s); ${dossier.summary.flagged} row(s) flagged.\n`);
-    return 0;
+    return dossier.releaseStatusErrors.length ? 1 : 0;
   } catch (error) {
     io.err(`${error instanceof Error ? error.message : "unexpected error"}\n`);
     return 2;

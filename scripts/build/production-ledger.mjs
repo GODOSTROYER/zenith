@@ -2,10 +2,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateReleaseStatus } from "../release/status.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const directory = path.join(root, "docs/build/production");
 const ledger = JSON.parse(fs.readFileSync(path.join(directory, "ledger.json"), "utf8"));
+// Trust is an explicit verifier input, never a key supplied by the ledger or sign-off record.
+const keyFlag = process.argv.indexOf("--signoff-keys");
+const keys = keyFlag >= 0 ? JSON.parse(fs.readFileSync(process.argv[keyFlag + 1], "utf8")) : [];
+const releaseErrors = validateReleaseStatus(ledger, { root, keys });
+if (releaseErrors.length) throw new Error(`Invalid release status:\n${releaseErrors.join("\n")}`);
 const ids = new Set(ledger.requirements.map((requirement) => requirement.id));
 if (ids.size !== ledger.requirements.length) throw new Error("Duplicate production requirement ID");
 const byId = new Map(ledger.requirements.map((requirement) => [requirement.id, requirement]));

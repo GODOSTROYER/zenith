@@ -1,6 +1,7 @@
 /** Release checks must fail CI when they fail, including image assembly. */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
@@ -1256,6 +1257,33 @@ describe("the ledger and supply-chain jobs", () => {
  * assume an AWS role, so what matters is what can reach it: a person, by hand,
  * through an environment with reviewers, never a pull request.
  */
+describe("generated recovery clients", () => {
+  it("executes a generated PostgreSQL16 client with runtime identity and unchanged arguments", () => {
+    const step = workflow.jobs.recovery.steps.find(step => step.name === "Use matching PostgreSQL16 recovery clients");
+    expect(step?.run).toBeDefined();
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-recovery-client-"));
+    try {
+      const bin = path.join(scratch, "bin"), capture = path.join(scratch, "arguments");
+      fs.mkdirSync(bin);
+      fs.writeFileSync(path.join(bin, "docker"), `#!/usr/bin/env bash\nprintf '%s\\n' "$@" > "$CAPTURE"\n`, { mode: 0o700 });
+      const env = { PATH: `${bin}${path.delimiter}${process.env.PATH}`, RUNNER_TEMP: scratch,
+        GITHUB_WORKSPACE: process.cwd(), GITHUB_ENV: path.join(scratch, "env"), CAPTURE: capture };
+      expect(spawnSync("bash", ["-c", step!.run!], { env, encoding: "utf8" }).status).toBe(0);
+      for (const tool of ["pg_dump", "pg_restore"]) {
+        const script = path.join(scratch, "pg-tools", tool);
+        expect(spawnSync("bash", ["-n", script], { env, encoding: "utf8" }).status).toBe(0);
+        expect(spawnSync(script, ["--version", "argument with spaces"], { env, encoding: "utf8" }).status).toBe(0);
+        expect(fs.readFileSync(capture, "utf8").trimEnd().split("\n")).toEqual([
+          "run", "--rm", "--user", `${process.getuid!()}:${process.getgid!()}`, "--network", "host",
+          "-v", `${process.cwd()}:${process.cwd()}`, "-v", `${scratch}:${scratch}`,
+          "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+          tool, "--version", "argument with spaces",
+        ]);
+      }
+    } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
+  });
+});
+
 describe("the live acceptance workflow", () => {
   const live = (): Job => liveAcceptance.jobs["aws-live"];
   const GUARD = "hashFiles('scripts/acceptance/aws-live.ts') != ''";
@@ -1269,6 +1297,13 @@ describe("the live acceptance workflow", () => {
   it("waits on the live-sandbox environment, where the reviewers and branch rules live", () => {
     expect(live(), "the workflow must define an `aws-live` job").toBeDefined();
     expect(live().environment).toBe("live-sandbox");
+    expect(JSON.stringify(live().env)).not.toContain("runner.");
+    const paths = live().steps.find(step => step.name === "Set owned live acceptance paths");
+    expect(paths?.run).toContain('echo "ZENITH_LIVE_AWS_PERMISSIONS=$RUNNER_TEMP/zenith-aws-permissions.json"');
+    expect(paths?.run).toContain('echo "ZENITH_LIVE_SCOPE_FILE=$RUNNER_TEMP/zenith-live-scope.json"');
+    expect(paths?.run).toContain('echo "ZENITH_LIVE_AWS_OUT=$RUNNER_TEMP/zenith-aws-production"');
+    expect(paths?.run).toContain('>> "$GITHUB_ENV"');
+    expect(live().steps.indexOf(paths!)).toBeLessThan(live().steps.findIndex(step => step.uses?.startsWith("aws-actions/configure-aws-credentials@")));
   });
 
   it("requests an OIDC token for this one job and nothing broader anywhere", () => {

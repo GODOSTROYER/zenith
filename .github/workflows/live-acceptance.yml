@@ -112,9 +112,6 @@ jobs:
       ZENITH_LIVE_AWS_BUDGET_USD: ${{ inputs.budget_usd }}
       ZENITH_LIVE_AWS_DB_SUBNET_GROUP: ${{ vars.LIVE_SANDBOX_AWS_DB_SUBNET_GROUP }}
       ZENITH_LIVE_AWS_DB_SECURITY_GROUP: ${{ vars.LIVE_SANDBOX_AWS_DB_SECURITY_GROUP }}
-      ZENITH_LIVE_AWS_PERMISSIONS: ${{ runner.temp }}/zenith-aws-permissions.json
-      ZENITH_LIVE_SCOPE_FILE: ${{ runner.temp }}/zenith-live-scope.json
-      ZENITH_LIVE_AWS_OUT: ${{ runner.temp }}/zenith-aws-production
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -129,6 +126,17 @@ jobs:
         run: |
           echo "::error::scripts/acceptance/aws-live.ts does not exist yet (it belongs to the live-acceptance workstream), so there is nothing to run against the sandbox account."
           exit 1
+
+      - name: Set owned live acceptance paths
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "ZENITH_LIVE_AWS_PERMISSIONS=$RUNNER_TEMP/zenith-aws-permissions.json"
+            echo "ZENITH_LIVE_SCOPE_FILE=$RUNNER_TEMP/zenith-live-scope.json"
+            echo "ZENITH_LIVE_AWS_OUT=$RUNNER_TEMP/zenith-aws-production"
+          } >> "$GITHUB_ENV"
 
       - name: Check the sandbox account configuration
         if: hashFiles('scripts/acceptance/aws-live.ts') != ''

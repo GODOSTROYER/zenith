@@ -6,6 +6,7 @@ import { requiredChecks, validateLocalReceipt, type LocalReceipt } from "./local
 import { readiness } from "../acceptance/default-stack/readiness.mjs";
 import { readState } from "../acceptance/default-stack/runtime.mjs";
 import { hostEnvironment } from "../acceptance/default-stack/env.mjs";
+import { operatedScenario } from "./drivers/contracts";
 
 const JOURNEY_CHECKS: Readonly<Record<string, readonly string[]>> = {
   "plan-approval": ["self-approval-refused", "bearer-approval-refused", "stale-semantics-refused", "browser-kind-execution-readback", "rest-proposal-execution-readback", "mcp-proposal-execution-readback"],
@@ -47,6 +48,16 @@ export async function runJoinedScenario(input: { scenarioId: string; runId: stri
   if (env.ZENITH_LOCAL_JOINED_DRIVERS !== "1" || env.ZENITH_ACCEPTANCE_DEFAULT_STACK !== "1" || !env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR || existsSync(receiptFile)) throw new Error("Owned default stack and explicit joined-driver gates required");
   // J1 proves ownership, source bytes, native architecture, migrations and readiness.
   const state = readState(env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR);
+  if (operatedScenario(scenarioId)) {
+    if (env.ZENITH_LOCAL_OPERATED !== "1") return 2;
+    // Start with J1's private CA at process launch, so real Auth requests verify TLS.
+    const child = await defaultExec([process.execPath, "node_modules/tsx/dist/cli.mjs", `scripts/release/drivers/${scenarioId}.ts`,
+      "--run-id", runId, "--source-commit", sourceCommit, "--receipt", receiptFile],
+      { cwd: process.cwd(), env: { ...env, ...hostEnvironment(state) }, timeoutMs: 3_600_000 });
+    if (child.code === 2) return 2;
+    const receipt = validateLocalReceipt(JSON.parse(readFileSync(receiptFile, "utf8")), { scenarioId, runId, sourceCommit });
+    return child.code === 0 && receipt.checks.every(check => check.status === "passed") ? 0 : 1;
+  }
   const ready = await readiness(state);
   Object.assign(env, hostEnvironment(state));
   let status: "passed" | "failed" | "skipped" = "passed";

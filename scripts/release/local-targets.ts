@@ -4,6 +4,7 @@ import path from "node:path";
 import catalog from "../../deploy/acceptance/local-targets/scenarios.json";
 import type { LocalCommandLane, Scenario } from "./scenarios";
 import { DRIVER_CHECKS, OperatedReceiptSchema, OPERATED_LABEL } from "./drivers/operated-contract";
+import { OPERATED_CHECKS, operatedScenario } from "./drivers/contracts";
 
 export const LOCAL_GATE = "ZENITH_LOCAL_TARGETS";
 export const LOCAL_LABEL = "local_rehearsal";
@@ -24,28 +25,29 @@ export const TARGET_CHECKS: Readonly<Record<string, readonly string[]>> = {
 export function localTargetLane(scenario: Scenario): LocalCommandLane {
   const target = LOCAL_TARGETS[scenario.id];
   if (!target) throw new Error(`No local target for ${scenario.id}`);
-  const operated = target.target === "operated-drv2";
+  const drv2 = target.target === "operated-drv2";
+  const drv3 = operatedScenario(scenario.id);
   return {
-    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(operated ? [target.driver!, "scripts/release/drivers/operated.ts", "scripts/release/drivers/operated-contract.ts"] : [])],
+    id: "local-target", kind: "local_engine", files: ["scripts/release/local-target-runner.ts", "deploy/acceptance/local-targets/scenarios.json", ...(drv2 || drv3 ? [target.driver!, "scripts/release/drivers/operated.ts", ...(drv2 ? ["scripts/release/drivers/operated-contract.ts"] : ["scripts/release/drivers/contracts.ts"])] : [])],
     command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/release/local-target-runner.ts", "run", "--scenario", scenario.id],
-    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(operated ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : [])],
-    evidenceLabel: operated ? OPERATED_LABEL : LOCAL_LABEL,
+    gates: ["ZENITH_LOCAL_TARGETS=1", "ZENITH_LOCAL_RUN_ID", "ZENITH_LOCAL_ROOT", ...(drv2 ? ["ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", "ZENITH_TEST_DRV2_OPERATED=1"] : []), ...(drv3 ? ["ZENITH_LOCAL_OPERATED=1", "ZENITH_LOCAL_JOINED_DRIVERS=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", "ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR", "ZENITH_LOCAL_JOURNEY_CONFIG_FILE", ...(scenario.id === "upgrade" ? ["ZENITH_LOCAL_UPGRADE_IMAGES_FILE"] : [])] : [])],
+    evidenceLabel: drv2 || drv3 ? OPERATED_LABEL : LOCAL_LABEL,
   };
 }
 
 const Receipt = z.object({
-  schema: z.literal(1), evidenceLabel: z.literal(LOCAL_LABEL),
+  schema: z.literal(1), evidenceLabel: z.enum([LOCAL_LABEL, OPERATED_LABEL]),
   scenarioId: z.string().regex(/^[a-z][a-z0-9-]{1,50}$/),
   runId: z.string().regex(/^[a-z0-9][a-z0-9-]{3,19}$/),
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/),
   checks: z.array(z.object({ id: z.string().regex(/^[a-z][a-z0-9-]{1,70}$/), status: z.enum(["passed", "failed", "skipped"]) }).strict()).min(1),
   limits: z.array(z.string().min(1).max(300)).min(1),
 }).strict();
-const AnyReceipt = z.union([Receipt, OperatedReceiptSchema]);
-export type LocalReceipt = z.infer<typeof AnyReceipt>;
+export type LocalReceipt = z.infer<typeof Receipt> | z.infer<typeof OperatedReceiptSchema>;
 
 export function requiredChecks(scenarioId: string): readonly string[] {
   if (scenarioId === "drift-repair" || scenarioId === "crash-partition") return DRIVER_CHECKS[scenarioId];
+  if (operatedScenario(scenarioId)) return OPERATED_CHECKS[scenarioId];
   if (scenarioId === "billing") return TARGET_CHECKS.billing!;
   const target = LOCAL_TARGETS[scenarioId];
   if (!target) throw new Error("Unknown local scenario");
@@ -54,12 +56,14 @@ export function requiredChecks(scenarioId: string): readonly string[] {
 }
 
 export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt {
-  const receipt = AnyReceipt.parse(raw);
-  if ((expected.scenarioId === "drift-repair" || expected.scenarioId === "crash-partition") && receipt.evidenceLabel !== OPERATED_LABEL) throw new Error("Operated scenario cannot accept component or generic rehearsal evidence");
+  const drv2 = expected.scenarioId === "drift-repair" || expected.scenarioId === "crash-partition";
+  const receipt = drv2 ? OperatedReceiptSchema.parse(raw) : Receipt.parse(raw);
+  if (receipt.evidenceLabel !== (drv2 || operatedScenario(expected.scenarioId) ? OPERATED_LABEL : LOCAL_LABEL)) throw new Error("Local receipt evidence label mismatch");
   for (const key of ["scenarioId", "runId", "sourceCommit"] as const) if (receipt[key] !== expected[key]) throw new Error(`Local receipt ${key} mismatch`);
   const ids = receipt.checks.map(c => c.id);
   if (new Set(ids).size !== ids.length) throw new Error("Duplicate local check");
   for (const id of requiredChecks(expected.scenarioId)) if (!ids.includes(id)) throw new Error(`Missing required local check: ${id}`);
+  if (operatedScenario(expected.scenarioId) && ids.some(id => !requiredChecks(expected.scenarioId).includes(id))) throw new Error("Unknown operated check");
   return receipt;
 }
 

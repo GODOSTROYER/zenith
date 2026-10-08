@@ -1,0 +1,82 @@
+/** DRV-3: operated expand/worker/API replacement, injected outage and image rollback. */
+import { Connection, WorkflowClient } from "@temporalio/client";
+import { compose, docker } from "../../acceptance/default-stack/runtime.mjs";
+import { GATE_SUITES, buildPlan, parseArgs } from "../../ops/rolling-upgrade.mjs";
+import { ensure, privateFile, kindReadback } from "../../../tests/e2e/default/support.mjs";
+import { upgradeImages, type Images } from "./contracts";
+import { operatedRun, driverCli, type DriverInput } from "./operated";
+
+/** The existing runbook is the ordering authority; J1 supplies the concrete topology. */
+export function upgradeOrder(images: Images): string[] {
+  return buildPlan(parseArgs(["upgrade", "--topology", "compose", "--api-image", images.api, "--worker-image", images.worker, "--migration-image", images.migration]))
+    .map((step: { id: string }) => step.id);
+}
+if (process.argv[1] && /[/\\]drivers[/\\]upgrade\.(?:ts|js)$/.test(process.argv[1])) void driverCli("upgrade", runUpgrade).then(code => { process.exitCode = code; });
+export async function runUpgrade(input: DriverInput): Promise<number> {
+  ensure(input.scenarioId === "upgrade", "scenario-binding");
+  return operatedRun(input, async session => {
+    const file = input.env.ZENITH_LOCAL_UPGRADE_IMAGES_FILE;
+    ensure(file, "private-candidate-file");
+    const previous: Images = session.prepared.images;
+    const candidate = upgradeImages(JSON.parse(privateFile(file!)), session.state.installationId, previous);
+    for (const [role, reference] of Object.entries(candidate)) {
+      const [image] = JSON.parse(await docker(["image", "inspect", reference]));
+      ensure(image.Architecture === "arm64" && image.Config.Labels?.["io.zenith.installation"] === session.state.installationId
+        && image.RepoDigests?.includes(reference) && image.Id !== JSON.parse(await docker(["image", "inspect", previous[role as keyof Images]]))[0].Id, "candidate-native-owned-distinct");
+    }
+    await session.step("compatibility-gates", () => session.gates(GATE_SUITES, { ZENITH_REPLAY_LANE: "1" }));
+    let operationId = "", workflowId = "", runId = "";
+    const connection = await Connection.connect({ address: session.environment.ZENITH_TEMPORAL_ADDRESS });
+    session.finalizers.unshift(() => connection.close());
+    const temporal = new WorkflowClient({ connection, namespace: session.prepared.environment.ZENITH_TEMPORAL_NAMESPACE });
+    await session.step("browser-review-in-flight", async () => {
+      operationId = (await session.deployReview()).operationId;
+      workflowId = (await session.detail(operationId)).operation.workflowId;
+      ensure(typeof workflowId === "string" && workflowId.startsWith("op-"), "real-operation-workflow");
+      const description = await temporal.getHandle(workflowId).describe();
+      ensure(description.status.name === "RUNNING", "in-flight-history"); runId = description.runId;
+    });
+    await session.step("expand-worker-api", async () => {
+      const order = upgradeOrder(candidate);
+      ensure(order.indexOf("migrate") < order.indexOf("worker") && order.indexOf("worker-ready") < order.indexOf("api"), "runbook-order");
+      const target = await session.replacement(candidate);
+      await compose(target, ["run", "--rm", "--no-deps", "platform-migrate", "--dry-run"]);
+      await compose(target, ["run", "--rm", "--no-deps", "platform-migrate"]);
+      await compose(target, ["up", "-d", "--no-deps", "execution-worker"]);
+      await session.healthy(target, "execution-worker", candidate.worker);
+      await compose(target, ["up", "-d", "--no-deps", "api"]);
+      await session.healthy(target, "api", candidate.api);
+      await compose(target, ["run", "--rm", "--no-deps", "platform-migrate", "--status"]);
+    });
+    await session.step("candidate-readback", async () => {
+      const detail = await session.detail(operationId);
+      ensure(detail.operation.status === "awaiting_approval", "review-preserved");
+      const current = await temporal.getHandle(workflowId).describe();
+      ensure(current.runId === runId && current.status.name === "RUNNING", "same-history-after-upgrade");
+    });
+    await session.step("api-failure-injected", async () => {
+      await compose(session.activeState, ["stop", "api"]);
+      const id = (await compose(session.activeState, ["ps", "--all", "-q", "api"])).trim();
+      ensure(JSON.parse(await docker(["inspect", id]))[0].State.Running === false, "api-stopped-readback");
+      const unavailable = await fetch(session.stack.apiUrl + "/api/health", { redirect: "error", signal: AbortSignal.timeout(3000) }).then(r => !r.ok, () => true);
+      ensure(unavailable, "api-outage-observed");
+    });
+    await session.step("rollback-readback", async () => {
+      const rollback = await session.replacement(previous);
+      // OPS-03 reverse roll: API, worker. Never downgrade the schema.
+      await compose(rollback, ["up", "-d", "--no-deps", "api"]); await session.healthy(rollback, "api", previous.api);
+      await compose(rollback, ["up", "-d", "--no-deps", "execution-worker"]); await session.healthy(rollback, "execution-worker", previous.worker);
+      const description = await temporal.getHandle(workflowId).describe();
+      ensure(description.runId === runId && description.status.name === "RUNNING", "same-history-after-rollback");
+      ensure((await session.detail(operationId)).operation.status === "awaiting_approval", "rollback-review");
+    });
+    await session.step("approved-execution-readback", async () => {
+      await session.completeDeploy(operationId);
+      await kindReadback(session.config, 1, session.marker);
+      const history = await temporal.getHandle(workflowId).fetchHistory();
+      ensure(history.events?.some(event => event.workflowExecutionCompletedEventAttributes), "workflow-completion-history");
+      const records = await session.db.query<{ n: number }>("select count(*)::int as n from platform.operations where workspace_id=$1 and id=$2 and status='succeeded'", [session.workspaceId, operationId]);
+      ensure(records[0].n === 1, "one-terminal-operation");
+    });
+  });
+}

@@ -33,7 +33,7 @@ import { Scope, ScopeError, defaultManifestPath, loadScope } from "./scope";
 import { localTargetLane, validateLocalReceipt, localEnvironment } from "./local-targets";
 
 export type LaneStatus = "passed" | "passed_with_skips" | "no_tests" | "failed" | "not_run" | "deferred" | "skipped" | "passed_live";
-export interface LaneResult { scenarioId: string; laneId: string; kind: Lane["kind"]; status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number }; command?: string[]; missingGates?: string[]; evidenceLabel?: "local_rehearsal" | "local_operated_rehearsal"; limits?: string[] }
+export interface LaneResult { scenarioId: string; laneId: string; kind: Lane["kind"]; status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number }; command?: string[]; missingGates?: string[]; evidenceLabel?: LocalCommandLane["evidenceLabel"]; limits?: string[] }
 
 export type ScenarioStatus = "failed" | "not_run" | "incomplete" | "local_passed" | "local_passed_live_pending" | "verified_live";
 export interface ScenarioResult { id: string; title: string; requirements: readonly string[]; status: ScenarioStatus; lanes: LaneResult[]; limits: string }

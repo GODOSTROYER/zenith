@@ -1,5 +1,12 @@
 # REL-01 local scenario targets
 
+DRV-3 addendum: upgrade and restore now have dedicated operated drivers with
+`local_operated_rehearsal` receipts, strict check inventories and gated lanes.
+They no longer fall through to the generic J2 projection. Exact lean Mac commands
+and the remaining verification boundaries are in [DRV-3](DRV-3.md). Statements
+below describing missing upgrade/restore drivers are historical to J15's original
+job; neither new operated lane has been executed on this PC.
+
 Built the opt-in `--local-targets` mode in `scripts/release/acceptance-orchestrator.ts`, strict source/run/scenario-bound receipts, and the 19-scenario target catalog. Added genuine mixed, ACME and stripe-mock runtimes plus engine-gated tests. Existing component and live lanes remain; every result carries its evidence limits. A skipped/missing/zero/malformed lane never becomes a pass; incomplete CLI runs exit 2. Cached results require their matching evidence digest; changed source/harness/config or missing completed artifacts refuse resume.
 
 Acceptance mapping: install -> J1 default-stack verify driver; private source, approval, update/rollback, drift/repair, revocation, crash/writers, rotation, upgrade, restore, two tenants, export, teardown -> J2 journey driver with J1/J7/J14 joins; machine schedules -> J4 maintenance driver. DNS-TLS -> Pebble/CoreDNS; stateful/mixed traffic -> kind/LocalStack/PostgreSQL; partition recovery -> actual LocalStack stop/start; economics -> existing dated cost engine; release tooling -> existing contract lanes. Billing wire target uses the real adapter against stripe-mock, with an explicit stateless schema-only limit.

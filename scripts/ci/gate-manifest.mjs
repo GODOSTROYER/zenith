@@ -6055,6 +6055,18 @@ export const GATE_LANES = {
     report: ".data-ci-lane/drv2-crash-partition.json", tools: { node: "22.23.3" },
     prerequisites: ["Native Mac ARM64, Node22, Docker Desktop4GiB, Chromium with the J1 CA trusted, kind and kubectl", "Fresh owned lean J1 stack and J2 prepared kind fixture; driver consumes and cleans both", "Run after the drift fixture has been removed, with a new runId/root/stack/config; see verify/DRV-2.md", "No live credentials or provider API; local_operated_rehearsal receipts only"],
   },
+  "j15-operated-upgrade": {
+    files: ["tests/acceptance/operated-upgrade.engine.test.ts"],
+    env: { ZENITH_LOCAL_OPERATED: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1", ZENITH_DEFAULT_JOURNEY: "1" },
+    report: ".data-ci-lane/j15-operated-upgrade.json", tools: { node: "22.23.3" },
+    prerequisites: ["Fresh lean J1 stack and private J2 kind configuration; native Mac ARM64 Chromium/Docker/kind/Temporal", "ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE, ZENITH_LOCAL_UPGRADE_IMAGES_FILE; see verify/DRV-3.md", "Distinct owned immutable local candidate API/worker/migration images and recorded replay histories; cleanup consumes this stack"],
+  },
+  "j15-operated-restore": {
+    files: ["tests/acceptance/operated-restore.engine.test.ts"],
+    env: { ZENITH_LOCAL_OPERATED: "1", ZENITH_LOCAL_TARGETS: "1", ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1", ZENITH_DEFAULT_JOURNEY: "1" },
+    report: ".data-ci-lane/j15-operated-restore.json", tools: { node: "22.23.3" },
+    prerequisites: ["Fresh lean J1 stack and private J2 kind configuration; native Mac ARM64 Chromium/Docker/kind/Temporal", "ZENITH_LOCAL_ROOT, ZENITH_LOCAL_RUN_ID, ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR, ZENITH_LOCAL_JOURNEY_CONFIG_FILE; see verify/DRV-3.md", "pg_dump/pg_restore clients matching actual J1 PostgreSQL major, Temporal CLI; cleanup consumes this stack"],
+  },
   "wave5-contract": {
     files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",
     tools: { node: "22.23.3", go: "1.27.1" }, prerequisites: ["Node 22.23.3", "Go1.27.1 at ZENITH_TEST_GO, GOTOOLCHAIN=local for SBOM build-info", "Local PGlite/contract tests; provider protocols are modeled"],
@@ -6402,6 +6414,12 @@ export function requirementsFor(lane, root) {
     case "drv2-drift-repair":
     case "drv2-crash-partition":
       requirements = [{ file: `tests/acceptance/${lane.slice(5)}.operated.test.ts`, suite: "DRV-2 owned operated scenarios", test: `${lane.slice(5)} produces complete local_operated_rehearsal evidence and owned cleanup` }];
+      break;
+    case "j15-operated-upgrade":
+      requirements = [{ file: "tests/acceptance/operated-upgrade.engine.test.ts", suite: "DRV-3 operated upgrade", test: "operates upgrade with independent readback and owned cleanup" }];
+      break;
+    case "j15-operated-restore":
+      requirements = [{ file: "tests/acceptance/operated-restore.engine.test.ts", suite: "DRV-3 operated restore", test: "operates restore with independent readback and owned cleanup" }];
       break;
     case "wave5-contract":
       requirements = WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")).map(file => ({ file }));

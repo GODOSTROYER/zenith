@@ -1,5 +1,12 @@
 # PROD-OPS-04 verification handoff: clean-host restore and recovery epochs
 
+DRV-3 adds a dedicated operated J1/J2 restore with post-snapshot browser approval
+consumption, three prewrite failure injections, fresh database, real recovery
+epoch, browser continuation and independent provider/ledger readback. Run
+`node scripts/ci/run-gate.mjs j15-operated-restore --run` after the exact lean Mac
+preparation in [DRV-3](DRV-3.md); that document also has strict validation argv.
+Not run here (needs actual PostgreSQL/Temporal, Docker, kind and Chromium).
+
 Branch `prod/ops-04-w5`, base c02c097e. Platform migration **44**. Built without running any test (build-only rule): only
 `tsc --noEmit` and `eslint` on the changed files were run, both clean. Nothing here calls a cloud API; the rehearsal uses
 real PostgreSQL (pg_dump/pg_restore) and, when its CLI exists, a Temporal dev server, both owned by the test.

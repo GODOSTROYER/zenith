@@ -41,6 +41,11 @@ describe("DRV-2 offline planner and receipts", () => {
     expect(() => validateLocalReceipt(receipt, { ...input, runId: "wrong-run" })).toThrow("mismatch");
     expect(() => validateLocalReceipt({ ...receipt, evidenceLabel: "local_rehearsal" }, input)).toThrow();
     expect(() => validateLocalReceipt({ ...receipt, evidenceLabel: "live_sandbox" }, input)).toThrow();
+    // A generic receipt cannot bypass source/readback custody by copying the label.
+    const generic = { schema: receipt.schema, evidenceLabel: receipt.evidenceLabel,
+      scenarioId: receipt.scenarioId, runId: receipt.runId, sourceCommit: receipt.sourceCommit,
+      checks: receipt.checks, limits: receipt.limits };
+    expect(() => validateLocalReceipt(generic, input)).toThrow();
   });
   it.each(scenarios)("%s refuses missing/duplicate checks, absent readback, and diagnostic leakage", scenario => {
     const receipt = operatedReceipt(fixture(scenario));

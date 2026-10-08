@@ -2,6 +2,33 @@
 
 DRV-2 now builds dedicated operated drift-repair and crash-partition drivers. Exact separate lean-profile Mac setup, gated commands, strict receipt validation and owned cleanup are in [DRV-2](DRV-2.md). Offline build proof does not promote either scenario to operated or live acceptance.
 
+DRV-3 implements the local operated upgrade and restore slices through dedicated
+drivers, scenario-runner registration and canonical gated lanes. See
+[DRV-3](DRV-3.md) for exact sequential lean Mac commands, per-clause evidence and
+limits. Expected operated test count per lane is 1 passed / 0 failed / 0 skipped;
+this PC has not run either. Other J15 scenarios and live acceptance remain
+separate; no production readiness or release signoff is asserted.
+
+## D2/D3 merge verification (8 October 2026)
+
+The merged registry contains 19 scenarios and 80 mapped files. All four operated
+driver lanes and their exact required cases remain registered. Offline release
+tests passed 77 / 0 / 4; the four skips need native Mac ARM64, owned J1/J2 fixtures,
+Docker, kind, Chromium and Temporal. Gate-manifest passed 305 / 0 / 0. The initial
+platform-coverage run timed out in its repository-wide network-gate scan; that
+unchanged case passed alone, then the full file passed 67 / 0 / 0. Ownership and
+LIFE-12 passed 80 / 0 / 38; the 38 native PostgreSQL cases remain unrun. Final
+14-file lint, production-ledger check, source/assertion preservation and conflict
+marker checks passed. No typecheck was requested for this merge round.
+
+GitHub workflow integration remains open: the focused canonical execution and
+sanitized-upload checks in `tests/ci/release-gates.test.ts` produced 22 passed,
+8 failed and 97 filtered tests. `ci.yml` lacks jobs for `drv2-drift-repair`,
+`drv2-crash-partition`, `j15-operated-upgrade` and `j15-operated-restore`. Each
+missing job fails both checks. The lanes and assertions are retained; an owned
+native Mac fixture workflow still needs integration. No operated or live pass,
+complete CI pass, or release approval follows from the offline results.
+
 ## L1-LIVE-AWS provider slice (8 October 2026)
 
 Acceptance: Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified.

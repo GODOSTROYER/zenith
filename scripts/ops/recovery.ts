@@ -159,6 +159,13 @@ export async function recoveryMain(
       const namespace = one(p, "--temporal-namespace");
       if (p.bools.has("--terminate-temporal") && !namespace) throw new RecoveryToolError("invalid_input", "--terminate-temporal needs --temporal-namespace.");
       await mkdir(path.dirname(path.resolve(report)), { recursive: true });
+      const { registerRecoveryMeasurementSink } = await import("@/lib/ops/recovery/report");
+      const { restoreSloSink } = await import("@/lib/slo/restore-sink");
+      const { reportRecoveryRehearsal } = await import("@/lib/slo/recovery");
+      const unregister = registerRecoveryMeasurementSink(restoreSloSink(async measurement => {
+        const sql = await openPlatformDb({ kind: "postgres", url: targetUrl, max: 2, migrate: false });
+        try { return await reportRecoveryRehearsal(sql, measurement); } finally { await sql.close(); }
+      }, actor));
       const result = await runRestore({
         run: execRunner, tools: toolsFromEnv(env), env,
         openTarget: (url, o) => openPlatformDb({ kind: "postgres", url, max: 2, migrate: o.migrate }),
@@ -172,7 +179,7 @@ export async function recoveryMain(
         ...(one(p, "--hosted-bundle-out") ? { hostedBundleOut: path.resolve(one(p, "--hosted-bundle-out")!) } : {}),
         ...(one(p, "--artifact-dir") ? { artifactDir: path.resolve(one(p, "--artifact-dir")!) } : {}),
         ...(namespace ? { temporal: { namespace, ...(one(p, "--temporal-address") ? { address: one(p, "--temporal-address") } : {}), terminate: p.bools.has("--terminate-temporal") } } : {}),
-      });
+      }).finally(unregister);
       for (const s of result.steps) output(`${s.status.toUpperCase().padEnd(10)} ${s.id.padEnd(10)} ${s.detail}`);
       if (result.measurement) output(`RPO ${result.measurement.rpoSeconds ?? `<= ${result.measurement.backupAgeAtRestoreStartSeconds}`}s, restore ${result.measurement.restoreDurationSeconds}s, verdict ${result.measurement.verdict} (targets are provisional).`);
       for (const line of result.needsPerson) output(`NEEDS A PERSON: ${line}`);

@@ -29,6 +29,8 @@ export const TOFU_SUITES = [
   ["tests/security/tofu-workspace-injection.test.ts", "what the assembler ACCEPTS, real OpenTofu must not turn into a file read or a path leak (SEC-F5)"],
   ["tests/execution/journey.test.ts", "deploy journey on the real OpenTofu engine, platform store and product store"],
   ["tests/tofu/ephemeral-network.test.ts", "real ephemeral resources (network)"],
+  ["tests/tofu/typed-inputs.test.ts", "typed inputs and output capture (real tofu 1.12.5, local backend)"],
+  ["tests/tofu/typed-substitution.test.ts", "manifest references reach resources through declared variables (real tofu 1.12.5, local backend)"],
   ["tests/providers/azure/mysql.test.ts", "Azure MySQL real pinned tofu validate (network, no Azure account)"],
   ["tests/providers/oci/mysql.test.ts", "OCI MySQL real pinned tofu schema and persistence controls (network)"],
 ];
@@ -49,6 +51,12 @@ export const EXTERNAL_ACCEPTANCE = [
     releaseBlocker: "External Temporal mTLS execution remains unverified until separate authorized acceptance passes.",
   },
 
+  {"id": "wave5-managed-onboarding", "file": "tests/isolation/managed-onboarding-readiness.test.ts", "suite": "managed onboarding readiness", "wholeFile": false, "prerequisites": ["ZENITH_TEST_MANAGED_ONBOARDING=1", "Docker, kind, kubectl", "KUBECONFIG, prepared approved tenant namespace"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
+  {"id": "wave5-tenant-isolation", "file": "tests/isolation/tenant-isolation-acceptance.test.ts", "suite": "PROD-MAN-04/05 acceptance (gated)", "wholeFile": false, "prerequisites": ["ZENITH_TEST_TENANT_ISOLATION=1", "KUBECONFIG", "Calico or pinned Cilium, digest-pinned probe image"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
+  {"id": "wave5-mixed-connectivity", "file": "tests/live/mixed-connectivity.live.test.ts", "suite": "live protected-endpoint probes", "wholeFile": false, "prerequisites": ["ZENITH_LIVE_MIXED=1", "Separate DEC-CLOUD approval and budget", "Deployed endpoints, external credential files"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
+  {"id": "wave5-managed-serving", "file": "tests/managed-serving/serving-kind.test.ts", "suite": "managed serving on a real kind cluster", "wholeFile": false, "prerequisites": ["ZENITH_TEST_MANAGED_SERVING_KIND=1", "Docker, kind, kubectl, Gateway API"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
+  {"id": "wave5-storage-emulator", "file": "tests/managed-serving/storage-emulator.test.ts", "suite": "scoped object storage against an IAM + S3 emulator", "wholeFile": false, "prerequisites": ["ZENITH_TEST_IAM_ENDPOINT, ZENITH_TEST_IAM_ADMIN_KEY_ID, ZENITH_TEST_IAM_ADMIN_SECRET", "ZENITH_TEST_IAM_ENFORCED=1; IAM-enforcing S3 emulator"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
+  {"id": "wave5-managed-substrate", "file": "tests/providers/zenith/managed-kind.test.ts", "suite": "Zenith-managed substrate on a real kind cluster", "wholeFile": false, "prerequisites": ["ZENITH_TEST_MANAGED_KIND=1", "Docker, kind, kubectl, Gateway API", "Two digest-pinned images"], "releaseBlocker": "Wave 5 real service acceptance remains unverified until the gated harness passes."},
 ];
 
 export const CORE_CHECKS = [
@@ -5661,7 +5669,109 @@ export const AGENT_JOURNAL_POSTGRES_REQUIREMENTS = [
  */
 export const REPLAY_OPT_IN_FILES = ["tests/workflows/history-replay.test.ts", "tests/workflows/history-record.test.ts"];
 
+/** Wave 5 contract controls use local doubles/PGlite; no engine or cloud acceptance is inferred. */
+export const WAVE5_CONTRACT_FILES = [
+  "tests/acceptance/mixed-connectivity-probe.test.ts",
+  "tests/acceptance/mixed-failure-scenarios.test.ts",
+  "tests/acceptance/mixed-live-recovery.test.ts",
+  "tests/acceptance/mixed-live-run.test.ts",
+  "tests/acceptance/mixed-traffic.test.ts",
+  "tests/adversarial/approvals-forgery.test.ts",
+  "tests/adversarial/build-exfiltration.test.ts",
+  "tests/adversarial/cross-tenant.test.ts",
+  "tests/adversarial/integration-compromise.test.ts",
+  "tests/adversarial/malicious-archives.test.ts",
+  "tests/adversarial/prompt-injection.test.ts",
+  "tests/adversarial/residual-hardening.test.ts",
+  "tests/adversarial/role-escalation.test.ts",
+  "tests/adversarial/ssrf-rebinding.test.ts",
+  "tests/adversarial/token-forgery.test.ts",
+  "tests/audit-export/audit-export.test.ts",
+  "tests/audit-export/purpose.test.ts",
+  "tests/billing/billing-routes.test.ts",
+  "tests/billing/billing-unit.test.ts",
+  "tests/billing/billing.engine.test.ts",
+  "tests/ci/release-workflow.test.ts",
+  "tests/ci/vulnerability-triage.test.ts",
+  "tests/connections/zenith-connection.test.ts",
+  "tests/controlplane/mixed-follow-up.test.ts",
+  "tests/controlplane/recovery-epoch.test.ts",
+  "tests/controlplane/wave5-compat.test.ts",
+  "tests/execution/mixed-orchestration-signals.test.ts",
+  "tests/execution/mixed/connectivity.test.ts",
+  "tests/execution/mixed/economics.test.ts",
+  "tests/execution/mixed/output-reader.test.ts",
+  "tests/execution/mixed/typed-delivery.test.ts",
+  "tests/execution/mixed/typed-inputs-activities.test.ts",
+  "tests/execution/mixed/typed-substitution.test.ts",
+  "tests/execution/tenant-isolation.test.ts",
+  "tests/execution/zenith-destroy-databases.test.ts",
+  "tests/execution/zenith-graph-problems.test.ts",
+  "tests/execution/zenith-managed-journey.test.ts",
+  "tests/execution/zenith-semantics.test.ts",
+  "tests/isolation/isolation-profile.test.ts",
+  "tests/managed-serving/catalog.test.ts",
+  "tests/managed-serving/domain-routes.test.ts",
+  "tests/managed-serving/domain-store.test.ts",
+  "tests/managed-serving/domains.test.ts",
+  "tests/managed-serving/integration-readiness.test.ts",
+  "tests/managed-serving/services-route.test.ts",
+  "tests/managed-serving/serving-contract.test.ts",
+  "tests/managed-serving/serving-render.test.ts",
+  "tests/managed-serving/storage.test.ts",
+  "tests/ops/recovery-manifest.test.ts",
+  "tests/platform/managed-reconcile.test.ts",
+  "tests/platform/recovery-service.test.ts",
+  "tests/platform/zenith-build.test.ts",
+  "tests/platform/zenith-managed-composition.test.ts",
+  "tests/platform/zenith-onboarding.test.ts",
+  "tests/providers/zenith/isolation-bundle.test.ts",
+  "tests/providers/zenith/managed-profile.test.ts",
+  "tests/providers/zenith/managed-substrate.test.ts",
+  "tests/release/acceptance-scenarios.test.ts",
+  "tests/release/checkpoint.test.ts",
+  "tests/release/dossier.test.ts",
+  "tests/release/live-scope-coverage.test.ts",
+  "tests/release/orchestrator.test.ts",
+  "tests/release/scope.test.ts",
+  "tests/retention/admin-routes.test.ts",
+  "tests/retention/key-purpose.test.ts",
+  "tests/retention/restore-destination.test.ts",
+  "tests/retention/retention.test.ts",
+  "tests/slo/definitions.test.ts",
+  "tests/slo/restore-sink.test.ts",
+  "tests/slo/sli-budget.test.ts",
+  "tests/slo/slo-artifacts.test.ts",
+  "tests/slo/slo.engine.test.ts",
+  "tests/supply-chain/release.test.ts",
+  "tests/supply-chain/sbom.test.ts"
+];
+export const WAVE5_EXTERNAL_FILES = [
+  "tests/isolation/managed-onboarding-readiness.test.ts",
+  "tests/isolation/tenant-isolation-acceptance.test.ts",
+  "tests/live/mixed-connectivity.live.test.ts",
+  "tests/managed-serving/serving-kind.test.ts",
+  "tests/managed-serving/storage-emulator.test.ts",
+  "tests/ops/recovery-rehearsal.test.ts",
+  "tests/providers/zenith/managed-kind.test.ts",
+  "tests/tofu/typed-inputs.test.ts",
+  "tests/tofu/typed-substitution.test.ts"
+];
+
 export const GATE_LANES = {
+  "wave5-contract": {
+    files: WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")), env: {}, report: ".data-ci-lane/wave5-contract.json",
+    tools: { node: "22.23.3", go: "1.27.1" }, prerequisites: ["Node 22.23.3", "Go1.27.1 at ZENITH_TEST_GO, GOTOOLCHAIN=local for SBOM build-info", "Local PGlite/contract tests; provider protocols are modeled"],
+  },
+  adversarial: {
+    files: ["tests/adversarial"], env: {}, report: ".data-ci-lane/adversarial.json", tools: { node: "22.23.3" },
+    prerequisites: ["Node 22.23.3", "Local protocol/adversarial fixtures; real Windows ACL and Linux systemd stay in their native lanes"],
+  },
+  recovery: {
+    files: ["tests/ops/recovery-rehearsal.test.ts"], env: { ZENITH_TEST_RECOVERY_REQUIRED: "1", ZENITH_TEST_TEMPORAL: "1" }, report: ".data-ci-lane/recovery.json",
+    tools: { node: "22.23.3", postgres: "16.15", temporal: "1.9.1" },
+    prerequisites: ["Owned PostgreSQL16, pg_dump/pg_restore and scratch database privileges", "Pinned Temporal CLI1.9.1 and owned local dev server", "ZENITH_TEST_PLATFORM_PG_URL and ZENITH_TEST_TEMPORAL_CLI"],
+  },
   postgres: {
     files: ["tests/hosted/authority/contract", "tests/scripts/migrate-hosted-to-postgres.test.ts", "tests/agent-link/pg-contract.test.ts", "tests/agent-control/pg-contract.test.ts", "tests/db/contract/workspace-sharing.test.ts", "tests/waitlist/pg-contract.test.ts", "tests/agent-control/pg-oauth-grants.test.ts", "tests/agent-control-journal.test.ts", "tests/agent-control-journal-fixes.test.ts"],
     env: { ZENITH_CONTRACT_POSTGRES: "1", ZENITH_FAST: "1", ZENITH_TEST_PG_OAUTH_GRANTS_REQUIRED: "1" }, report: ".data-ci-lane/postgres-lane.json",
@@ -5702,7 +5812,7 @@ export const GATE_LANES = {
     tools:{node:"22.23.3",postgres:"16.15",temporal:"1.9.1"},
   },
   "platform-postgres": {
-    files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts", "tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/platform/kubernetes-vault-target.test.ts", "tests/effects", "tests/repair/lifecycle.platform.test.ts", "tests/coding-agent/store.test.ts", "tests/agent-v3/stream-store.test.ts", "tests/ops/store.engine.test.ts"],
+    files: ["tests/slo/slo.engine.test.ts", "tests/billing/billing.engine.test.ts", "tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts", "tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/platform/kubernetes-vault-target.test.ts", "tests/effects", "tests/repair/lifecycle.platform.test.ts", "tests/coding-agent/store.test.ts", "tests/agent-v3/stream-store.test.ts", "tests/ops/store.engine.test.ts"],
     env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1", ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED: "1", ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED: "1", ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
     prerequisites: ["ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1; all54 additive saved-plan settlement cases require actual owning PostgreSQL16, canonical agent roles before current platform schema41 and emitted0023, explicit owning port, pinned OpenTofu1.12.5, genuine paired codec/command/cleanup/cipher origin and independent connections; only finite generated builtin JSON/local-backend/session-free work is eligible, hosted association/policy and deliberate faults remain modeled", "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED=1; all46 actual owning PostgreSQL cleanup writer cases require canonical fixed agent roles before platform schema15, emitted0017, explicit owning port, authenticated default paired codec/current product proof, independent native connections and observed lock waits; hosted association/policy are modeled and no provider settlement is inferred", "Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache", "Canonical platform schema29 applied/current through scripts/ci/apply-platform-migrations.sh; committed Supabase bootstrap appends supabase/migrations/0021_platform_core.sql after unchanged prior migrations through0020", "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED=1; native mixed custody requires actual owning PostgreSQL, canonical schema14 and independent connections; custody does not enable child execution", "ZENITH_TEST_PLAN_RETENTION_REQUIRED=1; counts-only non-destructive retention preview requires actual PostgreSQL and independent connections; synthetic storage/receipt fixtures do not prove archive or deletion", "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; default target binding requires actual owning PostgreSQL and tenant-sealed FILE vault; namespace API and upstream grants remain modeled", "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1; human Kubernetes linking requires actual opened PostgreSQL owners, canonical platform schema13 or newer, canonical public.members from migration0001, three independent native connections and an encrypted tenant FILE vault; hosted association, human request and namespace API are modeled, production FILE/custom/separate activation remains refused"],
     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
@@ -5982,6 +6092,15 @@ export function requirementId(lane, required) {
 export function requirementsFor(lane, root) {
   let requirements;
   switch (lane) {
+    case "wave5-contract":
+      requirements = WAVE5_CONTRACT_FILES.filter(file => !file.startsWith("tests/adversarial/")).map(file => ({ file }));
+      break;
+    case "adversarial":
+      requirements = testFiles(root, "tests/adversarial").map(file => ({ file }));
+      break;
+    case "recovery":
+      requirements = ["backup", "clean-host restore", "temporal"].map(suite => ({ file: "tests/ops/recovery-rehearsal.test.ts", suite, backend: "postgres" }));
+      break;
     case "postgres":
       requirements = [
         ...testFiles(root, "tests/hosted/authority/contract").map((file) => ({ file, suite: file.endsWith("ledgers.test.ts") ? "PostgresAuthority ledgers" : "PostgresAuthority", backend: "postgres" })),
@@ -6017,7 +6136,7 @@ export function requirementsFor(lane, root) {
       requirements = WORKFLOW_INTENT_REQUIREMENTS;
       break;
     case "platform-postgres":
-      requirements = ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/effects", "tests/repair", "tests/coding-agent"].flatMap((directory) => testFiles(root, directory).flatMap((file) => {
+      requirements = ["tests/controlplane", "tests/capabilities", "tests/reconcile", "tests/effects", "tests/repair", "tests/coding-agent"].flatMap((directory) => testFiles(root, directory).filter(file => file !== "tests/controlplane/mixed-follow-up.test.ts").flatMap((file) => {
         const source = fs.readFileSync(path.join(root, file), "utf8");
         const backendSuites = [...source.matchAll(/describe\.each\((?:LANES|STORE_KINDS|lanes)\)\(\s*(["'])(.*?)\1/g)].map((match) => ({
           file, suite: match[2].replace("$name", "postgres").replace("%s", "postgres"), postgres: true,
@@ -6025,6 +6144,11 @@ export function requirementsFor(lane, root) {
         const postgresOnly = [...source.matchAll(/describe\.skipIf\(!PG_URL\)\(\s*(["'])(.*?)\1/g)].map((match) => ({ file, suite: match[2], backend: "postgres" }));
         return [...backendSuites, ...postgresOnly];
       }));
+      requirements.push(
+        {file:"tests/controlplane/mixed-follow-up.test.ts",suite:"mixed follow-up: producer outputs and ordering signals [postgres]",postgres:true},
+        {file:"tests/slo/slo.engine.test.ts",suite:"service objectives [postgres]",postgres:true},
+        {file:"tests/billing/billing.engine.test.ts",suite:"separable metering and billing [postgres]",postgres:true},
+      );
       requirements.push({file:"tests/controlplane/migrations.test.ts",suite:"migrator [postgres] concurrency and fail-closed open",test:"schema 6 emitted hardening upgrades through the canonical migrator under a distinct owner with RLS, role isolation and immutable artifacts",postgres:true});
       // These require independent PostgreSQL handles; they are not registered as isolated PGlite skips.
       requirements.push(...[
@@ -6104,7 +6228,7 @@ export function main(args) {
     console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch {
-    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres|linux-guest|packaged-worker|external-acceptance]");
+    console.error("usage: node scripts/ci/gate-manifest.mjs [fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres|wave5-contract|adversarial|recovery|linux-guest|packaged-worker|external-acceptance]");
     return 2;
   }
 }

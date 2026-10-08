@@ -273,6 +273,15 @@ describe.each(STORE_KINDS.filter((k) => k !== "memory"))("custom domains [%s]", 
     await expect(repos.managedServing.recordStorageKey(sql, { ...base, accessKeyId: "AKIABAD1", prefix: "no-trailing-slash" })).rejects.toBeDefined();
     await expect(repos.managedServing.recordStorageKey(sql, { ...base, accessKeyId: "AKIABAD2", secretRef: "plaintext-secret-value" })).rejects.toBeDefined();
     await expect(repos.managedServing.recordStorageKey(sql, { ...base, accessKeyId: "AKIABAD3", policyDigest: "short" })).rejects.toBeDefined();
+    // PostgreSQL's regex bounds stop at 255; the separate length check must still enforce a 1..300-character suffix.
+    for (const length of [1, 300]) {
+      const secretRef = `vault:${"a".repeat(length)}`;
+      const recorded = await repos.managedServing.recordStorageKey(sql, { ...base, address: `object_store/ref-${length}`, accessKeyId: `boundary-${length}`, secretRef });
+      expect(recorded.key.secretRef).toBe(secretRef);
+    }
+    for (const length of [0, 301]) {
+      await expect(repos.managedServing.recordStorageKey(sql, { ...base, address: `object_store/ref-${length}`, accessKeyId: `boundary-${length}`, secretRef: `vault:${"a".repeat(length)}` })).rejects.toBeDefined();
+    }
   });
 
   it("rejects bad inputs at the store boundary", async () => {
@@ -305,7 +314,8 @@ describe.each(STORE_KINDS.filter((k) => k !== "memory"))("custom domains [%s]", 
     expect(incidents.every((i) => i.escalated_at !== null)).toBe(true);
 
     // a delete that the provider did not actually carry out (the key is still listed) stays owed
-    const sticky = { id: "fake", availability: () => ({ available: true as const }), ensurePrincipal: async () => ({ ok: true as const, value: { created: false } }), readPolicyDigest: async () => ({ ok: true as const, value: undefined }), createAccessKey: async () => ({ ok: true as const, value: { accessKeyId: "x", secretAccessKey: "y" } }), listAccessKeys: async () => ({ ok: true as const, value: ["AKIAEXAMPLE1"] }), deleteAccessKey: async () => ({ ok: true as const, value: undefined }) };
+    const pending = await repos.managedServing.listRevokePending(sql);
+    const sticky = { id: "fake", availability: () => ({ available: true as const }), ensurePrincipal: async () => ({ ok: true as const, value: { created: false } }), readPolicyDigest: async () => ({ ok: true as const, value: undefined }), createAccessKey: async () => ({ ok: true as const, value: { accessKeyId: "x", secretAccessKey: "y" } }), listAccessKeys: async (principal: string) => ({ ok: true as const, value: pending.filter((row) => row.principalName === principal).map((row) => row.accessKeyId) }), deleteAccessKey: async () => ({ ok: true as const, value: undefined }) };
     const stuck = await managedServingPass(sql, { dns: systemDomainDns({ servers: [dns.server], timeoutMs: 250 }), clock: () => T0, baseDomain: BASE, storageAdmin: sticky });
     expect(stuck.revoked).toBe(0);
     expect(stuck.revocationsBlocked).toBeGreaterThanOrEqual(1);

@@ -14,6 +14,7 @@
 export const KEY_PURPOSES = [
   "signing:release",
   "signing:jobs",
+  "signing:audit-export",
   "signing:oidc",
   "signing:plugin-publisher",
   "signing:template-attestation",
@@ -23,6 +24,7 @@ export const KEY_PURPOSES = [
   "enc:temporal-payload",
   "enc:plan-artifacts",
   "enc:backup",
+  "enc:archive",
   "tls:temporal-mtls",
 ] as const;
 export type KeyPurpose = (typeof KEY_PURPOSES)[number];
@@ -51,6 +53,11 @@ export const PURPOSE_SPECS: Readonly<Record<KeyPurpose, PurposeSpec>> = {
     family: "signing", operations: ["verify"],
     protects: "Signed runner and zenithd release manifests. The private key stays offline; the control plane only ever holds public keys.",
     rotation: "Sign new releases with a new offline key; pin both public keys on agents until every host has updated, then drop the old one.",
+  },
+  "signing:audit-export": {
+    family: "signing", operations: ["sign", "verify"],
+    protects: "Signed audit export chains (ZENITH_AUDIT_EXPORT_SIGNING_JWK), separate from capability grants.",
+    rotation: "Switch to an independent audit key; retain prior public keys with exported chains for offline verification.",
   },
   "signing:jobs": {
     family: "signing", operations: ["sign", "verify"],
@@ -96,6 +103,11 @@ export const PURPOSE_SPECS: Readonly<Record<KeyPurpose, PurposeSpec>> = {
     family: "encryption", operations: ["encrypt", "decrypt"],
     protects: "Raw plan artifacts and standalone plan settlements (ZENITH_PLAN_ARTIFACT_KEY, previous keys in ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS).",
     rotation: "Move the old key into ZENITH_PLAN_ARTIFACT_PREVIOUS_KEYS and set the new key; plan custody owns the rewrap of its rows.",
+  },
+  "enc:archive": {
+    family: "encryption", operations: ["encrypt", "decrypt"],
+    protects: "Retention archives under a dedicated HKDF domain of ZENITH_BACKUP_KEY; never the hosted backup key bytes.",
+    rotation: "Keep the prior backup root for archive restore; pruning refuses records with an unavailable historical derived key.",
   },
   "enc:backup": {
     family: "encryption", operations: ["encrypt", "decrypt"],

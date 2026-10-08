@@ -335,9 +335,9 @@ export async function previewRetention(sql: Sql, policy: RetentionPolicy, now: D
       });
       if (Number(r.prune_eligible) > 0 && samplePrune.length < SAMPLE_LIMIT) {
         const sample = await sql.query<{ id: string; ts: string }>(
-          `select l.id::text as id, ${s.time}::text as ts from ${s.from} where l.workspace_id = $1 and ${pruneBase} and not ${afterWm}
-            order by ${s.time}, l.id limit $7::int`,
-          [ws, nowIso, w.archiveAfterDays, w.pruneAfterDays, wm?.ts ?? null, wm?.id ?? null, SAMPLE_LIMIT - samplePrune.length]);
+          `select l.id::text as id, ${s.time}::text as ts from ${s.from} where l.workspace_id = $1 and ${pruneBase.replaceAll("$4", "$3")} and not ${afterWm.replaceAll("$5", "$4").replaceAll("$6", "$5")}
+            order by ${s.time}, l.id limit $6::int`,
+          [ws, nowIso, w.pruneAfterDays, wm?.ts ?? null, wm?.id ?? null, SAMPLE_LIMIT - samplePrune.length]);
         for (const x of sample) samplePrune.push({ workspaceId: ws, rowId: x.id, recordedAt: x.ts });
       }
     }

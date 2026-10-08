@@ -53,6 +53,8 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 | [KEY-CUSTODY.md](KEY-CUSTODY.md) | Deployment operators | Purpose-separated keys, rotation and historical verification limits |
 | [ROLLING-UPGRADES.md](ROLLING-UPGRADES.md) | Deployment operators | Compatibility admission, replay recording and rollback limits |
 | [SENSITIVE-DATA.md](SENSITIVE-DATA.md) | Deployment operators | Sensitive persistence protection and undecided retention |
+| [RESTORE-RUNBOOK.md](RESTORE-RUNBOOK.md) | Whoever restores the control store | Clean-host backup/restore, recovery epochs, held work, measured RPO/RTO and required PostgreSQL/Temporal rehearsal |
+| [SUPPLY-CHAIN.md](SUPPLY-CHAIN.md) | Whoever produces or admits a release | Lockfile custody, bundled-parent evidence, SBOM, provenance, offline signatures and unverified release gates |
 | [SLO.md](SLO.md) | Whoever owns service and recovery objectives | Provisional (unapproved) availability, latency, capacity, RPO and RTO targets, error budgets and burn-rate alerts, the restore-rehearsal reporting hook, the capacity test and the operator report |
 | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) | Anyone deciding what to trust | **Generated.** Provider by native type by operation, with the evidence level each driver declares, the observability sources and the capability catalog |
 
@@ -156,8 +158,8 @@ against a real provider account, and the only path to one in the repository is
 environment named `live-sandbox`, authenticating to AWS with GitHub's OIDC token and
 no stored credential. It has **never been executed**: there is no sandbox AWS account
 (ledger blocker B-AWS-LIVE). The harness it calls, `scripts/acceptance/aws-live.ts`
-(scenarios A–J, see [ACCEPTANCE.md](../ACCEPTANCE.md)), has run only locally: Demo J's
-planning chain and dry runs of A–I, never against a cloud. Until a run is recorded and linked, the capability
+(scenarios Aâ€“J, see [ACCEPTANCE.md](../ACCEPTANCE.md)), has run only locally: Demo J's
+planning chain and dry runs of Aâ€“I, never against a cloud. Until a run is recorded and linked, the capability
 matrix has no `real` entry and `tests/docs/` fails if one appears.
 
 ## How these docs are kept honest

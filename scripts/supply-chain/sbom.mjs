@@ -70,6 +70,17 @@ export function npmComponents(lock, packageJson) {
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   const refOf = new Map();
+  const bundledOwner = (node) => {
+    let at = node.lastIndexOf("/node_modules/");
+    while (at >= 0) {
+      const parent = node.slice(0, at);
+      const entry = packages[parent];
+      if (entry && !entry.inBundle && sriToHex(entry.integrity)) return parent;
+      if (!entry?.inBundle) break;
+      at = parent.lastIndexOf("/node_modules/");
+    }
+    throw new Error(`bundled lockfile entry ${node} has no sha512-pinned enclosing tarball`);
+  };
   const components = nodes.map((node) => {
     const entry = packages[node];
     const name = entry.name ?? nodeName(node);
@@ -89,6 +100,11 @@ export function npmComponents(lock, packageJson) {
       properties: [prop("zenith:npm:node", node), prop("zenith:npm:dev", entry.dev === true), prop("zenith:npm:integrity", entry.integrity ?? "missing")],
     };
     if (hex) component.hashes = [{ alg: "SHA-512", content: hex }];
+    else if (entry.inBundle === true) {
+      const owner = bundledOwner(node);
+      // This hash belongs to the containing tarball, never to the child's own bytes.
+      component.properties.push(prop("zenith:npm:bundled-in-node", owner), prop("zenith:npm:bundle-sha512", sriToHex(packages[owner].integrity)));
+    }
     if (typeof entry.resolved === "string") component.externalReferences = [{ type: "distribution", url: entry.resolved }];
     if (typeof entry.license === "string") component.licenses = [{ expression: entry.license }];
     return component;
@@ -266,7 +282,7 @@ export function buildSbom({ lock, packageJson, goInfos = [], dockerfiles = [], i
     ...npm.dependencies,
     ...go.dependencies,
   ];
-  const content = { components, dependencies };
+  const content = { components, dependencies: dependencies.map(d => d.ref === rootRef ? { ...d, ref: "zenith-root" } : d) };
   const hex = sha256(JSON.stringify(content));
   const uuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
   return {
@@ -301,7 +317,15 @@ export function validateSbom(doc) {
       const len = { "SHA-256": 64, "SHA-512": 128 }[h.alg];
       if (!len || !new RegExp(`^[0-9a-f]{${len}}$`).test(h.content ?? "")) errors.push(`component ${c["bom-ref"]} has a malformed ${h.alg ?? "?"} hash`);
     }
-    if (c.purl?.startsWith("pkg:npm/") && !(c.hashes ?? []).some((h) => h.alg === "SHA-512")) errors.push(`npm component ${c["bom-ref"]} has no sha512 integrity hash`);
+    if (c.purl?.startsWith("pkg:npm/") && !(c.hashes ?? []).some((h) => h.alg === "SHA-512")) {
+      const property = (item, name) => item.properties?.find(p => p.name === name)?.value;
+      const ownerNode = property(c, "zenith:npm:bundled-in-node");
+      const node = property(c, "zenith:npm:node");
+      const owner = ownerNode && doc.components.find(item => property(item, "zenith:npm:node") === ownerNode);
+      const parentHash = owner?.hashes?.find(h => h.alg === "SHA-512")?.content;
+      if (!owner || !node?.startsWith(`${ownerNode}/node_modules/`) || !/^[0-9a-f]{128}$/.test(parentHash ?? "")
+        || property(c, "zenith:npm:bundle-sha512") !== parentHash) errors.push(`npm component ${c["bom-ref"]} has no sha512 integrity hash or verified enclosing bundle`);
+    }
   }
   const root = doc.metadata?.component?.["bom-ref"];
   const known = new Set([...refs, root]);

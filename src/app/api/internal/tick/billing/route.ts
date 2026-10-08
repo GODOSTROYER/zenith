@@ -4,11 +4,11 @@
  *
  * Level-triggered and idempotent, so a late or repeated pass is only late. With `ZENITH_BILLING` unset or `disabled`
  * (BYOC and self-hosted) it answers `{ enabled: false }` without touching the store. Control-store only; never boots the
- * legacy product. Add `billing` to the tick workflow's pass list to schedule it (docs/build/production/verify/PROD-MAN-06.md).
+ * legacy product. Shares the durable maintenance lease/health record; tick.yml is its fallback trigger.
  */
 import type { NextRequest } from "next/server";
 import { billingConfigFromEnv } from "@/lib/billing/config";
-import { runBillingTick } from "@/lib/billing/service";
+import { MAINTENANCE_JOBS, runCriticalJob } from "@/lib/platform/critical-jobs";
 import { withRequestId } from "@/lib/log";
 import { authorizeCron, ensurePlatformCron } from "@/lib/server/cron";
 import { ApiError, errorResponse, json } from "@/lib/server/errors";
@@ -24,8 +24,9 @@ async function tick(req: NextRequest): Promise<Response> {
       if (billingConfigFromEnv().mode !== "managed") return json({ pass: "billing", ok: true, enabled: false });
       if (!(await ensurePlatformCron())) throw new ApiError("The platform control store is not configured, so billing cannot run.", 503);
       const { platformDb } = await import("@/lib/controlplane/db");
-      const result = await runBillingTick(await platformDb(), { now: new Date() });
-      const res = json({ pass: "billing", ok: true, ...result });
+      const db = await platformDb();
+      const result = await runCriticalJob(db, "billing", "fallback", () => MAINTENANCE_JOBS.billing(db));
+      const res = json({ pass: "billing", ok: true, ...(result.status === "ok" ? result.value : { status: result.status }) });
       res.headers.set("x-request-id", requestId);
       return res;
     } catch (err) {

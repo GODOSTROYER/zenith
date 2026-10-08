@@ -558,3 +558,8 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 - PROD-UX-03: in_progress; Current CI d6965d75 scope passed; dedicated acceptance receipts retain original source and missing levels. [Results](verification/RESULTS-2026-10.md#coherent-verifier-source-2026-10-07).
 
 Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents156/0/0 all141;722 actual codec/deploy30/0/0. Scopes overlap; current71 workflow inventory. Full combined gate/CI pending; no promotion.
+
+
+## Wave 5
+
+Assembly schema 52, aggregate 0026, release states false. Run every command in [W5-ASSEMBLY.md](verify/W5-ASSEMBLY.md) in order: (1) owned PostgreSQL16 migration/tenancy/SLO/billing/domain stores, (2) matching pg_dump/pg_restore and pinned Temporal CLI for recovery plus complete workflows, (3) OpenTofu1.12.5 provider/local-variable contracts, adversarial and Wave 5 contracts, (4) Docker/kind/Gateway API with digest-pinned registry/builder/probe images, tenant bootstrap readiness and Calico/Cilium isolation, (5) IAM-enforcing S3 emulator, (6) browser/DOM operator QA. The linked runbook supplies exact env gates and commands; W5-ASSEMBLY-ONBOARDING supplies prepared/missing namespace fixtures and cleanup. No skipped gate is a pass. Live clouds, protected release-key creation and permissions.json approval remain deferred human actions.

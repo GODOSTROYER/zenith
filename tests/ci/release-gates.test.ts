@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
-import { CORE_CHECKS, GATE_LANES, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
+import { CORE_CHECKS, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
 
 interface Step {
   name?: string;
@@ -64,6 +64,7 @@ const ALL_WORKFLOWS: Record<string, Workflow> = {
   "tick.yml": read("tick.yml"),
   "live-acceptance.yml": liveAcceptance,
   "skipped-platforms.yml": read("skipped-platforms.yml"),
+  "release.yml": read("release.yml"),
 };
 
 /** The raw text of a workflow with its comment lines removed, for scans that parsed YAML cannot answer. */
@@ -111,7 +112,7 @@ const coreRun = (step: string): string => `node scripts/ci/run-gate.mjs core --r
 
 const requiredCommands: Record<string, string[]> = {
   verify: [
-    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml',
+    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml .github/workflows/release.yml',
     INSTALL,
     coreRun("typecheck"),
     coreRun("lint"),
@@ -538,6 +539,7 @@ const lines = (text: string | undefined): string[] => (text ?? "").split(/\r?\n/
  * Dependabot does not manage them.
  */
 const DOWNLOADS = [
+  { job: "recovery", url: "https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz", file: "temporal_cli.tar.gz", sha256: "09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5" },
   {
     job: "verify",
     url: "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz",
@@ -621,8 +623,8 @@ describe("downloaded tools are checksum-verified before anything touches them", 
   it("has a pinned URL, output name and sha256 for every curl in every workflow, and no others", () => {
     const seen = fetches()
       .map((one) => ({ job: one.job, url: one.url, file: one.output, sha256: one.sha256 }))
-      .sort((a, b) => a.url.localeCompare(b.url));
-    const expected = DOWNLOADS.map((one) => ({ ...one })).sort((a, b) => a.url.localeCompare(b.url));
+      .sort((a, b) => a.url.localeCompare(b.url) || a.job.localeCompare(b.job));
+    const expected = DOWNLOADS.map((one) => ({ ...one })).sort((a, b) => a.url.localeCompare(b.url) || a.job.localeCompare(b.job));
     expect(seen).toEqual(expected);
   });
 
@@ -765,14 +767,14 @@ describe("toolchain and trust rules that hold for every workflow", () => {
   it("names every lane-report lane the script knows, and reads the file its own vitest step wrote", () => {
     const usage = spawnSync(process.execPath, [path.resolve("scripts/ci/lane-report.mjs"), "no-such-lane", "x.json"], { encoding: "utf8" });
     const known = usage.stderr.match(/<([\w|-]+)>/)?.[1]?.split("|") ?? [];
-    expect(known.sort()).toEqual(["platform-postgres", "policy", "tofu", "workflows"]);
+    expect(known.sort()).toEqual(["platform-postgres", "policy", "recovery", "tofu", "workflows"]);
 
     const reports = Object.entries(workflow.jobs).flatMap(([name, j]) =>
       j.steps
         .filter((step) => cmd(step).startsWith("node scripts/ci/lane-report.mjs "))
         .map((step) => ({ name, j, step, args: cmd(step).split(/\s+/).slice(2) }))
     );
-    expect(reports.map((one) => one.args[0]).sort()).toEqual(["platform-postgres", "policy", "tofu", "workflows"]);
+    expect(reports.map((one) => one.args[0]).sort()).toEqual(["platform-postgres", "policy", "recovery", "tofu", "workflows"]);
     for (const { name, j, step, args } of reports) {
       expect(known, `${name} names an unknown lane`).toContain(args[0]);
       expect(step.if, `${name}: the lane report must run even when the suites failed`).toBe("always()");
@@ -819,7 +821,7 @@ describe("canonical execution and evidence in CI", () => {
     expect(manifestFor("fresh").steps[0].command).toEqual(["npm", "ci", "--ignore-scripts"]);
   });
 
-  it("requires local Temporal replay and pinned public source acquisition, with only mTLS external", () => {
+  it("requires local Temporal replay and pinned public source acquisition, retaining all external blockers", () => {
     const manifest = manifestFor("workflows");
     expect(manifest.env).toMatchObject({ ZENITH_TEST_TEMPORAL: "1", ZENITH_TEST_SOURCE_GITHUB: "1", ZENITH_TEST_SOURCE_REF: "37be7340536ccb68ae4bb49294e8ab3799d1f01b" });
     for (const file of ["tests/workflows/codec-replay.test.ts", "tests/workflows/destroy-replay.test.ts", "tests/platform/source-bundle.test.ts"]) expect(manifest.requirements).toContainEqual(expect.objectContaining({ file }));
@@ -834,7 +836,10 @@ describe("canonical execution and evidence in CI", () => {
       expect(jobOf(requiredLane).steps.map(cmd)).toContain(gateValidate(requiredLane));
       expect(manifest.requirements.some((item) => item.file === file)).toBe(false);
     }
-    expect(manifest.externalAcceptance).toEqual([expect.objectContaining({ id: "external-temporal-mtls", releaseBlocker: expect.stringContaining("unverified") })]);
+    expect(manifest.externalAcceptance).toEqual(EXTERNAL_ACCEPTANCE);
+    expect(manifest.externalAcceptance).toHaveLength(7);
+    expect(manifest.externalAcceptance[0]).toMatchObject({ id: "external-temporal-mtls", releaseBlocker: expect.stringContaining("unverified") });
+    for (const external of manifest.externalAcceptance) expect(external.releaseBlocker).toContain("unverified");
     expect(manifest.tools).toMatchObject({ node: NODE_VERSION, temporal: "1.9.1" });
   });
 

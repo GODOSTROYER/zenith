@@ -22,21 +22,61 @@
 import type { KubernetesSession } from "@/lib/credentials/types";
 import type { ResourceDriver } from "@/lib/drivers/types";
 import type { ObservedValue, ResourceNode } from "@/lib/resources/types";
+import { renderLoadBalancer } from "@/lib/providers/kubernetes/renderers/network";
 import { dig, isRecord, type KubernetesToolkit } from "../../k8s-port";
-import { HTTPROUTE_API_VERSION, rewriteRoutes, routeObjectName, servableCustomHosts } from "../../routing";
+import { HTTPROUTE_API_VERSION, ingressToRoutes, rewriteRoutes, routeObjectName, servableCustomHosts } from "../../routing";
 import { assertSessionMatches, type ZenithSession } from "../../session";
 import { tenantNamespace } from "../../tenancy";
 import { isRouteParentFor } from "../../tls";
+import { zenithNodeView } from "../../render";
 import { wrapKubernetesDriver } from "../kubernetes/wrap";
-import { contractEvidence, known, observation, presenceFromError, runtimeState, unknownValue, verifyAgainst } from "../common";
+import { contractEvidence, known, observation, presenceFromError, runtimeState, sameValue, unknownValue, verifyAgainst } from "../common";
 
 export const HTTP_ROUTE_DRIVER_ID = "zenith.http_route@1";
 
-const EXPECTED = { allRoutesPresent: true, allRoutesAccepted: true, attachedToPlatformGateway: true };
+const EXPECTED = { allRoutesPresent: true, allRoutesAccepted: true, attachedToPlatformGateway: true, routeConfigurationMatches: true };
+
+/** Normalize documented API defaults, retaining every rule field so added filters, matches and backends are drift. */
+function routeConfiguration(route: Record<string, unknown>, namespace: string): unknown {
+  const spec = isRecord(route.spec) ? route.spec : {};
+  const list = (value: unknown): unknown[] => Array.isArray(value) ? value : value === undefined ? [] : [value];
+  return {
+    ...spec,
+    parentRefs: list(spec.parentRefs).map((parent) => isRecord(parent) ? { group: "gateway.networking.k8s.io", kind: "Gateway", namespace, ...parent } : parent),
+    rules: list(spec.rules).map((rule) => {
+      if (!isRecord(rule)) return rule;
+      const matches = list(rule.matches);
+      return {
+        ...rule,
+        filters: list(rule.filters),
+        matches: (matches.length ? matches : [{}]).map((match) => isRecord(match) ? {
+          ...match, path: match.path !== undefined && !isRecord(match.path) ? match.path : { type: "PathPrefix", value: "/", ...(isRecord(match.path) ? match.path : {}) },
+          headers: list(match.headers), queryParams: list(match.queryParams),
+        } : match),
+        backendRefs: list(rule.backendRefs).map((backend) => isRecord(backend) ? { group: "", kind: "Service", namespace, weight: 1, ...backend, filters: list(backend.filters) } : backend),
+      };
+    }),
+  };
+}
+
+/** Use the same two rendering steps as apply, without graph lookup (expanded routes already carry their backend port). */
+function declaredRoutes(node: ResourceNode, session: ZenithSession): Map<string, Record<string, unknown>> {
+  const namespace = tenantNamespace(session.tenant.workspaceId, session.tenant.environmentId);
+  const desired = zenithNodeView(node, session.tenant, session.substrate, servableCustomHosts(session.substrate, session.customDomains));
+  const ingress = renderLoadBalancer(desired, { environmentId: session.tenant.environmentId, namespace }).objects[0];
+  return new Map(ingressToRoutes(ingress, session.substrate, new Map(), session.tenant).objects.map((route) => [route.metadata.name, route]));
+}
 
 function managedHosts(node: ResourceNode, session: ZenithSession): string[] {
   const routes = rewriteRoutes(isRecord(node.spec) ? node.spec.routes : undefined, session.tenant, session.substrate, servableCustomHosts(session.substrate, session.customDomains)).routes;
   return [...new Set(routes.filter(isRecord).map((r) => r.host).filter((h): h is string => typeof h === "string"))].sort();
+}
+
+/** Match ingressToRoutes: platform class, tenant hosts, and controller-terminated TLS. */
+function ingressNode(node: ResourceNode, session: ZenithSession): ResourceNode {
+  const view = zenithNodeView(node, session.tenant, session.substrate);
+  const routes = Array.isArray(view.spec.routes) ? view.spec.routes.map(route => isRecord(route) ? { ...route, tls: false } : route) : [];
+  return { ...view, spec: { ...view.spec, ingressClass: session.substrate.gateway.ingressClass, routes } };
 }
 
 /** Accepted and ResolvedRefs True on every parent: true/false, or undefined when the controller has not reported. */
@@ -84,14 +124,36 @@ export function createHttpRouteDriver(toolkit: KubernetesToolkit, baseIngress?: 
     async observe(ctx, node, externalId) {
       assertSessionMatches(ctx.session, ctx);
       if (ctx.session.substrate.gateway.mode === "ingress") {
-        if (ingressMode?.observe) return ingressMode.observe(ctx, node, externalId);
+        if (ingressMode?.observe) {
+          const desired = ingressNode(node, ctx.session);
+          const observed = await ingressMode.observe(ctx, desired, externalId);
+          const expected = { ingressClass: ctx.session.substrate.gateway.ingressClass, hosts: managedHosts(node, ctx.session), tlsHosts: [] };
+          const entries = Object.entries(expected);
+          // Desired hostnames depend on the trusted tenant session. Expose their
+          // comparison as a boolean so the session-free drift hook can compare it.
+          const changed = entries.some(([key, value]) => observed.attributes[key]?.state === "known" && !sameValue(observed.attributes[key].value, value));
+          const complete = entries.every(([key]) => observed.attributes[key]?.state === "known");
+          const matches = changed ? known(false, ctx.now()) : complete ? known(true, ctx.now()) : unknownValue("not_inspected", "The Ingress configuration was not completely read.");
+          // An incomplete configuration read cannot clear previously recorded
+          // drift merely because the API confirmed that the object exists.
+          if (observed.presence === "present" && !changed && !complete) {
+            return { ...observed, presence: "unknown", attributes: { ingressConfigurationMatches: matches },
+              native: { ...observed.native, partialIngressAttributes: observed.attributes } };
+          }
+          return { ...observed, attributes: { ...observed.attributes, ingressConfigurationMatches: matches } };
+        }
         return observation({ ctx, node, source: id, presence: "unknown", attributes: { allRoutesPresent: unknownValue("not_supported", "gateway mode is ingress and no Ingress driver was supplied") } });
       }
       try {
-        const { hosts, found } = await readRoutes(ctx, node);
+        const { ns, hosts, found } = await readRoutes(ctx, node);
         if (hosts.length === 0) return observation({ ctx, node, source: id, presence: "unknown", error: "The load balancer declares no routes." });
         if (found.length === 0) return observation({ ctx, node, source: id, presence: "missing", native: { expectedHosts: hosts.slice(0, 20) } });
         const now = ctx.now();
+        const declared = declaredRoutes(node, ctx.session);
+        const configurationMatches = found.length === hosts.length && found.every(({ host, route }) => {
+          const expected = declared.get(routeObjectName(host));
+          return expected !== undefined && sameValue(routeConfiguration(route, ns), routeConfiguration(expected, ns));
+        });
         const attached = found.every(({ route }) => {
           const parents = dig(route, "spec", "parentRefs");
           const hostnames = dig(route, "spec", "hostnames");
@@ -114,6 +176,7 @@ export function createHttpRouteDriver(toolkit: KubernetesToolkit, baseIngress?: 
             allRoutesPresent: known(found.length === hosts.length, now),
             allRoutesAccepted: acceptedAttr,
             attachedToPlatformGateway: known(attached, now),
+            routeConfigurationMatches: known(configurationMatches, now),
           },
           native: { hosts: found.map((f) => f.host).slice(0, 20), missingHosts: hosts.filter((h) => !found.some((f) => f.host === h)).slice(0, 20) },
         });
@@ -143,12 +206,13 @@ export function createHttpRouteDriver(toolkit: KubernetesToolkit, baseIngress?: 
 
     async verify(ctx, node, observed, runtime) {
       assertSessionMatches(ctx.session, ctx);
-      if (ctx.session.substrate.gateway.mode === "ingress" && ingressMode?.verify) return ingressMode.verify(ctx, node, observed, runtime);
+      if (ctx.session.substrate.gateway.mode === "ingress" && ingressMode?.verify) return ingressMode.verify(ctx, ingressNode(node, ctx.session), observed, runtime);
       return verifyAgainst(ctx, node, observed, EXPECTED);
     },
 
     expectedAttributes() {
-      return { ...EXPECTED };
+      // Only the active mode's attributes are observed; drift ignores absent keys.
+      return { ...EXPECTED, ingressConfigurationMatches: true };
     },
   };
 }

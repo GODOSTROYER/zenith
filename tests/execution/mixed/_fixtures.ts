@@ -5,6 +5,7 @@
  */
 import { digest } from "@/lib/controlplane/digest";
 import type { ProviderConnection } from "@/lib/credentials/types";
+import { defaultProtectedEndpoints, requiredPairs } from "@/lib/execution/mixed/connectivity";
 import { buildParentPlan, type BuildParentPlanInput } from "@/lib/execution/mixed/parent-plan";
 import type { ChildEnvironmentCandidate } from "@/lib/execution/mixed/partitioner";
 import type { MixedParentPlan } from "@/lib/execution/mixed/types";
@@ -76,4 +77,15 @@ export function refresh(graph: ResourceGraph): void {
     return left < right ? -1 : left > right ? 1 : 0;
   });
   graph.graphDigest = graphDigestOf(graph.nodes, graph.edges);
+}
+
+/** Explicit synthetic protected paths for store fixtures; no deployed network claim. */
+export function fixtureConnectivity(input: BuildParentPlanInput) {
+  const p = buildParentPlan(input);
+  const networks = p.children.map((c, i) => ({ partitionId: c.partitionId, cidrs: [`10.${10 + i}.0.0/16`], egress: [`34.1.1.${i + 1}`] }));
+  return defaultProtectedEndpoints(p, networks, requiredPairs(p).map(({consumer, producer}, i) => ({
+    consumerPartitionId: consumer, producerPartitionId: producer, host: `endpoint${i}.mixed.example.com`, port: 443,
+    dnsTargets: ["34.1.1.10"], serverSpkiSha256: "a".repeat(64), clientCaDigest: "b".repeat(64),
+    clientCertSubject: "CN=fixture", clientKeyRef: "vault:ws/env/client-key", clientCertRef: "vault:ws/env/client-cert",
+  })));
 }

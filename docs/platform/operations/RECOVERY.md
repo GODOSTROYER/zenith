@@ -5,7 +5,7 @@ an operation when something crashes, how leases and fence tokens behave, and how
 to rotate keys and migrate the schema. For where each component runs, see
 [DEPLOYING.md](DEPLOYING.md).
 
-Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
+Written against branch `prod/compose`, based on merged Wave 5 source at `443bfeaf537dd5d5324d33c84fc544ede0baa632` (2026-10-08).
 
 **Read this first.** The recovery machinery in the store (leases, fence tokens,
 `uncertain`, the reconciler) is built and was exercised against a real PostgreSQL
@@ -560,3 +560,8 @@ above, were not re-observed on Postgres.
 workflows (section 4.6); Supabase's own backup and restore; Temporal Cloud; any
 recovery with the now-composed execution activities; a runner reaping jobs against a
 live control plane; a load of realistic size (the drill wrote a handful of rows).
+
+
+## Wave 5 restore continuation
+
+[RESTORE-RUNBOOK.md](RESTORE-RUNBOOK.md) supersedes the old post-restore fence/approval continuation instructions: schema 46 bumps installation recovery epochs, expires lost-timeline leases, revokes resurrected grants and holds ambiguous work for a person. Start no worker until the Temporal termination/continuation hand-off is complete. Post-snapshot effects are invisible to the backup and still require reconciliation with each provider. `ops:recovery restore` publishes incident/snapshot/restore instants to the SLO recorder as a `recovery-drill`; this is database recovery timing, not application-health RTO. Failed publication is an explicit report hand-off. [Assembly verification](../../build/production/verify/W5-ASSEMBLY.md).

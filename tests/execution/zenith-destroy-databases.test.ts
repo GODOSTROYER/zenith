@@ -17,13 +17,13 @@ interface Inventory { address: string; deletionPolicy: string; approved?: boolea
 const seen = (input: TeardownInput): Inventory[] | undefined =>
   (input.session as { teardown?: { databases?: Inventory[] } }).teardown?.databases;
 
-function setup(deletionPolicy?: "allow" | "approval" | "deny") {
+function setup(deletionPolicy: "allow" | "approval" | "deny" = "deny") {
   const w = createWorld({ op: { capability: "infrastructure.destroy", status: "running" } }); worlds.push(w);
   w.product.base.environment.provider = "zenith";
   w.product.base.environment.deployedRevisionId = REVISION;
   const manifest = webDbManifest(); manifest.routes = []; manifest.bindings = [];
-  if (deletionPolicy) (manifest.resources[0] as { config: Record<string, unknown> }).config = { deletionPolicy };
-  w.product.setManifest(manifest);
+  // Deletion is a V2 policy; resource.config cannot override it. V1 upgrades default to approval.
+  w.product.setManifest({ ...manifest, version: 2, policies: { deletion: deletionPolicy } });
   const calls: TeardownInput[] = [];
   const transport = vi.fn(async (input: TeardownInput): Promise<TeardownResult> => {
     calls.push(input);

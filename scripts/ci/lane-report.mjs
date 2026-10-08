@@ -43,7 +43,7 @@
  * direction to be wrong in.
  *
  * Usage:  node scripts/ci/lane-report.mjs <lane> <vitest-json-report> [--root <repo root>]
- * Lanes:  policy | tofu | workflows | platform-postgres
+ * Lanes:  policy | tofu | workflows | platform-postgres | recovery
  * Exit:   0 every live requirement ran, 1 otherwise (or the report is unreadable),
  *         2 usage error.
  */
@@ -156,6 +156,18 @@ const LANES = {
     ],
   },
 
+  recovery: {
+    title: "Recovery rehearsal lane",
+    required: [{
+      label: "tests/ops/recovery-rehearsal.test.ts (real PostgreSQL and Temporal)",
+      match: file("tests/ops/recovery-rehearsal.test.ts"),
+      whenExists: "src/lib/ops/recovery",
+      why: "Requires an owned PostgreSQL database, pg_dump/pg_restore and the pinned local Temporal CLI; contracts are not restore acceptance.",
+    }],
+    informational: [],
+    blocked: [{ lane: "Production recovery", reason: "Disposable PostgreSQL/Temporal rehearsal cannot establish production application health, RLS or recovery across live providers." }],
+  },
+
   "platform-postgres": {
     title: "Platform PostgreSQL lane",
     required: [
@@ -254,7 +266,7 @@ const missing = requirements.filter((req) => !req.ok);
 // Historical pre-implementation roots remain explicitly not-yet-required. In
 // the actual checkout, summaries and the execution gate share strict contracts.
 let strictFailures = [];
-const testDirectory = laneName === "platform-postgres" ? "tests/controlplane" : `tests/${laneName}`;
+const testDirectory = laneName === "platform-postgres" ? "tests/controlplane" : laneName === "recovery" ? "tests/ops" : `tests/${laneName}`;
 if (fs.existsSync(path.join(root, testDirectory))) {
   try { strictFailures = reportFailures(requirementsFor(laneName, root), report, root); }
   catch { strictFailures = ["Canonical required source scenarios are unavailable or invalid"]; }

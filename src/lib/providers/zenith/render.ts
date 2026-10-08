@@ -92,6 +92,12 @@ export function assessZenithGraph(nodes: readonly ResourceNode[], opts: AssessOp
       out.skipped.push(at(n, `provider ${n.provider} is not handled by the managed platform`));
       continue;
     }
+    // Expansion references the customer's zone without owning it. Managed routes use the platform wildcard;
+    // the zone is therefore descriptive and needs neither a native mapping nor a mutation-capable driver.
+    if (n.kind === "dns_zone" && n.ownership === "referenced") {
+      out.platformManaged.push(at(n, PLATFORM_MANAGED.dns_zone));
+      continue;
+    }
     if (n.ownership !== "managed") {
       out.skipped.push(at(n, `${n.ownership} node is never rendered or applied`));
       continue;

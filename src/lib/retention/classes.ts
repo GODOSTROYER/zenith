@@ -91,6 +91,22 @@ export const NEVER_PRUNABLE: Readonly<Record<string, string>> = {
   "platform.retention_destinations": "tenant archive destinations",
   "platform.retention_restores": "restore audit",
   "platform.leases": "fenced leases",
+  "platform.mixed_output_records": "append-only producer provenance",
+  "platform.slo_samples": "measurement history",
+  "platform.slo_measurements": "append-only recovery objectives",
+  "platform.recovery_epochs": "installation recovery fences",
+  "platform.recovery_items": "recovery hand-off ledger",
+  "platform.audit_exports": "signed export audit",
+  "platform.managed_domains": "domain ownership and retirement",
+  "platform.managed_storage_keys": "scoped key revocation history",
+  "platform.billing_accounts": "account state",
+  "platform.billing_account_events": "append-only billing audit",
+  "platform.billing_invoices": "invoice idempotency",
+  "platform.billing_usage_events": "usage meter idempotency",
+  "platform.billing_webhook_events": "webhook replay prevention",
+  "platform.approved_source_snapshots": "reviewed immutable sources",
+  "platform.mixed_child_custody": "child execution authority",
+
 };
 
 export class RetentionInvariantError extends Error {

@@ -30,6 +30,8 @@ import type { KubernetesToolkit } from "./k8s-port";
 import type { ZenithSession } from "./session";
 import type { SubstrateDescription, ZenithSubstrate } from "./substrate";
 import type { ZenithTenant } from "./types";
+import type { ServingInputs } from "@/lib/managed-serving/platform-store";
+import type { ObjectStoragePorts } from "@/lib/managed-serving/storage";
 
 export type ManagedSubstrateErrorCode =
   | "not_configured"
@@ -76,6 +78,7 @@ export interface ManagedSessionRequest extends TenantRef {
    * answers `unavailable` (a session that only observes, releases or tears down needs no database scope).
    */
   databases?: ManagedDatabaseProvider;
+  storage?: ObjectStoragePorts;
 }
 
 /** Where tenant images live on the Zenith-operated registry. Pure naming and ownership; no network. */
@@ -118,6 +121,8 @@ export interface ManagedSubstratePort {
   /** The Kubernetes provider's render/apply/read/list, shared by drivers and the apply pipeline. */
   readonly toolkit: KubernetesToolkit;
   readonly tenants: TenantResolver;
+  /** Current domain proof and retirement state, re-read at each reviewed dispatch. */
+  servingInputs?(tenant: TenantRef): Promise<ServingInputs>;
   /** The Zenith-operated registry, or undefined when none is configured (built images then refuse). */
   registry(): ManagedRegistryPort | undefined;
   /** The validated build configuration. Throws `build_unavailable` (naming what to set) when builds are not configured. */
@@ -127,7 +132,7 @@ export interface ManagedSubstratePort {
   /** Open, run, drop. The session never leaves `fn`. */
   withSession<T>(request: ManagedSessionRequest, fn: (session: ZenithSession) => Promise<T>): Promise<T>;
   /** The managed-database port and workload secret resolver for one environment, bound to its vault scope. */
-  databaseRuntime(input: ManagedDatabaseRuntimeInput): { databases: ManagedDatabaseProvider; resolveSecret: (ref: string) => Promise<string | undefined> };
+  databaseRuntime(input: ManagedDatabaseRuntimeInput): { databases: ManagedDatabaseProvider; resolveSecret: (ref: string) => Promise<string | undefined>; storage?: ObjectStoragePorts };
   /**
    * A session for the platform build namespace (never a tenant namespace). Builds run there under the
    * platform's own identity, so a tenant session is never given build authority.

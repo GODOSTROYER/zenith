@@ -217,9 +217,9 @@ describe("the build port against the Kubernetes contract fake", () => {
   let fake: FakeK8s;
   let managed: ManagedSubstratePort;
 
-  const seedBaseline = (egress: unknown[] | undefined = [{ to: [{ ipBlock: { cidr: "10.0.0.0/8" } }], ports: [{ protocol: "TCP", port: 5000 }] }]) => {
+  const seedBaseline = (egress: unknown[] | null = [{ to: [{ ipBlock: { cidr: "10.0.0.0/8" } }], ports: [{ protocol: "TCP", port: 5000 }] }]) => {
     fake.seed({ apiVersion: "v1", kind: "ServiceAccount", metadata: { name: "zenith-builder", namespace: NAMESPACE }, automountServiceAccountToken: false });
-    if (egress !== undefined) {
+    if (egress !== null) {
       fake.seed({ apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy", metadata: { name: "zenith-build-egress", namespace: NAMESPACE }, spec: { podSelector: {}, policyTypes: ["Egress"], egress } });
     }
   };
@@ -284,7 +284,7 @@ describe("the build port against the Kubernetes contract fake", () => {
   });
 
   it("refuses to run a build when the build namespace has no declared egress policy, and launches nothing", async () => {
-    seedBaseline(undefined);
+    seedBaseline(null);
     const ctx = await context();
     await expect(start(createZenithBuildPort({ managed, pollMs: 1 }), ctx)).rejects.toThrowError(/zenith-build-egress/);
     expect(fake.list("Job", NAMESPACE)).toEqual([]);

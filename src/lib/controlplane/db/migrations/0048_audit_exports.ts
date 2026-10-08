@@ -11,8 +11,8 @@
  *
  * No event content, input value or secret is stored; `created_by` is the principal id of the admin who requested it.
  */
-export const migration0047AuditExports = {
-  version: 47,
+export const migration0048AuditExports = {
+  version: 48,
   name: "audit_exports",
   sql: `
 create table if not exists platform.audit_exports (

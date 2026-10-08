@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { KubernetesSession } from "@/lib/credentials/types";
 import { findDriver, getDriver, listDrivers, type DriverContext, type ResourceDriver } from "@/lib/drivers/types";
 import { NATIVE_TYPE_TABLE, nativeTypeFor } from "@/lib/resources/native-types";
-import type { Observation, ResourceNode } from "@/lib/resources/types";
+import type { Observation, ObservedValue, ResourceNode } from "@/lib/resources/types";
+import { computeDriftV2 } from "@/lib/resources/drift";
+import { ingressDef } from "@/lib/providers/kubernetes/drivers/network/ingress";
+import { deploymentDriver } from "@/lib/providers/kubernetes/drivers/workload/deployment";
 import { createZenithDrivers, registerZenithDrivers, zenithDriverId } from "@/lib/providers/zenith/drivers";
 import { OBJECT_STORE_UNSUPPORTED_REASON, PROPOSED_OBJECT_STORE_NATIVE_TYPE } from "@/lib/providers/zenith/drivers/data/object-store";
 import { createNeonProvider } from "@/lib/providers/zenith/neon";
@@ -282,6 +285,44 @@ describe("wrapped Kubernetes drivers", () => {
   });
 });
 
+describe("managed Deployment autoscaler ownership", () => {
+  it.each(["autoscaled", "image", "memory", "free", "single", "referenced"] as const)("preserves all other native configuration checks: %s", async (scenario) => {
+    const node = mkNode(WEB.address, "container_service", { ...WEB.spec, replicas: scenario === "single" ? 1 : 2 }, scenario === "referenced" ? { ownership: "referenced" } : {});
+    const managed = session(unavailableDatabaseProvider("x"), { tenant: { ...TENANT, planTier: scenario === "free" ? "free" : "starter" } });
+    const ctx = driverCtx(managed);
+    const native: ResourceDriver<KubernetesSession> = {
+      ...deploymentDriver,
+      async observe(baseCtx) {
+        const values = { ...deploymentDriver.expectedAttributes!(node), replicas: 4,
+          ...(scenario === "image" ? { image: "registry.example.com/unreviewed:2" } : {}),
+          ...(scenario === "memory" ? { memoryMi: 1024 } : {}),
+        };
+        return { address: node.address, presence: "present", attributes: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { state: "known", value, observedAt: baseCtx.now().toISOString() }])), native: { resource: node.address }, observedAt: baseCtx.now().toISOString(), source: deploymentDriver.id, simulated: false };
+      },
+    };
+    const d = byType(createZenithDrivers({ toolkit, kubernetesDrivers: [native] }).drivers, "k8s:Deployment");
+    const observed = await d.observe!(ctx, node);
+    const runtime = { address: node.address, health: "healthy" as const, counts: { desired: 4, ready: 4, updated: 4 }, signals: [], observedAt: ctx.now().toISOString(), source: d.id, simulated: false };
+    const verified = await d.verify!(ctx, node, observed, runtime);
+    expect(verified.checks.find((check) => check.id === "configuration")?.passed).toBe(scenario === "autoscaled");
+    const drift = computeDriftV2({ version: 1, environmentId: TENANT.environmentId, manifestDigest: "", nodes: [node], edges: [], graphDigest: "autoscaler-fixture", notes: [] }, [observed], { expectedAttributes: (n) => d.expectedAttributes!(n) });
+    if (scenario === "autoscaled") {
+      expect(verified.status).toBe("passed");
+      expect(drift.findings).toEqual([]);
+      expect(observed.attributes.replicas).toBeUndefined();
+      expect(observed.native).toMatchObject({ replicaOwner: "declared-hpa", autoscaledReplicas: 4 });
+      const nativeCtx = { ...ctx, session: K8S_SESSION };
+      const nativeObserved = await native.observe!(nativeCtx, node);
+      expect((await native.verify!(nativeCtx, node, nativeObserved, runtime)).checks.find((check) => check.id === "configuration")?.passed).toBe(false);
+    } else {
+      expect(verified.status).toBe("failed");
+      expect(drift.findings).toContainEqual(expect.objectContaining({ address: node.address, class: "changed" }));
+      if (["free", "single", "referenced"].includes(scenario)) expect(observed.attributes.replicas).toMatchObject({ state: "known", value: 4 });
+    }
+    expect(node.spec.replicas).toBe(scenario === "single" ? 1 : 2);
+  });
+});
+
 /* ---------------------------- tenant namespace driver ----------------------- */
 
 describe("zenith.tenant_namespace@1", () => {
@@ -366,12 +407,13 @@ describe("zenith.tenant_namespace@1", () => {
 describe("zenith.http_route@1", () => {
   const driver = () => byType(createZenithDrivers({ toolkit, kubernetesDrivers: [] }).drivers, "k8s:Ingress");
   const s = () => session(unavailableDatabaseProvider("x"));
+  const drift = (d: ResourceDriver<ZenithSession>, observed: Observation) => computeDriftV2({ version: 1, environmentId: TENANT.environmentId, manifestDigest: "", nodes: [LB], edges: [], graphDigest: "route-fixture", notes: [] }, [observed], { expectedAttributes: node => d.expectedAttributes!(node) });
   const HOST = "web.production.acme.apps.example.com";
   const route = (over: { parent?: Record<string, unknown>; conditions?: { type: string; status: string }[] | null } = {}) => ({
     apiVersion: "gateway.networking.k8s.io/v1",
     kind: "HTTPRoute",
     metadata: { name: routeObjectName(HOST), namespace: NS, labels: { "zenith.dev/route": "true" } },
-    spec: { hostnames: [HOST], parentRefs: [over.parent ?? environmentGatewayParent(TENANT, substrate())] },
+    spec: { hostnames: [HOST], parentRefs: [over.parent ?? environmentGatewayParent(TENANT, substrate())], rules: [{ matches: [{ path: { type: "PathPrefix", value: "/" } }], backendRefs: [{ name: "web", port: 8080 }] }] },
     ...(over.conditions === null
       ? {}
       : { status: { parents: [{ conditions: over.conditions ?? [{ type: "Accepted", status: "True" }, { type: "ResolvedRefs", status: "True" }] }] } }),
@@ -387,7 +429,9 @@ describe("zenith.http_route@1", () => {
     const d = driver();
     const o = await obs(d, LB, s());
     expect(o.presence).toBe("present");
-    for (const [k, v] of Object.entries(d.expectedAttributes!(LB))) expect(o.attributes[k], k).toMatchObject({ state: "known", value: v });
+    for (const [k, v] of Object.entries(d.expectedAttributes!(LB)).filter(([key]) => key !== "ingressConfigurationMatches")) expect(o.attributes[k], k).toMatchObject({ state: "known", value: v });
+    expect(o.attributes.ingressConfigurationMatches).toBeUndefined();
+    expect(drift(d, o).findings).toEqual([]);
     expect((await d.verify!(driverCtx(s()), LB, o)).status).toBe("passed");
     expect((await d.runtime!(driverCtx(s()), LB)).health).toBe("healthy");
   });
@@ -396,6 +440,35 @@ describe("zenith.http_route@1", () => {
     const o = await obs(driver(), LB, s());
     expect(o.presence).toBe("missing");
     expect(o.native).toMatchObject({ expectedHosts: [HOST] });
+  });
+
+  it("accepts API-defaulted backend fields while comparing the renderer's route projection", async () => {
+    const live = route();
+    toolkit.put({ ...live, spec: { ...live.spec, rules: [{ ...live.spec.rules[0], filters: [], backendRefs: [{ ...live.spec.rules[0].backendRefs[0], group: "", kind: "Service", namespace: NS, weight: 1 }] }] } });
+    const d = driver();
+    const observed = await obs(d, LB, s());
+    expect(observed.attributes.routeConfigurationMatches).toMatchObject({ state: "known", value: true });
+    expect((await d.verify!(driverCtx(s()), LB, observed)).status).toBe("passed");
+    expect(drift(d, observed).findings).toEqual([]);
+  });
+
+  it.each(["backend", "port", "path", "match", "filter", "rule", "namespace"] as const)("detects HTTPRoute %s drift even when the gateway still accepts it", async (changed) => {
+    const live = route();
+    const rule: Record<string, unknown> = structuredClone(live.spec.rules[0]);
+    if (changed === "backend") rule.backendRefs = [{ name: "other-service", port: 8080 }];
+    if (changed === "port") rule.backendRefs = [{ name: "web", port: 9000 }];
+    if (changed === "namespace") rule.backendRefs = [{ name: "web", port: 8080, namespace: "another-tenant" }];
+    if (changed === "path") rule.matches = [{ path: { type: "PathPrefix", value: "/unreviewed" } }];
+    if (changed === "match") rule.matches = [{ path: { type: "Exact", value: "/" } }];
+    if (changed === "filter") rule.filters = [{ type: "RequestRedirect", requestRedirect: { hostname: "other.example.com" } }];
+    const rules = changed === "rule" ? [rule, { matches: [{ path: { type: "PathPrefix", value: "/other" } }], backendRefs: [{ name: "other-service", port: 8080 }] }] : [rule];
+    toolkit.put({ ...live, spec: { ...live.spec, rules } });
+    const d = driver();
+    const observed = await obs(d, LB, s());
+    expect(observed.attributes.allRoutesAccepted).toMatchObject({ state: "known", value: true });
+    expect(observed.attributes.routeConfigurationMatches).toMatchObject({ state: "known", value: false });
+    expect((await d.verify!(driverCtx(s()), LB, observed)).status).toBe("failed");
+    expect(drift(d, observed).findings).toContainEqual(expect.objectContaining({ address: LB.address, class: "changed", fields: expect.arrayContaining([expect.objectContaining({ attribute: "routeConfigurationMatches", desired: true, observed: false })]) }));
   });
 
   it("does not claim acceptance before the gateway controller has reported", async () => {
@@ -442,6 +515,39 @@ describe("zenith.http_route@1", () => {
     const o = await without.observe!(driverCtx(sIngress), LB);
     expect(o.presence).toBe("unknown");
     expect(o.attributes.allRoutesPresent).toMatchObject({ state: "unknown", reason: "not_supported" });
+  });
+
+  it.each(["matching", "hosts", "tlsHosts", "ingressClass", "unread"] as const)("compares the rendered Ingress configuration for drift: %s", async changed => {
+    const ingressEnv = { ...FULL_ENV, ZENITH_MANAGED_GATEWAY_MODE: "ingress", ZENITH_MANAGED_INGRESS_CLASS: "nginx" };
+    const ingressSession = session(unavailableDatabaseProvider("x"), {}, ingressEnv);
+    const base = fakeBase("k8s:Ingress", "load_balancer", seen);
+    base.expectedAttributes = ingressDef.expected;
+    base.observe = async (ctx, node) => {
+      const live = { spec: {
+        ingressClassName: changed === "ingressClass" ? "other-controller" : "nginx",
+        rules: [{ host: changed === "hosts" ? "unexpected.apps.example.com" : HOST }],
+        // The managed renderer deliberately removes TLS entries: the ingress controller terminates TLS.
+        tls: changed === "tlsHosts" ? [{ hosts: [HOST] }] : [],
+      } };
+      const attributes: Record<string, ObservedValue> = Object.fromEntries(Object.entries(ingressDef.attributes(live)).map(([key, value]) => [key, { state: "known", value, observedAt: ctx.now().toISOString() }]));
+      if (changed === "unread") attributes.hosts = { state: "unknown", reason: "not_inspected" };
+      expect(node.spec.ingressClass).toBe("nginx");
+      expect(node.spec.routes).toEqual(expect.arrayContaining([expect.objectContaining({ host: HOST, tls: false })]));
+      return { address: node.address, presence: "present", attributes, observedAt: ctx.now().toISOString(), source: base.id, simulated: false };
+    };
+    const d = byType(createZenithDrivers({ toolkit, kubernetesDrivers: [base] }).drivers, "k8s:Ingress");
+    const observed = await obs(d, LB, ingressSession);
+    if (changed === "unread") {
+      expect(observed.attributes.ingressConfigurationMatches).toMatchObject({ state: "unknown", reason: "not_inspected" });
+      expect(observed.presence).toBe("unknown");
+      expect(drift(d, observed).findings).toContainEqual(expect.objectContaining({ address: LB.address, class: "unknown", repairable: false }));
+    } else if (changed === "matching") {
+      expect(observed.attributes.ingressConfigurationMatches).toMatchObject({ state: "known", value: true });
+      expect(drift(d, observed).findings).toEqual([]);
+    } else {
+      expect(observed.attributes.ingressConfigurationMatches).toMatchObject({ state: "known", value: false });
+      expect(drift(d, observed).findings).toContainEqual(expect.objectContaining({ address: LB.address, class: "changed", fields: expect.arrayContaining([expect.objectContaining({ attribute: "ingressConfigurationMatches", desired: true, observed: false })]) }));
+    }
   });
 
   it("refuses another tenant's session", async () => {

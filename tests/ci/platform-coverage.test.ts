@@ -154,6 +154,9 @@ function testsUnder(directory: string): string[] {
 
 /** Detect executable comparisons, including static bracket access, without treating quoted source or comments as runtime gates. */
 function hasTofuNetworkComparison(source: string, fileName = "fixture.test.ts"): boolean {
+  // Escape sequences can spell the property without its literal source token.
+  // Sources with either form still use the complete AST walk below.
+  if (!source.includes("ZENITH_TEST_TOFU_NETWORK") && !source.includes("\\")) return false;
   const ast = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const unwrap = (input: ts.Expression): ts.Expression => {
     let node = input;
@@ -588,7 +591,7 @@ describe("mandatory unchanged APPLY authority continuation [report models]", () 
     expect(manifest.command).toContain(required[0].file); expect(manifest.excludeFiles).not.toContain(required[0].file);
     expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1;"))).toBe(true);
     const source = fs.readFileSync(path.join(root, required[0].file), "utf8");
-    expect(createHash("sha256").update(source).digest("hex")).toBe("3fb495f33a29736991f966c2c7c521552e864fea17d99ac39b94e63ca972e9ff");
+    expect(createHash("sha256").update(source).digest("hex")).toBe("321826a561c8060b67d70994384403cb68c46652c27060baa942f1dbb5f9a730");
     expect(source).toContain(JSON.stringify(required[0].test));
     expect(source.indexOf("ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED")).toBeLessThan(source.indexOf("beforeAll("));
     expect(source).toContain('(!PG_URL || !tofuOnPath() || process.env.ZENITH_TEST_TOFU_NETWORK !== "1")');
@@ -646,7 +649,7 @@ describe("network gate AST detection [source models]", () => {
     };
     expect(hasTofuNetworkComparison(source[kind])).toBe(false);
   });
-  it.each(["strict equal", "strict unequal", "reversed", "loose equal", "loose unequal", "static bracket", "optional chain", "parenthesized", "typed expression", "template interpolation"])("detects actual %s runtime comparison without a file exemption", kind => {
+  it.each(["strict equal", "strict unequal", "reversed", "loose equal", "loose unequal", "static bracket", "escaped bracket", "optional chain", "parenthesized", "typed expression", "template interpolation"])("detects actual %s runtime comparison without a file exemption", kind => {
     const source: Record<string, string> = {
       "strict equal": 'describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK === "1")("suite", () => {});',
       "strict unequal": 'describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== "1")("suite", () => {});',
@@ -654,6 +657,7 @@ describe("network gate AST detection [source models]", () => {
       "loose equal": 'const enabled = process.env.ZENITH_TEST_TOFU_NETWORK == "1";',
       "loose unequal": 'const enabled = process.env.ZENITH_TEST_TOFU_NETWORK != "1";',
       "static bracket": 'const enabled = process["env"]["ZENITH_TEST_TOFU_NETWORK"] === "1";',
+      "escaped bracket": 'const enabled = process["env"]["\\u005aENITH_TEST_TOFU_NETWORK"] === "1";',
       "optional chain": 'const enabled = process?.env?.ZENITH_TEST_TOFU_NETWORK !== "1";',
       parenthesized: 'const enabled = (((process.env.ZENITH_TEST_TOFU_NETWORK))) !== "1";',
       "typed expression": 'const enabled = (process.env.ZENITH_TEST_TOFU_NETWORK as string | undefined) === "1";',
@@ -766,7 +770,7 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
     expect(declaration).toBeDefined();
     expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
-    expect(committed.slice(-10)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql"]);
+    expect(committed.slice(-11)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql", "0026_platform_core.sql"]);
     expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
     expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
   });
@@ -778,8 +782,8 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1141);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1141);
+    expect(manifest.requirements).toHaveLength(1144);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1144);
     expect(withoutIncomingPlatform(manifest.requirements).map(item => item.id).sort()).toEqual([...priorCurrentSuccessorPlatformRequirements(), ...added, ...INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }))].map(item => item.id).sort());
     for (const item of added) {
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
@@ -836,7 +840,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(71);
+    expect(requirementsFor("workflows", root)).toHaveLength(76);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -856,8 +860,8 @@ describe("critical scheduling native admission [workflow source models]", () => 
     const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
     expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
       .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
-    expect(manifest.requirements).toHaveLength(71);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(manifest.requirements).toHaveLength(76);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(76);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");

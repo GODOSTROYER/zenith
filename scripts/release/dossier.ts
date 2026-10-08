@@ -111,7 +111,7 @@ function rowStatus(req: LedgerRequirement, levels: Record<string, LevelState>): 
   return "in_progress";
 }
 
-const excerpt = (text: string | undefined, n = 220): string => (text ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+const excerpt = (text: unknown, n = 220): string => (typeof text === "string" ? text : text === undefined ? "" : JSON.stringify(text)).replace(/\s+/g, " ").trim().slice(0, n);
 
 export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly VerifyDoc[]; evidenceFiles: readonly EvidenceFile[]; acceptance?: AcceptanceReport; exists?: (relative: string) => boolean; now?: () => Date }): Dossier {
   const exists = input.exists ?? (() => true);

@@ -170,6 +170,12 @@ const WRITES = new Set([
   // PROD-MIX-03/04 join (wave-4 assembly): run deadline and review lookups; each statement binds the supplied workspace, and a review approval counts only for the named parent run and a live human approval of its own proposal digest.
   "mixedParentPlans.readParentApprovalExpiry", "mixedParentPlans.findReviewOperation", "mixedParentPlans.readReviewApprovalDigest", "mixedParentPlans.findReviewApprovalId", "mixedParentPlans.findOpenReviewOperation",
   // PROD-MIX-03/04: run state, ledger and output preauthorizations are workspace-bound in SQL; foreign-workspace hiding is covered by tests/controlplane/mixed-runs.test.ts.
+  // Managed serving owning/foreign SQL controls are in domain-store.test.ts and domain-routes.test.ts.
+  "managedServing.claimDomain", "managedServing.getDomainForVerification", "managedServing.getDomain", "managedServing.listDomains", "managedServing.verifiedHostnames", "managedServing.applyDomainTransition", "managedServing.revokeDomain", "managedServing.recordStorageKey", "managedServing.activeStorageKey", "managedServing.listStorageKeys", "managedServing.markStorageKeyRevoked", "managedServing.retireStorageKey",
+  "mixedOutputRecords.findChildByOperation", "mixedOutputRecords.findLatestChildOfOperationEnvironment",
+  // Wave 5: workspace-qualified reads and immutable output writes, owning/foreign controls in mixed-follow-up.test.ts.
+  "mixedOutputRecords.recordOutput", "mixedOutputRecords.getOutput", "mixedOutputRecords.listOutputs", "mixedOutputRecords.readProducerObservation",
+  "mixedSignals.latestChildDriftReport", "mixedSignals.childMigrationClasses",
   "mixedRuns.get", "mixedRuns.create", "mixedRuns.save", "mixedRuns.listEvents",
   "mixedOutputPreauthorizations.create", "mixedOutputPreauthorizations.get", "mixedOutputPreauthorizations.list", "mixedOutputPreauthorizations.revoke", "mixedOutputPreauthorizations.reserveUse",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings",
@@ -179,6 +185,8 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "managedServing.listDomainsDue": "system renewal under the managed-serving lease; returns workspace-qualified rows and all transitions rebind the row workspace (domain-store.test.ts)",
+  "managedServing.listRevokePending": "system revocation under the managed-serving lease; returns workspace-qualified key rows and readback/settlement rebinds that workspace (domain-store.test.ts)",
   "planCustody.PlanCustodyError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",
   "stateBackendRecovery.StateRecoveryRecordError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",
   "stateBackendRecovery.restoreProposalDigest": "pure digest over a supplied proposal; reads no SQL and is excluded from bindRepos",

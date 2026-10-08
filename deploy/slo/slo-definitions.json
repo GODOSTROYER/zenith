@@ -4,7 +4,7 @@
   "approval": {
     "status": "not_approved",
     "pendingDecision": "DEC-BUSINESS",
-    "note": "Every target in this file is a provisional engineering default. No accountable owner has approved any of them, and this file deliberately has no field that could record an approver. Approval is a business decision made outside this repository; until it is made, no report, page or alert may describe these as commitments."
+    "note": "Every target in this file is a provisional engineering default. No accountable owner has approved any of them, and this file deliberately has no field that could record accountable sign-off. Approval is a business decision made outside this repository; until it is made, no report, page or alert may describe these as commitments."
   },
   "budgetWindowDays": 30,
   "burnAlerts": [

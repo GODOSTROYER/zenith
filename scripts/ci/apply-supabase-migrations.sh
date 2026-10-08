@@ -31,7 +31,7 @@
 #
 # ## 0014 — the `platform` schema
 #
-# `supabase/migrations/0025_platform_core.sql` is GENERATED from the TypeScript
+# `supabase/migrations/0026_platform_core.sql` is GENERATED from the TypeScript
 # migrations of the platform control store (`npx tsx scripts/platform/emit-sql.ts`;
 # `tests/controlplane/migrations.test.ts` keeps it byte-identical). It creates the
 # `platform` schema and its own `platform.schema_migrations` ledger — checksummed,
@@ -107,6 +107,7 @@ MIGRATIONS=(
   "0023_platform_core.sql"
   "0024_platform_core.sql"
   "0025_platform_core.sql"
+  "0026_platform_core.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then

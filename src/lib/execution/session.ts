@@ -29,6 +29,7 @@ import { isManagedConnection, MANAGED_CONNECTION_PREFIX, type ExecLike } from ".
 import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
 import type { ZenithSession } from "@/lib/providers/zenith/session";
 import type { ManagedDatabaseProvider } from "@/lib/providers/zenith/database";
+import type { ObjectStoragePorts } from "@/lib/managed-serving/storage";
 import { StepFailedError } from "./errors";
 import type { FenceRef } from "./ports";
 import type { Runtime } from "./runtime";
@@ -117,7 +118,7 @@ export const LONG_SESSION_SEC = 3600;
 export async function withManagedSession<T>(
   rt: Runtime,
   ec: { op: { id: string } },
-  opts: Omit<SessionOptions, "connection" | "purpose"> & { workspaceId: string; environmentId: string; databases?: ManagedDatabaseProvider },
+  opts: Omit<SessionOptions, "connection" | "purpose"> & { workspaceId: string; environmentId: string; databases?: ManagedDatabaseProvider; storage?: ObjectStoragePorts },
   fn: (session: ZenithSession, claims: CapabilityGrantClaims) => Promise<T>
 ): Promise<T> {
   const managed = rt.d.managed;
@@ -128,7 +129,7 @@ export async function withManagedSession<T>(
     ...(opts.durationSec ? { durationSec: opts.durationSec } : {}),
   });
   try {
-    return await managed.withSession({ workspaceId: opts.workspaceId, environmentId: opts.environmentId, ...(opts.databases ? { databases: opts.databases } : {}) }, (session) => fn(session, claims));
+    return await managed.withSession({ workspaceId: opts.workspaceId, environmentId: opts.environmentId, ...(opts.databases ? { databases: opts.databases } : {}), ...(opts.storage ? { storage: opts.storage } : {}) }, (session) => fn(session, claims));
   } catch (err) {
     if (err instanceof ManagedSubstrateError) throw new StepFailedError(err.message);
     throw err;

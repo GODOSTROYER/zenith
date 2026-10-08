@@ -2116,14 +2116,14 @@
       "acceptance": [
         "Prove cross-provider network/DNS/TLS/identity/secret bindings, overlap handling and private connectivity or explicitly approved protected endpoints; databases never silently public."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2131,8 +2131,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/controlplane/mixed-follow-up.test.ts",
+        "tests/execution/mixed/typed-inputs-activities.test.ts"
+      ]
     },
     {
       "id": "PROD-MIX-06",
@@ -2140,14 +2143,14 @@
       "acceptance": [
         "GCP compute, Azure PostgreSQL and AWS functions or justified equivalent serve actual application traffic with independently checked readback."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2155,8 +2158,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/acceptance/mixed-connectivity-probe.test.ts",
+        "tests/acceptance/mixed-live-run.test.ts"
+      ]
     },
     {
       "id": "PROD-MIX-07",
@@ -2164,14 +2170,14 @@
       "acceptance": [
         "Transfer/latency/residency costs included; one-provider failure recovery demonstrated; full acceptance harness exists even when live accounts unavailable."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -2179,8 +2185,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/acceptance/mixed-live-recovery.test.ts",
+        "tests/controlplane/mixed-follow-up.test.ts"
+      ]
     },
     {
       "id": "PROD-DUR-01",
@@ -3522,13 +3531,13 @@
       "acceptance": [
         "Default Zenith session opener/substrate/source build/release composition operates without manually injected test ports."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3536,8 +3545,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/execution/zenith-managed-journey.test.ts",
+        "tests/platform/managed-reconcile.test.ts",
+        "tests/platform/zenith-onboarding.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-02",
@@ -3545,13 +3558,13 @@
       "acceptance": [
         "Supported registry/gateway/DNS/TLS/secret delivery/storage/managed database integrations operate; established managed DB services reused."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3559,8 +3572,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/managed-serving/services-route.test.ts",
+        "tests/managed-serving/serving-contract.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-03",
@@ -3568,13 +3584,13 @@
       "acceptance": [
         "Tenant object storage, domain ownership proof/renewal, DB export/restore, autoscaling and promised services function."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3582,8 +3598,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/managed-serving/domain-routes.test.ts",
+        "tests/managed-serving/domain-store.test.ts",
+        "tests/managed-serving/storage-emulator.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-04",
@@ -3591,13 +3611,13 @@
       "acceptance": [
         "Two tenants prove route/storage/CNI/metadata/FQDN-egress/pod security/quota/operator separation; sandboxed or stronger runtime evaluated against threat model."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3605,8 +3625,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/execution/tenant-isolation.test.ts",
+        "tests/isolation/managed-onboarding-readiness.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-05",
@@ -3614,13 +3637,13 @@
       "acceptance": [
         "Noisy-neighbor/resource-exhaustion tests prove bounded tenant impact; namespaces alone do not establish isolation."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3628,8 +3651,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/isolation/tenant-isolation-acceptance.test.ts",
+        "tests/providers/zenith/isolation-bundle.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-06",
@@ -3637,13 +3663,13 @@
       "acceptance": [
         "Metering/quotas/plan assignment/invoice/payment-webhook reconciliation and safe suspension/export operate; BYOC/selfhosted do not require Zenith billing."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09",
         "PROD-PKG-05",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3651,8 +3677,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/billing/billing-routes.test.ts",
+        "tests/billing/billing.engine.test.ts",
+        "tests/platform/critical-jobs.test.ts"
+      ]
     },
     {
       "id": "PROD-MAN-07",
@@ -3683,11 +3713,11 @@
       "acceptance": [
         "Measurable availability/latency/capacity/RPO/RTO objectives defined and tested, with provisional targets clearly separated from accountable approval."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3695,8 +3725,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/slo/restore-sink.test.ts",
+        "tests/slo/slo.engine.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-02",
@@ -3746,11 +3779,11 @@
       "acceptance": [
         "Restore product/platform/agent/hosted/source stores, Temporal/artifacts/customer state and keys; consumed approvals/mutations cannot resurrect, controlled epoch reconciliation/reopen required."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3758,8 +3791,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/controlplane/recovery-epoch.test.ts",
+        "tests/ops/recovery-rehearsal.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-05",
@@ -3809,11 +3845,11 @@
       "acceptance": [
         "Archive/holds/bounded pruning preserve active/audit/receipts/replay prevention; implementation and dry-run allowed, deletion awaits approved policy."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3821,8 +3857,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/retention/key-purpose.test.ts",
+        "tests/retention/restore-destination.test.ts",
+        "tests/retention/retention.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-08",
@@ -3830,11 +3870,11 @@
       "acceptance": [
         "Tenant/role/stale-approval/SSRF/rebinding/prompt injection/archive/build/exfiltration/forgery/escalation/integration compromise tested independently."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3842,8 +3882,19 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/adversarial/approvals-forgery.test.ts",
+        "tests/adversarial/build-exfiltration.test.ts",
+        "tests/adversarial/cross-tenant.test.ts",
+        "tests/adversarial/integration-compromise.test.ts",
+        "tests/adversarial/malicious-archives.test.ts",
+        "tests/adversarial/prompt-injection.test.ts",
+        "tests/adversarial/residual-hardening.test.ts",
+        "tests/adversarial/role-escalation.test.ts",
+        "tests/adversarial/ssrf-rebinding.test.ts",
+        "tests/adversarial/token-forgery.test.ts"
+      ]
     },
     {
       "id": "PROD-OPS-09",
@@ -3851,11 +3902,11 @@
       "acceptance": [
         "Pinned verified dependencies/SBOM/provenance/signed releases/updater verification/vulnerability triage/tamper-evident audit export ship; no unperformed certification claim."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -3863,8 +3914,12 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/audit-export/audit-export.test.ts",
+        "tests/audit-export/purpose.test.ts",
+        "tests/supply-chain/sbom.test.ts"
+      ]
     },
     {
       "id": "PROD-UX-01",
@@ -4061,9 +4116,9 @@
       "acceptance": [
         "Clean install/private source/plan approval/DNS-TLS/stateful traffic/update-rollback/machine schedules/drift-repair/revocation/crash-partition-writers/key rotation/upgrade/restore/mixed traffic/two tenants/export/teardown independently verified."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4071,8 +4126,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/release/dossier.test.ts",
+        "tests/release/orchestrator.test.ts"
+      ]
     },
     {
       "id": "PROD-REL-02",
@@ -4080,9 +4138,9 @@
       "acceptance": [
         "Every requirement maps implementation/tests/environment/commit/evidence and deployment/upgrade/recovery instructions; skipped/unperformed items remain visible."
       ],
-      "state": "planned",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "not_assessed",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -4090,8 +4148,11 @@
         "live_sandbox",
         "operational_rehearsal"
       ],
-      "owner": null,
-      "testPaths": []
+      "owner": "production verifier",
+      "testPaths": [
+        "tests/release/checkpoint.test.ts",
+        "tests/release/scope.test.ts"
+      ]
     },
     {
       "id": "PROD-REL-03",
@@ -5948,5 +6009,40 @@
       },
       "recordedAt": "2026-10-06T04:02:45.264219+00:00"
     }
-  ]
+  ],
+  "wave5Assembly": {
+    "sourceHead": "443bfeaf",
+    "state": "implementation_complete_verification_pending",
+    "verification": "docs/build/production/verify/W5-ASSEMBLY.md",
+    "limitations": "docs/LIMITATIONS.md",
+    "cloudAcceptance": "deferred",
+    "migrationVersions": [
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52
+    ],
+    "supabaseAggregate": "0026_platform_core.sql",
+    "remaining": [
+      "privileged managed bootstrap DUR-B/DUR-C custody",
+      "per-tenant managed build custody adapter",
+      "managed plan tier remains operator-selected, not linked to billing assignment",
+      "manifest Lambda invocation/artifact adapter",
+      "Mac engine/cluster/browser acceptance",
+      "operator protected release key and cloud budgets"
+    ],
+    "builderReceipts": "docs/build/production/verify/W5-ASSEMBLY-RESULTS.md",
+    "localContractSummary": {
+      "files": 83,
+      "passed": 1367,
+      "failed": 0,
+      "skipped": 68,
+      "scope": "Latest independent scoped file results, PGlite and controlled contracts; no native or live verification promotion."
+    }
+  }
 }

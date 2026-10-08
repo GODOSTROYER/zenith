@@ -29,6 +29,10 @@ export async function requireManagedEnvironment(
   if (access.allowedEnvironmentIds && !access.allowedEnvironmentIds.includes(input.environmentId)) throw notFound();
   const resolved = await deps.scopes.resolve({ workspaceId: input.workspaceId, environmentId: input.environmentId });
   if (!resolved?.environment) throw notFound();
+  if (access.allowedProjectIds && (!resolved.scope.projectId || !access.allowedProjectIds.includes(resolved.scope.projectId))) throw notFound();
+  if (principal.kind === "integration" && !access.integrationScopes?.includes("read")) {
+    throw new BrokerError("role_insufficient", "This credential cannot read custom domains.", "Use a credential with the read scope.");
+  }
   if (need === "admin" && ROLE_RANK[access.role] < ROLE_RANK.admin) throw new BrokerError("role_insufficient", "Only a workspace admin can change custom domains.", "Ask a workspace admin.");
   return { environmentId: resolved.environment.id, provider: resolved.environment.provider, role: access.role };
 }

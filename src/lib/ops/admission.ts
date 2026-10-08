@@ -171,8 +171,6 @@ export async function assertDispatchAdmitted(input: DispatchAdmissionInput): Pro
   });
   try {
     assertDispatchAllowed(await currentMaintenance(rt), input.workspaceId);
-    // PROD-MAN-06: billing can refuse NEW work (suspension, plan quota) but never export or destroy; `billing: disabled` returns before any I/O.
-    await (await import("@/lib/billing/admission")).assertBillingAdmitted({ workspaceId: input.workspaceId, kind: input.kind, operationId: input.operationId });
     let quota: TenantQuota | null = null;
     try { quota = await rt.quotas.get(input.workspaceId); } catch { /* defaults */ }
     const weight = quota?.weight ?? 1;
@@ -195,6 +193,8 @@ export async function assertDispatchAdmitted(input: DispatchAdmissionInput): Pro
         log.warn("dispatch quota check unavailable; allowing", { scope: "ops", workspaceId: input.workspaceId });
       }
     }
+    // PROD-MAN-06: billing can refuse NEW work (suspension, plan quota) but never export or destroy; `billing: disabled` returns before any I/O.
+    await (await import("@/lib/billing/admission")).assertBillingAdmitted({ workspaceId: input.workspaceId, kind: input.kind, operationId: input.operationId });
     noteAdmission("dispatch", "allowed", input.workspaceId);
     m.dispatch.inc({ tenant, kind: input.kind, outcome: "admitted" });
     span.setStatus("ok");

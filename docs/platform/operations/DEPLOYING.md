@@ -4,9 +4,8 @@ How the pieces of the platform control plane fit together, what each one needs
 in its environment, and how to run them. This is for whoever operates a Zenith
 install; the design is in [ARCHITECTURE.md](../ARCHITECTURE.md) and the ADRs.
 
-Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01). Everything
-here is checked against the code on that branch; anything that is not verified
-live says so, and the last section collects them.
+Written against branch `prod/compose`, based on merged Wave 5 source at `443bfeaf537dd5d5324d33c84fc544ede0baa632` (2026-10-08).
+Wave 5 assembly edits are in the working tree and not verified on native services; historical receipts retain their original scope. The last section collects the remaining verification.
 
 ## Status: what actually runs on this branch
 
@@ -441,7 +440,7 @@ How the bundle ships:
 | `ZENITH_GITHUB_APP_PRIVATE_KEY_FILE` | unset | path only; file contents are **secret** | Absolute server path to the RSA App PEM, on web and worker. Read on demand to sign bounded RS256 JWTs. Never copy the PEM into an environment value or diagnostics. Partial/invalid configuration refuses access. |
 | `ZENITH_GITHUB_APP_CLIENT_ID` | unset | no | GitHub App OAuth client id, web host only. Required by the browser install/bind flow to verify that the initiating GitHub user can access the installation repository. |
 | `ZENITH_GITHUB_APP_CLIENT_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App OAuth client secret, web host only. Codes exchange server-side with PKCE; user tokens are discarded after verification and never stored or sent to the browser. |
-| `ZENITH_GITHUB_APP_WEBHOOK_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App webhook secret, web host only. The signed revocation endpoint requires 32–4096 printable ASCII bytes in a regular file owned by the service identity, mode `0400` or `0600`, beneath its immediate private `0700` directory and trusted ancestors, with no symlink or multiply linked file; raw-body HMAC-SHA256 is verified before payload or database authority. Missing/invalid custody refuses. Configure the App to send supported installation/repository removal and suspension events; delivery never grants or re-enables a binding. Live GitHub delivery acceptance remains separate. |
+| `ZENITH_GITHUB_APP_WEBHOOK_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App webhook secret, web host only. The signed revocation endpoint requires 32â€“4096 printable ASCII bytes in a regular file owned by the service identity, mode `0400` or `0600`, beneath its immediate private `0700` directory and trusted ancestors, with no symlink or multiply linked file; raw-body HMAC-SHA256 is verified before payload or database authority. Missing/invalid custody refuses. Configure the App to send supported installation/repository removal and suspension events; delivery never grants or re-enables a binding. Live GitHub delivery acceptance remains separate. |
 | `ZENITH_TEST_SOURCE_GITHUB_APP`, `ZENITH_TEST_SOURCE_GITHUB_BINDING`, `ZENITH_TEST_SOURCE_REF` | private gate unset | no; identifiers only | Tests only: set the gate to `1` to authorize the opt-in private GitHub archive check, a strict JSON binding of non-secret identifiers, and a pinned 40-hex commit. Live private access was not run here. The existing public gate is `ZENITH_TEST_SOURCE_GITHUB` with `ZENITH_TEST_SOURCE_REPO` and the same ref variable. |
 
 Identity is not new configuration: browsers use the product's Supabase setup
@@ -668,7 +667,7 @@ current aggregate emitter output, including additive cleanup writer barrier migr
 function, then verifies every row, the count and highest version. A new migration
 requires a regenerated inventory; changing a literal count alone does not pass.
 
-Registered migrations: **43**; highest version: **43**.
+Registered migrations: **52**; highest version: **52**.
 
 <!-- platform-migrations:start -->
 | Version | Name | SQL SHA-256 |
@@ -716,6 +715,15 @@ Registered migrations: **43**; highest version: **43**.
 | 41 | `mixed_runs` | `adf77c2f92db4d7c74a58b4a056482a66866f12e43909eaf34f9c008a884cff8` |
 | 42 | `external_effect_key_bounds` | `3dcc8f12119594941f82dd749f5471fb2578f1d5c37ec09083491aa6dc91f4b2` |
 | 43 | `mcp_stream_events_tenant_index` | `903751ca1e2e2fff64979f699e6c44c6c98502f90374b788686e77ee080249cd` |
+| 44 | `mixed_output_records` | `027e9fdbaced8902ee63d9c551ecfb812bd1fd7d96ea0356497200bac336d0d2` |
+| 45 | `slo_measurements` | `1494c27a7ce8bdb8ca49b9c78cdf68e8e4bb7d3879e92f9e0a25a90bd55c5bf6` |
+| 46 | `recovery_epochs` | `b60c5b5fd4ae95b2e7e3b14d503d0def9904561fceb73f8432c9984717ef4daf` |
+| 47 | `retention` | `6be0f7bd6711cc5a37507541488bb09305d181823398929ed29e3aa9c8295909` |
+| 48 | `audit_exports` | `44d625c45bf2e665cd424e96394d739a3d9733ce4a37a8812ff0fbedccae4fba` |
+| 49 | `managed_source_provider` | `2ff01c3f1ccb9c4ed33122b7cfccfcb486aba0cec508dd9e555f62396b1a6313` |
+| 50 | `managed_serving` | `84fd09e1866b387eb422173d38da18dd97aa7f5b967da8eb02f452a38ea99804` |
+| 51 | `tenant_isolation_effects` | `78d3690342ffc5f35e73f67566ccfc48087095cfec2acf191468e560a99bb16a` |
+| 52 | `billing` | `0236a9a6624adff33cce485ef54e4954cec5d629bfbb2fe4a0ccab5a51f5c45f` |
 <!-- platform-migrations:end -->
 
 For the actual target, `npm run migrate:platform -- --status` calls the canonical
@@ -745,8 +753,8 @@ A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
-Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). Schema 28 enables RLS without client policies on the four incident tables for direct canonical upgrades, retains only existing service-role DML, and adds a workspace-leading runbook schedule index. Schema 29 isolates grant-only record fields inside the grant branch of the shared cleanup trigger, preserving the existing held-plan and grant authority checks. Schemas 30 to 36 add durable operation authority and the intent outbox (30), approved executable semantics and standing grants (31), worker custody grants, reads and state backend probes and restores (32), the external-effect ledger (33), Kubernetes guest bindings (34), MCP streams (35) and coding-agent runs (36). The current aggregate is `0022_platform_core.sql`; historical platform aggregates `0014`, `0016`, `0017`, `0018`, `0019`, `0020` and `0021` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0023` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply Schemas 37 to 41 (wave 4) add actual spend snapshots (37), per-tenant maintenance, history and quotas (38), key custody facts and re-wrap jobs (39), mixed parent plans, child plans, receipts and the stable address registry (40) and mixed runs, their ledger and output preauthorizations (41); they are expand-only (new tables) and are emitted into `0023_platform_core.sql`.
-migrations through the Supabase CLI's migration history, which records an applied
+Schemas 17 to 27 add, in order, the signed-runbook tables (`machine_runbook_*`; migration 17), append-only ownership transfers (18), incident stability state, remediation attempts, maintenance windows and postmortems (19), per-environment optimizer opt-in settings (20), scheduled critical job runs (21: `scheduled_job_runs`, PROD-OBS-04), connection rotation state (22: `connection_rotations`, PROD-LIFE-01), digest-bound release pipelines (23: `release_pipelines`, PROD-LIFE-10), portability export/restore records and resource adoptions (24: `portability`, PROD-LIFE-11), machine and runner lifecycle columns (25: `agent_lifecycle`, PROD-MACH-04), audience-bound plugin boundaries and grants (26: `plugin_boundaries`, PROD-UX-03) and the GitHub revocation reason (27: `github_revocation_reason`, PROD-LIFE-08). Schema 28 enables RLS without client policies on the four incident tables for direct canonical upgrades, retains only existing service-role DML, and adds a workspace-leading runbook schedule index. Schema 29 isolates grant-only record fields inside the grant branch of the shared cleanup trigger, preserving the existing held-plan and grant authority checks. Schemas 30 to 36 add durable operation authority and the intent outbox (30), approved executable semantics and standing grants (31), worker custody grants, reads and state backend probes and restores (32), the external-effect ledger (33), Kubernetes guest bindings (34), MCP streams (35) and coding-agent runs (36). The aggregate through schema 36 was `0022_platform_core.sql`; the current aggregate through schema 52 is `0026_platform_core.sql`. historical platform aggregates `0014`, `0016`, `0017`, `0018`, `0019`, `0020` and `0021` remain unchanged (published files are immutable, and an aggregate is a cumulative snapshot). The committed Supabase bootstrap applies `0023` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. Schemas 37 to 41 (wave 4) add actual spend snapshots (37), per-tenant maintenance, history and quotas (38), key custody facts and re-wrap jobs (39), mixed parent plans, child plans, receipts and the stable address registry (40) and mixed runs, their ledger and output preauthorizations (41); they are expand-only (new tables) and are emitted into `0023_platform_core.sql`.
+If you apply migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
 schema version after the first. The emitted file holds every registered migration
@@ -910,7 +918,7 @@ production operation remain unverified for this image.
   Secrets arrive at run time; none is baked into the image. Startup does not
   verify cloud deploy permissions or every provider session.
 - `ZENITH_WORKER_IDENTITY` is optional: the default (`zenith-exec-<host>-<pid>`) already satisfies
-  the lease-holder rule (1–64 letters, digits, dots, underscores or hyphens). Set a stable value
+  the lease-holder rule (1â€“64 letters, digits, dots, underscores or hyphens). Set a stable value
   if you want the same identity across restarts; an invalid value stops the worker at startup.
 - Read-only root filesystem works with `/tmp` and `/var/lib/zenith` writable
   (OpenTofu working directories and the plugin cache go to the temp directory).
@@ -1051,7 +1059,7 @@ executed (no sandbox AWS account exists); until it has, nothing is `real`.
 ### External-effect key repair, schema 42
 
 Migration42 (`external_effect_key_bounds`) repairs PostgreSQL's maximum regex
-repeat count while retaining the original ASCII alphabets and 1–256-character
+repeat count while retaining the original ASCII alphabets and 1â€“256-character
 bounds. Apply the new cumulative `0024_platform_core.sql` after earlier published
 snapshots; never modify migration33 or snapshots through0023. Fresh installations
 apply42 before inserting external-effect records.
@@ -1067,9 +1075,43 @@ upgrade without deleting receipts. Resume writers after schema verification.
 
 ### Additive MCP replay index, schema43
 
-The current cumulative snapshot is `0025_platform_core.sql`. Migration43 adds a
+The verifier schema43 cumulative snapshot was `0025_platform_core.sql`. Migration43 adds a
 nonunique `(workspace_id, stream_id, seq)` index to tenant-scoped MCP replay events.
-Published migrations and prior snapshots remain immutable. Upgrade42→43 is
+Published migrations and prior snapshots remain immutable. Upgrade42â†’43 is
 expand-only and does not require a contract exception; upgrading through42 still
 requires its explicit drained-writer admission. Ordinary index creation may block
 writes while building: no zero-downtime or live migration claim follows local tests.
+
+
+## Wave 5 assembly inventory and operator gates
+
+The current cumulative snapshot is `0026_platform_core.sql`, schema 52. Published schemas 1â€“43 and aggregates 0016â€“0025 remain byte-identical. The canonical inventory/checksums above include schemas 44 mixed outputs, 45 SLO measurements, 46 recovery epochs, 47 retention, 48 audit exports, 49 managed source CHECK widening, 50 managed serving, 51 isolation effect-family widening and 52 billing. `scripts/ci/apply-supabase-migrations.sh` applies 0026 last. Emit with `npx tsx scripts/platform/emit-sql.ts`; verify with `--check`.
+
+When upgrading schema 43, first drain writers, then explicitly name `ZENITH_ALLOW_CONTRACT_MIGRATIONS=49,51`. An older installation still needing the published regex repair also needs 42 in that list. Exact reviewed SQL hashes and approval references live in `CONTRACT_MIGRATION_APPROVALS`; changing SQL voids admission. This flag never authorizes real execution or bootstrap. Cumulative Supabase snapshots are a separate explicitly operated schema application path; drain writers there too.
+
+| Variable / path | Default and purpose |
+|---|---|
+| `ZENITH_AUDIT_EXPORT_SIGNING_JWK` | Absent: signed audit export unavailable. Independent local EdDSA private key from the secret manager, purpose `signing:audit-export`; never reuse control/OIDC/release authority. |
+| `ZENITH_BACKUP_KEY` | External backup root also derives a distinct `enc:archive` key through HKDF. No archive key bytes in configuration output. |
+| `ZENITH_RETENTION_POLICY_FILE` / `ZENITH_RETENTION_POLICY` | At most one, default retain forever. Approved DEC-RETENTION and `ZENITH_RETENTION_APPLY=1` are both required to prune. |
+| `ZENITH_BILLING` | `disabled`; opt-in `managed` uses test-mode Stripe only. `ZENITH_BILLING_STRIPE_SECRET_KEY` and `ZENITH_BILLING_STRIPE_WEBHOOK_SECRET` come from secret custody. |
+| `ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX` | Required for tenant sessions. Separately provision approved isolation and tenant/node-pool credentials before first deploy. |
+| `ZENITH_MANAGED_FQDN_ENGINE`, `ZENITH_MANAGED_EGRESS_FQDNS` | Existing profile controls; Cilium hostname enforcement needs verified chart pins. |
+| `ZENITH_MANAGED_RUNTIME_CLASS` | Optional sandbox runtime, provision and verify it separately; namespace-only contracts prove no isolation. |
+
+`billing`, `data-retention` and `managed-serving` remain in the union of `CRITICAL_JOBS`. Billing has a bearer-protected fallback in tick.yml using the same fenced OBS-04 runner. `/admin/slo` links from the operator navigation. `ops:recovery restore` registers the local SLO recording sink; measurement publication never clears continuation hand-offs or proves application availability. See [Wave 5 verification](../../build/production/verify/W5-ASSEMBLY.md), [managed onboarding](../../build/production/verify/W5-ASSEMBLY-ONBOARDING.md) and [limitations](../../LIMITATIONS.md).
+
+Managed configuration additions (all external references, never inline credentials):
+
+| Variable | Default / effect |
+|---|---|
+| `ZENITH_MANAGED_VAULT_SCOPE` | `zenith-platform`; reserved scope for separately provisioned platform/tenant credential references. |
+| `ZENITH_MANAGED_DEFAULT_PLAN` | `free`; operator-selected provisional tier, not synchronized with billing assignments. |
+| `ZENITH_MANAGED_HTTP_CLUSTER_ISSUER` | Absent; custom HTTPS domains unavailable until an ACME HTTP-01 ClusterIssuer is provisioned. |
+| `ZENITH_MANAGED_OBJECT_STORAGE_IAM_ENDPOINT` | Optional HTTPS IAM admin endpoint for scoped principal provisioning; actual IAM enforcement needs emulator/native acceptance. |
+| `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CREDENTIAL_REF` | Optional vault reference for the separately authorized storage administrator; missing config refuses object-store plans. |
+| `ZENITH_MANAGED_OBJECT_STORAGE_ADMIN_CONNECTION` | Optional `<workspaceId>/<connectionId>` for the admin broker; resolve and authorize before use. |
+| `ZENITH_MANAGED_BUILDER_IMAGE` | Absent; contract build configuration requires a digest-pinned image. Default production builds still refuse pending isolated build custody. |
+| `ZENITH_MANAGED_BUILD_NAMESPACE` | `zenith-build` in the injected build adapter; shared builds are unavailable in default composition. |
+| `ZENITH_MANAGED_BUILD_PUSH_SECRET` | Optional existing dockerconfigjson Secret name in that build namespace; no secret material is accepted here. |
+| `ZENITH_MANAGED_BUILD_REGISTRY_INSECURE` | `0`; `1` is only for a disposable loopback kind registry, never production. |

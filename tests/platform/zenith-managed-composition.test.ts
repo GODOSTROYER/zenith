@@ -26,8 +26,6 @@ import {
   platformVaultScope,
 } from "@/lib/platform/zenith-managed";
 import { ManagedSubstrateError } from "@/lib/providers/zenith/managed-port";
-import { tenantNamespace } from "@/lib/providers/zenith/tenancy";
-import { sessionNamespaces } from "@/lib/providers/kubernetes/session";
 import { FULL_ENV } from "../providers/zenith/support";
 
 const root = path.resolve(__dirname, "../..");
@@ -147,27 +145,28 @@ describe("the default substrate", () => {
     await expect(managed.openSession({ workspaceId: WS, environmentId: ENVIRONMENT })).rejects.toThrowError(/ZENITH_MANAGED_DEFAULT_PLAN|not configured/);
   });
 
-  it("opens a tenant-scoped session with the credential read from the platform scope and no injected port", async () => {
+  it("refuses shared operator credentials before reading secrets or opening a session", async () => {
     const reads: [string, string][] = [];
     const managed = createDefaultManagedSubstrate({
-      env: { ...FULL_ENV, ZENITH_MANAGED_VAULT_SCOPE: "zenith-platform-test" },
-      product: product(),
+      env: { ...FULL_ENV, ZENITH_MANAGED_VAULT_SCOPE: "zenith-platform-test" }, product: product(),
       readPlatformSecret: async (scope, ref) => { reads.push([scope, ref]); return token(); },
     });
-    const session = await managed.openSession({ workspaceId: WS, environmentId: ENVIRONMENT });
-    expect(session.tenant).toMatchObject({ workspaceSlug: "acme", environmentSlug: ENVIRONMENT, planTier: "free" });
-    expect(sessionNamespaces(session.kubernetes)).toEqual([tenantNamespace(WS, ENVIRONMENT)]);
-    expect(session.gatewayKubernetes && sessionNamespaces(session.gatewayKubernetes)).toEqual(["zenith-gateway"]);
-    expect(reads.length).toBeGreaterThan(0);
-    for (const read of reads) expect(read).toEqual(["zenith-platform-test", "vault:zenith-managed/kubeconfig"]);
-    expect(JSON.stringify(session.kubernetes)).not.toContain(token());
+    await expect(managed.openSession({ workspaceId: WS, environmentId: ENVIRONMENT })).rejects.toThrow(/ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX/);
+    expect(reads).toEqual([]);
   });
 
-  it("a credential that is not in the platform vault fails the session with a fixed message and its own code", async () => {
-    const managed = createDefaultManagedSubstrate({ env: FULL_ENV, product: product(), readPlatformSecret: async () => undefined });
+  it("refuses shared build execution even when a digest-pinned builder is configured", async () => {
+    const managed = createDefaultManagedSubstrate({ env: { ...FULL_ENV, ZENITH_MANAGED_BUILDER_IMAGE: `registry.example.com/builder@sha256:${"a".repeat(64)}` }, product: product() });
+    expect(managed.status().build).toMatchObject({ available: false, reason: expect.stringContaining("per-tenant build namespaces") });
+    await expect(managed.withBuildSession({ workspaceId: WS, environmentId: ENVIRONMENT }, async () => "unsafe")).rejects.toMatchObject({ code: "build_unavailable" });
+  });
+
+  it("an incomplete per-tenant operator setup refuses without exposing its vault reference", async () => {
+    const managed = createDefaultManagedSubstrate({ env: { ...FULL_ENV, ZENITH_MANAGED_OPERATOR_CREDENTIAL_PREFIX: "vault:operators" }, product: product(),
+      db: { query: async () => [] } as unknown as import("@/lib/controlplane/types").Sql, readPlatformSecret: async () => undefined });
     const error = await refusalOf(managed.openSession({ workspaceId: WS, environmentId: ENVIRONMENT }));
     expect(error).toBeInstanceOf(ManagedSubstrateError);
-    expect(error.code).toBe("credential_unavailable");
+    expect(error.code).toBe("session_refused");
     expect(error.message).not.toContain("vault:");
   });
 });
@@ -176,7 +175,7 @@ describe("the real composition wires every managed caller (no test-only port)", 
   const execution = source("src/lib/platform/execution.ts");
 
   it("composeExecutionActivities builds the default substrate and hands it to execution, release and source", () => {
-    expect(execution).toContain("createDefaultManagedSubstrate({ product })");
+    expect(execution).toContain("createDefaultManagedSubstrate({ product, db: opts.db })");
     expect(execution).toContain("product, managed, broker:");
     expect(execution).toContain("createReleasePorts({ db: opts.db, azure, managed })");
     expect(execution).toContain("zenithSources: createZenithSourceStore(managed)");

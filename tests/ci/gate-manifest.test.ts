@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -24,6 +24,15 @@ function modelRoot(prefix: string): string {
   const directory = fs.mkdtempSync(prefix);
   for (const relative of ["tests/effects", "tests/repair", "tests/coding-agent"]) fs.mkdirSync(path.join(directory, relative), { recursive: true });
   return directory;
+}
+
+// Discovery reads only test source files. Preserve all source bytes and every
+// directory while avoiding unrelated fixture/artifact copies in deletion models.
+function copyDiscoverySources(destination: string): void {
+  fs.cpSync(path.join(root, "tests"), path.join(destination, "tests"), {
+    recursive: true,
+    filter: source => fs.statSync(source).isDirectory() || /\.test\.tsx?$/.test(source),
+  });
 }
 
 const scratch = modelRoot(path.join(os.tmpdir(), "zenith-manifest-"));
@@ -421,7 +430,7 @@ describe("canonical gate manifest", () => {
   });
 
   it("declares mTLS prerequisites and an unverified release blocker rather than a pass", () => {
-    expect(EXTERNAL_ACCEPTANCE).toHaveLength(1);
+    expect(EXTERNAL_ACCEPTANCE).toHaveLength(7);
     expect(EXTERNAL_ACCEPTANCE[0]).toMatchObject({ file: "tests/workflows/mtls-live.test.ts", wholeFile: true });
     expect(EXTERNAL_ACCEPTANCE[0].prerequisites).toContain("ZENITH_TEMPORAL_TLS_KEY_FILE");
     expect(EXTERNAL_ACCEPTANCE[0].releaseBlocker).toContain("unverified");
@@ -2314,12 +2323,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(71);
+    expect(manifest.requirements).toHaveLength(76);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(76);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2487,17 +2496,23 @@ describe("current platform discovery successors [report models]", () => {
   });
 
   it("exposes deleted discovery sources while preserving every historical literal requirement", () => {
+    const sourceRoot = modelRoot(path.join(scratch, "successor-source-"));
+    copyDiscoverySources(sourceRoot);
     for (const item of currentSuccessorPlatformCohort) {
-      const sourceRoot = modelRoot(path.join(scratch, "successor-source-"));
-      fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
       const before = requirementsFor("platform-postgres", sourceRoot);
       const id = requirementId("platform-postgres", item);
       expect(before).toContainEqual({ ...item, id });
       fs.unlinkSync(path.join(sourceRoot, item.file));
-      const after = requirementsFor("platform-postgres", sourceRoot);
-      expect(after.some(value => value.id === id)).toBe(false);
-      expect(after).toHaveLength(1140);
-      expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
+      try {
+        const after = requirementsFor("platform-postgres", sourceRoot);
+        expect(after.some(value => value.id === id)).toBe(false);
+        expect(after).toHaveLength(1143);
+        expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
+      } finally {
+        // Each deletion still begins with the complete tree; restore its exact
+        // bytes instead of copying all unrelated source files for every case.
+        fs.copyFileSync(path.join(root, item.file), path.join(sourceRoot, item.file));
+      }
       // Discovery itself cannot retain a deleted suite. Current source-presence
       // assertions above fail if it disappears; literal admission is a follow-up.
     }
@@ -2516,7 +2531,7 @@ describe("registered incident and ownership hardening [report models]", () => {
     const current = requirementsFor("platform-postgres", root), previous = priorHardeningPlatformRequirements();
     const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(previous).toHaveLength(1119); expect(new Set(previous.map(item => item.id)).size).toBe(1119);
-    expect(current).toHaveLength(1141); expect(new Set(current.map(item => item.id)).size).toBe(1141);
+    expect(current).toHaveLength(1144); expect(new Set(current.map(item => item.id)).size).toBe(1144);
     expect(current.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
     expect(withoutIncomingPlatform(current).map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
     expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
@@ -2549,7 +2564,7 @@ describe("registered incident and ownership hardening [report models]", () => {
   it("retains every literal hardening requirement when either native source is deleted", () => {
     for (const file of new Set(INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => item.file))) {
       const sourceRoot = modelRoot(path.join(scratch, "hardening-source-"));
-      fs.cpSync(path.join(root, "tests"), path.join(sourceRoot, "tests"), { recursive: true });
+      copyDiscoverySources(sourceRoot);
       const before = requirementsFor("platform-postgres", sourceRoot).filter(item => hardeningPlatformIds.includes(item.id));
       fs.unlinkSync(path.join(sourceRoot, file));
       const after = requirementsFor("platform-postgres", sourceRoot).filter(item => hardeningPlatformIds.includes(item.id));
@@ -2573,7 +2588,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(71);
+    expect(requirementsFor("workflows", root)).toHaveLength(76);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -2811,8 +2826,8 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     const manifest = manifestFor("workflows", root);
     expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
     expect(new Set(named().map(item => item.id)).size).toBe(2);
-    expect(manifest.requirements).toHaveLength(71);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(71);
+    expect(manifest.requirements).toHaveLength(76);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(76);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
@@ -2825,7 +2840,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(manifest.excludeFiles).not.toContain(file);
     expect(manifest.command).not.toContain("--passWithNoTests");
     expect(reportFailures(named(), contractReport(named()), root)).toEqual([]);
-    expect(requirementsFor("platform-postgres", root)).toHaveLength(1141);
+    expect(requirementsFor("platform-postgres", root)).toHaveLength(1144);
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
@@ -3010,7 +3025,7 @@ describe("mandatory live agent journal PostgreSQL cases [report models]", () => 
 describe("incoming platform and workflow obligations", () => {
   it("requires every fixed additive native identity without losing historical obligations", () => {
     const current = requirementsFor("platform-postgres", root);
-    expect(current).toHaveLength(1141);
+    expect(current).toHaveLength(1144);
     const added = current.filter(item => incomingPlatformIds.has(item.id));
     expect(added).toHaveLength(17);
     expect(new Set(added.map(item => item.id))).toEqual(incomingPlatformIds);
@@ -3028,7 +3043,7 @@ describe("incoming platform and workflow obligations", () => {
   });
   it("keeps all eight added workflow files in the complete mandatory lane", () => {
     const current = manifestFor("workflows", root);
-    expect(current.requirements).toHaveLength(71);
+    expect(current.requirements).toHaveLength(76);
     const added = current.requirements.filter(item => incomingWorkflowFiles.has(item.file));
     expect(added).toHaveLength(8);
     expect(new Set(added.map(item => item.file))).toEqual(incomingWorkflowFiles);
@@ -3045,8 +3060,8 @@ describe("full history codec successor admission", () => {
     const current = manifestFor("workflows", root);
     const codec = current.requirements.filter(item => item.id === historyCodecWorkflowId);
     expect(codec).toHaveLength(1);
-    expect(current.requirements).toHaveLength(71);
-    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(70);
+    expect(current.requirements).toHaveLength(76);
+    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(75);
     expect(current.excludeFiles).not.toContain(codec[0].file);
     expect(reportFailures(codec, contractReport(codec), root)).toEqual([]);
     expect(reportFailures(codec, { success: true, testResults: [] }, root)).toHaveLength(1);
@@ -3057,5 +3072,25 @@ describe("full history codec successor admission", () => {
     }
     expect([...current.requirements, { ...codec[0], id: "unknown-successor" }]
       .filter(item => !incomingWorkflowIds.has(item.id)).some(item => item.id === "unknown-successor")).toBe(true);
+  });
+});
+
+
+describe("Wave 5 additive gate inventory", () => {
+  it("retains every branch test in an executable contract or external lane", () => {
+    const files = WAVE5_CONTRACT_FILES;
+    for (const file of files) {
+      expect(fs.existsSync(path.join(root,file))).toBe(true);
+      const lane = file.startsWith("tests/adversarial/") ? "adversarial" : "wave5-contract";
+      expect(manifestFor(lane, root).command).toContain(file.startsWith("tests/adversarial/") ? "tests/adversarial" : file);
+      expect(requirementsFor(lane, root).some(r => r.file === file)).toBe(true);
+    }
+    expect(files).toHaveLength(74);
+    expect(WAVE5_EXTERNAL_FILES).toHaveLength(9);
+    for (const file of WAVE5_EXTERNAL_FILES) expect([
+      ...EXTERNAL_ACCEPTANCE.map(g=>g.file),
+      ...requirementsFor("tofu", root).map(required => required.file),
+      ...manifestFor("recovery",root).files,
+    ]).toContain(file);
   });
 });

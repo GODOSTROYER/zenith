@@ -29,6 +29,7 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 
 | Guide | For | Covers |
 |---|---|---|
+| [MFA.md](MFA.md) | Privileged operators and workspace admins | Local/default and production Supabase TOTP setup, persisted workspace enforcement, step-up and audited legacy cancellation |
 | [DEPLOYING.md](DEPLOYING.md) | Whoever runs the install | Topology, every environment variable per component, the platform database and its migrations, signing keys, Temporal (local, Cloud, self-hosted), the execution worker, what must never run on Vercel, first-install order |
 | [RECOVERY.md](RECOVERY.md) | Whoever is on call | What state lives where and how to back it up, disaster recovery order, what happens to an operation when something crashes (`uncertain`, the reconciler, the reaper), leases and fence tokens, key rotation, migrating the schema forward, and what was rehearsed |
 | [AWS-SETUP.md](AWS-SETUP.md) | The owner of a customer AWS account | What connecting an account creates, what Zenith can and cannot do in it, how narrow a session is, and how to revoke. Commands live in [`deploy/aws/README.md`](../../../deploy/aws/README.md) |

@@ -11,7 +11,7 @@ import { projectLegacyDeployment } from "@/lib/platform/operator-journey";
 const mocks = vi.hoisted(() => ({ user: vi.fn(), factors: vi.fn(), enroll: vi.fn(), verify: vi.fn(), unenroll: vi.fn(), api: vi.fn(), execute: vi.fn(), refresh: vi.fn(), configured: true }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ auth: { getUser: mocks.user, mfa: { listFactors: mocks.factors, enroll: mocks.enroll, challengeAndVerify: mocks.verify, unenroll: mocks.unenroll } } }) }));
 vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => mocks.configured }));
-vi.mock("@/lib/client/api", () => ({ api: mocks.api, executeAction: mocks.execute }));
+vi.mock("@/lib/client/api", async (original) => ({ ...await original<typeof import("@/lib/client/api")>(), api: mocks.api, executeAction: mocks.execute }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 
 let host: HTMLDivElement, root: Root, setupKey: string, code: string;
@@ -110,9 +110,40 @@ describe("authenticator screens", () => {
 
 describe("workspace controls and legacy cancellation", () => {
   it("shows the enforced controls for the selected workspace and rejects stale workspace data", async () => {
-    mocks.api.mockResolvedValueOnce({ workspaceId: "ws-a", privilegedActionsRequireAal2: true, requireForAllMutations: true, maxAgeSeconds: 300 });
-    await act(async () => root.render(<MfaControls workspaceId="ws-a" />)); expect(host.textContent).toContain("all changes by people"); expect(host.textContent).toContain("300 seconds");
-    mocks.api.mockResolvedValueOnce({ workspaceId: "ws-b" }); await act(async () => root.render(<MfaControls key="new" workspaceId="ws-a" />)); expect(host.querySelector('[role="alert"]')).not.toBeNull();
+    mocks.api.mockResolvedValueOnce({ workspaceId: "ws-a", privilegedActionsRequireAal2: true, requireForAllMutations: true, maxAgeSeconds: 300, version: 1, isDefault: false });
+    await act(async () => root.render(<MfaControls workspaceId="ws-a" viewerRole="admin" />)); expect(host.textContent).toContain("all changes by people"); expect(host.textContent).toContain("300 seconds");
+    mocks.api.mockResolvedValueOnce({ workspaceId: "ws-b" }); await act(async () => root.render(<MfaControls key="new" workspaceId="ws-a" viewerRole="admin" />)); expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  });
+  it("labels editable controls and saves the reviewed version through the real API client seam", async () => {
+    const initial = { workspaceId: "ws-a", privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null, version: 0, isDefault: true };
+    mocks.api.mockResolvedValueOnce(initial).mockResolvedValueOnce({ ...initial, requireForAllMutations: true, maxAgeSeconds: 300, version: 1, isDefault: false });
+    await act(async () => root.render(<MfaControls workspaceId="ws-a" viewerRole="admin" />));
+    expect(host.querySelector('label[for="workspace-mfa-all"]')).not.toBeNull(); expect(host.querySelector('label[for="workspace-mfa-age"]')).not.toBeNull();
+    await click(host.querySelector<HTMLInputElement>("#workspace-mfa-all")!);
+    const age = host.querySelector<HTMLInputElement>("#workspace-mfa-age")!;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(age, "300"); age.dispatchEvent(new Event("input", { bubbles: true })); });
+    await submit();
+    expect(mocks.api).toHaveBeenLastCalledWith("/api/workspace/mfa", expect.objectContaining({ method: "PUT", credentials: "same-origin", body: JSON.stringify({ workspaceId: "ws-a", requireForAllMutations: true, maxAgeSeconds: 300, expectedVersion: 0 }) }));
+    expect(document.activeElement?.textContent).toBe("MFA controls saved at version 1.");
+  });
+  it.each(["viewer", "editor"] as const)("keeps MFA controls read-only for %s", async (viewerRole) => {
+    mocks.api.mockResolvedValueOnce({ workspaceId: "ws-a", requireForAllMutations: false, maxAgeSeconds: null, version: 0, isDefault: true });
+    await act(async () => root.render(<MfaControls workspaceId="ws-a" viewerRole={viewerRole} />));
+    expect(host.querySelector("fieldset")?.disabled).toBe(true); expect(button("Save MFA controls").disabled).toBe(true);
+    await submit(); expect(mocks.api).toHaveBeenCalledTimes(1); expect(host.textContent).toContain("Only a workspace admin");
+  });
+  it("focuses a step-up refusal and never replays the save", async () => {
+    const { ApiError } = await import("@/lib/client/api");
+    mocks.api.mockResolvedValueOnce({ workspaceId: "ws-a", requireForAllMutations: false, maxAgeSeconds: null, version: 0 }).mockRejectedValueOnce(new ApiError("MFA", 403));
+    await act(async () => root.render(<MfaControls workspaceId="ws-a" viewerRole="admin" />)); await submit();
+    expect(document.activeElement?.getAttribute("role")).toBe("alert"); expect(host.textContent).toContain("Verify your authenticator"); expect(mocks.api).toHaveBeenCalledTimes(2);
+  });
+  it("blocks duplicate saves while the first settings request is pending", async () => {
+    let finish!: (value: unknown) => void;
+    const initial = { workspaceId: "ws-a", requireForAllMutations: false, maxAgeSeconds: null, version: 0 };
+    mocks.api.mockResolvedValueOnce(initial).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    await act(async () => root.render(<MfaControls workspaceId="ws-a" viewerRole="admin" />)); await submit(); await submit();
+    expect(mocks.api).toHaveBeenCalledTimes(2); await act(async () => finish({ ...initial, version: 1 }));
   });
   it("requires a confirmation and sends only the existing cancellation action", async () => {
     await act(async () => root.render(<LegacyCancel deploymentId="dep" canCancel />)); await click(button("Cancel deployment"));

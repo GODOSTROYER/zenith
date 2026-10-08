@@ -42,11 +42,11 @@ async function audit(page: Page) {
   }
 }
 
-async function probe(page: Page, workspaceId: string, path: string, body: unknown) {
-  return page.evaluate(async ({ workspaceId, path, body }) => {
-    const response = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-zenith-workspace": workspaceId }, body: JSON.stringify(body) });
+async function probe(page: Page, workspaceId: string, path: string, body: unknown, method = "POST") {
+  return page.evaluate(async ({ workspaceId, path, body, method }) => {
+    const response = await fetch(path, { method, credentials: "same-origin", headers: { "content-type": "application/json", "x-zenith-workspace": workspaceId }, body: JSON.stringify(body) });
     return response.status;
-  }, { workspaceId, path, body });
+  }, { workspaceId, path, body, method });
 }
 
 async function login(page: Page, identity: Fixture["identities"][number]) {
@@ -83,6 +83,7 @@ gated("MFA browser acceptance (not run unless ZENITH_MFA_BROWSER=1; needs real l
       await login(page, identity);
       expect(await probe(page, identity.workspaceId, "/api/auth/mfa/verify", {})).toBe(403);
       expect(await probe(page, identity.workspaceId, "/api/platform/v1/operations/mfa-refusal-probe/approve", {})).toBe(403);
+      expect(await probe(page, identity.workspaceId, "/api/workspace/mfa", {}, "PUT")).toBe(403);
       await page.goto(`${fixture.origin}/account/mfa/enrol?next=%2Fplatform%2Fsettings`);
       await page.getByRole("button", { name: "Set up authenticator", exact: true }).click();
       const setup = page.getByLabel("Setup key", { exact: true });
@@ -96,6 +97,12 @@ gated("MFA browser acceptance (not run unless ZENITH_MFA_BROWSER=1; needs real l
       expect(await setup.count()).toBe(0); await audit(page);
       await page.getByRole("link", { name: "Return to review", exact: true }).click();
       expect(new URL(page.url()).pathname).toBe("/platform/settings");
+      await page.getByLabel("Require verification for all changes by people", { exact: true }).check();
+      await page.getByLabel("Verification lifetime (seconds)", { exact: true }).fill("300");
+      await page.getByLabel("Verification lifetime (seconds)", { exact: true }).press("Enter");
+      await page.getByRole("status").filter({ hasText: "MFA controls saved at version" }).waitFor();
+      const saved = await page.evaluate(async () => { const response = await fetch("/api/workspace/mfa", { credentials: "same-origin" }); return response.json() as Promise<{ requireForAllMutations: boolean; maxAgeSeconds: number; version: number }> });
+      expect(saved.requireForAllMutations).toBe(true); expect(saved.maxAgeSeconds).toBe(300); expect(saved.version).toBeGreaterThan(0); await audit(page);
       // A new password session is AAL1 even though the account has an enrolled factor.
       await context.clearCookies(); await login(page, identity);
       expect(await probe(page, identity.workspaceId, "/api/auth/mfa/verify", {})).toBe(403);

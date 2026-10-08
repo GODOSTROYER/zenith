@@ -53,6 +53,7 @@ import * as resources from "./resources";
 import * as runners from "./runners";
 import * as settings from "./settings";
 import * as optimizerSettings from "./optimizer-settings";
+import * as workspaceMfaControls from "./workspace-mfa-controls";
 import * as scheduledJobs from "./scheduled-jobs";
 import * as plugins from "./plugins";
 import * as externalEffects from "./external-effects";
@@ -98,6 +99,7 @@ export {
   runners,
   settings,
   optimizerSettings,
+  workspaceMfaControls,
   codingAgentRuns,
   mixedRuns,
   mixedOutputPreauthorizations,
@@ -167,6 +169,7 @@ export function bindRepos(sql: Sql) {
     runners: bind(runners, sql),
     settings: bind(settings, sql),
     optimizerSettings: bind(optimizerSettings, sql),
+    workspaceMfaControls: bind(workspaceMfaControls, sql),
     scheduledJobs: bind(scheduledJobs, sql),
     plugins: bind(plugins, sql),
     externalEffects: bind(externalEffects, sql),

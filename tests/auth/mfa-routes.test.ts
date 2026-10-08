@@ -8,7 +8,9 @@ import { join, relative } from "node:path";
 import { exemptFromReadOnly } from "@/lib/ops/maintenance";
 
 tempDataDir("zenith-mfa-routes-", { fast: true });
-const mocks = vi.hoisted(() => ({ claims: vi.fn(), user: vi.fn(), approve: vi.fn(), signal: vi.fn(), action: vi.fn(), role: "admin", id: "operator", configured: true }));
+const mocks = vi.hoisted(() => ({ claims: vi.fn(), user: vi.fn(), approve: vi.fn(), signal: vi.fn(), action: vi.fn(), controls: vi.fn(), role: "admin", id: "operator", configured: true }));
+vi.mock("@/lib/controlplane/db/open", async (original) => ({ ...await original<typeof import("@/lib/controlplane/db/open")>(), platformDb: async () => ({}) }));
+vi.mock("@/lib/controlplane/db/repos/workspace-mfa-controls", () => ({ getWorkspaceMfaControls: mocks.controls, putWorkspaceMfaControls: vi.fn() }));
 vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: mocks.claims, getUser: mocks.user } }) }));
 vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "", isSupabaseConfigured: () => mocks.configured }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => mocks.configured ? { id: mocks.id, email: `${mocks.id}@example.test`, name: mocks.id } : null }));
@@ -43,12 +45,14 @@ beforeEach(() => {
   mocks.approve.mockResolvedValue({ operation: { id: "op", workspaceId: "ws-a", status: "approved" } });
   mocks.signal.mockResolvedValue(null);
   mocks.action.mockResolvedValue({ result: { ok: true } });
+  mocks.controls.mockImplementation((_sql, workspaceId) => ({ workspaceId, privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null, version: 0, isDefault: true }));
   resetDb({ workspaces: [{ id: "ws-a", name: "A", slug: "a", createdAt: new Date().toISOString(), ownerId: "operator" }], members: [{ id: "operator", workspaceId: "ws-a", role: "admin", name: "Operator", email: "operator@example.test" }] });
   defineAction({ id: "deploy.cancel", category: "deploy", requiredRole: "editor", risk: "medium", mutates: true, title: "Cancel", input: z.object({}), plan: () => ({ summary: "", details: [], warnings: [], risk: "medium", costDeltaUsd: 0, requiresApproval: false }), execute: async () => ({ ok: true, summary: "cancelled" }) });
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 
 const privileged = [
+  ["/api/workspace/mfa", "PUT"],
   ["/api/platform/v1/operations/op/approve", "POST"], ["/api/platform/v1/operations/op/reject", "POST"], ["/api/platform/v1/operations/op/cancel", "POST"],
   ["/api/platform/v1/operations/op/mixed-run/teardown", "POST"], ["/api/platform/v1/operations/op/mixed-run/cancel", "POST"],
   ["/api/platform/v1/operations/op/start-portability", "POST"], ["/api/platform/v1/mixed/plans/plan/start", "POST"], ["/api/platform/v1/mixed/plans", "POST"], ["/api/platform/v1/mixed/plans/plan/children", "POST"],
@@ -107,7 +111,7 @@ describe("privileged route inventory through the real request wrapper", () => {
   });
   it("enforces stricter workspace controls and cannot be fooled by a foreign header on product routes", async () => {
     mocks.claims.mockResolvedValue(answer("aal1"));
-    vi.stubEnv("ZENITH_MFA_WORKSPACE_CONTROLS", JSON.stringify({ "ws-a": { requireForAllMutations: true } }));
+    mocks.controls.mockImplementation((_sql, workspaceId) => ({ workspaceId, privilegedActionsRequireAal2: true, requireForAllMutations: workspaceId === "ws-a", maxAgeSeconds: null }));
     expect((await mutation(request("/api/nonprivileged", {}, "POST", { "x-zenith-workspace": "ws-b" }), ctx)).status).toBe(403);
     expect(changed).not.toHaveBeenCalled();
   });
@@ -128,7 +132,7 @@ describe("privileged route inventory through the real request wrapper", () => {
     expect((await mutation(request("/api/platform/v1/operations/op/approve"), ctx)).status).toBe(503); expect(changed).not.toHaveBeenCalled();
   });
   it("keeps the read-only effective controls bound to the selected member workspace", async () => {
-    expect(await (await controls(request("/api/workspace/mfa", {}, "GET"), ctx)).json()).toEqual({ workspaceId: "ws-a", privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null });
+    expect(await (await controls(request("/api/workspace/mfa", {}, "GET"), ctx)).json()).toEqual({ workspaceId: "ws-a", privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null, version: 0, isDefault: true });
   });
 });
 

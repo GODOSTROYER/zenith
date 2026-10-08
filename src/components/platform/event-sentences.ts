@@ -104,6 +104,7 @@ const RULES: Record<PlatformEventType, Rule> = {
   "connection.rotation_staged": { sentence: (w) => `${w} staged new access for a cloud connection. The current access keeps working until it is promoted.`, tone: "info" },
   "connection.rotated": { sentence: (w) => `${w} promoted verified new access for a cloud connection.`, tone: "ok" },
   "connection.rotation_aborted": { sentence: (w) => `${w} discarded staged new access for a cloud connection.`, tone: "idle" },
+  "workspace.mfa_controls_changed": { sentence: (w) => `${w} changed workspace MFA controls.`, tone: "idle" },
 };
 
 /** Keys whose string value is worth surfacing as one line of context. */

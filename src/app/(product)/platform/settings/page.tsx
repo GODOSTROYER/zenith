@@ -8,7 +8,7 @@ export default async function PolicyPage() {
   const result = await loadPolicy();
   if ("error" in result) return <PageState {...result} />;
   return <div className="space-y-5"><h1 className="app-page-title">Workspace policy</h1>
-    <MfaControls workspaceId={result.context.workspaceId} />
+    <MfaControls key={result.context.workspaceId} workspaceId={result.context.workspaceId} viewerRole={result.context.role} />
     <WorkspacePolicyEditor key={result.data.version} initial={result.data} viewerRole={result.context.role} />
   </div>;
 }

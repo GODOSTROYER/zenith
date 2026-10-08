@@ -74,11 +74,11 @@ Base: `3a9de905`; worktree `prod6-j3-mfa`. All changes remain uncommitted for th
 | AAL2 on privileged human routes | ONE `requireStepUp(req, { subject, workspaceId? })` in `src/lib/auth/mfa.ts`: signature-verified getClaims, exact AAL2, finite unexpired exp, matching live getUser and confirmed email, currently verified TOTP factor. Missing/unknown AAL and removed factors refuse. No getSession, metadata claim, demo identity or provider outage can grant access. `tests/auth/mfa.test.ts`. |
 | Reachable server guard | `mfa-routes.ts` runs in the real `server/request.ts` scope before each handler; admin mutation metadata is covered even for new paths. Actions use their registered mutates/risk/role/category metadata and the parsed execute mode. Plan/read helpers remain accessible. `tests/auth/mfa-routes.test.ts` tests the real wrapper, concrete approval/action/confirmation routes and an explicit route inventory with SDK claims mocked. |
 | Installation operator controls | `ops/operator.ts` and `waitlist/http.ts` call the same guard after their existing user-ID allowlist checks. No workspace admin becomes an installation operator. Raw maintenance/quotas and waitlist admission/preview are covered. `tests/auth/mfa-operators.test.ts`. |
-| Workspace controls | `mfa-policy.ts`: immutable privileged minimum; host-managed per-workspace `requireForAllMutations` and optional MFA `maxAgeSeconds` derived from AMR, never JWT refresh time. Invalid config fails closed. `GET /api/workspace/mfa` resolves the selected member workspace; `settings/mfa-controls.tsx` shows its effective policy. Account/settings/platform links reach enrollment/challenge. |
+| Workspace controls | Migration 57 / `repos/workspace-mfa-controls.ts` persist workspace-owned controls. `mfa-policy.ts` reads current state and refuses store outages. Admin/AAL2-only `PUT /api/workspace/mfa` uses a reviewed version and atomically appends `workspace.mfa_controls_changed`; viewers can GET. The settings form edits the actual selected workspace; privileged AAL2 remains immutable. Tests: `tests/auth/mfa-workspace-state.test.ts`, `tests/screens/mfa.test.tsx`. |
 | Accessible screens | Native form submit, explicit labels, OTP/numeric input hints, described help, focus on code/alert/success, busy/duplicate-submit guard, existing Button/Input tokens, accessible manual setup key and QR alternative. DOM assertions are contract evidence only. Real Playwright/axe gate below. |
 | Legacy engine cancellation | `platform/deployments/[id]/legacy-cancel.tsx` confirms and executes the existing tenant-scoped `deploy.cancel` action, disables viewers, preserves partial-change warning, refreshes only after confirmed success. Page and shared `operator-journey.ts` projection are wired; terminal deployments remain uncancellable. Workflow ownership and cancellation are unchanged. |
 
-No new tables, store functions, grants or tenancy classifications. No migration number was assigned, so no migration is added. Workspace controls are deployment-managed, not a new workspace policy JSON key or persistence subsystem. There is deliberately no web switch to weaken the mandatory minimum.
+The orchestrator review assigned expand-only migration 57. New table `platform.workspace_mfa_controls` is workspace-keyed, RLS-enabled and denied to browser roles, with service-only select/insert/update, like sibling settings. It is classified in `src/lib/sensitivedata/inventory.ts`. New repository functions `getWorkspaceMfaControls` (scoped read) and `putWorkspaceMfaControls` (scoped transactional write/audit) are exposed in bindRepos and classified/swept in `tests/controlplane/tenancy.test.ts`. Versions 44-56 remain reserved for their owners and must be inserted by the assembler; no placeholders, published migration edits or aggregate SQL changes. No Auth factors or secrets are stored by this table.
 
 Changed/added files (26 total):
 
@@ -111,13 +111,13 @@ tests/auth/mfa.test.ts
 tests/screens/mfa.test.tsx
 ```
 
-Configuration example (no credentials):
+Admin PUT body example (same-origin browser, selected workspace, current AAL2; no credentials):
 
-```sh
-export ZENITH_MFA_WORKSPACE_CONTROLS='{"ws-example":{"requireForAllMutations":true,"maxAgeSeconds":300}}'
+```json
+{"workspaceId":"ws-example","requireForAllMutations":true,"maxAgeSeconds":300,"expectedVersion":0}
 ```
 
-`maxAgeSeconds` accepts integer seconds 60..86400; absence uses the current authenticated AAL2 session. The map is keyed by workspace ID. Product action routes use the resolved cookie workspace, not a caller-supplied foreign workspace header. Platform routes use their existing named workspace/role checks. MFA adds no membership or execution authority. The old role, independent-human, immutable digest, quota, approval, authority, custody and effect checks still run.
+`maxAgeSeconds` accepts null (the current AAL2 session) or integer seconds 60..86400. No row means immutable defaults at version 0, without a write. GET returns the version; PUT requires every field, refuses unknown/weakening fields and returns 409 for a stale version or changed workspace selection. The old host map is ignored. Product actions use the resolved cookie workspace, not a caller-supplied foreign workspace header. Platform routes keep their named workspace/role checks. MFA grants no membership or execution authority; existing independent-human, digest, quota, approval, authority, custody and effect checks still run.
 
 ### Privileged route coverage at this base
 
@@ -153,7 +153,7 @@ The Wave 5 directories on this machine are snapshots without usable `.git` metad
 
 Not run here: needs actual local Supabase Auth (TOTP enabled), the prepared Zenith API/platform store, two disposable admitted workspace admins, and installed Chrome. No Docker, PostgreSQL, Temporal, kind or browser service was started on Windows. No live cloud is needed or allowed by this gate.
 
-**Important startup join:** base `supabase/config.toml` currently has `[auth.mfa.totp] enroll_enabled = false` and `verify_enabled = false`. J1/verifier must set BOTH to true in the owned disposable prepared stack configuration (and provision two confirmed users). This file is outside J3 ownership and was not edited. There is no application fallback when Auth MFA is disabled.
+**Startup join:** the follow-up enables BOTH TOTP enrollment and verification in `supabase/config.toml` and retains `[auth.mfa] max_enrolled_factors = 10`. J1/verifier must preserve this exact block in the prepared default stack and provision two confirmed users. Separate GoTrue containers require the explicit Auth environment settings in [MFA operator setup](../../../platform/operations/MFA.md); changing Next.js environment alone cannot enable Auth MFA. There is no fallback when Auth MFA is disabled. The assembled platform schema must include migration 57 after the sibling 44-56 join.
 
 Use the J1 prepared configuration/private-CA pooler and fixture workspace database. For a lean 8 GiB Mac / 4 GiB Docker MFA lane, run only Auth, API gateway, PostgREST, PostgreSQL/pooler and one native Zenith API, then one headless browser/one test worker. No Temporal worker, kind, build worker, telemetry stack or cloud emulator is needed for this MFA-only test. Stop other heavy lanes first; do not ignore health checks. Keep the existing verifier disk floor. This lean lane does not replace the full default-stack or J2 operation journey.
 
@@ -188,7 +188,7 @@ Manual NVDA acceptance (Windows, not run by this job): after owner-approved star
 
 Primary references: [Supabase TOTP enrollment/challenge](https://supabase.com/docs/guides/auth/auth-mfa/totp), [MFA overview/AAL](https://supabase.com/docs/guides/auth/auth-mfa), [CLI start/excluded services](https://supabase.com/docs/reference/cli/supabase-start).
 
-### Windows execution record
+### Original Windows execution record (committed by orchestrator as e40837ce)
 
 Every shell prepended `C:\Users\user\.local\sdk\node22` to PATH; `node --version` returned `v22.23.3`. No npm install/ci, Go command, whole-suite run, Docker, actual PG/Temporal/kind, cloud request, commit or history operation.
 
@@ -210,18 +210,111 @@ Every shell prepended `C:\Users\user\.local\sdk\node22` to PATH; `node --version
 
 Counts overlap and must not be summed as unique acceptance. SDK/provider and execution doubles are contract evidence, not operated Supabase or engine proof.
 
-Final focused evidence: **171 passed / 0 failed / 2 gated browser skips** across the Node and DOM runs, with the affected 63 Node cases repeated successfully after the typing fix. Final typecheck passes with 0 diagnostics; all changed TypeScript files pass lint. The separate existing regression run still has the one stale outside-owned assertion described below. Overall operated acceptance is pending, not verified.
+Original-commit focused evidence: **171 passed / 0 failed / 2 gated browser skips** across the Node and DOM runs, with the affected 63 Node cases repeated successfully after the typing fix. Original typecheck and lint passed. The separate original regression run had one stale assertion, corrected in the authorized follow-up below. These historical counts do not describe the follow-up source. Operated acceptance remains pending.
 
 Read-only inspection used `git status --short`, `git log --oneline -10`, `git diff --stat`, `git diff --name-only`, `git ls-files --others --exclude-standard`, `rg`/`rg --files`, PowerShell Get-Content/Get-ChildItem/Get-Item/Select-Object/Measure-Object and Get-Process. Missing guessed files/globs during discovery produced diagnostic errors and were corrected by file inventory; no mutation resulted. An optional Get-Item probe for root tsconfig.tsbuildinfo found no file (exit 1); no build artifact was removed or modified. Attempts to diff nine Wave 5 snapshot directories with `git -C <snapshot> diff --name-only c02c097e HEAD -- src/app/api` failed as not Git worktrees; direct read-only API inventory replaced them. Get-CimInstance Win32_Process was denied by the sandbox; no permissions escalation or peer process termination was attempted. Only this job's first typecheck session was stopped with Ctrl+C, as recorded above. SDK/CLI primary documentation was read through web search/open/find; no application or provider request was made by that lookup.
 
 ### Remaining integration work, stale assertion and scope decisions
 
-- `tests/platform-ui/operator-journey.test.ts:83-88` still says an in-process `rolling_back` deployment cannot be cancelled from the screen. The real engine already has cancellation (`engine.ts:865`) and the new UI invokes the existing `deploy.cancel` action, so its old availability/reason expectations are provably stale. Per owned-test boundaries it was not edited. The orchestrator should rename that case, keep its stage/step-order assertions, assert cancel.available is true and cancel.reason is undefined, retaining assertion strength; new `tests/screens/mfa.test.tsx` covers nonterminal/terminal states, role denial and real action wiring. No existing test expectation was changed by J3.
+- `tests/platform-ui/operator-journey.test.ts` now expects legacy cancellation because UX-01 requires it and the existing guarded `deploy.cancel` action honors it; stage/order assertions remain unchanged.
 - The newly authored J3 screen test initially expected POST for server confirmation; it now expects GET because confirmation has no side effects and must remain available during read-only maintenance. The same AAL2 guard protects both methods. A new route/maintenance contract assertion checks this explicitly. This is a change to J3's own draft test, not a pre-existing assertion/gate change.
 - Older route tests outside tests/auth/tests/screens that fake only sessionUser/verifyRequestIdentity must also provide explicit signed AAL2 claims (finite unexpired exp), matching confirmed live user and a verified TOTP factor. Keep all their denial, policy, digest, tenant and effect assertions. Do not mock requireStepUp or bypass it to go green. Their assembled successor is pending, not claimed passed here.
 - The middleware/boot/admission order is preserved. Step-up runs before the route handler, after existing admission and request/membership resolution; it does not defer quota or DUR execution checks.
-- Workspace controls are host-managed because J3 has no assigned migration and must not invent/extend another owner's policy schema. The UI exposes effective controls; a future admin-edit persistence seam requires an explicitly assigned schema/policy join.
+- The review replaced the initial host-managed controls with real per-workspace state using assigned migration 57, API/UI edits and transactional audit events. No host-map override/import remains. Seven old host-parser cases now assert that those obsolete values cannot override persisted enforcement; invalid persisted controls are refused by new repository/API assertions. The prior environment-parser expectation is stale because that configuration is no longer authoritative.
 - Operated MFA, axe, browser keyboard, contrast, manual NVDA and engine/provider cancellation remain not run (need the Mac/local default stack or owner-approved Windows screen-reader environment). Supabase TOTP must be enabled by the stack owner. Supabase-level factor recovery/removal stays with the identity provider; this UI only cancels its current unverified enrollment.
 - Ledger row remains `implementation_complete_verification_pending`, state `in_progress`; historical evidence remains unchanged. The orchestrator must regenerate aggregate docs and add the five test files to the unit/browser gate inventory without weakening required identities. No release flag or verification state was promoted.
 
 Suggested commit: `feat(auth): require operator MFA for privileged actions`
+
+### Orchestrator review follow-up (based on e40837ce)
+
+This follow-up completes the three requested build joins: persisted controls, authorized legacy assertion/audit coverage, and exact local/default/production TOTP setup. `tests/auth/mfa-workspace-state.test.ts` uses actual PGlite SQL and the actual API/guard with mocked Auth; its separate PostgreSQL lane requires `ZENITH_MFA_PG=1`. Settings changes and the precise before/after/actor audit commit together, including rollback when an actual audit constraint refuses the insert. The positive and negative controls cover concurrency, version conflicts, foreign workspace isolation, malformed/weakening bodies, role denial, old MFA timestamps and store outages. `tests/auth/mfa-legacy-cancel.test.ts` exercises the actual route, action and file-store audit with an explicit engine double, including AAL1 denial, successful cancel, viewer denial and foreign/unknown targets. This is not operated engine proof.
+
+`tests/screens/mfa.test.tsx` covers labeled fields, keyboard form submission, current-version writes, viewer/editor read-only behavior, focused step-up refusal and duplicate-submit exclusion. The real gated Playwright test now also refuses AAL1 controls PUT, saves controls through the actual settings form with Enter, reads persisted state and runs axe on the settings page. No Auth/API interception is used by that gate.
+
+Additional Mac PostgreSQL lane (not run on this machine): start the J1 local PostgreSQL/private-CA pooler and prepare an **isolated disposable** database through J1's owned setup. This test temporarily adds an audit-refusal constraint inside a transaction, so do not use a shared install database. Load its private URL into the environment without printing it, then run:
+
+```sh
+export ZENITH_MFA_PG=1
+# ZENITH_TEST_PLATFORM_PG_URL is supplied by J1's private disposable DB setup.
+npx vitest run tests/auth/mfa-workspace-state.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Expected opted-in result: **46 passed / 0 failed / 0 skipped** (24 PGlite/static checks plus 22 PostgreSQL cases). With the PostgreSQL gate off: **24 PGlite/static cases + 22 explicitly not-run PostgreSQL skips**. Missing URL with the gate enabled fails immediately. Use the browser commands above after all assigned migrations are assembled/applied; expected browser result remains **2 passed / 0 failed / 0 skipped**, now including persisted settings and their a11y. Manual NVDA, real engine cancellation, full assembled tenancy/default-stack acceptance and live clouds remain not run; live cloud acceptance is deferred.
+
+No commit, dependency installation, aggregate generation or production action was performed by this agent. The orchestrator committed the first slice as e40837ce; this follow-up is left in the working tree.
+
+Follow-up files (25: 20 modified, 5 added):
+
+```text
+docs/build/production/ledger.json
+docs/build/production/verify/PROD-UX-01.md
+docs/platform/operations/MFA.md (new)
+docs/platform/operations/README.md
+src/app/(product)/platform/settings/mfa-controls.tsx
+src/app/(product)/platform/settings/page.tsx
+src/app/api/workspace/mfa/route.ts
+src/lib/auth/mfa-policy.ts
+src/lib/auth/mfa-routes.ts
+src/lib/auth/mfa.ts
+src/lib/controlplane/db/migrations/0057_workspace_mfa_controls.ts (new)
+src/lib/controlplane/db/migrations/index.ts
+src/lib/controlplane/db/repos/index.ts
+src/lib/controlplane/db/repos/workspace-mfa-controls.ts (new)
+src/lib/controlplane/types.ts
+src/lib/sensitivedata/inventory.ts
+supabase/config.toml
+tests/auth/mfa-browser.test.ts
+tests/auth/mfa-legacy-cancel.test.ts (new)
+tests/auth/mfa-routes.test.ts
+tests/auth/mfa-workspace-state.test.ts (new)
+tests/auth/mfa.test.ts
+tests/controlplane/tenancy.test.ts
+tests/platform-ui/operator-journey.test.ts
+tests/screens/mfa.test.tsx
+```
+
+Follow-up Windows commands (each PowerShell shell prepended `C:\Users\user\.local\sdk\node22` to PATH):
+
+| Exact check command | Passed / failed / skipped |
+| --- | --- |
+| `npx vitest run tests/auth/mfa-workspace-state.test.ts tests/auth/mfa-legacy-cancel.test.ts tests/auth/mfa.test.ts tests/auth/mfa-routes.test.ts tests/auth/mfa-operators.test.ts --no-file-parallelism --maxWorkers=2` | First attempt: 176 / 3 / 22, exit 1. One 20-second timeout and two expiry/outage assertions exposed the split mocked barrel/actual singleton store seam. The loader now imports the database-opening seam directly and fixtures mock that one seam. All assertions and timeouts retained. |
+| `npx vitest run tests/screens/mfa.test.tsx tests/platform-ui/operator-journey.test.ts --no-file-parallelism --maxWorkers=2` | 25 projection tests passed / 0 assertion failures / 0 skips, plus 1 unhandled DOM worker-start timeout, exit 1. The DOM file never started, so this was not a successful combined run. |
+| `npx vitest run tests/auth/mfa-workspace-state.test.ts --no-file-parallelism --maxWorkers=2` | Successor: 24 / 0 / 22, exit 0; all PostgreSQL cases explicitly not run. |
+| `npx vitest run tests/screens/mfa.test.tsx --no-file-parallelism --maxWorkers=2` | Successor: 30 / 0 / 0, exit 0. |
+| `npx vitest run tests/platform-ui/operator-journey.test.ts --no-file-parallelism --maxWorkers=2` | Isolated successor for the earlier combined worker failure: 25 / 0 / 0, exit 0; all unchanged stage/order assertions and the authorized legacy-cancel expectations pass. |
+| `npx vitest run tests/auth/mfa.test.ts tests/auth/mfa-routes.test.ts tests/auth/mfa-operators.test.ts tests/auth/mfa-legacy-cancel.test.ts tests/auth/mfa-browser.test.ts --no-file-parallelism --maxWorkers=2` | Final guard/cancel: 155 / 0 / 2, exit 0; actual browser cases not run. |
+| `$mfaChanged = @(git diff --name-only -- '*.ts' '*.tsx'); $mfaChanged += @(git ls-files --others --exclude-standard -- '*.ts' '*.tsx'); npx eslint @mfaChanged` | Executed twice, including after store-seam fixes: both exit 0, 20 files each, 0 errors / 0 warnings. |
+| `npx vitest run tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2` | 12 / 1 / 0, exit 1. The existing source-tree scan for the sole sealed idempotency caller timed out at its unchanged 20-second limit; table/column completeness and all other inventory checks passed. |
+| `npx vitest run tests/security/sensitive-inventory.test.ts -t 'idempotency.complete has exactly one production caller, and it seals' --no-file-parallelism --maxWorkers=2` | Isolated successor: 1 / 0 / 12, exit 0; 12 cases not selected, not acceptance passes. The timed-out assertion and timeout were unchanged; the scan completed in 1.12 seconds. |
+| `npx vitest run tests/controlplane/tenancy.test.ts -t 'completeness guard' --no-file-parallelism --maxWorkers=2` | 3 / 0 / 3, exit 0; 3 broader cases not selected. Both new repository functions are classified; actual workspace read/write isolation is exercised in the new PGlite/API suite. |
+| `& 'C:\Program Files\Git\bin\bash.exe' 'Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh'` | Executed twice. Attempt 1: exit 1, 31 diagnostics. Required Principal names, complete legacy fixture fields and explicit route contexts were corrected without removing assertions. Attempt 2: exit 1, exactly 1 TS2741 diagnostic at `src/components/platform/event-sentences.ts:45`, because the new audit type needs an outside-owned exhaustive-map entry. 0 successful typechecks / 2 failed / 0 skipped; all 30 owned diagnostics resolved. Script uses Node 22, the shared temporary lock and an 8 GiB heap. No typecheck pass is claimed. |
+| `npx eslint src/app/api/workspace/mfa/route.ts src/lib/controlplane/db/repos/workspace-mfa-controls.ts tests/auth/mfa-legacy-cancel.test.ts tests/auth/mfa-workspace-state.test.ts` | After compiler fixes: exit 0, 4 files, 0 errors / 0 warnings. |
+| `npx vitest run tests/auth/mfa-workspace-state.test.ts tests/auth/mfa-legacy-cancel.test.ts --no-file-parallelism --maxWorkers=2` | After compiler fixes: 30 / 0 / 22, exit 0; actor-name audit coverage is strengthened, and all earlier guard/role/tenancy/effect assertions remain unchanged. PostgreSQL cases remain not run. |
+| `node -e 'const fs = require("fs"); const ledger = JSON.parse(fs.readFileSync("docs/build/production/ledger.json", "utf8")); const row = ledger.requirements.find(r => r.id === "PROD-UX-01"); if (row.implementationStatus !== "implementation_complete_verification_pending" || row.state !== "in_progress" || !row.implementationNote) process.exit(1); console.log("UX-01 ledger status/note: pass");'` | Executed twice: each exit 0, 1 metadata check passed / 0 failed / 0 skipped; no verification status promoted. |
+| `git diff --check` | exit 0, 0 whitespace findings at the recorded checkpoints. |
+
+Counts overlap; do not sum attempts. Current focused feature evidence: **234 passed / 0 failed / 24 gated skips** (155 guard/cancel, 24 persistence/API, 30 DOM and 25 legacy projection). The complete inventory's 13 assertions passed across the first 12 successful cases and the isolated successor for the timed-out case; the initial whole-file failure is preserved. The 15 filtered skips in inventory/completeness selections are unselected cases, not gated acceptance passes. No legacy cancellation assertion was removed: available now equals true, reason equals undefined, and stage/step-order assertions remain exact.
+
+The new audit vocabulary also needs a shared UI join in `src/components/platform/event-sentences.ts`: its exhaustive `Record<PlatformEventType, Rule>` must describe `workspace.mfa_controls_changed`. That file is outside the original owned list. The proposed entry below is reviewable but remains **unapplied** for the orchestrator under the original ownership restriction. A scope clarification was requested and no response was received before this handoff. Neither the event type nor the exhaustive map was weakened to hide this compiler failure:
+
+```ts
+"workspace.mfa_controls_changed": { sentence: (w) => `${w} changed workspace MFA controls.`, tone: "idle" },
+```
+
+Deviation from the reviewed handoff: none. The initial host-managed scope choice is superseded by the explicit review. Remaining assembler work: add the shared event sentence entry above and rerun serialized typecheck, insert the actual owned migrations 44-56 ahead of 57, regenerate the aggregate through the existing owner process, add the new test files to the gate inventory and retain the pending verification status. Operated Auth/browser/axe/NVDA/cancellation and real PostgreSQL require the stated external verifier environment.
+
+Resource note for the 8 GiB Mac: stop the Next.js process and browser before running the SQL/PG-only lane (its Auth SDK is mocked); run the browser lane separately with the lean Auth stack above. Run inventory checks with `npx vitest run tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2`; expected 13 passed / 0 failed / 0 skipped.
+
+For the full assembled tenancy file, retain the owned disposable PostgreSQL URL from the SQL lane and all canonical broker/native-authority fixtures. Run this separate lane after the migration and fixture owners have assembled their joins:
+
+```sh
+export ZENITH_TEST_WORKFLOW_START_REQUIRED=1
+export ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1
+# ZENITH_TEST_PLATFORM_PG_URL remains supplied by the owned disposable DB setup.
+npx vitest run tests/controlplane/tenancy.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Expected assembled result: **7 passed / 0 failed / 0 skipped** (three classification checks, the PGlite and PostgreSQL sweeps, and two PostgreSQL native-authority sweeps). This full assembled lane was not run here; only its three classification checks and the new MFA-specific PGlite isolation contracts were run. The required flags refuse a missing PostgreSQL URL, and no canonical broker or native-authority assertion may be replaced to achieve this result.
+
+Suggested follow-up commit: `feat(auth): persist workspace MFA controls and enable TOTP`

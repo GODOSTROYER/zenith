@@ -17,7 +17,7 @@ export function privilegedRoute(path: string, method: string): Boundary | undefi
   if (path === `${PLATFORM}/github/callback` || path === "/api/auth/mfa/verify") return "human";
   if (READ.has(method.toUpperCase())) return undefined;
   if (path === "/platform/connections/aws/action") return "human";
-  if (/^\/api\/(workspace\/(members|invites|ownership)|integrations\/|secrets(?:\/|$)|settings(?:\/|$)|account$)/.test(path)) return "human";
+  if (/^\/api\/(workspace\/(members|invites|ownership|mfa)|integrations\/|secrets(?:\/|$)|settings(?:\/|$)|account$)/.test(path)) return "human";
   if (/^\/api\/hosted\/(apps(?:\/|$)|ops\/)/.test(path)) return "human";
   if (!path.startsWith(`${PLATFORM}/`)) return undefined;
   const relative = path.slice(PLATFORM.length);
@@ -59,6 +59,6 @@ export async function guardPrivilegedRoute(req: NextRequest, adminMutation = fal
     // or the existing keyed in-process Navigator may retain machine authority.
     if (verifiedIntegration || (await resolveActor(req)).type === "navigator") return;
   }
-  if (!boundary && !workspaceMfaControl(workspaceId).requireForAllMutations) return;
+  if (!boundary && !(await workspaceMfaControl(workspaceId)).requireForAllMutations) return;
   await requireStepUp(req, { subject: state?.user?.id ?? "", workspaceId });
 }

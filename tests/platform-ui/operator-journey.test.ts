@@ -80,12 +80,12 @@ describe("legacy and platform views agree", () => {
     expect(v.reviewDigest).toBe(D1);
     expect(v.cancel.available).toBe(false);
   });
-  it("keeps the in-process engine record when no operation is linked and refuses a cancel it cannot honour", () => {
+  it("keeps the in-process engine record when no operation is linked and offers legacy engine cancellation", () => {
     const v = projectLegacyDeployment({ id: "dep_1", status: "rolling_back", steps: [{ id: "b", seq: 2, title: "Second", status: "pending" }, { id: "a", seq: 1, title: "First", status: "done" }] });
     expect(v.stage).toBe("rolling_back");
     expect(v.steps.map((s) => s.title)).toEqual(["First", "Second"]);
-    expect(v.cancel.available).toBe(false);
-    expect(v.cancel.reason).toBeTruthy();
+    expect(v.cancel.available).toBe(true);
+    expect(v.cancel.reason).toBeUndefined();
   });
 });
 

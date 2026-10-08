@@ -89,6 +89,7 @@ const SWEPT = new Set([
   "ownershipTransfers.listActive", "ownershipTransfers.guardFor", "ownershipTransfers.revoke", "ownershipTransfers.recordForApprovedOperation",
   "ownershipTransfers.lockForOperation",
   "optimizerSettings.getOptimizerSettings",
+  "workspaceMfaControls.getWorkspaceMfaControls",
   // PROD-LIFE-11: tenant-scoped reads of verified exports, restores and ownership claims (writes are classified below).
   "portability.getExport", "portability.listExports", "portability.listRestores", "portability.getAdoption", "portability.listAdoptions", "portability.adoptionFacts",
   // PROD-LIFE-01 / PROD-UX-03: tenant-scoped reads (workspace_id in SQL; a foreign id equals a missing one). Writes are classified below.
@@ -173,6 +174,7 @@ const WRITES = new Set([
   "mixedRuns.get", "mixedRuns.create", "mixedRuns.save", "mixedRuns.listEvents",
   "mixedOutputPreauthorizations.create", "mixedOutputPreauthorizations.get", "mixedOutputPreauthorizations.list", "mixedOutputPreauthorizations.revoke", "mixedOutputPreauthorizations.reserveUse",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings",
+  "workspaceMfaControls.putWorkspaceMfaControls",
   // PROD-COST-01: binds the row and the idempotency lookup to the supplied workspace; foreign-workspace listing and cross-tenant isolation are covered by tests/cost/actual-spend-store.test.ts and the sweep below.
   "actualSpend.insertActualSpend", "idempotency.reserve", "idempotency.complete",
 ]);
@@ -336,6 +338,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     await repos.settings.putEnvironmentSettings(db, { workspaceId: A, environmentId: envId, autonomyLevel: 4, updatedBy: "u" });
     await repos.settings.putWorkspacePolicy(db, { workspaceId: A, params: { k: 1 }, updatedBy: "u" });
     await repos.optimizerSettings.putOptimizerSettings(db, { workspaceId: A, environmentId: envId, enabled: true, updatedBy: "u" });
+    await repos.workspaceMfaControls.putWorkspaceMfaControls(db, { workspaceId: A, requireForAllMutations: true, maxAgeSeconds: 300, expectedVersion: 0, actor: user("u"), correlationId: uid("mfa") });
     const connection = await repos.connections.create(db, {
       workspaceId: A,
       createdBy: "u",
@@ -556,6 +559,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "settings.getEnvironmentSettings": () => repos.settings.getEnvironmentSettings(db, B, envId),
       "settings.getWorkspacePolicy": () => repos.settings.getWorkspacePolicy(db, B),
       "optimizerSettings.getOptimizerSettings": () => repos.optimizerSettings.getOptimizerSettings(db, B, envId),
+      "workspaceMfaControls.getWorkspaceMfaControls": () => repos.workspaceMfaControls.getWorkspaceMfaControls(db, B),
     };
     // Build launches and workflow starts use actual broker/PG positive controls
     // in their separate sweeps below; all remaining functions run in both lanes.
@@ -599,6 +603,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     expect((await repos.incidents.getIncident(db, A, incident.id))?.status).toBe("open");
     expect((await repos.settings.getEnvironmentSettings(db, A, envId)).autonomyLevel).toBe(4);
     expect((await repos.optimizerSettings.getOptimizerSettings(db, A, envId)).enabled).toBe(true);
+    expect(await repos.workspaceMfaControls.getWorkspaceMfaControls(db, A)).toMatchObject({ requireForAllMutations: true, maxAgeSeconds: 300, version: 1 });
     expect(await repos.observations.latestObservation(db, A, resource.id)).not.toBeNull();
     expect(await repos.leases.listActive(db, A)).toHaveLength(1);
   });

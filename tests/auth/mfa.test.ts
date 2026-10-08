@@ -6,7 +6,9 @@ import { requireStepUp } from "@/lib/auth/mfa";
 import { workspaceMfaControl } from "@/lib/auth/mfa-policy";
 import { mfaReturnPath } from "@/lib/auth/mfa-navigation";
 
-const mocks = vi.hoisted(() => ({ claims: vi.fn(), user: vi.fn(), factory: vi.fn(), configured: true }));
+const mocks = vi.hoisted(() => ({ claims: vi.fn(), user: vi.fn(), factory: vi.fn(), controls: vi.fn(), configured: true }));
+vi.mock("@/lib/controlplane/db/open", () => ({ platformDb: async () => ({}) }));
+vi.mock("@/lib/controlplane/db/repos/workspace-mfa-controls", () => ({ getWorkspaceMfaControls: mocks.controls }));
 vi.mock("@supabase/ssr", () => ({ createServerClient: mocks.factory }));
 vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "", isSupabaseConfigured: () => mocks.configured }));
 const req = (headers: Record<string, string> = {}, method = "POST") => new NextRequest("https://zenith.test/api/platform/v1/operations/op/approve", { method, headers: { origin: "https://zenith.test", ...headers } });
@@ -17,6 +19,7 @@ beforeEach(() => {
   vi.resetAllMocks(); mocks.configured = true;
   mocks.claims.mockResolvedValue(claims()); mocks.user.mockResolvedValue(user());
   mocks.factory.mockReturnValue({ auth: { getClaims: mocks.claims, getUser: mocks.user } });
+  mocks.controls.mockImplementation((_sql, workspaceId) => ({ workspaceId, privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null, version: 0, isDefault: true }));
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 
@@ -68,7 +71,7 @@ describe("requireStepUp Supabase contract", () => {
     await expect(check(request)).rejects.toMatchObject({ status: 401 }); expect(mocks.user).toHaveBeenCalledTimes(2);
   });
   it("uses workspace MFA age, never JWT refresh time, and rejects absent/future AMR", async () => {
-    vi.stubEnv("ZENITH_MFA_WORKSPACE_CONTROLS", JSON.stringify({ "ws-a": { maxAgeSeconds: 120 } }));
+    mocks.controls.mockImplementation((_sql, workspaceId) => ({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: workspaceId === "ws-a" ? 120 : null }));
     const now = Math.floor(Date.now() / 1000);
     for (const amr of [undefined, [{ method: "password", timestamp: now }], [{ method: "totp", timestamp: now - 121 }], [{ method: "totp", timestamp: now + 1 }]]) {
       mocks.claims.mockResolvedValue(claims({ amr, iat: now })); await expect(check()).rejects.toMatchObject({ status: 403 });
@@ -79,13 +82,26 @@ describe("requireStepUp Supabase contract", () => {
 });
 
 describe("workspace controls and return navigation", () => {
-  it("keeps a mandatory minimum and scopes stricter controls by workspace", () => {
-    vi.stubEnv("ZENITH_MFA_WORKSPACE_CONTROLS", JSON.stringify({ "ws-a": { requireForAllMutations: true, maxAgeSeconds: 300 } }));
-    expect(workspaceMfaControl("ws-a")).toEqual({ privilegedActionsRequireAal2: true, requireForAllMutations: true, maxAgeSeconds: 300 });
-    expect(workspaceMfaControl("ws-b")).toEqual({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null });
+  it("reads current per-workspace state without using the removed host map", async () => {
+    vi.stubEnv("ZENITH_MFA_WORKSPACE_CONTROLS", JSON.stringify({ "ws-a": { requireForAllMutations: false } }));
+    mocks.controls.mockImplementation((_sql, workspaceId) => ({ privilegedActionsRequireAal2: true, requireForAllMutations: workspaceId === "ws-a", maxAgeSeconds: workspaceId === "ws-a" ? 300 : null }));
+    expect(await workspaceMfaControl("ws-a")).toEqual({ privilegedActionsRequireAal2: true, requireForAllMutations: true, maxAgeSeconds: 300 });
+    expect(await workspaceMfaControl("ws-b")).toEqual({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null });
   });
-  it.each(["{", "[]", "null", JSON.stringify({ a: { privilegedActionsRequireAal2: false } }), JSON.stringify({ a: { requireForAllMutations: "true" } }), JSON.stringify({ a: { maxAgeSeconds: 0 } }), JSON.stringify({ a: { maxAgeSeconds: 90000 } })])("refuses malformed or weakening config %s", (raw) => {
-    vi.stubEnv("ZENITH_MFA_WORKSPACE_CONTROLS", raw); expect(() => workspaceMfaControl("ws-a")).toThrow(/invalid/);
+  it("refuses mutations on store failure rather than using defaults", async () => {
+    mocks.controls.mockRejectedValue(new Error(randomUUID()));
+    await expect(workspaceMfaControl("ws-a")).rejects.toMatchObject({ status: 503 });
+    await expect(check()).rejects.toMatchObject({ status: 503 }); expect(mocks.factory).not.toHaveBeenCalled();
+  });
+  it.each(["{", "[]", "null", JSON.stringify({ a: { privilegedActionsRequireAal2: false } }), JSON.stringify({ a: { requireForAllMutations: "true" } }), JSON.stringify({ a: { maxAgeSeconds: 0 } }), JSON.stringify({ a: { maxAgeSeconds: 90000 } })])("ignores the retired host-map input %s and retains persisted enforcement", async (raw) => {
+    vi.stubEnv("ZENITH_MFA_WORKSPACE_CONTROLS", raw);
+    const persisted = { privilegedActionsRequireAal2: true, requireForAllMutations: true, maxAgeSeconds: 300 };
+    mocks.controls.mockResolvedValue(persisted);
+    await expect(workspaceMfaControl("ws-a")).resolves.toEqual(persisted);
+  });
+  it("uses the immutable minimum for installation controls without a workspace", async () => {
+    expect(await workspaceMfaControl()).toEqual({ privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null });
+    expect(mocks.controls).not.toHaveBeenCalled();
   });
   it.each([undefined, "https://attacker.test", "//attacker.test", "/\\attacker.test", "/auth/callback", "/api/actions/deploy.approve", "/platform\n/approve"])("rejects unsafe return %s", (path) => {
     expect(mfaReturnPath(path)).toBe("/platform");

@@ -27,7 +27,7 @@ export async function requireStepUp(req: NextRequest, options: { subject: string
     if (site !== null && site !== "same-origin") throw required();
   }
   if (!isSupabaseConfigured()) throw unavailable();
-  const policy = workspaceMfaControl(options.workspaceId);
+  const policy = await workspaceMfaControl(options.workspaceId);
   try {
     const client = createServerClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY, {
       cookies: { getAll: () => req.cookies.getAll(), setAll: () => { /* middleware owns refresh */ } },

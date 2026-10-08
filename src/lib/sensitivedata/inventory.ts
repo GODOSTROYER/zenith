@@ -264,6 +264,7 @@ export const TABLES: Readonly<Record<string, TableSink>> = {
   "platform.incident_maintenance_windows": { owner: "incidents", classification: "operational", retention: ledger(OPS07), purpose: "maintenance windows", columns: {} },
   "platform.incident_postmortems": { owner: "incidents", classification: "operational", retention: ledger(OPS07), purpose: "postmortem documents", columns: { document: guarded("incidentStability.recordPostmortem -> assertNoSecretValues(doc)") } },
   "platform.optimizer_settings": { owner: "cost/optimizer", classification: "operational", retention: operational("current settings"), purpose: "optimizer opt-in", columns: {} },
+  "platform.workspace_mfa_controls": { owner: "auth/workspace MFA (UX-01)", classification: "operational", retention: operational("current workspace settings; change history is in platform.events"), purpose: "workspace-owned MFA enforcement controls; no Auth factors, setup keys or codes", columns: {} },
   "platform.release_runs": { owner: "release", classification: "operational", retention: ledger(OPS07), purpose: "release pipeline runs",
     columns: { provenance: plain("digests and ids"), migration: plain("migration class and digests"), rollout: plain("rollout state"), readback: plain("probe results, bounded") } },
   "platform.release_events": { owner: "release", classification: "operational", retention: ledger(OPS07), purpose: "release state transitions", columns: { detail: plain("fixed transition detail") } },

@@ -1,3 +1,82 @@
+## Final integration build, 8 October 2026
+
+Merged prod/compose migration chain closes the unused slot at 55 and is contiguous through 58. Central step-up, SMTP/TOTP, owned issuer, local harness adapters and shared live budget/inventory/teardown are joined. Generated catalogs and unpublished aggregate regenerated. Exact local counts and remaining verifier prerequisites are in [the build report](verify/FINAL-INTEGRATION.md). No Git writes, publication, cloud execution, ledger verification promotion or release sign-off.
+
+## Temporal source binding correction, 8 October 2026
+
+Integrated `ebd309ac2ec8e6351554285f7674a6433b8255fb`, fix `b279aac8215ac1ed57ea6ac72bd93100ed6d5289`, Arnav author and committer. Exact reviewed Temporal fixture pin refreshed without weakening assertions. Root entire affected gate suite **295 passed /0 failed /0 skipped**, lint and diff checks passed. Executed isolated base98a3f6f5 plus exact changed-source hash; complete integrated successor remains pending.
+
+Published `ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af` full native run: **21,856 passed /1 failed /1,618 skipped**, all1,046 files and collected identities accounted for, six genuine Python cases passed, cleanup/source binding independently accepted. Sole failure: stale fixture source hash. Exact published CI now terminal **19 successful jobs /1 failed verify job**, same assertion; Smoke/Gimbal unexecuted. Original failed receipts remain failed. [Every exact-source CI job](verification/CI-2026-10-08-ed93a676.md). No whole-candidate green claim.
+
+Ledger **10 verified /49 in progress /19 planned**, all78 requirements and four false release states preserved. Next: complete coherent successor and fresh CI, fresh native build, authorized default-stack/browser/scheduling and remaining kind acceptance. [Sanitized evidence](evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json). No wave3 feature changes or live-cloud acceptance.
+
+## Identity and Temporal diagnostic integration, 8 October 2026
+
+Integrated `5072c4a0` (stable waitlist title) at `b5430146`, and `98a3f6f5` (bounded Temporal startup diagnostics) at `2fb5f888`. Author and committer Arnav Bule; no trailer. Root combined compiler passed. No gate, payload, assertion, startup deadline or ownership-cleanup guard weakened.
+
+- Native full9354 run: **21,851 passed /0 failed /1,624 skipped**, Vitestexit0; strict verifier failed because one title embeds random UUIDs. All1,046files present; source/end binding and cleanup passed;61 registered groups absent; minimum24,437,710,848bytes. Rejected receipt preserved.
+- Stable title correction: entire waitlist file **44/0/0**, exact fresh collection/runtime Counter match, lint0 and independent review. All1,001 random UUID payload values remain runtime-generated. A complete new full run is still required.
+- Actual pinned Python collector: **6/0/0**, native Mac only; no Azure/cloud or Linux delivery claim. Separate counts overlap with core scope.
+- Actual owned durable Temporal target: **10/0/0**, eight models plus two restart/overlap cases,56.76seconds. All seven groups absent; source/end binding/cleanup passed; minimum24,784,904,192bytes. Remote startup cause remains unreproduced. Diagnostics emit fixed classifications and process status only; at most8KiB captured privately.
+- Exact9354CI: **19 successful jobs /one failed workflow job**, allterminal. Unit21828/0/1647; platformPG3772/0/15 with all1156mandatorygroups passed; workflow1376/0assertionfailures/2skipped, one failed suite and exit1. Native worker/platform job conclusions successful; per-case inspection remains distinct.
+
+Ledger remains **10verified /49in progress /19planned** across78rows; all four release states false. Default startup effects/browser journey, broader requirements and external blockers remain open. Fresh Next preparation for9354 becomes stale after integration and requires rebinding; older artifacts cannot verify changed source. Next step: fresh coherent fullunit/gates, exact pushed CI with diagnostics, then authorized default stack on this Mac.
+
+## Integrated ownership grant security repair, 8 October 2026
+
+Root integration `7427a7d0b0fcafeca92a1d2c768f74d0317ad9a7`; fix `40012d75bf6734399786dbc258d972789caf44ff`, Arnav author/committer. Real PostgreSQL finding10/1/0 retained. Exact repaired native17/0/0 and complete affected six-file124/0/0 passed; compiler, affected lint and independent source/receipt/cleanup review passed. Counts overlap. [Sanitized source-bound evidence](evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json).
+
+Bounded CAS checks the complete scoped resource inventory again in final grant SQL, preserving JSONB precision, tenant scope and lock order; changed/missing/oversized inventories refuse. It does not coordinate inserts after that SQL snapshot or retroactively revoke issued grants. LIFE-12 remains in_progress, broader writer coordination/preissued-grant policy remains builder-owned follow-up. No cloud/default-stack/production acceptance inferred.
+
+First broader-suite setup executed zero tests because an optional JSON output argument consumed a source path. Failed receipt and overwritten output retained; exact reviewed source recovered and hash-verified. Corrected wrapper uses an explicit private output path, snapshots and post-collection source binding. R2 executed124 exact cases, zero failed/skipped/excluded; owned cleanup complete. No gate/assertion weakened.
+
+Latest native whole-unit failure remains21,848/1/1,614 until complete coherent rerun. Focused Docker-environment correction passed all62 installation cases. Ten new mandatory PostgreSQL identities integrated in d25b1a85: current1156 required, exact historical1146/1141 cohorts preserved. Gate-manifest295/0/0 and platform coverage/evidence sanitizer174/0/0 passed; lint and independent review passed. Fresh native build/default startup, full combined gates and exact-push CI remain pending. User disk floor12GB; original packaged-worker18GiB prerequisite reported separately. Ledger10verified/49in_progress/19planned, all78 criteria and four false release states retained.
+
+CI09 reopened for changed candidate awaiting exact pushed terminal CI. Historical e4/a4 green results remain valid at their original SHAs.
+
+## Latest cross-machine verifier context, 8 October 2026
+
+[Current results, active lanes, remaining task coverage and boundaries](CURRENT-VERIFIER-CONTEXT.md). Tested a4 baseline: 20/20 CI jobs succeeded. New native full run: 21,848/1/1,614; environment repair reran all installation cases 62/0/0. Native LIFE-12 joins: 10/1/0, exposing a stale-ownership grant race. Four-path security candidate independently reviewed; actual 17-case rerun and integration pending. User disk floor now 12 GB; heavy workloads serial, source/review parallel. Ledger unchanged 11/48/19; all release flags false. This is builder context, not resume instructions. Earlier entries retain historical source scope.
+
+## Green e4 CI and native bootstrap acceptance, 8 October 2026
+
+Exact `e4c0c23782b5deb6b5b385ef58b504588d3a546b` completed **20/20 CI jobs successfully**. Unit: **21,826 passed /0 failed /1,637 skipped**,2,026.17s; compiler/lint/Smoke/Gimbal passed. All seven canonical required sets passed; native AMD64 and ARM64 workers each22/0/0, no emulation, cleanup complete. [Every job and evidence scope](verification/CI-2026-10-08-e4c0c237.md). Counts overlap and are never summed.
+
+Same-source native bootstrap: **86 passed /0 failed /0 skipped**,67.31s, one actual OpenTofu init/validate/test case plus85 ordinary controls. Private harness corrections authenticated the exact four-file official provider archive and used the documented short plugin socket directory after diagnostics proved a201-byte bind failure. Original tests/assertions and sandbox remained unchanged; source, package, positive/negative network controls, disk floor and owned cleanup independently accepted. Three failed predecessors remain recorded. [Bootstrap receipt](evidence/PROD-CI-08/2026-10-08-native-bootstrap86-passed.json). No seven individually retained mock-plan records or live AWS/installation proof claimed.
+
+Ledger **11 verified /48 in progress /19 planned**,all78 criteria/four false release states retained. CI09 refreshed to exact e4; CI08's complete native local gate remains open. Full native Node/DOM preparation is under review, not executed. Default five-service cold metadata gives a3.303GB compressed-plus-expanded lower bound, leaving roughly0.35GB above the22GiB floor before databases/overlays/swap; safe startup admission remains unproved. Preserved native build inputs match current source, avoiding unnecessary rebuilding. No images pulled or services started; external cloud/DNS/private App and business decisions remain unapproved. This documentation successor requires its own exact pushed CI.
+
+## Green published baseline and integrated browser diagnostics, 8 October 2026
+
+Exact published `b9191887378ffad6a889194c7b43efdfa943851d` finished **20/20 jobs successfully** across all three CI runs. Unit: **21,826 passed / 0 failed / 1,637 skipped**, 2,142.21 seconds. Compiler, lint, Smoke happy/failure-rollback and Gimbal passed. All seven canonical required sets passed. Native AMD64 and ARM64 workers each passed 22/0/0 with cleanup; agent browser passed 44/0. [Every job and evidence scope](verification/CI-2026-10-08-b9191887.md). Counts overlap and are not summed; skipped identities are not erased.
+
+Closed **PROD-CI-09 for b9191887** after independent criteria and exact-source review. Ledger recomputed: **11 verified / 48 in progress / 19 planned**, 78 requirements, four release flags false. CI08 remains open for a complete coherent local gate, including the original bootstrap engine case. Root's later integrated diagnostic source 74729261 and native 44/0/0 receipt are separate; the next pushed SHA requires its own complete CI.
+
+## Native browser accepted, 8 October 2026
+
+Integrated `74729261720aba23058dd6a4d43e042a43e978da`: reviewed browser diagnostics, actual same-Mac Chrome **44 passed/0 failed/0 skipped**,69seconds with3072MiB per-Node heap. Minimum disk24.526GB above22GiB floor; owned cleanup complete, independent review accepted. Original assertions/deadlines unchanged. Runtime source parity against executede69 differs only in productiondocs; affected lint passed, complete new compiler/CI pending.
+
+This proves the agent-consent gate with declared identity-provider double and1280/380px views, not defaultSupabase/375px operator accessibility. Old pending patch now reflects integrated source and must not be reapplied. Default stack/originalbootstrap gates remain open. Publishedb919 has19/20 successful terminaljobs; verify still running. Ledger **10 verified/49 in progress/19 planned**,78 requirements/four false release states retained. [Exact accepted and failed attempts](verification/RESULTS-2026-10.md#native-browser-accepted-with-bounded3072mib-profile-8-october-2026).
+
+## Post-publication native browser evidence, 8 October 2026
+
+Publishedb9191887 CI has18/20 successful terminal jobs; mainverify andplatform-postgres still running, no current failure. Native workers each22/0/0; nativeplatform leaves1/0/0; browser44/0; workflows1378/0/0 with105 required. Counts overlap and are not summed.
+
+Same-Mac diagnostic sourcee69 establishes memory-triggered Next dev restarts at1536/2048MiB. Reviewed4096MiB profile reaches20 passing controls and approvalPOST200, zero observed restarts, but fails the continuous22GiB disk guard before44 checks complete. Owned cleanup complete. Storage helper found no safe reclaimable space; free22.44GiB, only0.44GiB margin,7GiB dynamic swap allocated. Additional3–5GiB needed before another heavy local gate. [Exact attempts and limits](verification/RESULTS-2026-10.md#same-mac-browser-resource-correction-and-remaining-storage-blocker). Ledger unchanged: **10 verified/49 in progress/19 planned**,78 requirements, all four release states false.
+
+## Provenance refusal fixture correction, 8 October 2026
+
+Integrated `413334166890bb610ae73a045e0aaeb981e8b8a9` changes only `tests/execution/build-provenance.test.ts`. The previous random signature suffix replacement could leave valid signature bytes unchanged. The corrected fixture flips one decoded byte, proves equal length and unequal bytes/encoding, and retains all eight original refusal cases. Astra independently accepted the exact file hash. Full focused suite **24 passed /0 failed /0 skipped**, affected lint passed. Full compiler initially exhausted its default2GiB heap (exit134); retry with4096MiB passed. Production verifier and gates are unchanged; LIFE09 remains in_progress.
+
+Published `b420d0e16410592d47de0740293e730a1121af23` CI is terminal: **19/20 jobs succeeded**, with one agent-browser desktop confirmation failure (**43 passed/1 failed**). Unit verification passed **21,826/0/1,637**; Smoke and Gimbal passed. Native AMD64 and ARM64 packaged workers each passed **22/0/0**. [Every job and evidence scope](verification/CI-2026-10-08-b420d0e1.md). Historical10ec failure remains preserved. Counts overlap; no zero-skip or complete default-stack claim. New publication requires its own CI result.
+
+Initial Docker cleanup removed zero images; a read-only successor timed out and fixed-local daemon info returned HTTP500. A supported Desktop restart subsequently restored daemon29.1.3. Fresh inventory proved zero containers. Independently reviewed bounded cleanup removed only the two positively owned cached kind/BusyBox images; four unrelated images, one volume and four networks remained unchanged. No force/prune was used; logical image sizes are not treated as guaranteed host-space reclaim. Default-stack resource/runtime acceptance stays open, disk above22GiB floor. Also executed the full native HCL, plan-lock and load-balancer-name files:17/0/0 on41333416, actual OpenTofu1.12.5, no network/cloud, source hashes matched, owned process absent and temporary root empty. Ten previously excluded engine identities executed in this run; counts overlap other lanes and are not summed.
+
+
+Two actual native Mac browser diagnostic attempts failed and were fully cleaned. The first, heap768MiB, executed zero original checks; the owned Next process crash report confirms JavaScript heap exhaustion. The authorized1536MiB retry recorded6 passed/16 failed steps, but did not reach all44 original checks: Chrome displayed connection refusal, so those partial passes do not establish operator acceptance. Both attempts remained above22GiB disk floor; owned process groups and temporary outputs were removed. Cause of the second failure remains unproven. The harness uses a declared local identity-provider double and1280/380px viewports; it is not default Supabase or375px accessibility acceptance.
+
+Separate reviewed browser diagnostic packet `d887c7b7653fd954e491c39587f1271fbca72976`, following `a0d0434cdaba644576c50eb48151ca5c3c279d9e`, remains isolated on `codex/verify-browser-diagnostics-20261008`. It adds bounded transport/process diagnostics without changing assertions, deadlines, origins or authority. Lint and prior candidate compiler passed; the newest packet has not executed. It is not integrated or runtime accepted. Docker Desktop is now stopped after positively owned cleanup; unrelated resources remain preserved. Ledger remains **10 verified/49 in progress/19 planned**, all78 requirements and four false release flags retained. Live-cloud acceptance remains unapproved.
+
 ## Real skipped-case successors, 8 October 2026
 
 Integrated `40c53c943d81e6530303e0d03b44ff3eaa89a024` fixes only the positive Temporal teardown-race fixture: approval must include the original reviewed semantics digest. Production correctly refused the missing digest; no production guard was changed. New assertions prove cancellation entered once, real approval settled first, cancellation returned null, and the entire approved operation/events remained unchanged with zero applies. Independent Astra reviewed exact source; compiler and affected lint passed. Root actual Temporal rerun **1 passed / 0 failed / 0 skipped**, owned server/group absent and private temporary directory empty. Original10ec run **0/1/0** remains failed evidence.
@@ -418,7 +497,3 @@ Separate frozen `4c3d6476`: canonical workflow-intents **156/0/0**, all141 manda
 Current canonical workflows require71 groups, including the new full codec helper. Exact historical70/60/58 comparisons retain unchanged prior identities; unknown additions are not excluded. Root two-suite metadata verification345/0/0 and independent Astra source review passed; native100 stays100. Whole lint passed with0errors/3existing vendor warnings, compiler passed on4c; combined successor remains mandatory.
 
 Published `3dae8f9a` CI remains separate: native AMD64/ARM64 workers and Windows ACL/Linux systemd all successful; main13 successful jobs, workflows failed1330/1/0 (sole already-repaired same-environment rehearsal contention), verify/platform-postgres still running at inspection. No complete green or zero-skip project claim. Ledger10verified/49in_progress/19planned; all78 requirements/four false release states preserved.
-
-## Final integration build, 8 October 2026
-
-Merged prod/compose migration chain closes the unused slot at 55 and is contiguous through 58. Central step-up, SMTP/TOTP, owned issuer, local harness adapters and shared live budget/inventory/teardown are joined. Generated catalogs and unpublished aggregate regenerated. Exact local counts and remaining verifier prerequisites are in [the build report](verify/FINAL-INTEGRATION.md). No Git writes, publication, cloud execution, ledger verification promotion or release sign-off.

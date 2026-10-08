@@ -7,6 +7,9 @@ import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import { renderSupabaseMigration } from "@/lib/controlplane/db/migrations/emit";
 import * as repos from "@/lib/controlplane/db/repos";
 import type { Sql } from "@/lib/controlplane/types";
+import { digest } from "@/lib/controlplane/digest";
+import { createEffectLedger } from "@/lib/effects/ledger";
+import type { EffectRecord } from "@/lib/effects/types";
 import { transferRequest } from "@/lib/ownership/registry";
 import { PG_URL, approve, newWorkspace, proposalFor, seedAwaitingApproval, uid, user, withScratchDatabase } from "./_support/harness";
 
@@ -85,6 +88,34 @@ async function stateOf(db: PlatformDbHandle, input: { workspaceId: string; opera
   return state;
 }
 
+/** A genuine approved manifest baseline, with no enabling transfer to mask a new owner. */
+async function manifestAdmission(db: PlatformDbHandle) {
+  const workspaceId = newWorkspace(), environmentId = uid("env"), projectId = uid("project");
+  const node = { address: "container_service/web", kind: "container_service" as const, provider: "aws" as const,
+    region: "us-east-1", nativeType: "aws:ecs_service", ownership: "managed" as const,
+    spec: { replicas: 2 } as Record<string, unknown>, specDigest: digest({ replicas: 2 }), origin: ["web"], dependsOn: [], labels: {} };
+  const resource = await asService(db, tx => repos.resources.upsertDesired(tx, { workspaceId, environmentId, projectId, node }));
+  const seeded = await seedAwaitingApproval(db, { workspaceId, proposal: {
+    capability: "service.scale", scope: { workspaceId, projectId, environmentId, resourceId: resource.id },
+  } });
+  await asService(db, tx => approve(tx, seeded, user()));
+  expect(await repos.ownershipTransfers.listActive(db, workspaceId, environmentId)).toEqual([]);
+  const lease = await repos.leases.acquire(db, { workspaceId, scope: `env:${environmentId}`, holder: "worker:fact-race", ttlMs: 60_000 });
+  expect(lease).not.toBeNull();
+  const now = Date.now();
+  return { workspaceId, environmentId, projectId, node, resourceId: resource.id, operationId: seeded.operation.id,
+    claim: { workspaceId, id: seeded.operation.id, expectedDigest: seeded.operation.proposalDigest, holder: "worker:fact-race", lease: lease! },
+    grant: { jti: uid("jti"), workspaceId, operationId: seeded.operation.id, capability: "service.scale", audience: "worker",
+      issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + 60_000).toISOString() } };
+}
+
+async function addAutoscaler(tx: Sql, owned: Awaited<ReturnType<typeof manifestAdmission>>) {
+  const spec = { config: { target: owned.node.address } };
+  return repos.resources.upsertDesired(tx, { workspaceId: owned.workspaceId, environmentId: owned.environmentId, projectId: owned.projectId,
+    node: { address: "native/web-autoscaler", kind: "provider_native", provider: "aws", region: "us-east-1",
+      nativeType: "aws:appautoscaling_target", ownership: "managed", spec, specDigest: digest(spec), origin: ["web"], dependsOn: [], labels: {} } });
+}
+
 const signal = <T>() => {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
@@ -111,6 +142,68 @@ async function waitForExpiry(db: PlatformDbHandle, input: { workspaceId: string;
     await new Promise(done => setTimeout(done,10));
   }
   throw new Error("The finite native transfer expiry was not observed.");
+}
+
+async function claimAfterFactCommit(db: PlatformDbHandle, independent: PlatformDbHandle,
+  owned: Awaited<ReturnType<typeof manifestAdmission>>, change: (tx: Sql) => Promise<unknown>) {
+  const ready = signal<number>(), release = signal<void>(), started = signal<number>();
+  const blocker = asService(independent, async tx => {
+    const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
+    await tx.query("select id from platform.operations where workspace_id=$1 and id=$2 for update", [owned.workspaceId, owned.operationId]);
+    ready.resolve(backend!.pid); await release.promise;
+  }).then(() => undefined, error => { ready.reject(error); return error; });
+  let attempt: Promise<unknown> | undefined;
+  try {
+    const blockerPid = await ready.promise;
+    attempt = asService(db, async tx => {
+      const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid"); started.resolve(backend!.pid);
+      return repos.operations.claimForExecution(tx, owned.claim);
+    }).then(value => ({ value }), error => { started.reject(error); return { error }; });
+    const waiterPid = await started.promise;
+    await waitForNativeLock(db, waiterPid, blockerPid);
+    await asService(independent, async tx => {
+      const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
+      expect([blockerPid, waiterPid]).not.toContain(backend!.pid);
+      await change(tx);
+    }); // Resolves only after the independent fact mutation COMMIT.
+    await waitForNativeLock(db, waiterPid, blockerPid);
+  } finally {
+    release.resolve(); expect(await blocker).toBeUndefined();
+    await attempt;
+  }
+  return attempt!;
+}
+
+async function grantAfterFactCommit(db: PlatformDbHandle, independent: PlatformDbHandle,
+  owned: Awaited<ReturnType<typeof manifestAdmission>>, change: (tx: Sql) => Promise<unknown>) {
+  await db.query("insert into platform.cleanup_writer_scopes(workspace_id) values($1) on conflict do nothing", [owned.workspaceId]);
+  const ready = signal<number>(), release = signal<void>(), started = signal<number>();
+  const blocker = asService(independent, async tx => {
+    const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
+    await tx.query("select workspace_id from platform.cleanup_writer_scopes where workspace_id=$1 for update", [owned.workspaceId]);
+    ready.resolve(backend!.pid); await release.promise;
+  }).then(() => undefined, error => { ready.reject(error); return error; });
+  let attempt: Promise<unknown> | undefined;
+  try {
+    const blockerPid = await ready.promise;
+    attempt = asService(db, async tx => {
+      const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid"); started.resolve(backend!.pid);
+      return repos.grants.insert(tx, owned.grant);
+    }).then(value => ({ value }), error => { started.reject(error); return { error }; });
+    const waiterPid = await started.promise;
+    await waitForNativeLock(db, waiterPid, blockerPid);
+    // This is a real INSERT, not a mutation of an already share-locked row.
+    await asService(independent, async tx => {
+      const [backend] = await tx.query<{ pid: number }>("select pg_backend_pid() as pid");
+      expect([blockerPid, waiterPid]).not.toContain(backend!.pid);
+      await change(tx);
+    });
+    expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).not.toBeNull();
+    await waitForNativeLock(db, waiterPid, blockerPid);
+  } finally {
+    release.resolve(); expect(await blocker).toBeUndefined(); await attempt;
+  }
+  return attempt!;
 }
 
 describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [postgres]", () => {
@@ -279,4 +372,186 @@ describe.skipIf(!PG_URL)("ownership transfer immutable service-role custody [pos
     });
   },60_000);
 
+  it("refuses claim after a resource autoscaling fact commits during the owning operation wait", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      const result = await claimAfterFactCommit(db, independent, owned, tx => {
+        const spec = { ...owned.node.spec, autoscaling: true };
+        return repos.resources.upsertDesired(tx, { workspaceId: owned.workspaceId, environmentId: owned.environmentId,
+          projectId: owned.projectId, node: { ...owned.node, spec, specDigest: digest(spec) } });
+      });
+      expect((await repos.resources.get(db, owned.workspaceId, owned.resourceId))?.spec.autoscaling).toBe(true);
+      expect(result).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await stateOf(db, owned)).toEqual({ status: "approved", grants: 0, consumed: 0 });
+    });
+  }, 60_000);
+
+  it("refuses claim after a newly inserted autoscaler commits during the owning operation wait", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      const result = await claimAfterFactCommit(db, independent, owned, tx => addAutoscaler(tx, owned));
+      expect((await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler"))?.spec)
+        .toEqual({ config: { target: owned.node.address } });
+      expect(result).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await stateOf(db, owned)).toEqual({ status: "approved", grants: 0, consumed: 0 });
+    });
+  }, 60_000);
+
+  it("refuses a mutation grant when a new autoscaler commits after its ownership snapshot", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      const attempt = await grantAfterFactCommit(db, independent, owned, tx => addAutoscaler(tx, owned));
+      // Do not make stale issuance a passing expectation: this adverse contract may expose a production gap.
+      expect(await attempt).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await repos.grants.get(db, owned.workspaceId, owned.grant.jti)).toBeNull();
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
+    });
+  }, 60_000);
+
+  it("retains uncertain late evidence for a preissued write after current ownership changes", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      await asService(db, tx => repos.grants.insert(tx, owned.grant));
+      expect(await asService(db, tx => repos.grants.consume(tx, { workspaceId: owned.workspaceId, jti: owned.grant.jti, audience: "worker" }))).toBe(true);
+      const originalGrant = await repos.grants.get(db, owned.workspaceId, owned.grant.jti);
+      expect(originalGrant?.consumedAt).toEqual(expect.any(String));
+      const serviceSql: Sql = {
+        query: <T>(text: string, params?: readonly unknown[]) => asService(db, tx => tx.query<T>(text, params)),
+        tx: <T>(fn: (tx: Sql) => Promise<T>) => asService(db, fn),
+      };
+      const ledger = createEffectLedger(serviceSql), entered = signal<EffectRecord>(), release = signal<void>();
+      const input = { workspaceId: owned.workspaceId, operationId: owned.operationId, environmentId: owned.environmentId,
+        family: "proxy_request" as const, provider: "aws", dedupKey: `${owned.operationId}:scale`, requestDigest: digest({ replicas: 3 }),
+        idempotencySupported: false, fence: { scope: owned.claim.lease.scope, token: owned.claim.lease.fenceToken }, actor: "fixture:worker" };
+      const receipt = { resourceId: "fixture:ecs-service", requestIds: ["fixture:accepted-scale"] };
+      let calls = 0;
+      // Only the provider callback is modeled. SQL grant/effect authority and dispatch-once behavior are real.
+      const delivery = ledger.dispatchOnce(input, async effect => {
+        calls++; entered.resolve(effect); await release.promise;
+        return { value: "modeled-accepted-write", receipt };
+      }).then(value => ({ value }), error => { entered.reject(error); return { error }; });
+      let effect: EffectRecord | undefined;
+      try {
+        effect = await entered.promise;
+        await asService(independent, tx => addAutoscaler(tx, owned));
+        await ledger.markUncertain(owned.workspaceId, effect.effectId, "Modeled reply not yet observed.");
+        await expect(asService(db, tx => repos.grants.insert(tx, { ...owned.grant, jti: uid("later") })))
+          .rejects.toMatchObject({ code: "conflict", details: { reason: "field_ownership_conflict" } });
+      } finally { release.resolve(); await delivery; }
+      expect(await delivery).toMatchObject({ value: { kind: "dispatched", effect: { state: "uncertain" } } });
+      const retained = await ledger.get(owned.workspaceId, effect!.effectId);
+      expect(retained).toMatchObject({ operationId: owned.operationId, family: "proxy_request", dedupKey: input.dedupKey,
+        requestDigest: input.requestDigest, fenceScope: input.fence.scope, fenceEpoch: input.fence.token,
+        state: "uncertain", lateReceipt: { ...receipt, staleFence: false } });
+      expect((await ledger.begin(input))).toMatchObject({ created: false, effect: { effectId: effect!.effectId, state: "uncertain" } });
+      await expect(ledger.dispatchOnce(input, async () => { calls++; return { value: "unexpected-retry", receipt }; }))
+        .rejects.toMatchObject({ code: "effect_unresolved", state: "uncertain" });
+      expect((await ledger.unresolvedForOperation(owned.workspaceId, owned.operationId)).map(row => row.effectId)).toEqual([effect!.effectId]);
+      expect(calls).toBe(1);
+      expect(await repos.grants.get(db, owned.workspaceId, owned.grant.jti)).toEqual(originalGrant);
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 1, consumed: 1 });
+      // Explicit uncertainty marking proves retention, not automatic revocation or real provider quiescence.
+    });
+  }, 60_000);
+
+  it("refuses a grant after a direct service-role autoscaler INSERT commits during its coordinator wait", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      const result = await grantAfterFactCommit(db, independent, owned, tx => tx.query(`insert into platform.resources
+        (id,workspace_id,environment_id,address,kind,provider,native_type,ownership,spec_digest,spec)
+        values($1,$2,$3,'native/web-autoscaler','provider_native','aws','aws:appautoscaling_target','managed',$4,$5::text::jsonb)`,
+      [uid("res"), owned.workspaceId, owned.environmentId, digest({ config: { target: owned.node.address } }),
+        JSON.stringify({ config: { target: owned.node.address } })]));
+      expect(result).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
+    });
+  }, 60_000);
+
+  it("refuses an owner INSERT committed after an intermediate fresh read but before the final grant statement", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      const ready = signal<void>(), release = signal<void>();
+      let finalStatements = 0;
+      const result = asService(db, tx => {
+        const observe = (current: Sql): Sql => ({
+          query: async <T>(text: string, params?: readonly unknown[]): Promise<T[]> => {
+            if (text.includes("insert into platform.capability_grants") && text.includes("from platform.operations o")) {
+              finalStatements++;
+              expect(await current.query("select count(*)::integer as count from platform.resources where workspace_id=$1 and environment_id=$2",
+                [owned.workspaceId, owned.environmentId])).toEqual([{ count: 1 }]);
+              ready.resolve(); await release.promise;
+            }
+            return current.query<T>(text, params);
+          },
+          tx: fn => current.tx(inner => fn(observe(inner))),
+        });
+        return repos.grants.insert(observe(tx), owned.grant);
+      }).then(value => ({ value }), error => { ready.reject(error); return { error }; });
+      try {
+        await ready.promise;
+        await asService(independent, tx => addAutoscaler(tx, owned));
+        expect(await repos.resources.getByAddress(db, owned.workspaceId, owned.environmentId, "native/web-autoscaler")).not.toBeNull();
+      } finally { release.resolve(); await result; }
+      expect(finalStatements).toBe(1);
+      expect(await result).toMatchObject({ error: { code: "conflict", details: { reason: "field_ownership_conflict" } } });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
+    });
+  }, 60_000);
+
+  it("admits an unchanged inventory without rounding PostgreSQL JSONB numeric facts", async () => {
+    await withNative(async db => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => tx.query("update platform.resources set spec=jsonb_set(spec,'{exact}',to_jsonb(9007199254740993::bigint)) where workspace_id=$1 and id=$2",
+        [owned.workspaceId, owned.resourceId]));
+      expect(await db.query("select spec->>'exact' as exact from platform.resources where workspace_id=$1 and id=$2",
+        [owned.workspaceId, owned.resourceId])).toEqual([{ exact: "9007199254740993" }]);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      expect(await asService(db, tx => repos.grants.insert(tx, owned.grant))).toMatchObject({ jti: owned.grant.jti });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 1, consumed: 1 });
+    });
+  }, 60_000);
+
+  it("keeps unrelated workspace and environment ownership inventories outside grant admission", async () => {
+    await withNative(async (db, independent) => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      await asService(independent, async tx => {
+        await addAutoscaler(tx, { ...owned, environmentId: uid("other-env") });
+        await addAutoscaler(tx, { ...owned, workspaceId: newWorkspace(), environmentId: uid("foreign-env") });
+      });
+      expect(await asService(db, tx => repos.grants.insert(tx, owned.grant))).toMatchObject({ jti: owned.grant.jti });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 1, consumed: 1 });
+    });
+  }, 60_000);
+
+  it("refuses grant admission when its scoped resource target is missing", async () => {
+    await withNative(async db => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      await asService(db, tx => tx.query("delete from platform.resources where workspace_id=$1 and id=$2", [owned.workspaceId, owned.resourceId]));
+      await expect(asService(db, tx => repos.grants.insert(tx, owned.grant)))
+        .rejects.toMatchObject({ code: "conflict", details: { reason: "field_ownership_conflict" } });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
+    });
+  }, 60_000);
+
+  it("refuses grant admission when the complete ownership inventory exceeds 2000 nodes", async () => {
+    await withNative(async db => {
+      const owned = await manifestAdmission(db);
+      await asService(db, tx => repos.operations.claimForExecution(tx, owned.claim));
+      await asService(db, tx => tx.query(`insert into platform.resources
+        (id,workspace_id,environment_id,address,kind,provider,native_type,ownership,spec_digest,spec)
+        select $1||n::text,$2,$3,'native/bound-'||n::text,'provider_native','aws','aws:fixture','managed',$4,'{}'::jsonb
+        from generate_series(1,2000) n`, [uid("bound"), owned.workspaceId, owned.environmentId, digest({})]));
+      expect(await db.query("select count(*)::integer as count from platform.resources where workspace_id=$1 and environment_id=$2",
+        [owned.workspaceId, owned.environmentId])).toEqual([{ count: 2001 }]);
+      await expect(asService(db, tx => repos.grants.insert(tx, owned.grant)))
+        .rejects.toMatchObject({ code: "conflict", details: { reason: "field_ownership_conflict" } });
+      expect(await stateOf(db, owned)).toEqual({ status: "running", grants: 0, consumed: 1 });
+    });
+  }, 60_000);
 });

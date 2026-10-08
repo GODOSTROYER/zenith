@@ -133,6 +133,43 @@ describe("environment ownership serialization [pglite, serialized engine]", () =
     expect(await state(db, f)).toEqual({ status: "running", consumed: 1, grants: 1 });
   });
 
+  it("retains final-statement snapshot refusal under the environment coordinator", async () => {
+    const f = await fixture(db), write = await mutation(db, f, "fact");
+    await asService(db, tx => repos.operations.claimForExecution(tx, f.claim));
+    let finalStatements = 0;
+    const queries: string[] = [];
+    const observe = (current: Sql): Sql => ({
+      query: async <T>(text: string, params?: readonly unknown[]): Promise<T[]> => {
+        queries.push(text);
+        if (text.includes("insert into platform.capability_grants") && text.includes("from platform.operations o")) {
+          finalStatements++;
+          expect(queries.some(query => query.includes("pg_advisory_xact_lock"))).toBe(true);
+          expect(queries.some(query => query.includes("as snapshot from platform.resources"))).toBe(true);
+          // A mutation by this same transaction can reacquire its coordinator.
+          // Independent writers are covered by the gated PostgreSQL lock races.
+          await write(current);
+        }
+        return current.query<T>(text, params);
+      },
+      tx: fn => current.tx(inner => fn(observe(inner))),
+    });
+    await expect(asService(db, tx => repos.grants.insert(observe(tx), f.grant))).rejects.toMatchObject(conflict);
+    expect(finalStatements).toBe(1);
+    expect(await state(db, f)).toEqual({ status: "running", consumed: 1, grants: 0 });
+    expect(await repos.resources.getByAddress(db, f.workspaceId, f.environmentId, "native/scaler")).toBeNull();
+  });
+
+  it("preserves exact JSONB numbers when serialized grant admission binds its inventory", async () => {
+    const f = await fixture(db);
+    await db.query("update platform.resources set spec=jsonb_set(spec,'{exact}',to_jsonb(9007199254740993::bigint)) where workspace_id=$1 and id=$2",
+      [f.workspaceId, f.resourceId]);
+    await asService(db, tx => repos.operations.claimForExecution(tx, f.claim));
+    expect(await asService(db, tx => repos.grants.insert(tx, f.grant))).toMatchObject({ jti: f.grant.jti });
+    expect(await db.query("select spec->>'exact' as exact from platform.resources where workspace_id=$1 and id=$2",
+      [f.workspaceId, f.resourceId])).toEqual([{ exact: "9007199254740993" }]);
+    expect(await state(db, f)).toEqual({ status: "running", consumed: 1, grants: 1 });
+  });
+
   it("refuses a stale isolation snapshot for both readback and admission", async () => {
     const f = await fixture(db);
     for (const read of [false, true]) await expect(db.tx(async tx => {
@@ -152,6 +189,7 @@ describe("environment ownership serialization [pglite, serialized engine]", () =
     const error = { code: "conflict", details: { reason: "field_ownership_graph_limit" } };
     await expect(repos.ownershipTransfers.guardFor(db, f.workspaceId, f.environmentId, f.resourceId)).rejects.toMatchObject(error);
     await expect(repos.operations.claimForExecution(db, f.claim)).rejects.toMatchObject(error);
+    await expect(db.tx(tx => repos.ownershipTransfers.lockForGrant(tx, f.workspaceId, f.operationId))).rejects.toMatchObject(conflict);
     expect(await state(db, f)).toEqual({ status: "approved", consumed: 0, grants: 0 });
   });
 

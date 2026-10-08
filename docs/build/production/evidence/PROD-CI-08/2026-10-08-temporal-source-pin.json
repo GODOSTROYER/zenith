@@ -1,0 +1,54 @@
+{
+  "testedPublishedCommit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+  "fixCommit": "b279aac8215ac1ed57ea6ac72bd93100ed6d5289",
+  "integrationCommit": "ebd309ac2ec8e6351554285f7674a6433b8255fb",
+  "fullNative": {
+    "passed": 21856,
+    "failed": 1,
+    "skipped": 1618,
+    "files": 1046,
+    "elapsedSeconds": 1885.02,
+    "minimumFreeBytes": 24144179200,
+    "cleanupPassed": true,
+    "sourceBindingPassed": true,
+    "independentReview": "All 22067 collected identities present; 1408 additional identities all skipped; six Python collectors passed; all 64 registered process groups absent. Failed receipt remains failed.",
+    "rawHashes": {
+      "receipt": "1044c8970f6c8d9d2b3f29983a3daf4f472b22954228a682f383ac9324560720",
+      "report": "293355663d3edaa6967459c38f31115bc1f0abbcd7e247c062bcb3c414b6a939",
+      "collection": "30a4e4c7d3fbd2158c7c232690c78a4612a50551ef834cb2915760e897711662"
+    }
+  },
+  "finding": "Reviewed Temporal fixture changed but exact source hash pin was stale. Both local full execution and remote verify failed the same assertion.",
+  "fix": "Replace stale hash with exact independently reviewed fixture hash; preserve all assertions and admission guards.",
+  "fixtureSha256": "ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65",
+  "affectedGate": {
+    "executedBaseCommit": "98a3f6f5de1e0d11de378cfe995db8642f6cc182",
+    "sourceDirty": true,
+    "changedPath": "tests/ci/gate-manifest.test.ts",
+    "changedSourceSha256": "9b04e9da5b33fb105611e3b3521d501b9002c8a58402f284027b00b634c9aaf5",
+    "passed": 295,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "durationSeconds": 18.01,
+    "lintExitCode": 0,
+    "diffCheckExitCode": 0,
+    "environment": "Native Darwin ARM64, Node 22.23.3, Vitest 4.1.11; one worker, no file parallelism. Isolated worktree uses current root locked dependencies."
+  },
+  "remoteCi": {
+    "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+    "successfulJobs": 19,
+    "failedJobs": 1,
+    "failedJob": "verify",
+    "runId": 37755641326,
+    "failedJobId": 113239372752,
+    "smokeAndGimbal": "not executed after unit failure",
+    "unit": {
+      "passed": 21827,
+      "failed": 1,
+      "skipped": 1647,
+      "total": 23475
+    }
+  },
+  "completeSuccessor": "pending"
+}

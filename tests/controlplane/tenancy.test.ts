@@ -87,7 +87,7 @@ const SWEPT = new Set([
   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
   // PROD-LIFE-12: tenant-scoped ownership-transfer reads/writes; recordForApprovedOperation is also reachable only via approvals.record.
   "ownershipTransfers.listActive", "ownershipTransfers.guardFor", "ownershipTransfers.revoke", "ownershipTransfers.recordForApprovedOperation",
-  "ownershipTransfers.lockForOperation",
+  "ownershipTransfers.lockForOperation", "ownershipTransfers.lockForGrant",
   "optimizerSettings.getOptimizerSettings",
   "workspaceMfaControls.getWorkspaceMfaControls",
   // PROD-LIFE-11: tenant-scoped reads of verified exports, restores and ownership claims (writes are classified below).
@@ -541,6 +541,10 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
       "ownershipTransfers.recordForApprovedOperation": () => seen(repos.ownershipTransfers.recordForApprovedOperation(db, { workspaceId: B, operationId: opId, approvalId: "apr_foreign" })),
       "ownershipTransfers.lockForOperation": async () => {
         await expect(repos.ownershipTransfers.lockForOperation(db, B, opId)).rejects.toMatchObject({ code: "operation_not_found" });
+        return null;
+      },
+      "ownershipTransfers.lockForGrant": async () => {
+        await expect(repos.ownershipTransfers.lockForGrant(db, B, opId)).rejects.toMatchObject({ code: "operation_not_found" });
         return null;
       },
       "portability.getExport": () => repos.portability.getExport(db, B, "pex_foreign"),

@@ -1,0 +1,1737 @@
+{
+  "sourceCommit": "b9191887378ffad6a889194c7b43efdfa943851d",
+  "capturedAt": "2026-10-08T05:43:27.042315+00:00",
+  "verdict": "all_20_jobs_success",
+  "runs": [
+    {
+      "id": 37730455416,
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "b9191887378ffad6a889194c7b43efdfa943851d"
+    },
+    {
+      "id": 37730455491,
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "b9191887378ffad6a889194c7b43efdfa943851d"
+    },
+    {
+      "id": 37730455508,
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "b9191887378ffad6a889194c7b43efdfa943851d"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "hosted",
+      "databaseId": 113158147625,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:05:07Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147625",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 1146,
+        "failed": 0,
+        "skipped": 13,
+        "total": 1159
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Hosted suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Hosted acceptance journey",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Report the installed browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Gate 12 - recipient journey in a real browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "verify",
+      "databaseId": 113158147797,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:22Z",
+      "completedAt": "2026-10-08T05:42:02Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147797",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 21826,
+        "failed": 0,
+        "skipped": 1637,
+        "total": 23463,
+        "filesPassed": 989,
+        "filesSkipped": 57,
+        "filesTotal": 1046,
+        "durationSeconds": 2142.21
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned workflow validator",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate workflow syntax",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Unit suites (Node and DOM projects)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Smoke",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify Gimbal assets",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "agent",
+      "databaseId": 113158147831,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:05:31Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147831",
+      "runId": 37730455416,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Agent acceptance journey",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Report the installed browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Approval screen in a real browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "platform-postgres",
+      "databaseId": 113158147854,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:57Z",
+      "completedAt": "2026-10-08T05:22:58Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147854",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 3762,
+        "failed": 0,
+        "skipped": 15,
+        "requiredPassed": 1146
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned OpenTofu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Choose the provider plugin cache directory",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Say so when there is no platform migrator yet",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Apply and verify the canonical agent lane schema",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply the platform migrations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Platform control store suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lane report - fail if the control store ran zero tests, or none on Postgres",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Every platform Postgres contract must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "build",
+      "databaseId": 113158147856,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:08:59Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147856",
+      "runId": 37730455416,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "operation-gates (workflow-intents)",
+      "databaseId": 113158147882,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:05:18Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147882",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 141
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check committed policy assets",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply and require current platform migrations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Required operation scenarios",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Independently revalidate canonical execution and every required scenario",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized operation gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "tofu",
+      "databaseId": 113158147886,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:08:21Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147886",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 4320,
+        "failed": 0,
+        "skipped": 19,
+        "requiredPassed": 27
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned OpenTofu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Choose the provider plugin cache directory",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cache provider plugins",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "OpenTofu and all provider suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Every real provider validation must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Go runner exercises real OpenTofu and provider lock enforcement",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Cache provider plugins",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "docker",
+      "databaseId": 113158147894,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:08:39Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147894",
+      "runId": 37730455416,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build image (no push)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "policy",
+      "databaseId": 113158147932,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:22Z",
+      "completedAt": "2026-10-08T05:04:00Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147932",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 242,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 8
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned OPA",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Policy bundle is reproducible",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Policy suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Every policy scenario must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "generated",
+      "databaseId": 113158147949,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:04:05Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147949",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 110,
+        "failed": 0,
+        "skipped": 0
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Platform SQL is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Capability matrix is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Offered capability catalog is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Documentation drift suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ledger",
+      "databaseId": 113158147960,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:03:29Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147960",
+      "runId": 37730455416,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ledger markdown is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "supply-chain",
+      "databaseId": 113158147969,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:28Z",
+      "completedAt": "2026-10-08T05:03:35Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147969",
+      "runId": 37730455416,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lockfile pins only registry tarballs with integrity hashes",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Known dependency findings block release",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "postgres",
+      "databaseId": 113158147972,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:04:27Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147972",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 379,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 93
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply all committed Supabase migrations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Postgres contract lanes",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lane report - fail if a lane ran zero tests, and list what is blocked",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Every PostgreSQL contract must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "operation-gates (reconciliation)",
+      "databaseId": 113158147990,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:23Z",
+      "completedAt": "2026-10-08T05:05:12Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158147990",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 26
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check committed policy assets",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply and require current platform migrations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Required operation scenarios",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Independently revalidate canonical execution and every required scenario",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized operation gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "workflows",
+      "databaseId": 113158148035,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:15:27Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158148035",
+      "runId": 37730455416,
+      "counts": {
+        "passed": 1378,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 105
+      },
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Create the isolated platform workflow database",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply and verify the canonical agent lane schema",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply and verify the canonical platform workflow schema",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Apply and verify the canonical Supabase workflow schema",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Workflow suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Every Temporal and platform e2e scenario must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "go",
+      "databaseId": 113158148084,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:57Z",
+      "completedAt": "2026-10-08T05:08:54Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416/job/113158148084",
+      "runId": 37730455416,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Say so when there is no Go module yet",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Toolchain is exactly the pinned one",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "gofmt",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "go vet",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Require local native package fixture tools",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Provision strictly disposable Linux guest fixtures",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Required native Linux race and authentic golden comparison",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet the explicit real systemd acceptance packages",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Provision only the owned inert systemd unit and restart-only rule",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Required ordered real systemd operations and signed execution",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "TypeScript validates the Go machine result goldens",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cross-build linux/amd64 and linux/arm64 without cgo",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove only the owned settled systemd fixture",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Remove only owned drained Linux guest fixtures",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Select only current-attempt sanitized guest evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized native guest evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Select only the current systemd attempt after both owned cleanups",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized real systemd evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "databaseId": 113158147543,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:23Z",
+      "completedAt": "2026-10-08T05:09:42Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455491/job/113158147543",
+      "runId": 37730455491,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run canonical native package gate",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate exact executed native package evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Admit sanitized artifact schema",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve only sanitized package evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "databaseId": 113158147779,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:09:41Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455491/job/113158147779",
+      "runId": 37730455491,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run canonical native package gate",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate exact executed native package evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Admit sanitized artifact schema",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve only sanitized package evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "windows-acl",
+      "databaseId": 113158147168,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:22Z",
+      "completedAt": "2026-10-08T05:04:42Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455508/job/113158147168",
+      "runId": 37730455508,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Execute actual inherited ACL refusal",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized native evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "linux-systemd",
+      "databaseId": 113158147528,
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-08T05:03:21Z",
+      "completedAt": "2026-10-08T05:03:57Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455508/job/113158147528",
+      "runId": 37730455508,
+      "counts": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Execute actual systemd and journal operations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Preserve sanitized native evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "additionalScopes": {
+    "agent": {
+      "acceptanceChecksPassed": 35,
+      "browserChecksPassed": 44,
+      "browserChecksFailed": 0
+    },
+    "hosted": {
+      "acceptanceChecksPassed": 22,
+      "recipientBrowserChecksPassed": 24
+    },
+    "workers": {
+      "arm64": {
+        "jobId": 113158147543,
+        "runner": "Linux ARM64",
+        "processArch": "arm64",
+        "dockerArch": "arm64",
+        "emulated": false,
+        "checksPassed": 22,
+        "childExit": 0,
+        "sixCleanupChecksPassed": true
+      },
+      "amd64": {
+        "jobId": 113158147779,
+        "runner": "Linux AMD64",
+        "processArch": "x64",
+        "dockerArch": "amd64",
+        "emulated": false,
+        "checksPassed": 22,
+        "childExit": 0,
+        "sixCleanupChecksPassed": true
+      }
+    },
+    "platformLeaves": {
+      "windowsAcl": {
+        "jobId": 113158147168,
+        "passed": 1,
+        "failed": 0,
+        "excluded": 15,
+        "cleanupComplete": true
+      },
+      "linuxSystemd": {
+        "jobId": 113158147528,
+        "runner": "Linux amd64",
+        "passed": 1,
+        "failed": 0,
+        "excluded": 0,
+        "cleanupComplete": true
+      }
+    },
+    "go": {
+      "guestRace": {
+        "passedLeaves": 1052,
+        "failed": 0,
+        "allowedSkippedLeaves": 3,
+        "requiredPassed": 148
+      },
+      "packageNative": {
+        "passedLeaves": 8,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 4
+      },
+      "goldens": {
+        "passedLeaves": 21,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 2
+      },
+      "systemdOps": {
+        "passedLeaves": 7,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 8
+      },
+      "systemdSigned": {
+        "passedLeaves": 6,
+        "failed": 0,
+        "skipped": 0,
+        "requiredPassed": 7
+      },
+      "runnerExit": 0,
+      "cleanupComplete": true
+    }
+  },
+  "binding": {
+    "canonicalSevenArtifacts": "Exact source SHA, clean worktree, child exit 0, execution binding matched, all required statuses passed. Six gate-source hashes per artifact independently matched git show of this SHA.",
+    "nativeWorkerAndPlatformLeaves": "Each three-source hash set independently matched exact SHA; genuine architecture and cleanup assertions passed.",
+    "go": "Exact source binding and recorded aggregate source hash; aggregate hash was not independently reconstructed."
+  },
+  "artifactReceiptHashes": [
+    {
+      "relativePath": "main/canonical-linux-guest-evidence-b9191887378ffad6a889194c7b43efdfa943851d-6a3b3d40e11cc8affdd1f6b2e220231b/sanitized.json",
+      "sha256": "da823fc2873887c944d17d0ff4c33972e5e33c876ef38d41aa6386adef1590ba"
+    },
+    {
+      "relativePath": "main/canonical-linux-systemd-evidence-b9191887378ffad6a889194c7b43efdfa943851d-04384e49398b4aae1ba0d6bba11eda0e/final.json",
+      "sha256": "1c8c66837218db48f8199b72cc2a1bedef60386c100544e69ecb103d39cce681"
+    },
+    {
+      "relativePath": "main/canonical-platform-postgres-evidence-b9191887378ffad6a889194c7b43efdfa943851d/platform-postgres-evidence.json",
+      "sha256": "ebcde8927ee04a810e91aac2c0c449ba277c448cebab7142653572a87481b630"
+    },
+    {
+      "relativePath": "main/canonical-policy-evidence-b9191887378ffad6a889194c7b43efdfa943851d/policy-evidence.json",
+      "sha256": "ef50f06573a7895887ae097869bdd509aa63c8385bc4468afff04d6390ff1d76"
+    },
+    {
+      "relativePath": "main/canonical-postgres-evidence-b9191887378ffad6a889194c7b43efdfa943851d/postgres-evidence.json",
+      "sha256": "faab272ed2fafb2215b4fdc8cae6e79304ea0d5eb918db124ee93a2dc8166d83"
+    },
+    {
+      "relativePath": "main/canonical-reconciliation-evidence-b9191887378ffad6a889194c7b43efdfa943851d/reconciliation-evidence.json",
+      "sha256": "1a8afc78f0ca21522f52b15da15e0a127832f64b7cce9ad9377ce81b327d07db"
+    },
+    {
+      "relativePath": "main/canonical-tofu-evidence-b9191887378ffad6a889194c7b43efdfa943851d/tofu-evidence.json",
+      "sha256": "8e4f81559eb47670b022e315be55c74966afb7f74ea12e464ddf879f2261ed2b"
+    },
+    {
+      "relativePath": "main/canonical-workflow-intents-evidence-b9191887378ffad6a889194c7b43efdfa943851d/workflow-intents-evidence.json",
+      "sha256": "223a3bb72b2081b1788f22963bf897f7ed1a4675409effedc765ea8e2f0e8161"
+    },
+    {
+      "relativePath": "main/canonical-workflows-evidence-b9191887378ffad6a889194c7b43efdfa943851d/workflows-evidence.json",
+      "sha256": "e77774dcb369975b2cf32fb91adb52fe6473f7bff759244214a05ab440694baa"
+    },
+    {
+      "relativePath": "workers/packaged-worker-amd64-37730455491-1/sanitized.json",
+      "sha256": "d53897a7281ec66a79cf78e54adff940e32f0a0273c18839c9be2cac79387d57"
+    },
+    {
+      "relativePath": "workers/packaged-worker-arm64-37730455491-1/sanitized.json",
+      "sha256": "6c75a7effaf60527703421761ac96ffaecb1de26f24b6dc1bcf07317892c09fd"
+    }
+  ],
+  "limitations": [
+    "Counts overlap across jobs and must not be summed.",
+    "Unit 1637 skips, Tofu 19 skips and platform 15 skips remain explicit; mandatory canonical cases all passed.",
+    "Hosted 13 skips require live PG/PostgREST or Supabase Storage; plain PostgreSQL is not an equivalent.",
+    "This report binds b919 only; later 747/9f37 source and local browser receipts are separate.",
+    "No complete production/default-stack or cloud acceptance is inferred."
+  ]
+}

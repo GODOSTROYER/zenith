@@ -34,8 +34,10 @@
     "rootReviewsAndVerifies": true,
     "dockerStorage": "Check host free bytes before and during image gates. Remove owned test images, containers, volumes and dedicated build cache after runs. Preserve unrelated services/data; one heavy process.",
     "minimumFreeGiBBeforeImageGate": 18,
-    "localDefaultStackDiskFloorGiB": 22,
-    "localDefaultStackProfile": "reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB;22GiB floor; no unrelated cleanup"
+    "localDefaultStackDiskFloorGiB": 11.175870895385742,
+    "localDefaultStackProfile": "Reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB; user continuous12GB floor; original packaged-worker18GiB prerequisite retained separately; no unrelated cleanup",
+    "historicalLocalDefaultStackDiskFloorGiB": 22,
+    "localDefaultStackDiskFloorBytes": 12000000000
   },
   "evidenceLevels": [
     "contract",
@@ -716,7 +718,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "migration42_repaired_native_verified_whole_ci_failed_9b568108",
+      "implementationStatus": "remote20_and_native_bootstrap86_passed_e4c0c237_full_native_local_gate_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -1361,6 +1363,86 @@
           "command": "Owned serial native OpenTofu, Temporal and PostgreSQL controllers; exact commands/identities retained in sanitized receipt",
           "environment": "Native Darwin ARM64 Node22.23.3,OpenTofu1.12.5,PostgreSQL16.15,real localTemporal time-skipping binary; Docker unused, no cloud calls; strict22GiBfloor",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-real-skipped-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "413334166890bb610ae73a045e0aaeb981e8b8a9",
+          "command": "node node_modules/vitest/vitest.mjs run --project=node tests/tofu/hcl-template-real.test.ts tests/tofu/plan-lock.test.ts tests/providers/terraform-lb-names.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Node22.23.3 and OpenTofu1.12.5 native Darwin ARM64; builtin/local backend plus console; no cloud/Docker",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-tofu-oracles.json",
+          "result": "17 passed/0 failed/0 skipped; HCL2, plan-lock1, LB14 (including static and actual console cases). Original setup-only failed packet retained. Astra independently matched16 source inputs/cases/report/log, absent group and empty temporary root. Overall gate remains in_progress."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b420d0e16410592d47de0740293e730a1121af23",
+          "result": "19/20 jobs succeeded; agent browser43 passed/1 failed. Unit21826 passed/0 failed/1637 skipped. Native AMD64 and ARM64 workers each22/0/0. Counts overlap; overall gate remains in_progress.",
+          "command": "Inspect every job and canonical artifacts for all three exact-source CI runs",
+          "environment": "GitHub-hosted runners; native Linux AMD64 and ARM64 worker receipts inspected separately; local Mac attempts are separate evidence",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-b420d0e1-final.json",
+          "runId": "37727364785",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785"
+        },
+        {
+          "level": "local_engine",
+          "commit": "e69eccaac2f833cdb43fcc2c8b1f848d12ba6a84",
+          "result": "FAILED/resource-blocked:4096MiB profile20 passed/2 failed/22 records against44 required; disk-floor abort before completion.1536 and2048 profiles each8/30/38, actual memory restart warnings. All owned cleanup complete; source remains isolated, no promotion.",
+          "command": "Owned serial exact-source native Chrome agent-browser controllers with continuous22GiB disk guard; per-Node heaps1536,2048,4096 independently reviewed",
+          "environment": "Native Darwin ARM64 Node22.23.3, actualChrome1280/380px, declared local identity-provider double; noDocker/cloud; not defaultSupabase/375px operator accessibility evidence",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-browser-heap4096.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "74729261720aba23058dd6a4d43e042a43e978da",
+          "result": "44 passed/0 failed/0 skipped, actual native Chrome69s; original44/deadlines preserved,3072MiB per-Node profile; source-bounde69 differs from integrated747 only productiondocs. Full CI/local bootstrap/default stack remain open.",
+          "command": "Exact-source owned native agent-browser controller; private3072MiB Node old-space profile; continuous22GiBfloor and owned cleanup",
+          "environment": "DarwinARM64 native Node22.23.3, actualChrome1280/380, declared identity-provider double; noDocker/cloud/defaultSupabase/375pxWCAG claim",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-browser-heap3072-passed.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+          "result": "86 passed /0 failed /0 skipped /0 excluded in67.31s; original bootstrap file, one real OpenTofu init/validate/test case and85 ordinary controls. Independent source/provider/sandbox/floor/cleanup review accepted. No seven separately observed mock-run records or cloud/default installation claim.",
+          "command": "Original Node Vitest bootstrap-templates.test.ts, project=node, no file parallelism, maxWorkers=1, reporting-only JSON; ZENITH_TEST_TOFU=1 with owned short PLUGIN_UNIX_SOCKET_DIR",
+          "environment": "Darwin ARM64 native Node22.23.3/OpenTofu1.12.5/hashicorp AWS6.68.0;1536MiB Node heap; validation/test external network denied, IPv4/IPv6/Unix positive controls and externalEPERM passed",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-bootstrap86-passed.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+          "result": "20/20 terminal jobs success; unit21826 passed/0 failed/1637 skipped; all seven canonical required sets passed. Native AMD64 and ARM64 each22/0/0, no emulation, cleanup complete; remaining skipped/default/cloud scopes explicitly open.",
+          "command": "CI, Native packaged workers, Native platform smoke; inspect all jobs and authenticated artifacts on exact e4c0c237",
+          "environment": "Linux native x64/ARM64 and native Windows; Node22.23.3, each effective canonical environment/source binding retained in companion JSON",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-e4c0c237-final.json",
+          "runId": 37734039686,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37734039686"
+        },
+        {
+          "level": "local_engine",
+          "commit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+          "result": "Complete nativeMac21851P0F1624S/Vitestexit0, strictverifierfailed one randomUUID case identity. All1046runtimefiles/cleanup/endbinding confirmed. Stabletitle successor44P0F0S exactCounter/lint0; actualPythoncollector6P0F0S separate. Fresh coherent full successor pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-unit-identity.json"
+        },
+        {
+          "level": "contract",
+          "commit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17",
+          "result": "Root combined compilerexit0 after reviewed waitlist identity fix and bounded Temporal diagnostic integration. No test/gate weakening; full candidate successor pending.",
+          "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-08-owned-temporal-diagnostics.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+          "result": "21856 passed /1 failed /1618 skipped; exact stale Temporal fixture hash caused sole failure. All1046files/identity accounting/cleanup/source binding independently reviewed; complete successor pending.",
+          "command": "Accepted native Node/DOM complete controller with pinned Python, strict identity accounting and12GB floor",
+          "environment": "Native Darwin ARM64 Node22.23.3, Python3.14.5, Vitest4.1.11; one heavy workload",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json"
+        },
+        {
+          "level": "contract",
+          "commit": "b279aac8215ac1ed57ea6ac72bd93100ed6d5289",
+          "result": "295 passed /0 failed /0 skipped; affected lint and diff check exit0. Executed isolated base98a3f6f5 plus exact dirty pin source9b04e9da; full successor pending.",
+          "command": "vitest run --project=node --maxWorkers=1 --no-file-parallelism tests/ci/gate-manifest.test.ts; affected eslint; git diff --check",
+          "environment": "Native Darwin ARM64 Node22.23.3/Vitest4.1.11",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json"
         }
       ],
       "requiredEvidence": [
@@ -1387,7 +1469,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "migration42_repaired_native_verified_whole_ci_failed_9b568108",
+      "implementationStatus": "historical_e4_a4_green; awaiting_current_cas_and_mandatory_manifest_candidate_ci",
       "evidence": [
         {
           "level": "remote_ci",
@@ -1745,6 +1827,43 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-455d12e5.json",
           "runId": 37720373970,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37720373970"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "b9191887378ffad6a889194c7b43efdfa943851d",
+          "result": "20/20 terminal jobs succeeded; unit21826/0/1637; all seven canonical mandatory sets passed, native AMD64+ARM64 workers each22/0/0, agentbrowser44/0. Counts overlap. New local diagnostic source is separate and awaits its pushed CI.",
+          "command": "Inspect every exact-source terminal job, raw verify log, canonical artifacts and native receipts across three runs",
+          "environment": "GitHub-hosted Linux/Windows; native AMD64 and ARM64 worker evidence separate; no emulation or live-cloud acceptance inference",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-b9191887-final.json",
+          "runId": "37730455416",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37730455416"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+          "result": "20/20 terminal jobs success; unit21826 passed/0 failed/1637 skipped; all seven canonical required sets passed. Native AMD64 and ARM64 each22/0/0, no emulation, cleanup complete; remaining skipped/default/cloud scopes explicitly open.",
+          "command": "CI, Native packaged workers, Native platform smoke; inspect all jobs and authenticated artifacts on exact e4c0c237",
+          "environment": "Linux native x64/ARM64 and native Windows; Node22.23.3, each effective canonical environment/source binding retained in companion JSON",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-08-ci-e4c0c237-final.json",
+          "runId": 37734039686,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37734039686"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+          "runId": 37749426058,
+          "result": "All20jobs terminal:19success/1workflowsfailure. Unit21828P0F1647S. PlatformPG3772P0F15S/all1156mandatorypassed. Workflows1376P0assertF2S/one failedsuite startup+custody; exit1. Nativeworkers/platformfourjobs success conclusions, per-case latest inspection remains open. CI09 stays in_progress.",
+          "artifact": "docs/build/production/verification/CI-2026-10-08-9354a3f5.md"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+          "result": "19 successful /1 failed terminal jobs across three runs; verify failed stale source-hash pin, Smoke/Gimbal not executed. Native AMD64/ARM64 each22checks passed.",
+          "command": "Inspect all three exact-source run jobs and failed verify log",
+          "environment": "GitHub native Linux AMD64/ARM64 and Windows; per-lane source evidence retained",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json",
+          "runId": 37755641326,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37755641326"
         }
       ],
       "requiredEvidence": [
@@ -1753,7 +1872,7 @@
       "owner": "root",
       "testPaths": [],
       "followUps": [
-        "Observe complete pushed correction including actual current native guest execution. Historical green commits remain distinct; all external release acceptance remains open."
+        "Observe the next integrated diagnostic publication on its exact SHA. Historical b91920/20 and native local44 scope do not verify later commits or close external release requirements."
       ]
     },
     {
@@ -2915,6 +3034,14 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/execution/build-egress-composition.test.ts tests/execution/build-admission.test.ts tests/plugins tests/execution/build-release-joins.test.ts --maxWorkers=1 --no-file-parallelism",
           "environment": "Node22.23.3 Darwin ARM64 native; maxWorkers1; modeled provider/store seams declared",
           "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-07-integrated-controls-d3e710d2.json"
+        },
+        {
+          "level": "contract",
+          "commit": "413334166890bb610ae73a045e0aaeb981e8b8a9",
+          "command": "node node_modules/vitest/vitest.mjs run --project=node --no-file-parallelism --maxWorkers=1 tests/execution/build-provenance.test.ts",
+          "environment": "Native Darwin ARM64, Node22.23.3, actual generated Ed25519 keys; no Docker/cloud/default-stack acceptance. Compiler retry heap4096MiB.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-08-signature-fixture.json",
+          "result": "24 passed /0 failed /0 skipped. Reviewed negative fixture flips one actual signature byte instead of potentially unchanged random AA suffix. Original eight refusal cases retained; affected lint and full compiler passed. Initial compiler heap exit134 remains recorded. Requirement remains in_progress."
         }
       ],
       "requiredEvidence": [
@@ -3123,7 +3250,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "implementation_complete_verification_pending; bounded_snapshot_cas_integrated; common_writer_coordination_and_preissued_grant_policy_pending",
       "implementationNote": "J13 adds migration53 environment ownership serialization for claim, grant and readback, mandatory resource/transfer mutation triggers, PGlite controls and gated independent PostgreSQL races. Native verification and wave-5 migration/aggregate integration pending; no acceptance promotion.",
       "evidence": [
         {
@@ -3181,6 +3308,22 @@
           "environment": "Node22.23.3 native Darwin ARM64,768MiB heap; owned PostgreSQL16.15 ARM64,384MiB memory,strict verify-full TLS and private CA. Bare-PG SET ROLE stand-ins; no Supabase Auth or pooler proof.",
           "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-07-prod-life-12-serial-r2.json",
           "result": "Targeted ownership/SQL lane236 passed /0 failed /0 skipped. Real PostgreSQL and PGlite controls distinct; independent review. Broader native/IaC/autoscaler ownership and successful default cleanup acceptance remain open."
+        },
+        {
+          "level": "local_engine",
+          "commit": "40012d75bf6734399786dbc258d972789caf44ff",
+          "result": "Original joined PostgreSQL 10/1/0 finding repaired with bounded final-statement snapshot CAS. Native17/0/0 and mixed six-file124/0/0 passed with exact source equivalence, compiler/lint and independent cleanup review. Broader writer coordination/preissued-grant policy remains open; no acceptance promotion.",
+          "command": "Full six affected Vitest files on actual PostgreSQL and PGlite, maxWorkers1/no-file-parallelism, strict collection equality and17mandatory native cases",
+          "environment": "Node22.23.3/Vitest4.1.11; native Mac ARM64 PostgreSQL16.15;25SQL/platform43; authentic service_role ACL with stand-in CI Auth roles; no Supabase/browser/cloud proof",
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json"
+        },
+        {
+          "level": "contract",
+          "commit": "d25b1a859d6de7f71110e2bd70c3fcabbfbff1db",
+          "result": "Ten exact native PostgreSQL cases required, current1156 identities; original1146/1141 hashes retained. Full gate-manifest295/0/0 plus platform coverage/evidence sanitizer174/0/0 passed; lint and independent source review accepted. Full current1156 engine lane/CI still pending.",
+          "command": "Complete gate-manifest, platform-coverage and evidence-sanitizer files, maxWorkers1/no-file-parallelism",
+          "environment": "Node22.23.3/Vitest4.1.11 native Mac ARM64; report models test admission only, genuine SQL evidence recorded separately.",
+          "logs": "docs/build/production/evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json"
         }
       ],
       "requiredEvidence": [
@@ -3763,6 +3906,16 @@
           "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
           "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
+        },
+        {
+          "level": "local_engine",
+          "commit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+          "sourceDirty": true,
+          "sourceFreezeSha256": "ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65",
+          "result": "Actual nativeMac targeted10P0F0S, exact10 identities, owned durable restart/overlap controls and independently confirmedcleanup/endbinding. Eightmodels/tworealTemporal cases; modeled job outcomes. Remote9354startup cause unreproduced; default effects open.",
+          "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-08-owned-temporal-diagnostics.json",
+          "fixCommit": "98a3f6f5de1e0d11de378cfe995db8642f6cc182",
+          "integrationCommit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17"
         }
       ],
       "requiredEvidence": [
@@ -5333,24 +5486,25 @@
     }
   ],
   "sessionState": {
-    "status": "kind56_passed_validator_repaired_successor_ci_and_default_stack_open",
-    "sourceCheckpoint": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
+    "status": "bounded_ownership_security_fix_integrated_current_combined_gates_pending",
+    "sourceCheckpoint": "ebd309ac2ec8e6351554285f7674a6433b8255fb",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "455d12e547c4cfdd42a050a0bb6a68167a6a038e",
-    "lastPushedRun": 37720373970,
-    "lastPushedRunStatus": "in_progress_exact455d",
-    "currentVerification": "docs/build/production/WIP-HANDOFF-2026-10-08.md",
+    "lastPushedCommit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+    "lastPushedRun": 37755641326,
+    "lastPushedRunStatus": "terminal_19_success_1_verify_stale_temporal_source_pin_failure_exact_ed93",
+    "currentVerification": "docs/build/production/CURRENT-VERIFIER-CONTEXT.md",
     "remainingLocalPackets": {
-      "integratedRepairs": "12547335 validator performance;0f995b44 exact kind read ceiling. Normal publication pending.",
-      "nativeBuild": "Fresh455d build failed diskfloor23518019584bytes, child143; separate native-group proof and bounded runtime cleanup succeeded, recovered1011752960bytes. Raw/auth/controllers preserved; older unregistered attempt untouched.22.84GiBfree insufficient measured build/cold-stack headroom.",
-      "defaultStackPreparation": "Private source-bound preparation:25 SQL and43 migration files independently matched; five ARM64 registry manifests,753049784 compressed bytes. Expanded storage/cold admission unproved, no pulls/startup. Reduced profile deviates from shipped installer."
+      "integratedRepairs": "40012d75 security CAS integrated7427a7d0; d25b1a85 ten mandatory PG identities. Rootnative17/0/0 and mixed124/0/0, compiler/lint/review accepted; broader writer/preissued policy open.",
+      "nativeBuild": "Changed runtime requires fresh cache-disabled native build and APFS assembly; prepared private bindings disabled until clean final commit.",
+      "defaultStackPreparation": "Independently reviewed five-service profile source, genuine25SQL/platform43/agent3, PostgreSQL STARTTLS and private credential composition; no current-source default startup acceptance. Bind fresh source/artifact before admission.",
+      "fullNativeUnit": "Exact ed93 full native21856/1/1618 retained, all1046files/identities/source/cleanup reviewed. Sole stale Temporal fixture hash corrected at b279aac8/integrated ebd309ac, affected295/0/0 and lint0; fresh complete successor pending."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
       "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
     },
-    "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; no promotion.",
-    "next": "Publish reviewed validator/kind fixes and inspect every new CI job. Resolve native build controller custody failure; continue authorized default Mac acceptance. Builder owns MACH02 bearer deadline repair.",
+    "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; CI09 reopened for changed candidate, historical green preserved",
+    "next": "Complete coherent current-candidate installation/gates, fresh native build and authorized same-Mac default-stack acceptance; push and inspect every exact CI job.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
@@ -5363,15 +5517,16 @@
     "cleanup": "Fresh native fixtures/kind cleaned. Failed Next4968runtime removed only after independently proven group absence and frozen custody; nine outside-runtime files unchanged. Older559a/failedPGdatasets retained. Storagehelper0safeextra.",
     "nativeSkippedPlatformsRun": 37578066934,
     "lastPushedUnitResult": {
-      "passed": 21825,
+      "passed": 21827,
       "failed": 1,
-      "skipped": 1637,
-      "failure": "tests/ci/gate-manifest.test.ts:1736 exhaustive negative-control timeout20000ms",
+      "skipped": 1647,
+      "failure": "tests/ci/gate-manifest.test.ts:2943 stale exact Temporal diagnostic fixture SHA",
       "downstreamUnexecuted": [
         "Smoke",
         "Verify Gimbal assets"
       ]
-    }
+    },
+    "currentWork": "Reviewed stable waitlist identity and bounded Temporal diagnostics integrated; compiler0; complete fresh candidate gates/CI and default local journey remain open."
   },
   "sessionHistory": [
     {

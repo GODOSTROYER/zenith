@@ -1,3 +1,24 @@
+## Results: Temporal source pin, 8 October 2026
+
+- PROD-CI-08: in_progress; fix b279aac8215ac1ed57ea6ac72bd93100ed6d5289, integration ebd309ac2ec8e6351554285f7674a6433b8255fb; affected295/0/0, complete native successor pending.
+- PROD-CI-09: in_progress; exact ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af terminal19/20jobs successful, stale-pin verify failure; fresh pushed CI required.
+
+Results PROD-LIFE-12 (8 October): integrated7427a7d0/fix40012d75; mandatory additiond25b1a85/current1156, gate295/0/0 and coverage/sanitizer174/0/0; native17/0/0 and mixed affected124/0/0, compiler/lint/independent cleanup accepted. Bounded CAS only; common writer coordination/preissued policy/default acceptance remain open. [Evidence](evidence/PROD-LIFE-12/2026-10-08-ownership-snapshot-cas.json).
+
+Results: PROD-CI-09 verified for exact e4c0c237,20/20 terminal CI jobs; PROD-CI-08 native bootstrap86/0/0 plus remote unit21826/0/1637, complete native local gate still pending. [Current milestone](verification/RESULTS-2026-10.md#green-e4-ci-and-native-bootstrap-acceptance-8-october-2026).
+
+## Results: green published baseline, 8 October 2026
+
+Results: PROD-CI-09 verified for exact b9191887 after 20/20 terminal jobs; CI08 remains in_progress. Later root 74729261 native browser 44/0/0 is separately accepted, fresh diagnostic publication CI pending. Original bootstrap/default-stack and external gates stay open. [Every job](verification/CI-2026-10-08-b9191887.md), [current evidence](verification/RESULTS-2026-10.md#green-published-baseline-and-integrated-browser-diagnostics-8-october-2026).
+
+## Publication context, 8 October 2026
+
+Results: PROD-CI-08 remains in_progress; b420d0e1 terminal19/20 jobs, browser43/1, unit21826/0/1637. Provenance fix41333416 focused24/0/0; nativeTofu17/0/0. Two partial Mac browser attempts failed and were cleaned. Isolated diagnostic packetd887c7b7 is reviewed but not integrated or executed. See [current context](WIP-HANDOFF-2026-10-08.md) and [CI jobs](verification/CI-2026-10-08-b420d0e1.md).
+
+## Results update: provenance fixture, 8 October 2026
+
+- PROD-LIFE-09: fix41333416, full provenance contract24/0/0; lint/compiler passed after recorded heap retry. [Evidence](evidence/PROD-LIFE-09/2026-10-08-signature-fixture.json). Default operated isolation acceptance remains open.
+
 ## Results update: real skipped cases, 8 October 2026
 
 - PROD-CI-08: five formerly excluded engine identities executed in their exact scopes; Temporal fixture fixed40c53c94/root1/0/0, Tofu10/0/0 and nativePG57/0/0 source10ec, SSM1selected/95filtered source40c. [Results](verification/RESULTS-2026-10.md#real-skipped-case-successors-8-october-2026). No project-wide zero-skip claim; full default acceptance still open.
@@ -600,6 +621,8 @@ Not yet run. Append one dated block per requirement here: SHA verified, commands
 
 Results PROD-CI-08 (8 October):648a historical77/0/0; frozen4c canonical intents156/0/0 all141;722 actual codec/deploy30/0/0. Scopes overlap; current71 workflow inventory. Full combined gate/CI pending; no promotion.
 
+Results PROD-CI-08 (8October): full9354Vitest21851/0/1624, strictidentityadmissionFAILED; stabletitle44/0/0+Countermatch/lint0 integrated5072c4a0; six actualPythoncollectorpasses separate. Fullsuccessorpending.
+Results PROD-OBS-04 (8October): actualownedTemporal10/0/0 with boundeddiagnostic98a3f6f5; cleanup/endbindingverified; remote9354startupcause/defaultmaintenanceeffectsstillopen.
 
 ## Wave 5
 

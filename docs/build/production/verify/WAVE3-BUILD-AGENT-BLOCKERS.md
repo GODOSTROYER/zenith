@@ -1,3 +1,13 @@
+## Current LIFE-12 builder contract, 8 October 2026
+
+Integrated40012d75/7427a7d0 security CAS closes changed ownership committed before final grant SQL; native17/0/0 and mixed124/0/0 passed. Remaining code: coordinate all ownership fact writers and admission paths before resource-row locks, with a consistent lock order and actual enforcement for SQL paths in scope. Define preissued/consumed-grant behavior, late provider receipts, uncertainty and operator-authorized continuation. Test insert after final SQL snapshot, opposite lock order, rollback, tenancy and accepted-but-unrecorded calls. Fences cannot retract a provider call. LIFE-12 remains open; verifier does not claim this broader criterion complete.
+
+Local disposable default API/server startup is authorized on this Mac. DEC-CLOUD, retention/business and production sign-off remain unapproved. Continuous floor12GB per latest user decision; packaged-worker18GiB prerequisite remains separate. Older permission/resource notes below retain historical scope.
+
+## Verifier milestone, 8 October 2026
+
+Exact e4c0c237 CI20/20 is green, including native packaged AMD64/ARM64. Native bootstrap86/0/0 now includes the real OpenTofu case; only private verification harness archive layout/socket paths changed. No product code or builder-owned source changed. Full native Node/DOM gate remains pending. Default stack is resource-blocked: [cold metadata lower bound](../evidence/PROD-CI-08/2026-10-08-default-cold-storage-lower-bound.json) leaves less than0.4GB above22GiB before DB/overlay/swap, with no safe expanded upper bound. Current25SQL/43 registry and native build input bindings match retained artifacts; avoid rebuilding unchanged bytes. No cloud/DNS/private App or business permission granted. See current RESULTS for exact scope; no new requirement or release promotion.
+
 ## PROD-MACH-02 security finding, 8 October 2026
 
 Independent Astra review confirmed a bearer-expiry gap on integrated0f995b44. Verifier left builder-owned source untouched.
@@ -151,3 +161,7 @@ First dependency: finish PROD-CI-05/08/09 on one coherent pushed commit, inspect
 The handoff names exactly 48 existing wave 3 criteria. PKG-01/02/03/06 remain separate cross-cutting verification dependencies. The current user scope is tests and failure fixes only; this is a queue for a later authorized building pass.
 
 Pending decisions: DEC-STARTUP, DEC-CLOUD, DEC-RETENTION and DEC-BUSINESS retain their ledger states. No live accounts, budgets, default API startup, destructive retention or production signoff is approved by this note. Keep published migration history immutable and retain the packaged-worker 18GiB floor.
+
+## Verifier boundary update, 8 October 2026
+
+Verifier integrated only stable test identities and bounded owned-Temporal startup diagnostics. No builder feature code changed. Local targeted Temporal10/0/0 does not explain remote9354startup failure or prove default job effects. Broader LIFE12 common-writer/preissued-grant coordination remains builder-owned. Default real interfaces and local scheduling acceptance continue under existing Mac-only authorization; cloud/business decisions stay blocked.

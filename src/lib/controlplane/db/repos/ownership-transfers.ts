@@ -205,6 +205,22 @@ function assertCompleteGraph(rows: readonly unknown[]): void {
  * a caller-mintable authorization capability, and need a final live predicate.
  */
 export async function lockForOperation(sql: Sql, workspaceId: string, operationId: string): Promise<string[] | null> {
+  return (await lockedOwnership(sql, workspaceId, operationId, false))?.selectedTransferIds ?? null;
+}
+
+type OwnershipNode = { id: string; address: string; kind: string; native_type: string; status: string; spec: Record<string, unknown>; snapshot: string };
+
+/** Grant admission also binds the complete bounded node inventory. This is a
+ * final-statement snapshot dependency held under the shared environment coordinator. */
+export async function lockForGrant(sql: Sql, workspaceId: string, operationId: string): Promise<{
+  selectedTransferIds: string[]; nodesSnapshot: string;
+} | null> {
+  return lockedOwnership(sql, workspaceId, operationId, true);
+}
+
+async function lockedOwnership(sql: Sql, workspaceId: string, operationId: string, strictInventory: boolean): Promise<{
+  selectedTransferIds: string[]; nodesSnapshot: string;
+} | null> {
   const [op] = await sql.query<{ capability: string; environment_id: string | null; resource_id: string | null; proposal: { input: Record<string, unknown> } }>(
     "select capability, environment_id, resource_id, proposal from platform.operations where workspace_id=$1 and id=$2",
     [requireText("workspaceId", workspaceId), requireText("operationId", operationId)],
@@ -214,17 +230,22 @@ export async function lockForOperation(sql: Sql, workspaceId: string, operationI
   if (changesSize && (!op.environment_id || !op.resource_id)) throw new ControlStoreError("conflict", "Current size-field ownership refuses this operation.");
   if (!NATIVE_OPERATION_WRITES[op.capability] || !op.environment_id || !op.resource_id) return null;
   await lockEnvironment(sql, workspaceId, op.environment_id);
-  const nodes = await sql.query<{ id: string; address: string; kind: string; native_type: string; status: string; spec: Record<string, unknown> }>(
-    `select id, address, kind, native_type, status, spec from platform.resources
-      where workspace_id=$1 and environment_id=$2 order by address limit 2001`,
-    [workspaceId, op.environment_id],
+  // Mutation triggers share the coordinator; tuple locks here would invert
+  // the order of an UPDATE that already owns its tuple before its trigger waits.
+  const nodes = await sql.query<OwnershipNode>(
+    `select id, address, kind, native_type, status, spec, jsonb_build_object(
+      'id', id, 'address', address, 'kind', kind, 'native_type', native_type, 'spec', spec)::text as snapshot from platform.resources
+      where workspace_id=$1 and environment_id=$2 order by address limit $3`,
+    [workspaceId, op.environment_id, 2001],
   );
-  assertCompleteGraph(nodes);
   const target = nodes.find(row => row.id === op.resource_id);
+  if (strictInventory && (!target || nodes.length > 2000))
+    throw new ControlStoreError("conflict", "Current field ownership inventory is unavailable or exceeds its bound.", { reason: "field_ownership_conflict" });
+  assertCompleteGraph(nodes);
   if (changesSize && (!target || target.status === "deleted" || nodes.length >= 2000)) throw new ControlStoreError("conflict", "Current size-field ownership could not be established.");
   if (!target) {
     const [schema] = await sql.query<{ present: boolean }>("select to_regclass('platform.ownership_transfers') is not null as present");
-    return schema?.present ? [] : null;
+    return schema?.present ? { selectedTransferIds: [], nodesSnapshot: "[]" } : null;
   }
   const rows = await sql.query<Row & { id: string; revoked_at: unknown }>(
     `select id, ${COLUMNS}, revoked_at from platform.ownership_transfers
@@ -255,5 +276,6 @@ export async function lockForOperation(sql: Sql, workspaceId: string, operationI
     if (!exact || exact.transfer.approvalId !== conflict.resolution.transferId) throw new ControlStoreError("conflict", "Current field ownership refuses this operation.", { reason: "field_ownership_conflict" });
     selected.add(exact.row.id);
   }
-  return [...selected].sort();
+  // Preserve PostgreSQL JSONB numbers exactly; parsed JS specs may lose precision.
+  return { selectedTransferIds: [...selected].sort(), nodesSnapshot: `[${nodes.map(row => row.snapshot).join(",")}]` };
 }

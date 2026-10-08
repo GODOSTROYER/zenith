@@ -1980,17 +1980,21 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "in_progress",
+      "implementationStatus": "implementation_complete_verification_pending",
       "evidence": [],
       "requiredEvidence": [
         "contract",
         "local_engine"
       ],
       "owner": "PROD-WS-INSTALLATION",
-      "testPaths": [],
+      "testPaths": [
+        "tests/e2e/default/journey.spec.mjs",
+        "tests/e2e/default/receipt.test.ts"
+      ],
       "pausedFrom": "in_progress",
       "pausedAt": "2026-10-02T07:32:03.553814+00:00",
-      "resumedAt": "2026-10-02T18:33:14.347788+00:00"
+      "resumedAt": "2026-10-02T18:33:14.347788+00:00",
+      "implementationNote": "J2 gated operated browser/REST/MCP/kind/zenithd journey and sanitized receipts built; Mac verification pending J1 Mailpit, Playwright runner and joined authority seams."
     },
     {
       "id": "PROD-PKG-06",
@@ -2263,7 +2267,11 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": [
+        "tests/e2e/default/journey.spec.mjs",
+        "tests/e2e/default/receipt.test.ts"
+      ],
+      "implementationNote": "J2 adds real saved-plan semantics mismatch and independent browser approval harness; full component/dispatch coverage stays in existing verifier lanes."
     },
     {
       "id": "PROD-DUR-04",
@@ -2289,7 +2297,11 @@
         "local_engine"
       ],
       "owner": "root",
-      "testPaths": []
+      "testPaths": [
+        "tests/e2e/default/journey.spec.mjs",
+        "tests/e2e/default/receipt.test.ts"
+      ],
+      "implementationNote": "J2 adds two Auth identities, self/bearer refusal, B UI approval and post-revocation dispatch; standing-grant and current-policy lanes remain separate."
     },
     {
       "id": "PROD-DUR-05",
@@ -2462,7 +2474,11 @@
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "tests/e2e/default/journey.spec.mjs",
+        "tests/e2e/default/receipt.test.ts"
+      ],
+      "implementationNote": "J2 adds default local Kubernetes create/verify/rotate/promote/old-identity-retire/revoke journey; J7 runner modes and CLI/provider lanes remain joins."
     },
     {
       "id": "PROD-LIFE-02",
@@ -3270,7 +3286,11 @@
         "local_engine"
       ],
       "owner": null,
-      "testPaths": []
+      "testPaths": [
+        "tests/e2e/default/journey.spec.mjs",
+        "tests/e2e/default/receipt.test.ts"
+      ],
+      "implementationNote": "J2 adds real consent-bound zenithd signed runbook, independent readback and local canary absence/model-output checks; all supported runner modes remain separate acceptance."
     },
     {
       "id": "PROD-MACH-06",

@@ -1379,6 +1379,14 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ci-b420d0e1-final.json",
           "runId": "37727364785",
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37727364785"
+        },
+        {
+          "level": "local_engine",
+          "commit": "e69eccaac2f833cdb43fcc2c8b1f848d12ba6a84",
+          "result": "FAILED/resource-blocked:4096MiB profile20 passed/2 failed/22 records against44 required; disk-floor abort before completion.1536 and2048 profiles each8/30/38, actual memory restart warnings. All owned cleanup complete; source remains isolated, no promotion.",
+          "command": "Owned serial exact-source native Chrome agent-browser controllers with continuous22GiB disk guard; per-Node heaps1536,2048,4096 independently reviewed",
+          "environment": "Native Darwin ARM64 Node22.23.3, actualChrome1280/380px, declared local identity-provider double; noDocker/cloud; not defaultSupabase/375px operator accessibility evidence",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-native-browser-heap4096.json"
         }
       ],
       "requiredEvidence": [

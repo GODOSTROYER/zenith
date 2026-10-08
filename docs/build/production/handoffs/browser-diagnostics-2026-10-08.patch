@@ -1,5 +1,5 @@
 diff --git a/scripts/agent-browser.ts b/scripts/agent-browser.ts
-index cce997fb..7063da8c 100644
+index cce997fb..2e6d48f3 100644
 --- a/scripts/agent-browser.ts
 +++ b/scripts/agent-browser.ts
 @@ -54,6 +54,7 @@ import fs from "node:fs";
@@ -110,7 +110,7 @@ index cce997fb..7063da8c 100644
          record(label, "Approve confirms, and sends the person back to their terminal", done, "the page says so");
  
          const issued = await poll(origin, pending.deviceCode, 20_000);
-@@ -550,6 +613,7 @@ async function main(): Promise<number> {
+@@ -550,12 +613,14 @@ async function main(): Promise<number> {
            consoleErrors.length === 0 ? "clean" : consoleErrors.slice(0, 3).join(" | ")
          );
        } catch (err) {
@@ -118,7 +118,14 @@ index cce997fb..7063da8c 100644
          record(label, "the approval journey ran to the end", false, err instanceof Error ? err.message : String(err));
        } finally {
          await context.close();
-@@ -580,8 +644,24 @@ async function main(): Promise<number> {
+       }
+     }
+   } finally {
++    process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-server-final", server: server.diagnosticState() })}\n`);
+     await browser.close();
+     server.stop();
+     await provider.close();
+@@ -580,8 +645,24 @@ async function main(): Promise<number> {
  
  /* --------------------------------- helpers ---------------------------------- */
  
@@ -138,12 +145,12 @@ index cce997fb..7063da8c 100644
 +
  interface DevServer {
    stop: () => void;
-+  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; nodeOomObserved: boolean };
++  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; nodeOomObserved: boolean; devMemoryRestartCount: number };
 +  approvalCompileTimings: () => Array<{ route: string; durationMs: number }>;
  }
  
  /**
-@@ -622,7 +702,18 @@ async function startDevServer(port: number): Promise<DevServer | null> {
+@@ -622,7 +703,19 @@ async function startDevServer(port: number): Promise<DevServer | null> {
      await new Promise((resolve) => setTimeout(resolve, 500));
    }
    process.stdout.write(`next dev is answering on http://localhost:${port}\n`);
@@ -154,6 +161,7 @@ index cce997fb..7063da8c 100644
 +      exitCode: child.exitCode,
 +      signalCode: child.signalCode,
 +      nodeOomObserved: /FATAL ERROR: [^\r\n]*JavaScript heap out of memory/.test(log.join("")),
++      devMemoryRestartCount: log.join("").split("Server is approaching the used memory threshold, restarting...").length - 1,
 +    }),
 +    approvalCompileTimings: () => Array.from(
 +      log.join("").matchAll(/\bCompiled \/api\/integrations\/agent\/link\/approve in (\d+(?:\.\d+)?)(ms|s)(?=\s|$)/g),

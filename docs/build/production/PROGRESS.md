@@ -1,3 +1,9 @@
+## Post-publication native browser evidence, 8 October 2026
+
+Publishedb9191887 CI has18/20 successful terminal jobs; mainverify andplatform-postgres still running, no current failure. Native workers each22/0/0; nativeplatform leaves1/0/0; browser44/0; workflows1378/0/0 with105 required. Counts overlap and are not summed.
+
+Same-Mac diagnostic sourcee69 establishes memory-triggered Next dev restarts at1536/2048MiB. Reviewed4096MiB profile reaches20 passing controls and approvalPOST200, zero observed restarts, but fails the continuous22GiB disk guard before44 checks complete. Owned cleanup complete. Storage helper found no safe reclaimable space; free22.44GiB, only0.44GiB margin,7GiB dynamic swap allocated. Additional3–5GiB needed before another heavy local gate. [Exact attempts and limits](verification/RESULTS-2026-10.md#same-mac-browser-resource-correction-and-remaining-storage-blocker). Ledger unchanged: **10 verified/49 in progress/19 planned**,78 requirements, all four release states false.
+
 ## Provenance refusal fixture correction, 8 October 2026
 
 Integrated `413334166890bb610ae73a045e0aaeb981e8b8a9` changes only `tests/execution/build-provenance.test.ts`. The previous random signature suffix replacement could leave valid signature bytes unchanged. The corrected fixture flips one decoded byte, proves equal length and unequal bytes/encoding, and retains all eight original refusal cases. Astra independently accepted the exact file hash. Full focused suite **24 passed /0 failed /0 skipped**, affected lint passed. Full compiler initially exhausted its default2GiB heap (exit134); retry with4096MiB passed. Production verifier and gates are unchanged; LIFE09 remains in_progress.

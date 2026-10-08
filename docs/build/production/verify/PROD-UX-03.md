@@ -323,3 +323,191 @@ expectation, assertion or gate changed. No handoff override was violated.
 The authority and main CLI joins are explicitly deferred to their owners under
 the handoff's interface/join allowance. Actual Docker and operated acceptance
 remain unverified; three runtime cases are gated and skipped locally.
+
+## J9 build joins follow-up to 556044c2, 2026-10-08
+
+This addendum supersedes the historical missing-authority/main-dispatch notes
+above. Both joins are implemented. UX-03 remains
+`implementation_complete_verification_pending`, never verified.
+
+`src/cli/bin.ts` dispatches `plugin install|run|list|revoke` via `runCli`.
+Install verifies publisher signature and canonical manifest digest before
+returning `/platform/plugins` for human registration/review, exit 3 as for
+connection creation. It does not report an installation before consent.
+Run uses the existing pinned fetch/container supervisor. List reads the exact
+bearer catalog endpoint with linked auth; run/revoke never load linked login or
+ZENITH_TOKEN. Revoke first proves this is the reviewed child and then submits
+the existing RFC 7009 endpoint by possession. Help and input/auth/conflict/
+unavailable/interrupted exits follow the main CLI. Plugin output remains secret
+safe, including debug diagnostics. The direct launcher entry remains compatible.
+
+`POST /api/integrations/plugins/launch/tokens` is browser-only and same-origin.
+The signed-in member selects their own live parent credential and finite
+project/environment IDs. The request binds to the exact admin-approved signed
+manifest digest. Approved tools/scopes intersect the parent; the lifetime is
+at most 24 hours and never beyond parent expiry. `mintToken()` is the existing
+agent-link minting implementation. Only the hash is persisted in the existing
+`platform.plugin_grants`; no general `agent.agent_credentials` row is created.
+The live parent lookup reuses the existing credential authority, including
+`PgCredentialAuthority`. Parent bearers are never returned to the plugin.
+
+Registration, review and both token-issuance routes call the single
+`src/lib/agent-access/control/privileged-consent.ts::assertPrivilegedConsent`
+seam after live browser verification. It requires verified Supabase JWT AAL2
+bound to the same verified subject and session, with a current expiry. No
+provider, provider error, AAL1, mismatched subject/session or bearer consent
+refuses. The MFA job can connect its enrolment/challenge UI to this seam; there
+is no permissive placeholder. Withdrawal does not require another step-up.
+The claim-verification API is documented by
+[Supabase getClaims](https://supabase.com/docs/reference/javascript/auth-getclaims);
+[AAL2 meaning](https://supabase.com/docs/reference/javascript/auth-mfa-getauthenticatorassurancelevel)
+is verified second-factor authentication.
+
+`POST /api/integrations/plugins/launch/check` authenticates only dedicated
+children and checks every binding field against live rows. Default scope
+wiring reloads current membership and every project's/environment's ownership.
+MCP v3 classifies known launcher hashes before ordinary linked credentials and
+preserves the plugin tool/target binding. Expired/revoked/denied known children
+throw, with no broader credential or OAuth fallback. The general authority
+rejects child hashes, so REST and v1/v2 cannot turn a child into a linked agent.
+Only exact check POST/catalog GET bypass cookie middleware; consent stays gated.
+The existing registration/grant browser paths and RFC revoke path invalidate
+the token. The supervisor and trusted gateway stop on the next live refusal.
+The prior poll, timeout and Docker outage limits still apply.
+
+Persistence/inventory: no new tables, columns or migration. Existing
+plugin_grants classification is reused, including the audited revoke functions.
+The new `hasGrantTokenHash` read is keyed only by a sha256 hash, includes revoked
+rows for classification and returns a boolean. Like existing resolve/diagnose
+authentication lookups, tenancy is derived from the matched grant, then bound
+to workspace/registration/audience. Identifier-based reads/mutations remain
+workspace-filtered. CLI catalog returns approved public registrations only,
+with no grant token/hash. No new sensitive-data inventory table is needed.
+
+In-process evidence: `tests/plugins/launch-integration.test.ts` drives actual
+browser gates and the AAL2 seam with modeled identity/provider/membership,
+actual plugin SQL and `PgCredentialAuthority` over PGlite, real SDK MCP
+discovery, main CLI, existing revocation and a fake container runtime. It proves
+child hashes cannot pass general credential verification. Models are explicit;
+this is not actual browser, default product membership, Docker or native
+PostgreSQL evidence. Middleware checks preserve exact transport boundaries.
+
+One existing expectation changed: the direct CLI invalid-option exit changes
+from 1 to 2 in `tests/cli/plugin-launcher.test.ts`, because the requested main CLI
+integration requires the existing input-error exit 2. The refusal and
+secret-suppression assertions remain. No other existing expectation or gate
+was weakened.
+
+### Mac native SQL check, serial lean profile
+
+Only one disposable PostgreSQL container is needed (512 MiB, one CPU), plus
+native Node22 on the host. No Temporal, kind, worker or cloud. Use the existing
+repository-pinned local image; `--pull never` refuses a missing cache. This
+checks the real SQL and production credential class; browser/provider/product
+membership ports remain models as described above. Passwords are generated
+locally and are not fixture constants. Run from the repository root:
+
+```bash
+test "$(node --version)" = v22.23.3
+plugin_pg_image='postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685'
+docker image inspect "$plugin_pg_image" >/dev/null
+plugin_pg_password="$(openssl rand -hex 24)"
+plugin_pg_name="zenith-plugin-pg-$(openssl rand -hex 6)"
+docker run --pull never -d --name "$plugin_pg_name" --memory 512m --cpus 1 \
+  -e POSTGRES_PASSWORD="$plugin_pg_password" -e POSTGRES_DB=zenith_plugin \
+  -p 127.0.0.1:55439:5432 "$plugin_pg_image"
+until docker exec "$plugin_pg_name" pg_isready -U postgres -d zenith_plugin; do sleep 1; done
+docker exec -i "$plugin_pg_name" psql -v ON_ERROR_STOP=1 -U postgres -d zenith_plugin <<'SQL'
+create role service_role;
+SQL
+docker exec -i "$plugin_pg_name" psql -v ON_ERROR_STOP=1 -U postgres -d zenith_plugin < supabase/migrations/0006_agent_link.sql
+export ZENITH_TEST_PLATFORM_PG_URL="postgres://postgres:${plugin_pg_password}@127.0.0.1:55439/zenith_plugin"
+npx vitest run tests/plugins/launch-integration.test.ts --no-file-parallelism --maxWorkers=2
+# Expected all cases pass, none skip. Fixtures clean only their exact workspace rows.
+unset ZENITH_TEST_PLATFORM_PG_URL plugin_pg_password
+docker rm --force "$plugin_pg_name"
+unset plugin_pg_name plugin_pg_image
+```
+
+### Mac operated API/browser/Docker join
+
+The new real harness is `tests/cli/plugin-platform-live.test.ts`, gated by
+`ZENITH_TEST_PLUGIN_PLATFORM=1`. It uses actual HTTP routes, browser consent,
+MCP discovery and Docker. Missing inputs fail when enabled. It refuses a
+non-local API origin. It checks the process is running before revocation,
+expects supervisor authority refusal or the trusted gateway's termination,
+awaits Docker removal and then sends
+valid check/MCP requests expecting 401. An unrelated early crash is not a pass.
+
+Start J1's lean private-CA API with local disposable product/agent/platform
+databases and J3's local Auth MFA fixture; do not point at production Supabase
+or a cloud. The checked-in disposable compose engine overlay currently requires
+external product/auth and is not a substitute for this local identity fixture.
+On the Mac's 4 GiB Docker budget, run only API/auth/DB and the two 128 MiB plugin
+containers; stop execution workers, Temporal and kind for this read-only test.
+Use the J1/J3 startup runbooks when those parallel jobs are integrated. This
+launcher does not duplicate their bootstrap or MFA enrolment implementation.
+
+Prepare a fresh signed, long-running Node22 stdio fixture and serve its pinned
+archive over local HTTPS. Configure the same public publisher key on API and
+launcher. In the actual browser, sign in to the disposable workspace, confirm
+TOTP to AAL2 and link a parent with read scope and the chosen project/environment.
+Copy the disposable Cookie request-header value into a private local file
+(mode 600, no logs). Use an API/artifact hostname reachable from both host and
+gateway, normally `https://host.docker.internal:<private-CA-port>` with the J1
+local mapping. Never disable TLS verification.
+
+```bash
+export NODE_EXTRA_CA_CERTS="$ZENITH_DEFAULT_STACK_CA_FILE"
+export ZENITH_PLUGIN_TEST_TLS_CERT_FILE="$ZENITH_DEFAULT_STACK_CA_FILE"
+export ZENITH_PLUGIN_PLATFORM_ORIGIN="$ZENITH_DEFAULT_STACK_HTTPS_ORIGIN"
+export ZENITH_PLUGIN_PLATFORM_MANIFEST_FILE="$PLUGIN_MANIFEST_FILE"
+export ZENITH_PLUGIN_PLATFORM_BROWSER_COOKIE_FILE="$PRIVATE_TEST_BROWSER_COOKIE_FILE"
+export ZENITH_PLUGIN_PLATFORM_WORKSPACE="$WORKSPACE_ID"
+export ZENITH_PLUGIN_PLATFORM_PARENT_ID="$LOCAL_TEST_PARENT_CREDENTIAL_ID"
+export ZENITH_PLUGIN_PLATFORM_PROJECT="$PROJECT_ID"
+export ZENITH_PLUGIN_PLATFORM_ENVIRONMENT="$ENVIRONMENT_ID"
+export ZENITH_PLUGIN_PLATFORM_SERVER=zenith
+# ZENITH_PLUGIN_SANDBOX_IMAGE is a locally cached immutable Node22 image digest.
+# ZENITH_PLUGIN_TRUSTED_PUBLISHERS is the API's identical public trust JSON.
+ZENITH_TEST_PLUGIN_PLATFORM=1 npx vitest run tests/cli/plugin-platform-live.test.ts --no-file-parallelism --maxWorkers=2
+# Expected 1 passed / 0 failed / 0 skipped; exercises two actual launches,
+# token RFC withdrawal and browser registration withdrawal. Parent remains live.
+```
+
+The existing POSIX CLI signal case also needs the Mac:
+
+```bash
+npx vitest run tests/cli/bin.test.ts --no-file-parallelism --maxWorkers=2
+# Expected 3 passed / 0 failed / 0 skipped, including the actual SIGINT process.
+```
+
+Run the earlier three-case Docker isolation specification separately. Native
+SQL, actual Docker and operated local browser acceptance are **not run here
+(needs Mac PostgreSQL/Docker and J1/J3 local fixtures)**. No real cloud API was
+called. Contract passes do not replace those receipts.
+
+The CLI integration retains the launcher's 16 MiB artifact allowance, separate
+from the generic CLI's 1 MiB API response limit. A signed archive above 1 MiB
+is an explicit regression case. HTTP 401/403 authority refusals map to the main
+CLI auth exit 3; outages remain exit 6. Live parent checks also reject a future
+issued-at timestamp and unknown membership roles.
+
+The initial regression attempts exposed existing PGlite fixture pressure:
+`service.test.ts` retained a separate database for every case, and the RFC
+plugin test initialized its database inside the behavior case. Fixture setup
+now opens one engine per file with the existing bounded hook; service cases
+keep distinct workspace/credential/publisher namespaces and test tenancy on
+the shared SQL database. All behavior assertions and timeout settings are
+unchanged. The exact failures, subsequent fixes and final command results are
+recorded in [the command journal](PROD-UX-03-commands.md).
+
+Final local checks after fixes: targeted service/RFC/launcher/main-CLI tests
+114 passed / 0 failed / 1 existing POSIX-on-Windows skip; typecheck 0 diagnostics;
+eslint all 26 changed code files 0 errors / 0 warnings; main executable plugin
+help passed; ledger/file scope and whitespace passed. Earlier broader regression
+had 250 passed / 2 startup timeouts / 5 skipped; both affected files were rerun
+in full after the fixture fix and passed. Docker 3, operated platform 1 and
+the existing POSIX case remain explicitly unverified here. Thirty files changed
+or added, all uncommitted. No handoff deviation. Suggested commit:
+`feat(plugins): wire CLI and authoritative scoped launcher grants`.

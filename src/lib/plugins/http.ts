@@ -16,6 +16,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod/v4";
 import { route } from "@/lib/server/request";
 import { browser } from "@/lib/agent-access/control/browser";
+import { assertPrivilegedConsent } from "@/lib/agent-access/control/privileged-consent";
 import { controlOrigin, failure, json, jsonBody } from "@/lib/agent-access/control/boundary";
 import { resourceFor } from "@/lib/agent-access/v3/auth";
 import * as repos from "@/lib/controlplane/db/repos";
@@ -23,7 +24,8 @@ import { TOOL_NAMES } from "@/lib/agent-access/v3/contract";
 import { PluginError } from "./errors";
 import { grantView, view } from "./view";
 import { defaultPluginDeps } from "./runtime";
-import { issuePluginToken, registerPlugin, revokePlugin, revokePluginGrant, reviewPlugin, MAX_PLUGIN_TOKEN_DAYS } from "./service";
+import { issuePluginToken, issueLauncherToken, registerPlugin, revokePlugin, revokePluginGrant, reviewPlugin, MAX_PLUGIN_TOKEN_DAYS } from "./service";
+import { launchIds } from "./launch-contract";
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
 const digestHex = z.string().regex(/^[0-9a-f]{64}$/);
@@ -39,8 +41,11 @@ const reviewBody = z.strictObject({
 const revokeBody = z.strictObject({ registrationId: id, reason: z.string().min(1).max(500) });
 const issueBody = z.strictObject({ registrationId: id, credentialId: id, days: z.number().int().min(1).max(MAX_PLUGIN_TOKEN_DAYS).default(7) });
 const tokenRevokeBody = z.strictObject({ grantId: id });
+const launchIssueBody = z.strictObject({ registrationId: id, manifestDigest: digestHex, credentialId: id,
+  projectIds: launchIds, environmentIds: launchIds, minutes: z.number().int().min(1).max(1440).default(60) });
 
 function refuse(error: unknown): Response {
+  if (error instanceof z.ZodError) return json({ error: { code: "plugin_manifest_invalid", message: "Supply valid plugin request fields." } }, 400);
   if (error instanceof PluginError) return json({ error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } }, error.status);
   return failure(error);
 }
@@ -72,6 +77,7 @@ export const pluginsRegister = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
     requireAdmin(member.role);
+    await assertPrivilegedConsent(req, identity);
     const input = registerBody.parse(await jsonBody(req));
     const registered = await registerPlugin(await defaultPluginDeps(), { workspaceId: workspace.id, manifest: input.manifest, requestedBy: identity.subject });
     return json({ plugin: view(registered), created: registered.created }, registered.created ? 201 : 200);
@@ -84,6 +90,7 @@ export const pluginsReview = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
     requireAdmin(member.role);
+    await assertPrivilegedConsent(req, identity);
     const input = reviewBody.parse(await jsonBody(req));
     const reviewed = await reviewPlugin(await defaultPluginDeps(), { workspaceId: workspace.id, reviewedBy: identity.subject, ...input });
     return json({ plugin: view(reviewed) });
@@ -107,7 +114,8 @@ export const pluginsRevoke = route(async (req: NextRequest) => {
 export const pluginsTokenIssue = route(async (req: NextRequest) => {
   try {
     const { identity, member, workspace } = await browser(req, true);
-    if (member.role === "viewer") throw new PluginError("plugin_forbidden", "A viewer cannot give a plugin access.");
+    if (!["admin", "editor"].includes(member.role)) throw new PluginError("plugin_forbidden", "This role cannot give a plugin access.");
+    await assertPrivilegedConsent(req, identity);
     const input = issueBody.parse(await jsonBody(req));
     const issued = await issuePluginToken(await defaultPluginDeps(), {
       workspaceId: workspace.id,
@@ -122,6 +130,23 @@ export const pluginsTokenIssue = route(async (req: NextRequest) => {
   } catch (error) {
     return refuse(error);
   }
+});
+
+/** Human approves finite targets for this child. The launcher cannot issue its
+ * own credential and never receives the selected parent's bearer. */
+export const pluginsLaunchTokenIssue = route(async (req: NextRequest) => {
+  try {
+    const { identity, member, workspace } = await browser(req, true);
+    if (!["admin", "editor"].includes(member.role)) throw new PluginError("plugin_forbidden", "This role cannot give a plugin access.");
+    await assertPrivilegedConsent(req, identity);
+    const input = launchIssueBody.parse(await jsonBody(req));
+    const issued = await issueLauncherToken(await defaultPluginDeps(), { ...input,
+      workspaceId: workspace.id, subject: identity.subject, audience: resourceFor(controlOrigin()) });
+    return json({ token: issued.token, grantId: issued.grant.id, registrationId: issued.grant.registrationId,
+      manifestDigest: input.manifestDigest, workspaceId: workspace.id, expiresAt: issued.grant.expiresAt,
+      audience: issued.grant.audience, projectIds: issued.grant.projectIds, environmentIds: issued.grant.environmentIds,
+      scopes: issued.grant.scopes, tools: issued.tools }, 201);
+  } catch (error) { return refuse(error); }
 });
 
 export const pluginsTokenRevoke = route(async (req: NextRequest) => {

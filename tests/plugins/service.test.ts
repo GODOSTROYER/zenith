@@ -3,7 +3,7 @@
  * platform schema (PGlite here; set ZENITH_TEST_PLATFORM_PG_URL to run the same
  * file on PostgreSQL). Only the credential authority is modeled (FakeParents).
  */
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import * as repos from "@/lib/controlplane/db/repos";
 import { authenticateMcp, resourceFor, type AuthDeps } from "@/lib/agent-access/v3/auth";
@@ -13,15 +13,17 @@ import { authenticatePluginToken, hashPluginToken, issuePluginToken, registerPlu
 import { baseManifest, FakeParents, KEY_ID, makePublisher, PUBLISHER, signManifest } from "./support";
 
 const PG_URL = process.env.ZENITH_TEST_PLATFORM_PG_URL?.trim() || undefined;
-const opened: PlatformDbHandle[] = [];
-afterAll(async () => {
-  for (const db of opened) await db.close();
+let database: PlatformDbHandle;
+// One engine per file. Every harness still has a unique workspace, credential
+// and publisher, so cases remain isolated and tenancy runs against shared SQL.
+beforeAll(async () => {
+  database = await (PG_URL ? openPlatformDb({ kind: "postgres", url: PG_URL, migrate: true, max: 2 }) : openPlatformDb({ kind: "pglite" }));
 });
+afterAll(async () => { await database?.close(); });
 const AUD = "http://127.0.0.1:3400/api/agent/v3/mcp";
 
 async function harness() {
-  const db = await (PG_URL ? openPlatformDb({ kind: "postgres", url: PG_URL, migrate: true, max: 3 }) : openPlatformDb({ kind: "pglite" }));
-  opened.push(db);
+  const db = database;
   const publisher = makePublisher();
   const parents = new FakeParents();
   const suffix = Math.random().toString(36).slice(2, 10);

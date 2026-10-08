@@ -59,6 +59,9 @@ export interface OAuthLike<Config = unknown, Verified = unknown> {
  */
 export interface PluginAuthLike {
   authenticate(token: string, audience: string): Promise<AgentIdentity>;
+  /** Known za_ children retain plugin restrictions. null only for a hash that
+   * has never been a plugin grant; revoked children must throw. */
+  resolveCredential?(token: string, audience: string): Promise<AgentIdentity | null>;
 }
 
 export interface AuthDeps {
@@ -140,6 +143,17 @@ export async function authenticateMcp(request: Request, deps: AuthDeps): Promise
 
   let identity: AgentIdentity;
   if (token.startsWith("za_")) {
+    let child: AgentIdentity | null = null;
+    try { child = await deps.plugins?.resolveCredential?.(token, resourceFor(origin)) ?? null; }
+    catch (error) {
+      if (error instanceof PluginError) throw new McpToolError(error.code, error.message, error.status);
+      throw error;
+    }
+    if (child) {
+      identity = child;
+      checkSelection(selection(request), identity);
+      return { principal: principalFromIdentity(identity, now), origin };
+    }
     const authority = await deps.authority();
     if (!origin.startsWith("http://") && authority.kind !== "postgres") {
       throw new McpToolError("oauth_required", "Remote access requires OAuth or a linked credential; development credentials are accepted only on the loopback origin.", 401);

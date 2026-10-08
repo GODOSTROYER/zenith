@@ -24,8 +24,8 @@ export function archive(entries: { name: string; content?: string; type?: string
   return gzipSync(Buffer.concat(blocks));
 }
 
-export function launchFixture() {
-  const publisher = makePublisher(); const bytes = archive();
+export function launchFixture(bytes = archive()) {
+  const publisher = makePublisher();
   const manifest = signManifest(baseManifest({
     artifact: { format: "tar.gz", url: "https://releases.example.test/plugin.tgz", digest: `sha256:${createHash("sha256").update(bytes).digest("hex")}` },
     components: { mcpServers: [{ name: "zenith", transport: "stdio", command: "node", args: ["${CLAUDE_PLUGIN_ROOT}/main.mjs"], env: { ZENITH_API_VERSION: "3" } }] },

@@ -142,6 +142,10 @@ describe("plugin launcher [modeled container and authority contracts]", () => {
 });
 
 describe("launcher authority and executable", () => {
+  it.each([401, 403])("retains HTTP %s as an authority refusal for the main CLI auth exit", async (status) => {
+    const f = setup();
+    await expect(httpAuthority(new URL(f.input.apiOrigin), async () => new Response(null, { status })).check(f.binding, f.input.token)).rejects.toThrow("launch_authority_refused");
+  });
   it("uses only the exact check endpoint and refuses an absent integration seam", async () => {
     const f = setup(); const fetcher = vi.fn<typeof fetch>(async () => new Response(null, { status: 404 }));
     await expect(httpAuthority(new URL(f.input.apiOrigin), fetcher).check(f.binding, f.input.token)).rejects.toThrow("launch_authority_unavailable");
@@ -154,7 +158,8 @@ describe("launcher authority and executable", () => {
     const f = setup(); const stdout = vi.fn(); const stderr = vi.fn();
     expect(await runPluginCli(["--help"], { stdout, stderr })).toBe(0);
     expect(stdout).toHaveBeenCalledWith(expect.stringContaining("plugin run"));
-    expect(await runPluginCli(["plugin", "run", "--token", f.input.token], { stdout, stderr })).toBe(1);
+    // Main CLI contract: invalid arguments exit 2, including plugin commands.
+    expect(await runPluginCli(["plugin", "run", "--token", f.input.token], { stdout, stderr })).toBe(2);
     expect(stderr.mock.calls.flat().join()).not.toContain(f.input.token);
   });
 });

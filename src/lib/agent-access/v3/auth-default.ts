@@ -6,7 +6,7 @@ import { bindGrant, oauthConfig, verifyOAuth, type OAuthConfig, type VerifiedOAu
 import { control } from "../control/runtime";
 import { resourceFor, type AuthDeps, type OAuthLike } from "./auth";
 import { defaultPluginDeps } from "@/lib/plugins/runtime";
-import { authenticatePluginToken } from "@/lib/plugins/service";
+import { authenticatePluginToken, resolveLauncherIdentity } from "@/lib/plugins/service";
 
 export function defaultAuth(): AuthDeps {
   const oauth: OAuthLike<OAuthConfig, VerifiedOAuth> = {
@@ -34,7 +34,8 @@ export function defaultAuth(): AuthDeps {
       };
     },
     oauth,
-    plugins: { authenticate: async (token, audience) => authenticatePluginToken(await defaultPluginDeps(), token, audience) },
+    plugins: { authenticate: async (token, audience) => authenticatePluginToken(await defaultPluginDeps(), token, audience),
+      resolveCredential: async (token, audience) => resolveLauncherIdentity(await defaultPluginDeps(), token, audience) },
     now: Date.now,
   };
 }

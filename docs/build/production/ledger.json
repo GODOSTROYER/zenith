@@ -3912,7 +3912,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J9 reference container launcher and contract tests built. Dedicated scoped za_ launch/check authority and main CLI dispatch joins require integration; actual Docker and operated default-stack acceptance pending. Prior contract evidence retained.",
+      "implementationNote": "J9 launcher plus main CLI install/run/list/revoke and authoritative scoped za_ issuance/check built. Browser trust uses a fail-closed verified AAL2 consent seam; MCP and existing revocation paths retain child restrictions and stop the supervisor. Native Docker/Postgres and operated browser acceptance remain pending; MFA challenge UI joins through assertPrivilegedConsent. Prior evidence retained.",
       "evidence": [
         {
           "level": "contract",
@@ -3943,6 +3943,8 @@
         "tests/cli/plugin-sandbox.test.ts",
         "tests/cli/plugin-runtime.test.ts",
         "tests/cli/plugin-launcher-docker.test.ts",
+        "tests/cli/plugin-platform-live.test.ts",
+        "tests/middleware/platform-bearer.test.ts",
         "tests/plugins"
       ]
     },

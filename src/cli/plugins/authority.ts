@@ -1,44 +1,19 @@
 import { createHash } from "node:crypto";
-import { z } from "zod/v4";
 import { toolDescriptor } from "@/lib/agent-access/v3/catalog";
-import { INTEGRATION_SCOPES, TOOL_NAMES } from "@/lib/agent-access/v3/contract";
 import type { PluginManifest } from "@/lib/plugins/manifest";
+import { LaunchLease, LAUNCH_CHECK_PATH, type LaunchBinding } from "@/lib/plugins/launch-contract";
+export { LaunchLease, LaunchBinding, LAUNCH_CHECK_PATH } from "@/lib/plugins/launch-contract";
 
 export class LauncherError extends Error {
   constructor(readonly code: string) { super(code); }
 }
 
-const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
-const ids = z.array(id).min(1).max(100).refine((v) => new Set(v).size === v.length);
-export const LaunchLease = z.strictObject({
-  status: z.literal("active"),
-  credentialKind: z.literal("plugin_scoped_za"),
-  registrationId: id,
-  workspaceId: id,
-  manifestDigest: z.string().regex(/^[a-f0-9]{64}$/),
-  credentialDigest: z.string().regex(/^[a-f0-9]{64}$/),
-  audience: z.string().url(),
-  projectIds: ids,
-  environmentIds: ids,
-  tools: z.array(z.enum(TOOL_NAMES)).min(1).refine((v) => new Set(v).size === v.length),
-  scopes: z.array(z.enum(INTEGRATION_SCOPES)).min(1).refine((v) => new Set(v).size === v.length),
-  expiresAt: z.string().datetime(),
-});
-export type LaunchLease = z.infer<typeof LaunchLease>;
-export interface LaunchBinding {
-  registrationId: string;
-  workspaceId: string;
-  manifestDigest: string;
-  credentialDigest: string;
-  audience: string;
-}
-/** Join owned by the platform integrator: read live review AND a dedicated,
+/** Read live review AND a dedicated,
  * attenuated za_ child, never a parent bearer or a caller's self-asserted scope.
  * This endpoint is deliberately required; the legacy zp_ path is not a fallback. */
 export interface LauncherAuthority {
   check(binding: LaunchBinding, token: string, signal?: AbortSignal): Promise<unknown>;
 }
-export const LAUNCH_CHECK_PATH = "/api/integrations/plugins/launch/check";
 export const tokenDigest = (token: string): string => createHash("sha256").update(token).digest("hex");
 
 export function assertLease(raw: unknown, binding: LaunchBinding, manifest: PluginManifest, previous?: LaunchLease): LaunchLease {
@@ -74,6 +49,7 @@ export function httpAuthority(origin: URL, fetcher: typeof fetch = fetch): Launc
         method: "POST", redirect: "error", signal: AbortSignal.any([AbortSignal.timeout(3000), ...(signal ? [signal] : [])]),
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(binding),
       });
+      if (response.status === 401 || response.status === 403) throw new LauncherError("launch_authority_refused");
       if (!response.ok) throw new Error();
       // Read a bounded body; a missing/unwired endpoint, redirects or outages
       // refuse launch and terminate active runs rather than probing another API.
@@ -89,6 +65,9 @@ export function httpAuthority(origin: URL, fetcher: typeof fetch = fetch): Launc
         }
       } finally { await reader.cancel(); }
       return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
-    } catch { throw new LauncherError("launch_authority_unavailable"); }
+    } catch (error) {
+      if (error instanceof LauncherError) throw error;
+      throw new LauncherError("launch_authority_unavailable");
+    }
   } };
 }

@@ -1,0 +1,25 @@
+{
+  "integratedCommit": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
+  "rootCause": "Rehearsal backup files created in host /tmp were absent from container filesystem.",
+  "fix": "Fresh0700 TMPDIR within existing same-path RUNNER_TEMP mount; forward PGPASSWORD and PGSSLMODE by name only.",
+  "tests": {
+    "passed": 120,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "fbf00e641024826b97c05b3a84a399575dacc5eda2cf003aa2bcb5f3ba8fa67e"
+  },
+  "compiler": {
+    "baseCommit": "1f7a87e5da914742decb47db55704adfc3245c92",
+    "heapMiB": 5120,
+    "exitCode": 0,
+    "durationSeconds": 12.19,
+    "endSourceBinding": true,
+    "groupAbsent": true
+  },
+  "source": {
+    ".github/workflows/ci.yml": "04a7856c88336ff8ecd8c2bb8037da3555cadc2a54484e68f46d5b24b4c70b8a",
+    "tests/ci/release-gates.test.ts": "df2ec218a6818535b2a11b2c3c7173427589dd3cdd039fb1ba1591c4b7eadf36"
+  },
+  "review": "Root and independent reviewer accepted; ESLint/actionlint/diff passed.",
+  "remaining": "Actual complete PostgreSQL/Temporal recovery lane and new exact-source CI remain pending. Wrapper protocol fixtures are not engine acceptance."
+}

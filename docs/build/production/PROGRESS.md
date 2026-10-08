@@ -1,3 +1,7 @@
+## Recovery harness integration, 8 October 2026
+
+Fix `1d99b5e217c4ea3150fcecd3976f3f7380c05a0f`: root120/0/0, compiler0 in12.19s; lint/actionlint and independent review passed. Real recovery lane/new CI still pending. Ownership55/36PG and SLO inventory136/6skip remain separate scopes. Ledger9/67/2 unchanged.
+
 ## Ownership native integration, 8 October 2026
 
 Code `c8c874027dd687d4a133e5de5d971a323eeed40b`:55/0/0 including36realPG;155groups cleanup independently accepted. Gate contracts368/0/0; compiler0 in14.69s. Counts overlap. Freshd90 CI remains pending overall, nativeworker2failed beforebuild. Linux/runtime/defaultjourney/security gaps stay open; ledger9/67/2 unchanged.

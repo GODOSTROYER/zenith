@@ -1504,6 +1504,12 @@
           "commit": "c8c874027dd687d4a133e5de5d971a323eeed40b",
           "result": "Ownership two complete files55/0/0 including36actualPG; source binding and155groups cleanup independently accepted. Gate metadata368/0/0; compiler0 in14.69s. Historical339/29 retained;1160/10/101/native100 unchanged.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ownership-native-successor.json"
+        },
+        {
+          "level": "contract",
+          "commit": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
+          "result": "Recovery client custody root120/0/0, compiler0 in12.19s, lint/actionlint0; independent review accepted. Actual recovery lane remains pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-recovery-client-custody.json"
         }
       ],
       "requiredEvidence": [
@@ -5548,11 +5554,11 @@
   ],
   "sessionState": {
     "status": "current_verifier_test_repairs_active_full_ci_failed",
-    "sourceCheckpoint": "c8c874027dd687d4a133e5de5d971a323eeed40b",
+    "sourceCheckpoint": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "d90fca08ea224ac16cdc70318f74a44dd97a1ce9",
-    "lastPushedRun": 37796491420,
-    "lastPushedRunStatus": "Main CI still running; nativeworkers37796491251 two prebuild failures; nativeplatforms two successes. Full terminal inspection pending.",
+    "lastPushedCommit": "1f7a87e5da914742decb47db55704adfc3245c92",
+    "lastPushedRun": 37798097245,
+    "lastPushedRunStatus": "Exact1f main37798097245 and nativeworkers37798097211 running; nativeplatforms37798097373 two successes. Final repair publication needs own complete CI.",
     "currentVerification": "Freshd90 CI37796491420 running; nativeworkers37796491251 failed prebuild strictCOPYinventory. SLO binding58c4 sourceverified, freshimage/runtime pending.",
     "remainingLocalPackets": {
       "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
@@ -5570,7 +5576,7 @@
       "pending": "Narrow MCPclient/core2.2.0 upgrade authorization; livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff."
     },
     "releaseVerdict": "9 verified /67 in_progress /2 planned; all four release flags false; CI07 reopened for current high MCP advisory, CI08/09 pending current complete candidate",
-    "next": "Execute reviewed ownership concurrency native packet and Linux supervisor6/runner PID1 after clean-source binding; inspect complete new pushed CI, repair remaining build/recovery/default journey failures and run combined gates.",
+    "next": "Freeze Linux supervisor142/6 and runner PID1 against final clean source; root preflight and serial actual execution. Inspect complete final CI, recover actual recovery/default journeys, build memory and Go counterpart accounting.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",

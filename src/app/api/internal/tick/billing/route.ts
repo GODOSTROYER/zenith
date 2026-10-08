@@ -8,7 +8,7 @@
  */
 import type { NextRequest } from "next/server";
 import { billingConfigFromEnv } from "@/lib/billing/config";
-import { MAINTENANCE_JOBS, runCriticalJob } from "@/lib/platform/critical-jobs";
+import { MAINTENANCE_JOBS, runFallbackJob } from "@/lib/platform/critical-jobs";
 import { withRequestId } from "@/lib/log";
 import { authorizeCron, ensurePlatformCron } from "@/lib/server/cron";
 import { ApiError, errorResponse, json } from "@/lib/server/errors";
@@ -21,12 +21,15 @@ async function tick(req: NextRequest): Promise<Response> {
   return withRequestId(requestId, async () => {
     try {
       authorizeCron(req);
-      if (billingConfigFromEnv().mode !== "managed") return json({ pass: "billing", ok: true, enabled: false });
+      if (billingConfigFromEnv().mode !== "managed") {
+        const res = json({ pass: "billing", ok: true, enabled: false });
+        res.headers.set("x-request-id", requestId);
+        return res;
+      }
       if (!(await ensurePlatformCron())) throw new ApiError("The platform control store is not configured, so billing cannot run.", 503);
-      const { platformDb } = await import("@/lib/controlplane/db");
-      const db = await platformDb();
-      const result = await runCriticalJob(db, "billing", "fallback", () => MAINTENANCE_JOBS.billing(db));
-      const res = json({ pass: "billing", ok: true, ...(result.status === "ok" ? result.value : { status: result.status }) });
+      // A deferred managed pass reports its reason, without fabricating billing effect counters.
+      const result = await runFallbackJob<{ enabled: boolean }>("billing", (db) => MAINTENANCE_JOBS.billing(db), { enabled: true });
+      const res = json({ pass: "billing", ok: true, ...result });
       res.headers.set("x-request-id", requestId);
       return res;
     } catch (err) {

@@ -265,7 +265,7 @@ export function createMachineStepExecutor(deps: MachineStepExecutorDeps): Runboo
     const effective: MachineRequest = step.claims.op === req.operationId ? req : { ...req, operationId: step.claims.op };
     const exec: MachineExecutionContext = { grant: step.claims, drivers: deps.drivers, sessions: deps.sessionsFor(step.jws, effective, ctx), evidence: deps.evidence, signal: ctx.signal, ...(deps.now ? { now: deps.now } : {}) };
     const settle = async (outcome: "succeeded" | "failed" | "uncertain", code?: string): Promise<void> => {
-      try { await step.settle(outcome, { code }); } catch { /* a ledger outage must not mask the machine outcome */ }
+      try { await step.settle(outcome, { code }); } catch (cause) { throw new MachineOperationError("uncertain", "The machine outcome could not be joined to its durable broker settlement.", { cause }); }
     };
     try {
       const result = await executeMachineOperation(effective, exec);

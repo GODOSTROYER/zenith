@@ -134,11 +134,6 @@ async function productPass<T extends object>(run: (cron: typeof import("@/lib/se
 }
 
 export const MAINTENANCE_JOBS = {
-  async billing(db: Sql): Promise<JobOutcome<import("@/lib/billing/service").BillingTickResult>> {
-    const { runBillingTick } = await import("@/lib/billing/service");
-    const value = await runBillingTick(db, { now: new Date() });
-    return { value, performed: true, counts: countsOf(value) };
-  },
   engine: () => productPass((c) => c.engineTickPass(15_000)),
   alerts: () => productPass((c) => c.alertTickPass()),
   outbox: () => productPass((c) => c.outboxTickPass()),
@@ -180,6 +175,11 @@ export const MAINTENANCE_JOBS = {
     const { runbookTickPass } = await import("./runbooks");
     const r = await runbookTickPass({ budgetMs: 15_000 });
     return { value: r, performed: r.ran, counts: countsOf(r) };
+  },
+  async billing(db: Sql): Promise<JobOutcome<import("@/lib/billing/service").BillingTickResult>> {
+    const { runBillingTick } = await import("@/lib/billing/service");
+    const r = await runBillingTick(db, { now: new Date() });
+    return { value: r, performed: true, counts: countsOf(r) };
   },
 };
 

@@ -71,3 +71,7 @@ Expected: all pass, zero skipped (the PostgreSQL lane only with the env var). No
 ## 5. Suggested ledger implementationStatus
 
 `signed_runbooks_scheduling_audit_rest_and_tick_wired_zenithd_targets_live_runs_and_obs04_registration_pending`
+
+## J4 follow-up (2026-10-08)
+
+See [J4 schedules/runbooks](J4-SCHEDULES-RUNBOOKS.md) for the signed delivery/semantics and natural-timer harness, exact Mac commands, local checks and shared joins. Implementation complete, verification pending; historical evidence above is not new J4 acceptance.

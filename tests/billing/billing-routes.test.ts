@@ -1,16 +1,19 @@
 /**
  * PROD-MAN-06 HTTP surface against a real PGlite control store: the operator routes (plan assignment, invoices,
  * suspension), the signed webhook route, the tick route and the route classification. The session lookup is mocked (that is
- * Supabase); authorization, same-origin, validation, optimistic versioning, audit and the effect on live admission are
+ * Supabase), as are verified MFA claims and live identity; authorization, step-up, same-origin, validation, optimistic versioning, audit and the effect on live admission are
  * real. The payment provider is never contacted: invoices are generated without a provider (draft) or through the
  * contract-level fake.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
+import { openPlatformDb, repos, type PlatformDbHandle } from "@/lib/controlplane/db";
+import { withLease } from "@/lib/controlplane/leases";
+import { FALLBACK_DEFER_MS, MAINTENANCE_JOBS, jobLeaseScope, runCriticalJob } from "@/lib/platform/critical-jobs";
 import { assertBillingAdmitted, invalidateBillingState } from "@/lib/billing/admission";
 import { generateInvoice } from "@/lib/billing/invoice";
-import { getAccount, getInvoiceByPeriod } from "@/lib/billing/store";
+import { assignPlan, getAccount, getInvoiceByPeriod } from "@/lib/billing/store";
+import { DEFAULT_PLAN_ID } from "@/lib/billing/plans";
 import { platformAccess } from "@/app/api/platform/v1/_lib/bearer-paths";
 import { FakeInvoiceProvider, hex, invoiceEvent, seedResource, webhookSecret } from "./_support";
 
@@ -18,10 +21,14 @@ const OPERATOR = "0b9d4e1c-1111-4222-8333-444455556666";
 const STRANGER = "9a8b7c6d-1111-4222-8333-444455556666";
 const ORIGIN = "http://zenith.test";
 
-const mocks = vi.hoisted(() => ({ session: vi.fn(), db: undefined as unknown as PlatformDbHandle }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), claims: vi.fn(), authUser: vi.fn(), dbCalls: vi.fn(), platformBoot: vi.fn(async () => true), db: undefined as unknown as PlatformDbHandle }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: mocks.claims, getUser: mocks.authUser } }) }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "", isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: mocks.session }));
 vi.mock("@/lib/ops/operator", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/ops/operator")>()), opsStore: async () => mocks.db }));
-vi.mock("@/lib/controlplane/db", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/controlplane/db")>()), platformDb: async () => mocks.db }));
+vi.mock("@/lib/controlplane/db", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/controlplane/db")>()), platformDb: async () => { mocks.dbCalls(); return mocks.db; } }));
+// Default application boot is a controlled port here; cron authentication and SQL execution stay real.
+vi.mock("@/lib/server/cron", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/server/cron")>()), ensurePlatformCron: mocks.platformBoot }));
 
 const assignment = await import("@/app/api/admin/billing/assignment/route");
 const invoices = await import("@/app/api/admin/billing/invoices/route");
@@ -39,13 +46,37 @@ beforeAll(async () => { handle = mocks.db = await openPlatformDb({ kind: "pglite
 afterAll(async () => { await handle.close(); });
 beforeEach(() => {
   vi.stubEnv("ZENITH_OPS_ADMIN_IDS", OPERATOR);
+  vi.stubEnv("ZENITH_PLATFORM_ORIGIN", ORIGIN);
   vi.stubEnv("ZENITH_BILLING", "managed");
+  vi.stubEnv("ZENITH_BILLING_STRIPE_SECRET_KEY", "");
   mocks.session.mockReset();
+  mocks.claims.mockReset();
+  mocks.authUser.mockReset();
+  mocks.claims.mockResolvedValue({ data: { claims: { sub: OPERATOR, aal: "aal2", exp: Date.now() / 1000 + 600 } }, error: null });
+  mocks.authUser.mockResolvedValue({ data: { user: { id: OPERATOR, email_confirmed_at: new Date().toISOString(), factors: [{ factor_type: "totp", status: "verified" }] } }, error: null });
+  mocks.dbCalls.mockClear();
+  mocks.platformBoot.mockClear();
   invalidateBillingState();
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 
 describe("operator routes: authorization and the disabled mode", () => {
+  it.each(["aal1", "unavailable", "removed-factor"])("refuses billing mutations without verified MFA: %s", async state => {
+    asOperator();
+    if (state === "aal1") mocks.claims.mockResolvedValue({ data: { claims: { sub: OPERATOR, aal: "aal1", exp: Date.now() / 1000 + 600 } }, error: null });
+    if (state === "unavailable") mocks.claims.mockRejectedValue(new Error("controlled identity provider outage"));
+    if (state === "removed-factor") mocks.authUser.mockResolvedValue({ data: { user: { id: OPERATOR, email_confirmed_at: new Date().toISOString(), factors: [] } }, error: null });
+    const id = ws();
+    const responses = [
+      await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "free_provisional" })),
+      await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" })),
+      await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "suspend", reason: "contract" })),
+    ];
+    expect(responses.map(response => response.status)).toEqual(Array(3).fill(state === "unavailable" ? 503 : 403));
+    expect(mocks.claims).toHaveBeenCalledTimes(3);
+    expect(await getAccount(handle, id)).toBeNull();
+  });
+
   it("refuses an anonymous caller (401) and a signed-in non-operator (403) on every route and method", async () => {
     mocks.session.mockResolvedValue(null);
     expect((await assignment.GET(json("GET", "/api/admin/billing/assignment"))).status).toBe(401);
@@ -201,14 +232,18 @@ describe("signed webhook route", () => {
 
 describe("billing tick route", () => {
   const SECRET = `cron_${hex(12)}`;
-  const call = (authorization?: string) => tick.POST(new NextRequest(`${ORIGIN}/api/internal/tick/billing`, { method: "POST", headers: authorization ? { authorization } : {} }));
+  const call = (authorization?: string, method: "GET" | "POST" = "POST") => tick[method](new NextRequest(`${ORIGIN}/api/internal/tick/billing`, { method, headers: authorization ? { authorization } : {} }));
+  const expireDurableDeferral = () => handle.query("update platform.scheduled_job_runs set last_success_at = clock_timestamp() - ($1::bigint * interval '1 millisecond') where job = 'billing'", [FALLBACK_DEFER_MS + 1000]);
 
   it("needs the scheduler's bearer before anything else", async () => {
     vi.stubEnv("CRON_SECRET", SECRET);
     expect((await call()).status).toBe(401);
+    expect((await call(undefined, "GET")).status).toBe(401);
     expect((await call(`Bearer ${hex(12)}`)).status).toBe(401);
     vi.stubEnv("CRON_SECRET", "");
     expect((await call(`Bearer ${SECRET}`)).status).toBe(503);
+    expect(mocks.platformBoot).not.toHaveBeenCalled();
+    expect(mocks.dbCalls).not.toHaveBeenCalled();
   });
 
   it("does nothing, touching no store, when billing is not managed", async () => {
@@ -217,6 +252,60 @@ describe("billing tick route", () => {
     const res = await call(`Bearer ${SECRET}`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ pass: "billing", ok: true, enabled: false });
+    expect(res.headers.get("x-request-id")).toBeTruthy();
+    expect(mocks.platformBoot).not.toHaveBeenCalled();
+    expect(mocks.dbCalls).not.toHaveBeenCalled();
+  });
+
+  it("refuses managed billing when the authenticated platform boot is unavailable", async () => {
+    vi.stubEnv("CRON_SECRET", SECRET);
+    mocks.platformBoot.mockResolvedValueOnce(false);
+    expect((await call(`Bearer ${SECRET}`)).status).toBe(503);
+    expect(mocks.dbCalls).not.toHaveBeenCalled();
+  });
+
+  it("yields to a successful durable billing pass without touching billing records again", async () => {
+    vi.stubEnv("CRON_SECRET", SECRET);
+    await runCriticalJob(handle, "billing", "temporal", () => MAINTENANCE_JOBS.billing(handle));
+    const before = (await repos.scheduledJobs.getScheduledJob(handle, "billing"))!;
+    const response = await call(`Bearer ${SECRET}`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ pass: "billing", ok: true, enabled: true, deferred: "durable_current" });
+    expect(await repos.scheduledJobs.getScheduledJob(handle, "billing")).toMatchObject({ runsTotal: before.runsTotal, skippedTotal: before.skippedTotal + 1, lastSuccessSource: "temporal" });
+  });
+
+  it("excludes both HTTP verbs while the real billing lease is held", async () => {
+    vi.stubEnv("CRON_SECRET", SECRET);
+    await expireDurableDeferral();
+    const before = (await repos.scheduledJobs.getScheduledJob(handle, "billing"))!;
+    await withLease(handle, { scope: jobLeaseScope("billing"), holder: `test:${hex(6)}`, ttlMs: 60_000 }, async () => {
+      for (const method of ["GET", "POST"] as const) {
+        const response = await call(`Bearer ${SECRET}`, method);
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ pass: "billing", ok: true, enabled: true, deferred: "busy" });
+      }
+      expect((await repos.scheduledJobs.getScheduledJob(handle, "billing"))?.runsTotal).toBe(before.runsTotal);
+    });
+  });
+
+  it("resumes after durable freshness expires and repeated authenticated fallback invoices only once", async () => {
+    vi.stubEnv("CRON_SECRET", SECRET);
+    await expireDurableDeferral();
+    const id = ws();
+    await assignPlan(handle, { workspaceId: id, planId: DEFAULT_PLAN_ID, actor: "test:operator", reason: "fallback contract" });
+    const first = await call(`Bearer ${SECRET}`, "GET");
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ pass: "billing", ok: true, enabled: true, invoicing: "not_configured", invoiceErrors: 0 });
+    const invoices = await handle.query("select id, period from platform.billing_invoices where workspace_id=$1 order by period", [id]);
+    expect(invoices).toHaveLength(1);
+    const afterFirst = (await repos.scheduledJobs.getScheduledJob(handle, "billing"))!;
+    expect(afterFirst.lastSuccessSource).toBe("fallback");
+    const repeated = await call(`Bearer ${SECRET}`);
+    expect(repeated.status).toBe(200);
+    expect(await repeated.json()).toMatchObject({ enabled: true, invoicesCreated: 0, invoicesOpened: 0, usageRowsWritten: 0, invoiceErrors: 0 });
+    expect(await handle.query("select id, period from platform.billing_invoices where workspace_id=$1 order by period", [id])).toEqual(invoices);
+    expect(await repos.scheduledJobs.getScheduledJob(handle, "billing")).toMatchObject({ lastSuccessSource: "fallback", runsTotal: afterFirst.runsTotal + 1 });
+    expect(await repos.leases.current(handle, jobLeaseScope("billing"))).toBeNull();
   });
 });
 

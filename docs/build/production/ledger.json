@@ -2357,7 +2357,7 @@
         "tests/e2e/default/journey.spec.mjs",
         "tests/e2e/default/receipt.test.ts"
       ],
-      "implementationNote": "J2 adds real saved-plan semantics mismatch and independent browser approval harness; full component/dispatch coverage stays in existing verifier lanes."
+      "implementationNote": "J2 adds real saved-plan semantics mismatch and independent browser approval harness; full component/dispatch coverage stays in existing verifier lanes. J4 emits the signed runbook reference into immutable step proposals with memory/SQL broker contracts; default operated semantics acceptance remains pending."
     },
     {
       "id": "PROD-DUR-04",
@@ -3268,7 +3268,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "contract_verified_ec18bb9c_default_local_engine_blocked",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J4 binds signed registered steps to broker authority and audit with memory/PGlite contracts; registered-agent HTTP delivery/cancel acceptance pending on Mac.",
       "evidence": [
         {
           "level": "contract",
@@ -3597,7 +3598,8 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "canonical_workflows62_verified_f582e193_default_scheduling_proof_open",
+      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationNote": "J4 natural-timer harness, durable billing and authenticated shared-lease HTTP fallback complete; default-stack restart/exclusion acceptance pending on Mac.",
       "evidence": [
         {
           "level": "local_engine",

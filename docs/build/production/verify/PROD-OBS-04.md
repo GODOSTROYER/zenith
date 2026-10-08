@@ -68,3 +68,7 @@ Expected: all pass. migrations/tenancy/scoping tests need the shared-file update
 ## 5. Suggested ledger implementationStatus
 
 `source_complete_durable_schedules_wired_runtime_acceptance_pending` (Temporal schedules for observation, reaping, housekeeping and runbooks with lease/fence/overlap/catch-up/health; requires PostgreSQL + Temporal execution evidence).
+
+## J4 follow-up (2026-10-08)
+
+See [J4 schedules/runbooks](J4-SCHEDULES-RUNBOOKS.md) for the signed delivery/semantics and natural-timer harness, exact Mac commands, local checks and shared joins. Implementation complete, verification pending; historical evidence above is not new J4 acceptance.

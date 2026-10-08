@@ -76,23 +76,32 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     const pruned = await db.query("select nonce from platform.agent_nonces where agent_id=$1 and nonce=$2", [workspaceId, nonce]);
     assert(pruned.length === 0, "Default housekeeping did not prune the seeded expired nonce.");
     assert(first.find(row => row.job === "billing")!.lastCounts.accounts >= 1, "Default billing did not examine durable accounts.");
+    assert((await http("/api/internal/tick/billing")).deferred === "durable_current", "Billing HTTP fallback did not yield to the durable timer.");
     // Hold the real shared lease across a natural timer, then issue the actual fallback route.
     await withLease(db, { scope: "critical-job:runbooks", holder: `test:j4:${randomUUID()}`, ttlMs: 120_000 }, async (_lease, signal) => {
-      const before = (await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.runsTotal;
-      const actions = (await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe()).info.numActionsTaken;
-      await wait(async () => {
-        signal.throwIfAborted();
-        const current = await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe();
-        if (current.info.numActionsTaken <= actions || current.info.runningActions.length) return false;
-        const recent = current.info.recentActions.at(-1);
-        assert(recent?.action.type === "startWorkflow", "Natural action is absent.");
-        const result = await client.workflow.getHandle(recent.action.workflow.workflowId, recent.action.workflow.firstExecutionRunId).result() as { runbooks: string };
-        assert(result.runbooks === "busy", "Natural default runbooks pass overlapped the held lease.");
-        return true;
+      await withLease(db, { scope: "critical-job:billing", holder: `test:j4:${randomUUID()}`, ttlMs: 120_000 }, async (_billingLease, billingSignal) => {
+        const before = (await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.runsTotal;
+        const billingBefore = (await repos.scheduledJobs.getScheduledJob(db, "billing"))!.runsTotal;
+        const actions = (await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe()).info.numActionsTaken;
+        await wait(async () => {
+          signal.throwIfAborted();
+          billingSignal.throwIfAborted();
+          const current = await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe();
+          if (current.info.numActionsTaken <= actions || current.info.runningActions.length) return false;
+          const recent = current.info.recentActions.at(-1);
+          assert(recent?.action.type === "startWorkflow", "Natural action is absent.");
+          const result = await client.workflow.getHandle(recent.action.workflow.workflowId, recent.action.workflow.firstExecutionRunId).result() as { runbooks: string; billing: string };
+          assert(result.runbooks === "busy", "Natural default runbooks pass overlapped the held lease.");
+          assert(result.billing === "busy", "Natural default billing pass overlapped the held lease.");
+          return true;
+        });
+        const fallback = await http("/api/internal/tick/runbooks");
+        assert(["busy", "durable_current"].includes(String(fallback.deferred)), "HTTP fallback did not defer.");
+        assert((await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.runsTotal === before, "A second runbook pass overlapped.");
+        const billingFallback = await http("/api/internal/tick/billing");
+        assert(["busy", "durable_current"].includes(String(billingFallback.deferred)), "Billing HTTP fallback did not defer behind the held lease.");
+        assert((await repos.scheduledJobs.getScheduledJob(db, "billing"))!.runsTotal === billingBefore, "A second billing pass overlapped.");
       });
-      const fallback = await http("/api/internal/tick/runbooks");
-      assert(["busy", "durable_current"].includes(String(fallback.deferred)), "HTTP fallback did not defer.");
-      assert((await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.runsTotal === before, "A second runbook pass overlapped.");
     });
     await stop(worker!); worker = undefined;
     // Real elapsed time, longer than both fallback deferral and two minute cadences.
@@ -101,6 +110,13 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     const fallback = await http("/api/internal/tick/runbooks");
     assert(fallback.ran === true, "Fallback did not resume during the worker outage.");
     assert((await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.lastSuccessSource === "fallback");
+    const billingFallback = await http("/api/internal/tick/billing");
+    assert(billingFallback.enabled === true && billingFallback.deferred === undefined && Number(billingFallback.accounts) >= 1 && billingFallback.invoiceErrors === 0, "Billing fallback did not resume during the real worker outage.");
+    assert((await repos.scheduledJobs.getScheduledJob(db, "billing"))!.lastSuccessSource === "fallback");
+    const invoices = await db.query("select id, period from platform.billing_invoices where workspace_id=$1 order by period", [workspaceId]);
+    const repeatedBilling = await http("/api/internal/tick/billing");
+    assert(repeatedBilling.enabled === true && repeatedBilling.deferred === undefined && repeatedBilling.invoicesCreated === 0 && repeatedBilling.invoiceErrors === 0, "Repeated authenticated billing fallback did not converge.");
+    assert.deepEqual(await db.query("select id, period from platform.billing_invoices where workspace_id=$1 order by period", [workspaceId]), invoices, "Repeated billing fallback duplicated invoices.");
     const beforeRestart = await repos.scheduledJobs.listScheduledJobs(db);
     const previousActions = (await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe()).info.numActionsTaken;
     start();
@@ -115,7 +131,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     const status = await http("/api/internal/tick/status");
     assert(Array.isArray(status.jobs) && [...CORE_JOBS, "billing"].every(job => (status.jobs as { job: string; durable: boolean; state: string }[]).some(row => row.job === job && row.durable && row.state === "healthy")), "Default API health does not match durable readback.");
     assert(await seededEpoch(db) === epoch, "Published cleanup epoch changed.");
-    return { schema: 1, level: "local_engine", naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, housekeepingEffect: true, epochPreserved: true };
+    return { schema: 1, level: "local_engine", naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, housekeepingEffect: true, epochPreserved: true };
   } finally {
     const errors: unknown[] = [];
     // Drain while our worker is still alive. A cleanup failure never prevents stopping our child.

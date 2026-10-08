@@ -1,23 +1,24 @@
-/** Contract join: real signing and broker authority; registry lookup is controlled, no real agent. */
-import { afterEach, describe, expect, it, vi } from "vitest";
+/** Contract join over memory and real SQL stores: signing/broker authority; controlled registry, no real agent. */
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createBroker } from "@/lib/capabilities/platform";
 import { generateSigningJwk, LocalJwkSigner } from "@/lib/credentials/signing";
 import { MemoryRunbookStore } from "@/lib/machines/runbooks/memory-store";
+import { createPlatformRunbookStore } from "@/lib/controlplane/db/repos/machine-runbooks";
 import type { PlatformMachine } from "@/lib/controlplane/db/repos/machines";
 import { createRunbookService, stepOperationId, verifyAuditChain } from "@/lib/machines/runbooks";
 import type { MachineRequest } from "@/lib/machines/types";
 import { createRunbookStepGrant } from "@/lib/runbooks/delivery";
 import { runbookProposalInput } from "@/lib/runbooks/semantics";
 import { runbookOf } from "@/lib/execution/semantics/collect";
-import { allowDecision, closeSharedPgliteAfterAll, makeHarness, scriptedEngine } from "../capabilities/support";
+import { allowDecision, closeSharedPgliteAfterAll, makeHarness, scriptedEngine, sharedDatabase, STORE_KINDS, type StoreKind } from "../capabilities/support";
 
 closeSharedPgliteAfterAll();
 afterEach(() => vi.restoreAllMocks());
 
-async function fixture() {
-  const h = await makeHarness({ kind: "memory", engine: scriptedEngine("runbook-contract", () => allowDecision()) });
+async function fixture(kind: StoreKind) {
+  const h = await makeHarness({ kind, engine: scriptedEngine("runbook-contract", () => allowDecision()) });
   const broker = createBroker(h.deps);
-  const store = new MemoryRunbookStore();
+  const store = kind === "memory" ? new MemoryRunbookStore() : createPlatformRunbookStore(h.db!);
   const key = await generateSigningJwk("EdDSA");
   const signer = LocalJwkSigner.fromJwk("runbook-contract", key.privateJwk, { alg: "EdDSA" });
   const now = () => h.deps.clock.now();
@@ -36,9 +37,11 @@ async function fixture() {
   return { h, broker, store, service, version, req, ctx, machine, lookup, grant };
 }
 
-describe("registered runbook step authority", () => {
+describe.each(STORE_KINDS)("registered runbook step authority [%s]", kind => {
+  // Admit the genuine schema in setup; cold migration work is not a step-authorization operation.
+  beforeAll(async () => { if (kind !== "memory") await sharedDatabase(kind); }, 60_000);
   it("emits the signed reference and joins the broker operation into the append-only audit", async () => {
-    const f = await fixture();
+    const f = await fixture(kind);
     const grant = await f.grant(f.req, f.ctx);
     const op = (await f.broker.deps.store.getOperation(f.h.ids.wsA, grant.claims.op))!;
     expect(runbookOf(op.proposal.input)).toEqual({ runbookId: "inspect", version: 1, definitionDigest: f.version.definitionDigest });
@@ -52,7 +55,7 @@ describe("registered runbook step authority", () => {
   });
 
   it.each(["args", "target", "operationId", "timeout"] as const)("refuses changed %s before proposing or dispatching", async field => {
-    const f = await fixture();
+    const f = await fixture(kind);
     const propose = vi.spyOn(f.broker, "propose");
     const changed = { ...f.req, ...(field === "args" ? { args: { unexpected: true } } : field === "target" ? { target: { ...f.req.target, resourceId: f.h.ids.resBWeb } } : field === "operationId" ? { operationId: "foreign-step" } : { timeoutSec: f.req.timeoutSec + 1 }) };
     await expect(f.grant(changed, f.ctx)).rejects.toMatchObject({ code: "invalid_binding" });
@@ -60,13 +63,13 @@ describe("registered runbook step authority", () => {
   });
 
   it.each(["revoked", "stale", "foreign", "environment", "capability"] as const)("refuses a %s machine", async state => {
-    const f = await fixture();
+    const f = await fixture(kind);
     Object.assign(f.machine, state === "revoked" ? { status: "revoked" } : state === "stale" ? { stale: true } : state === "foreign" ? { workspaceId: f.h.ids.wsB } : state === "environment" ? { environmentId: f.h.ids.envBProd } : { capabilities: [] });
     await expect(f.grant(f.req, f.ctx)).rejects.toMatchObject({ code: "invalid_binding" });
   });
 
   it("rechecks cancellation after asynchronous broker policy work", async () => {
-    const f = await fixture();
+    const f = await fixture(kind);
     const original = f.broker.propose.bind(f.broker);
     vi.spyOn(f.broker, "propose").mockImplementation(async (...args) => {
       const proposed = await original(...args);
@@ -79,7 +82,7 @@ describe("registered runbook step authority", () => {
   });
 
   it("an audit outage refuses delivery before grant consumption", async () => {
-    const f = await fixture();
+    const f = await fixture(kind);
     vi.spyOn(f.store, "appendAudit").mockRejectedValue(new Error("controlled outage"));
     const begin = vi.spyOn(f.broker, "beginExecution");
     await expect(f.grant(f.req, f.ctx)).rejects.toThrow("controlled outage");
@@ -87,7 +90,7 @@ describe("registered runbook step authority", () => {
   });
 
   it("re-verifies the signed definition before every step", async () => {
-    const f = await fixture();
+    const f = await fixture(kind);
     vi.spyOn(f.store, "getVersion").mockResolvedValue({ ...f.version, definition: { ...f.version.definition, name: "changed" } });
     await expect(f.grant(f.req, f.ctx)).rejects.toMatchObject({ code: "signature_invalid" });
   });

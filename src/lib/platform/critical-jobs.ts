@@ -30,7 +30,7 @@ import type { JobSource, ScheduledJobRow } from "@/lib/controlplane/db/repos/sch
 export type { JobSource } from "@/lib/controlplane/db/repos/scheduled-jobs";
 
 export const CRITICAL_JOBS = {
-  billing: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "billing", durableOnly: true },
+  billing: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "billing" },
   housekeeping: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   "runner-reaper": { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   runbooks: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "runbooks" },

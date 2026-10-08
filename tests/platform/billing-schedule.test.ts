@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import { DEFAULT_PLAN_ID } from "@/lib/billing/plans";
 import { assignPlan } from "@/lib/billing/store";
-import { CRITICAL_JOBS, MAINTENANCE_JOBS, criticalJobHealth, runCriticalJob } from "@/lib/platform/critical-jobs";
+import { CRITICAL_JOBS, CRITICAL_JOB_NAMES, MAINTENANCE_JOBS, criticalJobHealth, runCriticalJob } from "@/lib/platform/critical-jobs";
 
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
 beforeAll(async () => { db = await openPlatformDb({ kind: "pglite" }); }, 60_000);
@@ -11,9 +11,18 @@ afterAll(async () => { await db?.close(); });
 afterEach(() => vi.unstubAllEnvs());
 
 describe("durable billing schedule", () => {
+  it("does not exempt missing billing health when every other fallback-capable job has run", async () => {
+    const peers = CRITICAL_JOB_NAMES.filter(job => job !== "billing" && !("durableOnly" in CRITICAL_JOBS[job]));
+    for (const job of peers) await runCriticalJob(db, job, "temporal", async () => ({ value: {} }));
+    const health = await criticalJobHealth(db);
+    expect(health.jobs.filter(row => peers.includes(row.job)).every(row => row.state === "healthy")).toBe(true);
+    expect(health.jobs.find(row => row.job === "billing")).toMatchObject({ state: "never_run", durable: false });
+    expect(health.healthy).toBe(false);
+  });
   it("registers billing in the shared maintenance activity and records disabled mode without network", async () => {
     vi.stubEnv("ZENITH_BILLING", "disabled");
-    expect(CRITICAL_JOBS.billing).toMatchObject({ cadenceMs: 60_000, durableOnly: true });
+    expect(CRITICAL_JOBS.billing).toMatchObject({ cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "billing" });
+    expect(CRITICAL_JOBS.billing).not.toHaveProperty("durableOnly");
     expect(await runCriticalJob(db, "billing", "temporal", () => MAINTENANCE_JOBS.billing(db))).toMatchObject({ status: "ok", value: { enabled: false } });
     expect(await repos.scheduledJobs.getScheduledJob(db, "billing")).toMatchObject({ lastSuccessSource: "temporal", lastStatus: "ok" });
   });

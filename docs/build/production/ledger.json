@@ -2302,7 +2302,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J4 emits the signature-verified runbook reference into immutable step proposal input; broader operated semantics acceptance remains pending.",
+      "implementationNote": "J4 emits the signed runbook reference into immutable step proposals with memory/SQL broker contracts; default operated semantics acceptance remains pending.",
       "evidence": [
         {
           "level": "local_engine",
@@ -3207,7 +3207,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J4 binds each signed registered step to fresh broker authority and audit; real registered-agent HTTP delivery/cancel harness pending on Mac.",
+      "implementationNote": "J4 binds signed registered steps to broker authority and audit with memory/PGlite contracts; registered-agent HTTP delivery/cancel acceptance pending on Mac.",
       "evidence": [
         {
           "level": "contract",
@@ -3532,7 +3532,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J4 adds natural-timer default maintenance harness and durable MAN-06 billing; Mac default-stack restart/fallback/exclusion acceptance pending.",
+      "implementationNote": "J4 natural-timer harness, durable billing and authenticated shared-lease HTTP fallback complete; default-stack restart/exclusion acceptance pending on Mac.",
       "evidence": [
         {
           "level": "local_engine",

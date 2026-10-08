@@ -40,7 +40,15 @@ export interface LiveLane {
   deferredBecause: string;
 }
 
-export type Lane = LocalLane | LiveLane;
+export interface LocalCommandLane {
+  id: string;
+  kind: "local_engine";
+  files: readonly string[];
+  command: readonly string[];
+  gates: readonly string[];
+  evidenceLabel: "local_rehearsal";
+}
+export type Lane = LocalLane | LiveLane | LocalCommandLane;
 
 export interface Scenario {
   id: string;

@@ -27,3 +27,11 @@ acknowledged write is really there, correct and stored once. Locally the same co
 node --input-type=module -e "import('./enricher/server.mjs').then(m => m.createEnricherServer().listen(8081))"
 STORE=memory ENRICHER_URL=http://127.0.0.1:8081 node web/server.mjs     # local only
 ```
+
+## Explicit local variants
+
+`enricher/lambda.mjs` is the AWS Lambda entrypoint (direct Invoke or API Gateway JSON/base64 body); it delegates the price/checksum rule to the shared handler. `enricher/server.mjs` remains the container variant and supports mutual TLS when all three ENRICHER_SERVER_*_FILE values are supplied. A partial TLS configuration refuses startup.
+
+The cloud manifest stays the justified container equivalent because manifest services do not reach the experimental Lambda driver. [Local target commands](../../deploy/acceptance/local-targets/README.md) build either `--variant lambda` on LocalStack or `--variant container` on kind. The web and database run on kind with real PostgreSQL and direct read-only readback. Local provider labels explicitly say kind/LocalStack, never real GCP/Azure/AWS.
+
+For certificate-authenticated PostgreSQL, DATABASE_CA_FILE, DATABASE_CERT_FILE and DATABASE_KEY_FILE must all be present; the server hostname and CA are verified. DATABASE_URL_FILE remains the connection reference. The fixture never silently falls back to memory or downgrades a partial TLS configuration. These harness deployments are local rehearsal, not Zenith parent approval/execution or live-cloud acceptance.

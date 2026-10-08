@@ -5,11 +5,17 @@
  * on the address it is given and must never be exposed without that endpoint.
  */
 import http from "node:http";
+import https from "node:https";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { handler } from "./handler.mjs";
 
-export function createEnricherServer({ provider = process.env.ENRICHER_PROVIDER ?? "aws" } = {}) {
-  return http.createServer(async (req, res) => {
+export function createEnricherServer({ provider = process.env.ENRICHER_PROVIDER ?? "aws", env = process.env } = {}) {
+  const ca = env.ENRICHER_SERVER_CA_FILE;
+  const cert = env.ENRICHER_SERVER_CERT_FILE;
+  const key = env.ENRICHER_SERVER_KEY_FILE;
+  if ((ca || cert || key) && !(ca && cert && key)) throw new Error("All enricher server TLS files are required");
+  const listener = async (req, res) => {
     const send = (status, body) => {
       res.writeHead(status, { "content-type": "application/json", "x-enricher-provider": provider });
       res.end(JSON.stringify(body));
@@ -27,7 +33,8 @@ export function createEnricherServer({ provider = process.env.ENRICHER_PROVIDER 
     try { event = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { return send(400, { error: "invalid_json" }); }
     const result = await handler(event);
     return send(result.statusCode, JSON.parse(result.body));
-  });
+  };
+  return ca ? https.createServer({ ca: readFileSync(ca), cert: readFileSync(cert), key: readFileSync(key), requestCert: true, rejectUnauthorized: true, minVersion: "TLSv1.2" }, listener) : http.createServer(listener);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

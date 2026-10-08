@@ -144,7 +144,14 @@ describe("signing and verification", () => {
     const [h, p, s] = signed.jws.split(".");
     const claims = JSON.parse(Buffer.from(p, "base64url").toString());
     claims.img = "8".repeat(64);
-    for (const bad of [`${h}.${b64(claims)}.${s}`, `${h}.${p}.${s.slice(0, -2)}AA`, `${h}.${p}`, "", "a.b.c", `${h}.${p}.${s}.x`, undefined, 7]) {
+    const signature = Buffer.from(s, "base64url");
+    const tamperedSignature = Buffer.from(signature);
+    tamperedSignature[0] ^= 1;
+    expect(tamperedSignature.length).toBe(signature.length);
+    expect(tamperedSignature.equals(signature)).toBe(false);
+    const tamperedSignatureText = tamperedSignature.toString("base64url");
+    expect(tamperedSignatureText).not.toBe(s);
+    for (const bad of [`${h}.${b64(claims)}.${s}`, `${h}.${p}.${tamperedSignatureText}`, `${h}.${p}`, "", "a.b.c", `${h}.${p}.${s}.x`, undefined, 7]) {
       await expect(verifyBuildProvenance(bad, expectation(), keys.publicKeys)).rejects.toBeInstanceOf(BuildProvenanceError);
     }
   });

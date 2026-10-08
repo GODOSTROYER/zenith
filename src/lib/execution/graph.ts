@@ -92,13 +92,16 @@ export function buildDesiredState(product: ProductContext): DesiredState {
 
 const isStateful = (kind: string): boolean => (STATEFUL_KINDS as readonly string[]).includes(kind);
 
-type ZenithClass = { kind: "platform" | "not_offered" | "unsupported" | "database" | "render"; reason: string };
+type ZenithClass = { kind: "platform" | "not_offered" | "unsupported" | "database" | "storage" | "render"; reason: string };
 
 function zenithClasses(graph: ResourceGraph): Map<string, ZenithClass> {
-  const assessed = assessZenithGraph(graph.nodes);
+  // Executability describes implemented provider paths. Rendering and planning still require the
+  // configured substrate, tier allowance and scoped storage ports before a plan can be approved.
+  const assessed = assessZenithGraph(graph.nodes, { objectStorage: true });
   const out = new Map<string, ZenithClass>();
   for (const n of assessed.render) out.set(n.address, { kind: "render", reason: "" });
   for (const n of assessed.databases) out.set(n.address, { kind: "database", reason: "" });
+  for (const n of assessed.storage) out.set(n.address, { kind: "storage", reason: "" });
   for (const n of assessed.platformManaged) out.set(n.address, { kind: "platform", reason: n.reason });
   for (const n of assessed.notOffered) out.set(n.address, { kind: "not_offered", reason: n.reason });
   for (const n of assessed.unsupported) out.set(n.address, { kind: "unsupported", reason: n.reason });
@@ -138,8 +141,8 @@ export function findGraphProblems(graph: ResourceGraph, environmentProvider: str
       if (!driver) problems.push(`${node.address}: no driver is registered for ${node.provider} ${node.nativeType}.`);
       else if (environmentProvider === "kubernetes" || environmentProvider === "zenith") {
         // Kubernetes realizes nodes by render + server-side apply, not by compiling OpenTofu: what matters is that it can render the kind.
-        // (A managed Zenith database is realized by the managed-database port, which the assessment already classified.)
-        if (zenithClass?.kind !== "database" && !RENDERABLE_KINDS.includes(node.kind)) problems.push(`${node.address}: a ${node.kind} cannot be rendered on ${environmentProvider === "zenith" ? "the managed platform" : "Kubernetes"}.`);
+        // Managed Zenith databases and object stores use their dedicated provider ports, not Kubernetes manifests.
+        if (zenithClass?.kind !== "database" && zenithClass?.kind !== "storage" && !RENDERABLE_KINDS.includes(node.kind)) problems.push(`${node.address}: a ${node.kind} cannot be rendered on ${environmentProvider === "zenith" ? "the managed platform" : "Kubernetes"}.`);
       } else if (typeof driver.compile !== "function") problems.push(`${node.address}: driver ${driver.id} cannot compile (it is observe-only), so it cannot manage this node.`);
       const artifact = node.spec.artifact as ArtifactSpec | undefined;
       if (artifact?.type === "blueprint" && node.provider !== "sandbox") {

@@ -12,7 +12,7 @@ import { FULL_ENV } from "../providers/zenith/support";
 tempDataDir("zenith-managed-services-", { fast: true });
 process.env.ZENITH_STORE = "file";
 process.env.ZENITH_PLATFORM_BROKER_MEMORY = "1";
-process.env.ZENITH_PLATFORM_ORIGIN = "https://zenith.test";
+process.env.ZENITH_PLATFORM_ORIGIN = "http://127.0.0.1:3000";
 delete process.env.ZENITH_AGENT_ORIGIN;
 
 const state = vi.hoisted(() => ({
@@ -50,7 +50,7 @@ const { resetPlatformBrokerForTests } = await import("@/lib/capabilities/platfor
 const servicesRoute = await import("@/app/api/platform/v1/managed-services/route");
 const { getOfferedCatalog } = await import("@/lib/offered-catalog");
 
-const ORIGIN = "https://zenith.test";
+const ORIGIN = "http://127.0.0.1:3000";
 const AT = "2026-01-01T00:00:00.000Z";
 const ws = (id: string): Workspace => ({ id, name: id, slug: id, createdAt: AT }) as Workspace;
 const member = (id: string, workspaceId: string, role: Member["role"]): Member => ({ id, workspaceId, role, name: id, email: `${id}@zenith.test` });
@@ -61,7 +61,7 @@ type Json = Record<string, any>;
 type Handler = (req: RequestType, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
 
 async function get(query = "", headers: Record<string, string> = {}): Promise<{ status: number; body: Json; text: string }> {
-  const request = new NextRequest(`${ORIGIN}/api/platform/v1/managed-services${query}`, { method: "GET", headers: { cookie: `${WORKSPACE_COOKIE}=ws-a`, ...headers } });
+  const request = new NextRequest(`${ORIGIN}/api/platform/v1/managed-services${query}`, { method: "GET", headers: { host: new URL(ORIGIN).host, cookie: `${WORKSPACE_COOKIE}=ws-a`, ...headers } });
   const response = await (servicesRoute.GET as Handler)(request, { params: Promise.resolve({}) });
   const text = await response.text();
   return { status: response.status, body: text ? JSON.parse(text) : {}, text };

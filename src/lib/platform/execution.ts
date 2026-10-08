@@ -110,7 +110,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   // PROD-MAN-01: the Zenith-operated cluster, registry and build path. Always composed from ZENITH_MANAGED_*; when those are
   // absent it is a port that refuses every managed operation by variable name, so non-managed environments are unaffected.
   const product = createProductPort();
-  const managed = opts.ports?.managed ?? createDefaultManagedSubstrate({ product });
+  const managed = opts.ports?.managed ?? createDefaultManagedSubstrate({ product, db: opts.db });
   const azureStorage = opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db);
   const sourceRuntime = createApprovedSourceRuntime(opts.db, {
     resources: opts.ports?.resources ?? platformPorts.resources,
@@ -148,7 +148,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   };
   const activities = createExecutionActivities(deps);
   const readinessRuntime = createRuntime(deps);
-  const reconcilePorts = composeReconcilePorts(opts.db, credentials);
+  const reconcilePorts = composeReconcilePorts(opts.db, credentials, undefined, managed);
   return withFailureMapping({
     ...activities,
     async validateDesiredState(input) {

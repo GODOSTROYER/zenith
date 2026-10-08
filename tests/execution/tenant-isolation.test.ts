@@ -162,7 +162,7 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
   let request: TenantIsolationRequest;
   let approval: { approved: boolean; rejected: boolean; approvalId?: string; planDigest?: string };
   let stored: { ref: string; token: string; expiresAt: string }[];
-  let probeAnswers: (verb: string, resource: string) => boolean;
+  let probeAnswers: (verb: string, resource: string, namespace?: string) => boolean;
   const calls = { admit: 0, fence: 0, tokens: 0 };
 
   const make = (over: Partial<TenantIsolationDeps> = {}, ledger = true) => {
@@ -194,7 +194,7 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
       async storeOperatorCredential(input) {
         stored.push({ ref: input.ref, token: input.token, expiresAt: input.expiresAt });
       },
-      openOperatorProbe: async () => ({ async allowed(a) { return probeAnswers(a.verb, `${a.resource}${a.subresource ? `/${a.subresource}` : ""}${a.namespace ? "@ns" : "@cluster"}`); } }),
+      openOperatorProbe: async () => ({ async allowed(a) { return probeAnswers(a.verb, `${a.resource}${a.subresource ? `/${a.subresource}` : ""}${a.namespace ? "@ns" : "@cluster"}`, a.namespace); } }),
       guestPort: () => cluster() as GuestClusterPort,
       admit: async () => { calls.admit++; },
       ...over,
@@ -202,7 +202,8 @@ describe.each(LANES)("provisionTenantIsolation ($name)", (lane) => {
     return createTenantIsolationProvisioner(deps);
   };
 
-  const trusted = (verb: string, resource: string): boolean => (verb === "create" && resource === "deployments@ns") || (verb === "get" && resource === "secrets@ns" /* own namespace */);
+  const trusted = (verb: string, resource: string, namespace?: string): boolean => namespace === tenantNamespace(tenant.workspaceId, tenant.environmentId)
+    && ((verb === "create" && resource === "deployments@ns") || (verb === "get" && resource === "secrets@ns"));
 
   beforeEach(async () => {
     fake = await startFakeK8s();

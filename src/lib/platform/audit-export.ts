@@ -1,9 +1,9 @@
 /**
  * Composition root for signed audit exports (PROD-OPS-09): the platform control store, the control-plane signer
- * (`signing:jobs`) and the product audit reader (Postgres or file store, whichever is active).
+ * (`signing:audit-export`) and the product audit reader (Postgres or file store, whichever is active).
  */
 import { platformDb } from "@/lib/controlplane/db";
-import { getControlSigner } from "@/lib/credentials";
+import { getAuditExportSigner } from "@/lib/audit-export/signer";
 import { createAuditExport, type AuditExportDocument, type AuditReader } from "@/lib/audit-export/service";
 import { listExports, type AuditExportRecord } from "@/lib/audit-export/store";
 import { readAuditPageAsync } from "@/lib/db/store";
@@ -22,7 +22,7 @@ export async function platformAuditExports(): Promise<{
   if (!(await ensurePlatformApp())) return null;
   const db = await platformDb();
   return {
-    create: async (input) => createAuditExport({ db, signer: await getControlSigner(), read: productAuditReader }, input),
+    create: async (input) => createAuditExport({ db, signer: getAuditExportSigner(), read: productAuditReader }, input),
     list: (workspaceId, limit) => listExports(db, workspaceId, limit),
   };
 }

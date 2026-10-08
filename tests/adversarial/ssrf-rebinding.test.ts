@@ -296,7 +296,7 @@ describe("DNS rebinding: the validated literal is the only thing a transport may
 
 /* ------------------------------ outbound inventory ------------------------------ */
 
-type Review = "guarded" | "operator-config" | "relative-or-in-process" | "provider-api" | "fixed-origin";
+type Review = "guarded" | "operator-config" | "relative-or-in-process" | "provider-api" | "fixed-origin" | "dns-query";
 
 /**
  * Every source file that opens an outbound connection, with the reason it is acceptable. The classes mean:
@@ -309,6 +309,10 @@ type Review = "guarded" | "operator-config" | "relative-or-in-process" | "provid
  * one must call a guard.
  */
 const REVIEWED: Record<string, Review> = {
+  "src/lib/billing/stripe.ts": "provider-api",
+  "src/lib/managed-serving/domains.ts": "dns-query",
+  "src/lib/managed-serving/readiness.ts": "operator-config",
+  "src/lib/platform/zenith-managed.ts": "operator-config",
   "src/lib/alerts/deliver.ts": "guarded",
   "src/lib/alerts/webhook-policy.ts": "guarded",
   "src/lib/execution/prober.ts": "guarded",
@@ -384,6 +388,14 @@ describe("outbound inventory: no unreviewed path to the network", () => {
   it("every tenant-influenced path names a destination guard in its own source", () => {
     const missing = Object.entries(REVIEWED).filter(([, kind]) => kind === "guarded").map(([f]) => f).filter((f) => !GUARD.test(readFileSync(path.join(root, f), "utf8")));
     expect(missing).toEqual([]);
+  });
+
+  it("domain ownership performs bounded TXT queries and never connects to the claimant address", () => {
+    const source = readFileSync("src/lib/managed-serving/domains.ts", "utf8");
+    expect(source).toContain("resolveTxt");
+    expect(source).toContain("new Resolver({ timeout: timeoutMs, tries: 2 })");
+    expect(source).toContain("checkCustomHostname");
+    expect(source).not.toMatch(/\bfetch\(|\bhttps?\.(?:request|get)\(|\b(?:net|tls)\.connect\(/);
   });
 
   it("fixed-origin GitHub paths hard-code the origin and never follow a redirect off the allowlist", () => {

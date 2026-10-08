@@ -29,13 +29,12 @@ const RECORD_HINT = "Record them: ZENITH_RECORD_WORKFLOW_HISTORIES=1 npx vitest 
 const files = fixtureFiles();
 const fixtures = files.map((file) => ({ file, fixture: readFixture(file) }));
 
-/**
- * Opt-in lane: the default `vitest run` (and pushed CI) skips this file with a stated reason until the
- * fixtures are recorded and committed. Inside the lane (`npm run replay:check`, ZENITH_REPLAY_LANE=1)
- * missing fixtures FAIL, never skip.
+/** Canonical CI selects this lane after the first current-code corpus was frozen.
+ * Missing fixtures fail when selected; recording stays opt-in. These synthetic
+ * histories do not claim compatibility with an earlier released version.
  */
 const lane = process.env.ZENITH_REPLAY_LANE === "1";
-it.skip("replay lane not selected: run npm run replay:record, commit tests/fixtures/workflow-histories, then npm run replay:check", () => undefined);
+if (!lane) it.skip("replay lane not selected: run npm run replay:check", () => undefined);
 
 let bundle = "";
 beforeAll(async () => { if (lane) bundle = await workflowBundlePath(); }, 240_000);

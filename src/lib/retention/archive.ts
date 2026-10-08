@@ -17,7 +17,8 @@ import { createHash } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { canonical } from "@/lib/controlplane/digest";
 import { FilesystemTarget, S3Target, type S3Like } from "@/lib/hosted/backup/targets";
-import { backupKey, keyIdOf, seal, unseal } from "@/lib/hosted/backup/crypto";
+import { archiveKey } from "./key";
+import { keyIdOf, seal, unseal } from "@/lib/hosted/backup/crypto";
 import { CLASS_SPECS, assertPrunableClass, type RetentionClass } from "./classes";
 import { policyDigest, type RetentionPolicy } from "./policy";
 import { acquireHoldLock, archiveWatermark, classSql, markPruned, pruneSql, recordArchive, type ArchiveRecord } from "./store";
@@ -120,7 +121,7 @@ export async function archiveBatch(db: Sql, workspaceId: string, cls: RetentionC
     [workspaceId, now.toISOString(), archiveAfterDays, wm?.ts ?? null, wm?.id ?? null, limit]);
   if (!rows.length) return { status: "nothing_to_archive" };
   let key: Buffer;
-  try { key = ctx.key ?? backupKey(); } catch { return { status: "failed", reason: "key_unavailable" }; }
+  try { key = ctx.key ?? archiveKey(); } catch { return { status: "failed", reason: "key_unavailable" }; }
 
   const data = rows.map((r) => (typeof r.row === "string" ? JSON.parse(r.row) : r.row) as Record<string, unknown>);
   const ids = rows.map((r) => r.id);
@@ -158,7 +159,7 @@ export async function pruneArchive(db: Sql, archive: ArchiveRecord, pruneAfterDa
   if (!apply) throw new Error("pruneArchive requires the apply gate; callers must check retentionApplyGate first.");
   const cls = assertPrunableClass(archive.dataClass);
   let key: Buffer;
-  try { key = ctx.key ?? backupKey(); } catch { return { status: "skipped", reason: "key_unavailable" }; }
+  try { key = ctx.key ?? archiveKey(); } catch { return { status: "skipped", reason: "key_unavailable" }; }
   let payload: ArchivePayload | null = null;
   try { payload = await readBack(ctx.target, key, archive.objectKey, archive.rowsDigest); } catch { /* treated as unreadable */ }
   if (!payload || payload.rows.length !== archive.rowCount || keyIdOf(key) !== archive.keyId) return { status: "skipped", reason: "archive_unreadable" };

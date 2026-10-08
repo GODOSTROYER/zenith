@@ -1,5 +1,5 @@
 /**
- * Producer output records of mixed parent plans (migration 42): provenance, the value digest, the value itself for a non-secret
+ * Producer output records of mixed parent plans (migration 44): provenance, the value digest, the value itself for a non-secret
  * output, and for a secret only the vault reference and version digest (the table refuses a secret row with a value). Every
  * statement names `workspace_id`; a foreign workspace and a missing plan are indistinguishable. Append-only: a second
  * `recordOutput` of the same (plan, reference) returns the stored row when the value digest agrees and refuses (`conflict`)

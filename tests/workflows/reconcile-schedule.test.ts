@@ -9,7 +9,8 @@ import path from "node:path";
 import { runInNewContext } from "node:vm";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Context } from "@temporalio/activity";
-import { Connection, ScheduleNotFoundError, ScheduleOverlapPolicy, type Client, type ScheduleDescription, type WorkflowHandle } from "@temporalio/client";
+import { ActivityFailure, CancelledFailure } from "@temporalio/common";
+import { Connection, WorkflowFailedError, ScheduleNotFoundError, ScheduleOverlapPolicy, type Client, type ScheduleDescription, type WorkflowHandle } from "@temporalio/client";
 import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { Worker } from "@temporalio/worker";
 import { tempDataDir } from "../_support/data-dir";
@@ -150,7 +151,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
   let db: PlatformDbHandle;
   let closeDatabase: (() => Promise<void>) | undefined;
   let skipReason: string | undefined;
-  const started: WorkflowHandle[] = [];
+  const started: { workflowId: string; runId: string }[] = [];
   const enabled = process.env.ZENITH_TEST_RECONCILE_SCHEDULE === "1" || process.env.ZENITH_TEST_TEMPORAL === "1";
   const required = process.env.ZENITH_TEST_TEMPORAL === "1";
   const client = (): Client => { if (!owned?.env) throw new Error("Owned Temporal is unavailable."); return owned.env.client; };
@@ -166,7 +167,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
   }
   async function start(): Promise<WorkflowHandle> {
     const handle = await client().workflow.start(RECONCILE_SWEEP_TYPE, { workflowId: `owned-sweep-${randomUUID()}`, taskQueue: TASK_QUEUE, args: [reconcileSweepInput()], workflowExecutionTimeout: 180_000, retry: { maximumAttempts: 1 } });
-    started.push(handle);
+    started.push({ workflowId: handle.workflowId, runId: handle.firstExecutionRunId });
     return handle;
   }
   async function scheduled(): Promise<WorkflowHandle> {
@@ -174,7 +175,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     const action = description.info.recentActions.at(-1)?.action;
     if (!action || action.type !== "startWorkflow") throw new Error("Unexpected schedule action.");
     const handle = client().workflow.getHandle(action.workflow.workflowId, action.workflow.firstExecutionRunId);
-    started.push(handle);
+    started.push({ workflowId: action.workflow.workflowId, runId: action.workflow.firstExecutionRunId });
     return handle;
   }
   beforeAll(async () => {
@@ -203,8 +204,46 @@ describe("durable schedule on an actual isolated Temporal service", () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     if (!owned?.env) return;
-    try { await client().schedule.getHandle(RECONCILE_SCHEDULE_ID).delete(); } catch (error) { if (!(error instanceof ScheduleNotFoundError)) throw error; }
-    for (const handle of started.splice(0)) await handle.cancel().catch(() => undefined);
+    const executions = [...started];
+    const schedule = client().schedule.getHandle(RECONCILE_SCHEDULE_ID);
+    try {
+      // Stop automatic minute starts before collecting every actual owned action.
+      await schedule.pause("Owned schedule fixture cleanup.");
+      const description = await schedule.describe();
+      for (const action of [...description.info.recentActions.map(value => value.action), ...description.info.runningActions]) {
+        if (action.type !== "startWorkflow") throw new Error("Unexpected owned schedule cleanup action.");
+        executions.push({ workflowId: action.workflow.workflowId, runId: action.workflow.firstExecutionRunId });
+      }
+      await schedule.delete();
+    } catch (error) { if (!(error instanceof ScheduleNotFoundError)) throw error; }
+    const exact = new Map<string, WorkflowHandle>();
+    for (const execution of executions) {
+      const handle = client().workflow.getHandle(execution.workflowId, execution.runId);
+      const description = await handle.describe();
+      expect(description).toMatchObject({ workflowId: execution.workflowId, runId: execution.runId, type: RECONCILE_SWEEP_TYPE });
+      exact.set(`${execution.workflowId}:${execution.runId}`, handle);
+    }
+    if (exact.size) {
+      const drain = await worker(runtime().activities);
+      await drain.runUntil(async () => {
+        for (const handle of exact.values()) {
+          if ((await handle.describe()).status.name === "RUNNING") await handle.cancel();
+        }
+        await Promise.all([...exact.values()].map(async handle => {
+          try { await handle.result(); }
+          catch (error) {
+            if (!(error instanceof WorkflowFailedError)) throw error;
+            let cause = error.cause;
+            while (cause instanceof ActivityFailure) cause = cause.cause;
+            if (!(cause instanceof CancelledFailure)) throw error;
+          }
+          expect(["COMPLETED", "CANCELLED"]).toContain((await handle.describe()).status.name);
+        }));
+        expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).toBeNull();
+      });
+    }
+    expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).toBeNull();
+    started.length = 0;
   }, 30_000);
   afterAll(async () => { try { await owned?.stop(); } finally { await closeDatabase?.(); } if (root) await rm(root, { recursive: true, force: true }); }, 30_000);
   function actual(name: string, body: () => Promise<void>, timeout = 90_000): void {
@@ -261,42 +300,60 @@ describe("durable schedule on an actual isolated Temporal service", () => {
   });
   actual("proves SKIP overlap while the first scheduled activity is actually held", async () => {
     const cap = runtime();
-    let entered = false;
+    let entered: { workflowId: string; runId: string } | undefined;
     let release!: () => void;
     const barrier = new Promise<void>((resolve) => { release = resolve; });
-    const activities: ReconcileSweepActivities = { sweepReconcilePass: async (input) => { entered = true; await barrier; return cap.activities.sweepReconcilePass(input); } };
+    const activities: ReconcileSweepActivities = { sweepReconcilePass: async (input) => {
+      const context = Context.current();
+      entered = context.info.workflowExecution;
+      context.heartbeat({ phase: "owned-skip-barrier" });
+      const heartbeat = setInterval(() => context.heartbeat({ phase: "owned-skip-barrier" }), 1_000);
+      try { await Promise.race([barrier, context.cancelled]); }
+      finally { clearInterval(heartbeat); }
+      return cap.activities.sweepReconcilePass(input);
+    } };
     const runningWorker = await worker(activities);
     await runningWorker.runUntil(async () => {
-      const { handle } = await ensureReconcileSchedule(client(), cap);
-      await handle.trigger(ScheduleOverlapPolicy.SKIP);
-      const first = await scheduled();
-      await waitFor("first activity held at barrier", () => entered);
       try {
+        const { handle } = await ensureReconcileSchedule(client(), cap);
+        expect((await handle.describe()).state.paused).toBe(false);
+        // Manual triggers exercise real SKIP; automatic cadence has its own case.
+        await handle.pause("Owned manual overlap fixture.");
+        await handle.trigger(ScheduleOverlapPolicy.SKIP);
+        const first = await scheduled();
+        const firstRun = (await first.describe()).runId;
+        await waitFor("first exact activity held at barrier", () => entered?.workflowId === first.workflowId && entered.runId === firstRun);
         await handle.trigger(ScheduleOverlapPolicy.SKIP);
         await waitFor("actual Temporal overlap skip count", async () => (await handle.describe()).info.numActionsSkippedOverlap >= 1);
-        expect((await handle.describe()).info.runningActions).toHaveLength(1);
+        const running = (await handle.describe()).info.runningActions;
+        expect(running).toHaveLength(1);
+        expect(running[0]).toMatchObject({ type: "startWorkflow", workflow: { workflowId: first.workflowId, firstExecutionRunId: firstRun } });
+        release();
+        expect(await first.result()).toMatchObject({ status: "completed", counts: { claimed: 0 } });
       } finally { release(); }
-      expect(await first.result()).toMatchObject({ status: "completed", counts: { claimed: 0 } });
     });
   });
   actual("the global database lease refuses a direct concurrent sweep despite distinct workflow IDs", async () => {
-    let entered = false;
+    let entered: { workflowId: string; runId: string } | undefined;
     let release!: () => void;
     const barrier = new Promise<void>((resolve) => { release = resolve; });
     const slowPorts = (): ReconcilePassPorts => {
       const original = ports();
-      return { ...original, state: { ...original.state, claimDue: async (input) => { entered = true; await barrier; return original.state.claimDue(input); } } };
+      return { ...original, state: { ...original.state, claimDue: async (input) => { entered = Context.current().info.workflowExecution; await barrier; return original.state.claimDue(input); } } };
     };
     const cap = runtime(async () => slowPorts());
     const runningWorker = await worker(cap.activities);
     await runningWorker.runUntil(async () => {
-      const first = await start();
-      await waitFor("global lease owner within claimDue", () => entered);
-      expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).not.toBeNull();
-      try { expect(await (await start()).result()).toEqual({ status: "busy" }); }
-      finally { release(); }
-      expect(await first.result()).toMatchObject({ status: "completed" });
-      expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).toBeNull();
+      try {
+        const first = await start();
+        const firstRun = (await first.describe()).runId;
+        await waitFor("exact global lease owner within claimDue", () => entered?.workflowId === first.workflowId && entered.runId === firstRun);
+        expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).toMatchObject({ holder: `reconcile-sweep:${firstRun}` });
+        expect(await (await start()).result()).toEqual({ status: "busy" });
+        release();
+        expect(await first.result()).toMatchObject({ status: "completed" });
+        expect(await repos.leases.current(db, RECONCILE_SWEEP_LEASE)).toBeNull();
+      } finally { release(); }
     });
   });
   actual("the valid sweep-v1 environment retains its distinct lease while the global sweep runs", async () => {
@@ -344,7 +401,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
         return value?.action.type === "startWorkflow" ? value.action : false;
       }, 80_000);
       const recovered = client().workflow.getHandle(next.workflow.workflowId, next.workflow.firstExecutionRunId);
-      started.push(recovered);
+      started.push({ workflowId: next.workflow.workflowId, runId: next.workflow.firstExecutionRunId });
       expect(await recovered.result()).toMatchObject({ status: "completed", counts: { claimed: 0, failed: 0 } });
     });
   }, 120_000);
@@ -359,7 +416,7 @@ describe("durable schedule on an actual isolated Temporal service", () => {
     await owned!.start();
     expect(await ensureReconcileSchedule(client(), cap)).toMatchObject({ created: false });
     const recovered = client().workflow.getHandle(executionId, runId);
-    started.push(recovered);
+    started.push({ workflowId: executionId, runId });
     const restartedWorker = await worker(cap.activities);
     await restartedWorker.runUntil(async () => { expect(await recovered.result()).toMatchObject({ status: "completed", counts: { claimed: 0 } }); });
     expect((await client().schedule.getHandle(RECONCILE_SCHEDULE_ID).describe()).info.numActionsTaken).toBeGreaterThanOrEqual(1);

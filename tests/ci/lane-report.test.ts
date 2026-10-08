@@ -279,6 +279,23 @@ describe("lane report: workflows", () => {
   });
 });
 
+describe("lane report: recovery", () => {
+  const suites = ["backup", "clean-host restore", "temporal"];
+  const live = () => rootWith("src/lib/ops/recovery", "tests/ops/recovery-rehearsal.test.ts");
+  it("requires all three canonical restore rehearsal suites", () => {
+    const root = live();
+    const file = path.join(root, "tests/ops/recovery-rehearsal.test.ts");
+    expect(run("recovery", writeReport([{ name: file, tests: suites.map(suite => t(`${suite} complete`)) }]), root).status).toBe(0);
+  });
+  it.each(suites)("refuses a skipped %s even when the other recovery suites pass", missing => {
+    const root = live();
+    const file = path.join(root, "tests/ops/recovery-rehearsal.test.ts");
+    const result = run("recovery", writeReport([{ name: file, tests: suites.map(suite => t(`${suite} complete`, suite === missing ? "skipped" : "passed")) }]), root);
+    expect(result.status).toBe(1);
+    expect(result.out).toContain("required scenarios did not all pass");
+  });
+});
+
 describe("lane report: input handling", () => {
   it("exits 2 for an unknown lane", () => {
     const { status, out } = run("nonsense", writeReport([]), rootWith());

@@ -1,0 +1,121 @@
+{
+  "sourceCommit": "34ab64566f2d67d4dc43f04148cb202b4a8ee48d",
+  "integratedCommit": "95fd7cc5d1186a527b445d50868d2e3a5605f0af",
+  "independentReview": "accepted exact two-file packet",
+  "rootChecks": {
+    "metadata": {
+      "passed": 470,
+      "failed": 0,
+      "skipped": 0
+    },
+    "compilerExit": 0,
+    "lintExit": 0,
+    "affectedActualNativeGroups": [
+      {
+        "id": "platform-postgres:tests/effects/build-launch.test.ts:66558e46614c",
+        "counts": {
+          "total": 13,
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "id": "platform-postgres:tests/effects/cleanup.test.ts:56d57a2f04e0",
+        "counts": {
+          "total": 7,
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "id": "platform-postgres:tests/effects/ledger.test.ts:5b8ae9d0841b",
+        "counts": {
+          "total": 35,
+          "passed": 35,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "id": "platform-postgres:tests/effects/provider-resolvers.test.ts:ae6277c04b4b",
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "id": "platform-postgres:tests/effects/proxy.test.ts:71ecab8d34b4",
+        "counts": {
+          "total": 11,
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "id": "platform-postgres:tests/effects/resolvers.test.ts:514f933542c5",
+        "counts": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "id": "platform-postgres:tests/coding-agent/store.test.ts:a2b7923f32dd",
+        "counts": {
+          "total": 8,
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      }
+    ]
+  },
+  "fullAttempt": {
+    "counts": {
+      "total": 3777,
+      "passed": 3707,
+      "failed": 6,
+      "skipped": 64,
+      "unknown": 0
+    },
+    "verdict": "failed",
+    "required": 1146,
+    "exitCode": 1,
+    "binding": "matched",
+    "reason": "Six default-current-membership tests require agent schema omitted by root disposable fixture setup. Failed attempt retained. Complete corrected native gate remains pending."
+  },
+  "cleanup": {
+    "dirtySource": false,
+    "commit": "34ab64566f2d67d4dc43f04148cb202b4a8ee48d",
+    "architecture": "native Darwin ARM64",
+    "postgres": "16.15",
+    "beforeFreeBytes": 25938333696,
+    "floorBytes": 23622320128,
+    "serverStarted": true,
+    "testExitCode": 1,
+    "minimumFreeBytes": 25649999872,
+    "durationSeconds": 594.21,
+    "status": "completed",
+    "stopExitCode": 0,
+    "ownedDataRemoved": true,
+    "afterFreeBytes": 25784532992,
+    "commitAfter": "34ab64566f2d67d4dc43f04148cb202b4a8ee48d",
+    "dirtySourceAfter": false
+  },
+  "qualification": "All seven affected native groups passed,82 cases0 failed0 skipped. Full gate remains failed; no promotion, no overlap sum.",
+  "successorEvidence": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json",
+  "historicalScope": "This first failed attempt is preserved. Complete corrected successor at871f73d9 passed3762/0/15 with all1146 required; see separate source-bound receipt."
+}

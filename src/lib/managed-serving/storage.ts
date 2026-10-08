@@ -123,7 +123,7 @@ export function storageIntentFromNode(tenant: ZenithTenant, substrate: ZenithSub
     ...(substrate.objectStorage.region ? { region: substrate.objectStorage.region } : {}),
     policyDigest: policyDigest(policy),
     notes: [
-      `${node.address}: object store is the prefix ${prefix} of the shared platform bucket, reachable only with a credential scoped to that prefix.`,
+      `${node.address}: object store is a prefix of the shared platform bucket (${prefix}), reachable only with a credential scoped to that prefix.`,
       `${node.address}: bucket versioning is a property of the shared bucket, not of this store; the spec's versioning setting is not applied per tenant.`,
       `${node.address}: removing this object store revokes its credential and never deletes objects.`,
     ],

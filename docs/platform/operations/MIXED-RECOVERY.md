@@ -1,5 +1,7 @@
 # Mixed-cloud recovery, connectivity and economics
 
+Written against branch `prod/compose`, guide input at `443bfeaf537dd5d5324d33c84fc544ede0baa632`. Working-tree assembly; native and live acceptance remain unverified.
+
 For whoever runs, recovers or pays for an application that spans clouds (PROD-MIX-05, PROD-MIX-06, PROD-MIX-07).
 Status of every claim below: the mechanisms are built and contract or local-engine tested; **no live cloud run has been
 performed or approved**. Live acceptance is gated (`ZENITH_LIVE_MIXED=1`), needs a person-approved scope manifest and is

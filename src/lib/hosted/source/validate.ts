@@ -281,10 +281,14 @@ export function validateSource(input: SourceInput): ValidatedSource {
   const fileNames = new Set(files.map((f) => f.path));
   const folded = new Map<string, string>();
   for (const entry of [...files.map((f) => f.path), ...scan.dirs]) {
-    const key = entry.normalize("NFC").toLowerCase();
-    const prior = folded.get(key);
-    if (prior !== undefined && prior !== entry) reasons.push(`${entry}: collides with ${prior} on a case-insensitive or Unicode-normalizing filesystem. Rename one of them.`);
-    else folded.set(key, entry);
+    const parts = entry.split("/");
+    for (let depth = 1; depth <= parts.length; depth++) {
+      const prefix = parts.slice(0, depth).join("/");
+      const key = prefix.normalize("NFC").toLowerCase();
+      const prior = folded.get(key);
+      if (prior !== undefined && prior !== prefix) reasons.push(`${prefix}: collides with ${prior} on a case-insensitive or Unicode-normalizing filesystem. Rename one of them.`);
+      else folded.set(key, prefix);
+    }
   }
   for (const dir of scan.dirs) if (fileNames.has(dir)) reasons.push(`${dir}: is both a file and a directory in this submission.`);
   for (const entry of [...files.map((f) => f.path), ...scan.dirs]) {

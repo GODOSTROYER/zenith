@@ -1,0 +1,26 @@
+{
+  "format": "zenith.workflow-history-manifest.v1",
+  "fixtures": {
+    "coding-agent-run-step-failure.json": "7ea720a9f1977228ab69a95ab4ed42c48e65a1a3c8fd11f7d5e4b12811f0de15",
+    "coding-agent-run-steps.json": "3d4d35fdd1dfa3f20f872d9ac418755a8749d727295346c338fae258fe547a32",
+    "critical-maintenance.json": "0a2a1ba602670781d4fcf7fd86840ae771092f2ca72779e7f42892495a4006ef",
+    "day-two-drift-repair-ecs.json": "de0def6e7d1803fa889123f7b00417a721eab9fa74d13fe900e412a010611a44",
+    "day-two-restart.json": "9019db20acbf5a5022f03b5da11e2eceefe1c5edfd67a551b966e6486956de8c",
+    "deploy-approval-signal.json": "089841085089549e979226ddbb102f80ae12f5f9e10733cdc739b30eb12ca028",
+    "deploy-cancelled.json": "640a6eef82fad4345aa33a7d7a338b69f9356e6f0b796adf9bdc1f8eee32c1c3",
+    "deploy-happy-build.json": "d19e9100cff97fcd5c7df037e209da1d9ba9bd78e4fff89d517c2ce6b25837a3",
+    "deploy-lease-lost.json": "163b035b20bbc310bd77540e01ca578d01d68a817cff017d835d6bd3d6504720",
+    "deploy-pinned-images-no-build.json": "4fce5b44ae3074e237389786c2214e5782c117db578efaab91f435df897ff219",
+    "deploy-retried-read.json": "73ca73a7756b788b4494946187359b153faea659ed5d08edb29ef421886ffb06",
+    "deploy-started-by-client.json": "8e37fd20a2eed0b050e01d056defa165bbeeabde1b3b30d96a261ee4433b294f",
+    "destroy-happy.json": "1d0853dcfae54faf979bcc3b107a94b3f436a972336cbd1b1ce9f4a24cdacb7e",
+    "destroy-plan-changed.json": "c6ba1c556f19f44f2d779a56e12b1970a0a0f511033be6f7a0d46e6a834dbc77",
+    "mixed-parent-all-children-succeed.json": "bb82ad99b19a7178f389aa7ed6bcb7950caa1509fa2fc575e167a810c88a75a9",
+    "mixed-parent-child-fails.json": "c133604935bc7d3e611df26354a9dba3621904171b0c6c2d5449af83904a738d",
+    "reconcile-auto-repair.json": "4b842220b14fbe2561b4445f19627b7526849f2db4d90c2b5f958dc157336638",
+    "reconcile-observe-only.json": "9079b35fde7665afb8f3d052216cd86a6662c1972471538a3ba618a7069cb73a",
+    "reconcile-sweep.json": "f4914ab58bfe2fed58918d1af5885bef9bbc3ca73b5a72b16fbaa3844e3fb9a4",
+    "remediation.json": "7befdbd3292c9972b6a1102843a54121e6c8482a5b75dd2e298def5d17bc11cc",
+    "teardown-review.json": "6ff7b0b1596a9a8688d798e2902de64fc3d6564830195d398b9c19db8a689896"
+  }
+}

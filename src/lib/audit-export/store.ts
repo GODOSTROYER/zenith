@@ -1,5 +1,5 @@
 /**
- * Audit export ledger (PROD-OPS-09; migration 47, `platform.audit_exports`).
+ * Audit export ledger (PROD-OPS-09; migration 48, `platform.audit_exports`).
  *
  * Workspace-owned and append-only. Every function filters on `workspace_id`; there is no cross-workspace read.
  * No event content is stored, only chain facts (genesis, head, count), the digest of the signed header and links to

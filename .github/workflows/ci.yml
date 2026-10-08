@@ -73,7 +73,7 @@ jobs:
         # `live-acceptance.yml` is on the list on purpose: it is the one
         # workflow that assumes an AWS role, and it is dispatch-only, so nothing
         # would otherwise parse it until somebody needed it and it was broken.
-        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml'
+        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml .github/workflows/release.yml'
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -1353,3 +1353,191 @@ jobs:
 
       - name: Known dependency findings block release
         run: node scripts/ci/security-audit.mjs
+
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: zenith-ci-throwaway
+          POSTGRES_DB: zenith_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres --dbname zenith_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      # Separate native authorities in one disposable service; neither URL is a live account.
+      ZENITH_TEST_PLATFORM_PG_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci
+      SUPABASE_DB_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_ci
+      ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1"
+      ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1"
+      ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1"
+      ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1"
+      ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1"
+      # Time skipping uses the SDK's cached/downloaded test-server binary;
+      # download/start failures must fail the report gate rather than skip green.
+      ZENITH_COMPOSE_TEMPORAL_MODE: time-skipping
+      ZENITH_TEST_TEMPORAL_DOWNLOAD: "1"
+      ZENITH_TEST_RECOVERY_REQUIRED: "1"
+      ZENITH_TEST_TEMPORAL: "1"
+      ZENITH_SEC_TEMPORAL: "1"
+      ZENITH_TEST_SOURCE_GITHUB: "1"
+      ZENITH_TEST_SOURCE_REPO: https://github.com/GODOSTROYER/zenith
+      ZENITH_TEST_SOURCE_REF: 37be7340536ccb68ae4bb49294e8ab3799d1f01b
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Create the isolated platform workflow database
+        shell: bash
+        run: psql --quiet --set ON_ERROR_STOP=1 --command 'create database zenith_platform_ci' "$SUPABASE_DB_URL"
+
+      - name: Apply and verify the canonical agent lane schema
+        run: node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts
+
+      - name: Apply and verify the canonical platform workflow schema
+        run: bash scripts/ci/apply-platform-migrations.sh
+
+      - name: Apply and verify the canonical Supabase workflow schema
+        run: bash scripts/ci/apply-supabase-migrations.sh
+
+      - name: Install pinned Temporal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir -p temporal-cli
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output temporal_cli.tar.gz https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz
+          printf '%s  %s\n' '09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5' 'temporal_cli.tar.gz' | sha256sum --check --strict
+          tar -xzf temporal_cli.tar.gz -C temporal-cli temporal
+          version="$("$RUNNER_TEMP/temporal-cli/temporal" --version)"
+          case "$version" in
+            "temporal version 1.9.1 "*) ;;
+            *)
+              echo "::error::Expected temporal version 1.9.1, got: ${version}" >&2
+              exit 1
+              ;;
+          esac
+          echo "$version"
+          echo "ZENITH_TEST_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"
+
+      - name: Use matching PostgreSQL16 recovery clients
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pg-tools"
+          for tool in pg_dump pg_restore; do
+            printf '#!/usr/bin/env bash\nset -euo pipefail\nexec docker run --rm --user "$(id -u):$(id -g)" --network host -v "%s:%s" -v "%s:%s" %s %s "$@"\n' "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" "$RUNNER_TEMP" "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685" "$tool" > "$RUNNER_TEMP/pg-tools/$tool"
+            chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
+          done
+          echo "ZENITH_TEST_PG_DUMP_BIN=$RUNNER_TEMP/pg-tools/pg_dump" >> "$GITHUB_ENV"
+          echo "ZENITH_TEST_PG_RESTORE_BIN=$RUNNER_TEMP/pg-tools/pg_restore" >> "$GITHUB_ENV"
+
+      - name: Recovery rehearsal suites
+        # Serial: each suite starts its own dev server, and two of them on a
+        # two-core runner only make both slower and flakier.
+        run: node scripts/ci/run-gate.mjs recovery --run
+
+      - name: Lane report - fail if a required suite ran zero tests
+        if: always()
+        run: node scripts/ci/lane-report.mjs recovery .data-ci-lane/recovery.json
+
+      - name: Every Temporal and platform e2e scenario must pass
+        if: always()
+        run: node scripts/ci/run-gate.mjs recovery --validate .data-ci-lane/recovery.json --require-execution
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-recovery-evidence-${{ github.sha }}
+          path: .data-ci-lane/recovery-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+
+  wave5-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-wave5-contract
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: |
+            go/go.mod
+            go/go.sum
+      - name: Bind the SBOM build-info prerequisite
+        shell: bash
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          test "$(go env GOVERSION)" = "go1.27.1"
+          echo "ZENITH_TEST_GO=$(command -v go)" >> "$GITHUB_ENV"
+          echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+      - run: npm ci --ignore-scripts
+      - run: node scripts/ci/run-gate.mjs wave5-contract --run
+      - name: Validate every required contract
+        if: always()
+        run: node scripts/ci/run-gate.mjs wave5-contract --validate .data-ci-lane/wave5-contract.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-wave5-contract-evidence-${{ github.sha }}
+          path: .data-ci-lane/wave5-contract-evidence.json
+          if-no-files-found: error
+          retention-days: 14
+
+  adversarial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-adversarial
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/ci/run-gate.mjs adversarial --run
+      - name: Validate every required contract
+        if: always()
+        run: node scripts/ci/run-gate.mjs adversarial --validate .data-ci-lane/adversarial.json --require-execution
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-adversarial-evidence-${{ github.sha }}
+          path: .data-ci-lane/adversarial-evidence.json
+          if-no-files-found: error
+          retention-days: 14

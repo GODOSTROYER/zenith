@@ -1,12 +1,14 @@
 # Verified release supply chain
 
+Written against branch `prod/compose`, guide input at `443bfeaf537dd5d5324d33c84fc544ede0baa632`. Working-tree assembly; native and live acceptance remain unverified.
+
 PROD-OPS-09. What ships, how an operator verifies it offline, and what is deliberately not claimed.
 
 ## What exists
 
 | Piece | Where | What it does |
 | --- | --- | --- |
-| Pinned dependencies | `scripts/ci/lockfile-integrity.mjs`, `scripts/ci/security-audit.mjs` (unchanged) | Every lockfile entry is a registry tarball with a sha512 hash; the complete audit blocks release. The release workflow runs both on the tagged commit. |
+| Pinned dependencies | `scripts/ci/lockfile-integrity.mjs`, `scripts/ci/security-audit.mjs` (unchanged) | Every non-bundled registry entry has its own sha512; six bundled entries inherit documented custody from their hashed enclosing package, without fabricated child hashes; the complete audit blocks release. The release workflow runs both on the tagged commit. |
 | SBOM | `scripts/supply-chain/sbom.mjs` | CycloneDX 1.5 JSON: npm lockfile (purl, sha512, scope, dependency graph), Go build info (`go version -m`), Dockerfile inputs (base images, pinned OpenTofu) and the built image digests. |
 | Provenance | `scripts/supply-chain/release.mjs provenance` | in-toto Statement v1 with a SLSA provenance v1 predicate: subjects are every release file by sha256; resolved dependencies are the git commit and the lockfile digest. |
 | Signed release | `release.mjs manifest` / `sign`, `.github/workflows/release.yml` | One verification manifest naming every artifact, the SBOM and the provenance by sha256, signed with the offline `signing:release` Ed25519 key. Same key format and signing scheme as the runner updater, so one key and one pinned public key serves both. |

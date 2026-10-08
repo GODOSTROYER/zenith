@@ -16,7 +16,7 @@ import { findDriver } from "@/lib/drivers/types";
 import { registerKubernetesDrivers } from "@/lib/providers/kubernetes/drivers";
 import { registerZenithDrivers } from "@/lib/providers/zenith/drivers";
 import type { Manifest } from "@/lib/domain/types";
-import { ENV, PRODUCT_CONNECTION, PROJECT, WS, webDbManifest } from "./fakes/fixtures";
+import { ENV, PRODUCT_CONNECTION, PROJECT, WS, bucketManifest, webDbManifest } from "./fakes/fixtures";
 
 const lookup = ((provider: string, nativeType: string) => findDriver(provider as never, nativeType)) as never;
 
@@ -39,6 +39,7 @@ describe("findGraphProblems for a Zenith-managed environment", () => {
     const desired = buildDesiredState(product(webDbManifest()));
     expect(desired.problems).toEqual([]);
     expect(desired.graph).toBeDefined();
+    expect(desired.graph!.nodes.find((node) => node.kind === "dns_zone")).toMatchObject({ ownership: "referenced", provider: "zenith" });
     expect(findGraphProblems(desired.graph!, "zenith", lookup)).toEqual([]);
   });
 
@@ -50,6 +51,24 @@ describe("findGraphProblems for a Zenith-managed environment", () => {
     // ... and none of it is a problem
     const problems = findGraphProblems(desired.graph!, "zenith", lookup);
     expect(problems.filter((p) => /log_group|dns_record|tls_certificate|network\//.test(p))).toEqual([]);
+  });
+
+  it("accepts the dedicated object-store realization while requiring its registered driver and native mapping", () => {
+    const desired = buildDesiredState(product(bucketManifest("media")));
+    expect(desired.problems).toEqual([]);
+    expect(findGraphProblems(desired.graph!, "zenith", lookup)).toEqual([]);
+    const withoutDriver = findGraphProblems(desired.graph!, "zenith", () => undefined);
+    expect(withoutDriver).toContainEqual(expect.stringMatching(/object_store\/media: no driver is registered/));
+    const unmapped = { ...desired.graph!, nodes: desired.graph!.nodes.map((node) => node.kind === "object_store" ? { ...node, nativeType: "unsupported:zenith:object_store" } : node) };
+    expect(findGraphProblems(unmapped, "zenith", lookup)).toContainEqual(expect.stringMatching(/object_store\/media.*no native type/));
+  });
+
+  it("keeps foreign placement and missing external-reference refusals for object stores", () => {
+    const desired = buildDesiredState(product(bucketManifest("media")));
+    const foreign = { ...desired.graph!, nodes: desired.graph!.nodes.map((node) => node.kind === "object_store" ? { ...node, provider: "aws" as const, nativeType: "aws:s3_bucket" } : node) };
+    expect(findGraphProblems(foreign, "zenith", lookup)).toContainEqual(expect.stringMatching(/object_store\/media.*multi-provider/));
+    const referenced = { ...desired.graph!, nodes: desired.graph!.nodes.map((node) => node.kind === "object_store" ? { ...node, ownership: "referenced" as const, externalRef: undefined } : node) };
+    expect(findGraphProblems(referenced, "zenith", lookup)).toContainEqual(expect.stringMatching(/object_store\/media is referenced but has no externalRef/));
   });
 
   it("refuses a kind the managed platform cannot honor, and says why", () => {

@@ -42,6 +42,7 @@ export interface ZenithSession {
   readonly databases: ManagedDatabaseProvider;
   /** Verified custom hostnames this environment may serve (PROD-MAN-03); absent = managed hostnames only. */
   readonly customDomains?: readonly string[];
+  readonly retiredDomains?: readonly string[];
   /** Tenant object-store provisioning ports (PROD-MAN-03); absent = object stores report unavailable. */
   readonly storage?: ObjectStoragePorts;
   readonly expiresAt: string;
@@ -50,10 +51,13 @@ export interface ZenithSession {
 
 export interface ZenithSessionDeps {
   substrate: ZenithSubstrate;
+  /** The exact tenant credential session whose RBAC was checked by default onboarding admission. */
+  kubernetes?: KubernetesSession;
   /** the Kubernetes provider's `createKubernetesSession` with its resolver bound (`vault:` reference → credential) */
   createKubernetesSession(config: KubernetesConnectionConfig, signal?: AbortSignal): Promise<KubernetesSession>;
   databases: ManagedDatabaseProvider;
   customDomains?: readonly string[];
+  retiredDomains?: readonly string[];
   storage?: ObjectStoragePorts;
 }
 
@@ -61,9 +65,9 @@ export interface ZenithSessionDeps {
 export async function openZenithSession(tenantInput: ZenithTenant, deps: ZenithSessionDeps, signal?: AbortSignal): Promise<ZenithSession> {
   const tenant = assertTenant(tenantInput);
   const config = substrateConnectionConfig(deps.substrate, tenantNamespace(tenant.workspaceId, tenant.environmentId));
-  const kubernetes = await deps.createKubernetesSession(config, signal);
+  const kubernetes = deps.kubernetes ?? await deps.createKubernetesSession(config, signal);
   const gatewayKubernetes = deps.substrate.gateway.mode === "gateway_api"
-    ? await deps.createKubernetesSession(substrateConnectionConfig(deps.substrate, deps.substrate.gateway.namespace), signal)
+    ? await deps.createKubernetesSession({ ...substrateConnectionConfig(deps.substrate, deps.substrate.gateway.namespace), credentialRef: deps.substrate.cluster.kubeconfigRef }, signal)
     : undefined;
   const expiresAt = gatewayKubernetes && Date.parse(gatewayKubernetes.expiresAt) < Date.parse(kubernetes.expiresAt)
     ? gatewayKubernetes.expiresAt : kubernetes.expiresAt;
@@ -75,6 +79,7 @@ export async function openZenithSession(tenantInput: ZenithTenant, deps: ZenithS
     ...(gatewayKubernetes ? { gatewayKubernetes } : {}),
     databases: deps.databases,
     ...(deps.customDomains ? { customDomains: [...deps.customDomains] } : {}),
+    ...(deps.retiredDomains ? { retiredDomains: [...deps.retiredDomains] } : {}),
     ...(deps.storage ? { storage: deps.storage } : {}),
     expiresAt,
     toJSON: () => ({ provider: "zenith", workspaceId: tenant.workspaceId, environmentId: tenant.environmentId, expiresAt }),

@@ -16,12 +16,13 @@ export function reportFailures(requirements, report, root) {
   if (report.success !== true) return ["Vitest run did not succeed"];
   if (requirements.length === 0) return ["No required scenarios found"];
   const normalize = (value) => value.replaceAll("\\", "/");
-  const fileNames = new Set();
+  const fileEvidence = new Map();
+  const namedAssertions = new Map();
   for (const entry of report.testResults) {
     if (!entry || typeof entry.name !== "string" || !Array.isArray(entry.assertionResults) || typeof entry.status !== "string") return ["Malformed Vitest file evidence"];
     const key = normalize(path.resolve(root, normalize(entry.name)));
-    if (fileNames.has(key)) return ["Duplicate Vitest file evidence"];
-    fileNames.add(key);
+    if (fileEvidence.has(key)) return ["Duplicate Vitest file evidence"];
+    fileEvidence.set(key, entry);
     if (entry.assertionResults.some((assertion) => !assertion || typeof assertion.fullName !== "string" || assertion.fullName.trim().length === 0 || typeof assertion.status !== "string" || (assertion.ancestorTitles !== undefined && (!Array.isArray(assertion.ancestorTitles) || assertion.ancestorTitles.some((title) => typeof title !== "string"))))) return ["Malformed Vitest assertion evidence"];
     // fullName is a display label, not a case ID: distinct it.each inputs can
     // produce identical names. Standard Vitest JSON does not export task IDs,
@@ -29,21 +30,29 @@ export function reportFailures(requirements, report, root) {
     // exact required suite ancestry, every assertion status and totals remain
     // mandatory; repeated displays cannot satisfy a different missing suite.
     if (entry.status !== "passed" || entry.assertionResults.some((assertion) => !["passed", "failed", "pending", "skipped", "todo"].includes(assertion.status) || assertion.status === "failed")) return ["Vitest file or assertion did not succeed"];
+    const byTitle = new Map();
+    for (const assertion of entry.assertionResults) {
+      const named = byTitle.get(assertion.title) ?? [];
+      named.push(assertion);
+      byTitle.set(assertion.title, named);
+    }
+    namedAssertions.set(key, byTitle);
   }
   const total = report.testResults.reduce((count, entry) => count + entry.assertionResults.length, 0);
   if ((report.numTotalTests !== undefined && (!Number.isSafeInteger(report.numTotalTests) || report.numTotalTests !== total)) || (report.numFailedTests !== undefined && report.numFailedTests !== 0)) return ["Inconsistent Vitest report counts"];
   const failures = [];
   for (const required of requirements) {
     const expected = normalize(path.resolve(root, required.file));
-    const files = report.testResults.filter((entry) =>
-      entry && typeof entry.name === "string" && normalize(path.resolve(root, normalize(entry.name))) === expected
-    );
+    const file = fileEvidence.get(expected);
     const label = `${required.file}${required.suite ? `: ${required.suite}` : required.postgres ? ": [postgres]" : ""}`;
-    if (files.length !== 1 || !Array.isArray(files[0].assertionResults) || files[0].status !== "passed") {
+    if (!file || !Array.isArray(file.assertionResults) || file.status !== "passed") {
       failures.push(`${label}: missing, duplicate or unsuccessful file`);
       continue;
     }
-    const assertions = files[0].assertionResults.filter((assertion) => assertionMatches(required, assertion));
+    // Exact-case requirements cannot match another title. Keep every same-title
+    // assertion so duplicates and a nonpassing sibling still fail closed.
+    const candidates = required.test ? namedAssertions.get(expected).get(required.test) ?? [] : file.assertionResults;
+    const assertions = candidates.filter((assertion) => assertionMatches(required, assertion));
     if (assertions.length === 0 || assertions.some((assertion) => assertion.status !== "passed")) {
       failures.push(`${label}: required scenarios did not all pass`);
     }

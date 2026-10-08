@@ -36,6 +36,10 @@ import { createManagedSubstrate, readManagedConfigs } from "@/lib/providers/zeni
 import { isHostLabel, type ZenithEnv } from "@/lib/providers/zenith/substrate";
 import { PLAN_TIERS, type PlanTier } from "@/lib/providers/zenith/types";
 import { createKubernetesToolkit } from "./kubernetes-toolkit";
+import { platformDb, repos } from "@/lib/controlplane/db";
+import type { Sql } from "@/lib/controlplane/types";
+import { loadServingInputs, platformStorageKeyStore } from "@/lib/managed-serving/platform-store";
+import { assertManagedOperatorConfigured, assertManagedTenantReady } from "./zenith-onboarding";
 
 /** Reserved workspace id of the platform credential scope. */
 export const DEFAULT_PLATFORM_VAULT_SCOPE = "zenith-platform";
@@ -111,6 +115,8 @@ export interface DefaultManagedSubstrateOptions {
   fetch?: typeof fetch;
   /** default: the encrypted vault; kind acceptance and tests may pass another reader of the SAME shape */
   readPlatformSecret?: PlatformCredentialDeps["read"];
+  /** Execution supplies its existing store; other surfaces resolve the process store lazily. */
+  db?: Sql;
 }
 
 /**
@@ -134,13 +140,30 @@ export function createDefaultManagedSubstrate(options: DefaultManagedSubstrateOp
   const config = problem
     ? { configured: false as const, missing: [], invalid: [{ variable: "ZENITH_MANAGED_*", problem: problem.message }], message: `Zenith-managed hosting is not configured (${problem.message}).` }
     : configs.config;
+  const db = async () => options.db ?? platformDb();
+  const openKubernetes: Parameters<typeof assertManagedTenantReady>[1]["createKubernetesSession"] = (cfg, signal) => createKubernetesSession(cfg, { ttlSec: 3600, resolveCredential: (ref, s) => credentials.resolve(ref, s) }, signal);
   return createManagedSubstrate({
     config,
-    build: configs.build,
+    // No shared namespace/worker privilege for untrusted builds. The per-tenant build approval and node-pool
+    // provisioning path is not composed yet; source hand-off and build dispatch refuse before any write.
+    build: configs.build.configured ? { configured: false, reason: "Managed builds require approved per-tenant build namespaces, credentials and node-pool isolation; automatic build onboarding is not available." } : configs.build,
     toolkit: createKubernetesToolkit(),
     tenants,
+    async assertTenantReady(tenant, signal) {
+      if (!config.configured) throw new ManagedSubstrateError("not_configured", config.message);
+      assertManagedOperatorConfigured(config.substrate);
+      const resources = await repos.resources.listByEnvironment(await db(), tenant.workspaceId, tenant.environmentId);
+      return assertManagedTenantReady({ tenant, substrate: config.substrate, withManagedDatabase: resources.some((r) => r.provider === "zenith" && r.ownership === "managed" && r.kind === "postgres" && r.status !== "deleted") }, { createKubernetesSession: openKubernetes }, signal);
+    },
+    servingInputs: async (tenant) => loadServingInputs(await db(), tenant),
+    storageKeyStore: (tenant) => ({
+      active: async (address) => platformStorageKeyStore(await db(), tenant.workspaceId, tenant.environmentId).active(address),
+      known: async (address) => platformStorageKeyStore(await db(), tenant.workspaceId, tenant.environmentId).known(address),
+      record: async (input) => platformStorageKeyStore(await db(), tenant.workspaceId, tenant.environmentId).record(input),
+      markRevoked: async (id) => platformStorageKeyStore(await db(), tenant.workspaceId, tenant.environmentId).markRevoked(id),
+    }),
     // Sessions live as long as the longest managed step (plan/apply use hour-long sessions elsewhere).
-    createKubernetesSession: (cfg, signal) => createKubernetesSession(cfg, { ttlSec: 3600, resolveCredential: (ref, s) => credentials.resolve(ref, s) }, signal),
+    createKubernetesSession: openKubernetes,
     resolvePlatformCredential: (ref, signal) => credentials.resolve(ref, signal),
     fetch: options.fetch ?? fetch,
   });

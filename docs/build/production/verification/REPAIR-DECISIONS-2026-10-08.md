@@ -1,3 +1,11 @@
+## Approval fixture diagnosis correction and mixed validation, 8 October 2026
+
+The previous publication described six failures as missing approval-audit events after a successful approval. Inspection of the exact failure diffs disproved that description: both c7332a56 and diagnostic63a4192a fail the earlier approved_semantics row assertion before approval executes. Counts97/6/0 are unchanged; the reported stage was wrong. The native fixture inherited MemorySemanticsStore from its fake world while production composition supplies createPlatformSemanticsStore. The corrective fixture must wire the actual PostgreSQL semantics store, preserve preapproval durable binding, explicit human review, actual audit-write proof and all authority controls. No production audit failure has been demonstrated by these attempts.
+
+Integrated dd1d4858 validates mixed run state before any durable create/save and checks environmentId/desiredDigest on read. Root owned serial run:12 passed /0 failed /0 skipped on native PostgreSQL16.15, PGlite and memory; parent exit0, PostgreSQL stop0 and data/socket removal. Compiler and touched-source lint passed. The migration41 nullable database constraint gap remains open and is not closed by application validation. No schema44 is included.
+
+Fresh65b24ccc CI supply-chain failed for Next15.5.24, GHSA-4jqv-mc3x-m676 and GHSA-mcj8-r9mp-w47p. Official Next15.5.27 release fixes both. Latest user instruction to fix remaining failures authorizes this exact bounded security patch and mandatory version-coupled @next/env/SWC companions; no general upgrades or exceptions. Existing lint override, Sharp, React and unrelated dependencies must remain unchanged. Source-reviewed disposition found the advisories' specific Pages Router/root catch-all prerequisites absent from current App Router source; the mandatory security gate still blocks. Fresh install, full audit, compiler/lint, standalone build and package checks remain required before acceptance.
+
 # Verification repair decisions, 8 October 2026
 
 ## Authority and scope

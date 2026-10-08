@@ -30,6 +30,7 @@ import type { JobSource, ScheduledJobRow } from "@/lib/controlplane/db/repos/sch
 export type { JobSource } from "@/lib/controlplane/db/repos/scheduled-jobs";
 
 export const CRITICAL_JOBS = {
+  billing: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "billing" },
   housekeeping: { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   "runner-reaper": { cadenceMs: 60_000, leaseTtlMs: 60_000, kind: "reaping" },
   runbooks: { cadenceMs: 60_000, leaseTtlMs: 120_000, kind: "runbooks" },
@@ -133,6 +134,11 @@ async function productPass<T extends object>(run: (cron: typeof import("@/lib/se
 }
 
 export const MAINTENANCE_JOBS = {
+  async billing(db: Sql): Promise<JobOutcome<import("@/lib/billing/service").BillingTickResult>> {
+    const { runBillingTick } = await import("@/lib/billing/service");
+    const value = await runBillingTick(db, { now: new Date() });
+    return { value, performed: true, counts: countsOf(value) };
+  },
   engine: () => productPass((c) => c.engineTickPass(15_000)),
   alerts: () => productPass((c) => c.alertTickPass()),
   outbox: () => productPass((c) => c.outboxTickPass()),

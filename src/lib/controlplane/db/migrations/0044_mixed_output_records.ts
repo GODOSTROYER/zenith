@@ -9,8 +9,8 @@
  * value, or a plain row without one, impossible. Rows are append-only (no update, no delete): a re-capture of the same reference
  * must carry the same value digest, so a changed value is a new plan and therefore a new review, never a silent overwrite.
  */
-export const migration0042MixedOutputRecords = {
-  version: 42,
+export const migration0044MixedOutputRecords = {
+  version: 44,
   name: "mixed_output_records",
   sql: `
 create table if not exists platform.mixed_output_records (

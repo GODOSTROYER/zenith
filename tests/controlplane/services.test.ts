@@ -65,6 +65,29 @@ describe.each(LANES)("services [$name]", (lane) => {
         const started = performance.now();
         const { holder, fenceToken, expiresAt: initialExpiry } = initialLease;
         let previousExpiry = initialExpiry;
+        const waitUntilElapsed = async (elapsedMs: number): Promise<void> => {
+          const deadline = started + elapsedMs;
+          while (performance.now() < deadline) {
+            const remainingMs = deadline - performance.now();
+            await new Promise<void>((resolve, reject) => {
+              let timer: ReturnType<typeof setTimeout>;
+              const cleanup = (): void => {
+                clearTimeout(timer);
+                signal.removeEventListener("abort", onAbort);
+              };
+              const onAbort = (): void => {
+                cleanup();
+                reject(signal.reason ?? new Error("Lease lost before renewal milestone"));
+              };
+              timer = setTimeout(() => {
+                cleanup();
+                resolve();
+              }, remainingMs);
+              signal.addEventListener("abort", onAbort, { once: true });
+              if (signal.aborted) onAbort();
+            });
+          }
+        };
         const expectRenewedLease = async (): Promise<void> => {
           const current = await repos.leases.current(db(), s);
           expect(current).toMatchObject({
@@ -76,10 +99,10 @@ describe.each(LANES)("services [$name]", (lane) => {
           previousExpiry = current!.expiresAt;
         };
 
-        await sleep(2_100);
+        await waitUntilElapsed(2_100);
         expect(performance.now() - started).toBeGreaterThanOrEqual(2_100);
         await expectRenewedLease();
-        await sleep(2_100);
+        await waitUntilElapsed(4_200);
         expect(performance.now() - started).toBeGreaterThanOrEqual(4_200);
         await expectRenewedLease();
 

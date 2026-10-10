@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "contract",
+  "kind": "sys1-apt-platform-architecture-r2-focused",
+  "candidatePushed": false,
+  "humanApprovalReceiptSha256": "56c39c91140c163b94eedc590ef617bf1332e15be061a500e370e52611d84d19",
+  "reviewedPatchSha256": "89f9f4453a36a5bd67c74aa4ce74df87620ec39bdfd2f69d2af376e1981e588d",
+  "independentReviewSha256": "3f4bf7a76493a1adf58bd025d79c829d168650cf61a7174d2fbe0cd3797db5fc",
+  "focusedReceiptSha256": "88f4f1fec17010fe8e4e4c721dbbf67a722f30150724d8b13514980398f87a98",
+  "counts": {
+    "filesPassed": 1,
+    "passed": 194,
+    "failed": 0,
+    "skipped": 0
+  },
+  "validation": {
+    "strictCommandCount": 13,
+    "allCommandExitCodesZero": true,
+    "sourceStable": true,
+    "heldCommandCloseout": true,
+    "lintPassed": true,
+    "minimumFreeBytes": 353595793408,
+    "diskFloorBytes": 23622320128
+  },
+  "typecheck": {
+    "firstAttemptHeapGiB": 4,
+    "firstAttemptExitCode": 134,
+    "firstAttemptFailure": "OOM",
+    "retryHeapGiB": 6,
+    "retryExitCode": 0
+  },
+  "limitation": "Focused tests/lint/typecheck validated the reviewed patch applied to tested base 8e467082; the candidate was later committed as 32f951ab but remains unpushed. No actual native image execution or exact-source CI acceptance is established.",
+  "testedBaseCommit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+  "subsequentlyCommittedCandidate": "32f951ab18e99648f4499c5e929c322035f04745"
+}

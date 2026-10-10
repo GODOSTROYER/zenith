@@ -44,7 +44,7 @@ Observation loop (revision 2): `engine`, `alerts` and `outbox` also run from `ze
 "Critical observation/reaping use durable scheduling across restart, not only best-effort GitHub cron."
 - Observation + optimizer: durable sweep schedule (existing) now also records health; `tests/platform/critical-jobs.test.ts` (overlap, fallback deferral/resume), existing `tests/workflows/reconcile-schedule.test.ts` (real Temporal, restart survival).
 - Reaping/housekeeping/runbooks: `criticalMaintenanceWorkflow` schedule; `tests/workflows/critical-schedule.test.ts` (definition, custody, adoption, drift refusal), `tests/platform/critical-jobs.test.ts` (runs, failures, staleness, catch-up, fencing), `tests/workflows/sandbox.test.ts` (sandbox safety of the new definition).
-- Persistence across restart: Temporal Schedules persist server-side; run state persists in PostgreSQL. A real-Temporal restart test for the new schedule was not written (see gaps).
+- Persistence across restart: `tests/workflows/critical-schedule.test.ts` now requires an actual owned Temporal CLI server restart against the same private SQLite file, schedule adoption, and completion of the original queued workflow ID/run ID. Its controlled activity proves persistence; the separate J4 natural-timer journey proves maintenance-job effects. Source coverage is not an executed local acceptance result.
 - GitHub cron only a fallback: fallback deferral tests above.
 - Visibility: status route + worker log + `criticalJobHealth` tests.
 
@@ -63,7 +63,7 @@ Expected: all pass. migrations/tenancy/scoping tests need the shared-file update
 - `.github/workflows/tick.yml`: optionally add a `status` pass (POST works, returns 200; use `?strict=1` to fail the workflow when stale). GitHub cron remains valid unchanged; it now defers while the durable schedule is current.
 - Gate manifest: add the two new vitest files; real-Temporal lane for the new schedule if desired.
 - LIMITATIONS: alerts/engine/outbox/agent/hosted-job passes remain best-effort cron; GitHub disables schedules after 60 idle days.
-- Gaps: no real-Temporal restart/overlap test for `zenith-critical-maintenance-v1` (only the reconcile schedule has one); `runbooks` fallback deferral relies on the single runbook function using the process platform store (worker calls `ensurePlatformApp(db)` first); the maintenance schedule is created unpaused only in provision mode, so an unprovisioned environment shows `never_run` until an operator provisions it; stale `running` rows from a crashed holder are overwritten by the next run.
+- Remaining scope: the required real-Temporal restart and held-activity overlap cases for `zenith-critical-maintenance-v1` are already enforced by the canonical gate manifest; operated J4 and registered-machine acceptance remain separate. `runbooks` fallback deferral relies on the single runbook function using the process platform store (worker calls `ensurePlatformApp(db)` first); the maintenance schedule is created unpaused only in provision mode, so an unprovisioned environment shows `never_run` until an operator provisions it; stale `running` rows from a crashed holder are overwritten by the next run.
 
 ## 5. Suggested ledger implementationStatus
 

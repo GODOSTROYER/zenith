@@ -731,7 +731,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "focused_582P0F2skip2J4_f99; actualJ4_realChild3P0F0S_975a; compiler5120_exit0_273b93ee; R17_fullCore_24528P0F1939S; PG10_services38P0F0S; SYS1_aptTail_R3_focused193P0F0S_lintPASS; exactSourceCI_pending; cleanupOnly_pass",
+      "implementationStatus": "R16_fullCore_24533P0F1939S_8e467; R10_nativeARM64_witnessBuild_pass; SYS1_architecture_candidate32f951_focused194P0F0S_tested_on_8e467_plus_reviewed_patch_unpushed; retainedDefaultStackFailed_migration_cleanupOnlyComplete_noAcceptance; freshCoreAfterPull_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -1624,6 +1624,37 @@
           "commit": "9040312191c32a8c5c8d6f09e62b5cb678bf32c0",
           "result": "Quiet R3 apt-tail focused validation passed193/0/0 in one file with13 strict commands, lint pass, stable source, held command closeout and minimum free space above the22GiB floor. This proves only the focused validation; exact-source CI and broader systemd acceptance remain pending. The earlier R2 failure and intervening R3 no-verdict refusal remain separate preserved records.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-sys1-apt-tail-r3-focused.json"
+        },
+        {
+          "level": "contract",
+          "commit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+          "result": "Root-accepted R16 native macOS ARM64 Node/DOM core passed24533/0/1939 across26472 exact identities; Node25407/DOM1065, 4871 suites. Stable source, complete custody, owned cleanup, and disk floor held. Core scope only.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-r16-full-core.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+          "result": "R10 Linux/ARM64 witness image built on native ARM64 with pinned inputs, runtime user65532:65532, build exit0 and process absence; no push. This records the image build only, not complete J2 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-r10-witness-build.json"
+        },
+        {
+          "level": "contract",
+          "commit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+          "result": "Human-authorized, independently reviewed SYS1 architecture patch was focused-tested on base8e467 plus reviewed patch89f9f445:194/0/0, strict13 commands, lint and 6GiB typecheck retry passed; 4GiB OOM retained. The tested candidate was subsequently committed as32f951ab, unpushed. No actual native image or CI acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-sys1-apt-platform-r2-focused.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+          "result": "Fresh default-stack attempt failed at deferred J1-up during canonical migration build (child exit1; wrapper exit2), after Supabase start/migrations and API/worker build. State remains retained; cleanup is pending and no J4/J2/trust/default-stack acceptance is claimed.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-j1-default-stack-retained-failure.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+          "result": "Cleanup-only R3 for the retained failed default-stack attempt: wrapper/canonical down exited0;12 owned resources removed,0 remaining,0 forced stops. Source, custody, floor and watcher closeout passed. Receipt-path metadata discrepancy is retained. This does not accept the failed J1 run or establish J1/J4/J2/default-stack acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-j1-failed-stack-cleanup-r3.json",
+          "executionReceiptComplete": true
         }
       ],
       "requiredEvidence": [
@@ -1650,7 +1681,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "historical_e4_a4_green; current_2f55_run38086537262_27terminal18success1failure8skip_verify_active_at_observation; 4nativePASS; Go_apt_build_exit1_cause_unknown; no_all_green",
+      "implementationStatus": "2f55_run38086537262_terminal_cancelled_18success1failure8skip1cancel; 8e467_run38089224123_terminal_failure_19success1failure8skip_4nativePASS_VerifySmokeGimbalPASS; Go_fixture_archMismatch_beforePID1; no_all_green",
       "evidence": [
         {
           "level": "remote_ci",
@@ -2060,6 +2091,22 @@
           "runId": 38086537262,
           "result": "Nonterminal exact-source snapshot: 27/28 main jobs terminal (18 success, 1 failure, 8 skipped), Verify sole active at observation, and four native jobs passed. Go failed in build-apt-image before test events; cleanup completed, OOM marker absent, cause unknown. No all-green or release promotion.",
           "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-ci-2f55fdaa-current.json",
+          "executionReceiptComplete": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+          "runId": 38089224123,
+          "result": "Terminal exact-source run:19 success,1 Go failure,8 skipped; all4 native jobs passed. Verify passed unit files1139P/94S/1233 total, Smoke, and Gimbal. Go race passed1074/0/3 across22 packages, but BuildKit fixture failed before PID1 tests with ARM64 base vs expected AMD64 exec-format error; cleanup completed. Not green.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-ci-8e467-and-2f55-disposition.json",
+          "executionReceiptComplete": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2f55fdaaf1c55c2048cd4fc2363388d0f76ad048",
+          "runId": 38086537262,
+          "result": "Terminal cancelled predecessor run:18 success,1 Go failure,8 skipped,1 Verify cancellation. Verify was cancelled by a higher-priority queue annotation; unit suites were cancelled and Smoke/Gimbal skipped. Go fixture failed before PID1 events. This run is not green.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-ci-8e467-and-2f55-disposition.json",
           "executionReceiptComplete": false
         }
       ],

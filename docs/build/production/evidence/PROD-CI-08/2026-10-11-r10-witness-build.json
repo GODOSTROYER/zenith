@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "local_engine",
+  "kind": "r10-native-arm64-j2-witness-image-build",
+  "sourceHead": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+  "sourceFreezeSha256": "982ad059b55f28d23767bdc7990b316bd3c40d8393474cd18c82596c33f0ef07",
+  "summarySha256": "95c94c417e7dd4f0aba23ae876be51376c1b7a7c12eca1a04db092d45710eabd",
+  "acceptedR16CoreSha256": "379b6a99508e16da39f1d797153cdfbcb9399bae1a9a1afeecfb3bc30ea6232c",
+  "image": {
+    "architecture": "linux/arm64",
+    "buildExitCode": 0,
+    "imageId": "sha256:c5506bee0ef463f48882955c128800ca7cb05c7eb7222d0e2c0c8a555481e534",
+    "runtimeUser": "65532:65532",
+    "baseImagesDigestPinned": true,
+    "pinTagsPresentInMetadata": 3,
+    "pushPerformed": false
+  },
+  "custodyAndResources": {
+    "buildProcessesAbsent": true,
+    "resourceMonitorProbeFailures": 0,
+    "minimumHostFreeBytes": 375539679232,
+    "minimumDockerVmFreeBytes": 450627026944,
+    "diskFloorBytes": 23622320128
+  },
+  "limitation": "This is a native ARM64 witness image build record only. It does not establish a complete J2 run, exact-source CI, browser journey, cloud use or production acceptance."
+}

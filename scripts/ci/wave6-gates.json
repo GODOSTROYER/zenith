@@ -4307,9 +4307,7 @@
       "gates": [
         "ZENITH_TEST_J6_OPERATED_RELEASE"
       ],
-      "prerequisites": [
-        "ZENITH_CONTROL_KMS_KEY_ID"
-      ]
+      "prerequisites": []
     },
     {
       "file": "tests/providers/kubernetes/build/schema.test.ts",

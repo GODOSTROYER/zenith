@@ -1154,12 +1154,17 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("publishes only fixed SYS1 failure stage and cleanup classes without affecting case admission", () => {
     const manifest = linuxGuestManifest();
-    const diagnostic = { schemaVersion: 5, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null };
-    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null });
-    expect(validatePid1Diagnostic({ schemaVersion: 5, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null }).failureOperation).toBeNull();
+    const diagnostic = { schemaVersion: 6, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null };
+    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null });
+    expect(validatePid1Diagnostic({ schemaVersion: 6, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null }).failureOperation).toBeNull();
     expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: -9, aptBuildOOMObserved: true }).childExitCode).toBe(-9);
     expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: 17 }).childExitCode).toBe(17);
-    const aptFailure = { ...diagnostic, failureStage: "buildkit-builder", failureClass: "subprocess", failureOperation: "build-apt-image", cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: 1 };
+    const aptFailure = { ...diagnostic, failureStage: "buildkit-builder", failureClass: "subprocess", failureOperation: "build-apt-image", cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: 1, aptBuildFailureClass: "unknown" as const };
+    const payload = "BuildKit failed after pulling a base image";
+    const aptTail = { channel: "stderr", rawBytes: 41, rawSha256: "a".repeat(64), tailOffset: 0, inputTruncated: false,
+      redactedOutputTruncated: false, redactedPayloadSha256: createHash("sha256").update(payload).digest("hex"), payload };
+    expect(validatePid1Diagnostic({ ...aptFailure, aptBuildDiagnostic: aptTail }).aptBuildDiagnostic).toEqual(aptTail);
+    const unredactedTail = { ...aptTail, payload: "Authorization: Bearer raw-secret", redactedPayloadSha256: createHash("sha256").update("Authorization: Bearer raw-secret").digest("hex") };
     for (const failureClass of ["apt-network-marker", "apt-package-marker", "apt-signature-marker", "base-image-pull-marker", "oom-marker", "multiple-signatures", "unknown"] as const) {
       expect(validatePid1Diagnostic({ ...aptFailure, aptBuildFailureClass: failureClass }).aptBuildFailureClass).toBe(failureClass);
     }
@@ -1169,6 +1174,7 @@ describe("mandatory direct native package phase admission", () => {
     expect(validatePid1Diagnostic({ ...diagnostic, cleanupFailureClass: null, cleanupOperation: null })).toMatchObject({ failureOperation: "validate-build-output", cleanupState: "failed" });
     for (const invalid of [
       { ...diagnostic, failureStage: "/var/lib/docker" },
+      { ...diagnostic, failureStage: "bogus-stage" },
       { ...diagnostic, failureClass: "AssertionError: /secret/path" },
       { ...diagnostic, cleanupState: "completed; leaked" },
       { ...diagnostic, failureOperation: "/private/output" },
@@ -1184,6 +1190,12 @@ describe("mandatory direct native package phase admission", () => {
       { ...aptFailure, aptBuildFailureClass: "private stderr text" },
       { ...diagnostic, aptBuildFailureClass: "apt-network" },
       { ...aptFailure, aptBuildFailureClass: null },
+      { ...aptFailure, aptBuildDiagnostic: unredactedTail },
+      { ...aptFailure, aptBuildDiagnostic: { ...aptTail, rawBytes: 0, tailOffset: 1 } },
+      { ...aptFailure, aptBuildDiagnostic: { ...aptTail, channel: "private-file" } },
+      { ...aptFailure, aptBuildDiagnostic: { ...aptTail, unexpected: "raw" } },
+      { ...aptFailure, aptBuildDiagnostic: { ...aptTail, redactedPayloadSha256: "b".repeat(64) } },
+      { ...aptFailure, failureOperation: "build-original-fixtures", aptBuildDiagnostic: aptTail },
       { ...aptFailure, childExitCode: null, aptBuildFailureClass: "unknown" },
       { ...hostFailure, hostFailureOperation: "private filename" },
       { ...hostFailure, hostFailureErrno: 4096 },
@@ -1275,18 +1287,82 @@ print(json.dumps([module.classify_failure(error) for error in [TimeoutError(), I
     expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
     expect(JSON.parse(child.stdout)).toEqual(["timeout", "interrupt", "filesystem", "timeout"]);
   });
+  it("captures only bounded current-attempt apt tails after redaction and rejects unsafe phase files", () => {
+    const model = String.raw`
+import ast, hashlib, json, os, pathlib, re, stat, sys, tempfile
+source = pathlib.Path(sys.argv[1]).read_text(); tree = ast.parse(source)
+names = {"APT_BUILD_DIAGNOSTIC_TAIL_BYTES", "APT_BUILD_DIAGNOSTIC_OUTPUT_BYTES", "APT_BUILD_DIAGNOSTIC_READ_BYTES"}
+constants = [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)]
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "apt_build_diagnostic")
+namespace = {"hashlib": hashlib, "os": os, "pathlib": pathlib, "re": re, "stat": stat}
+exec(compile(ast.Module(body=constants + [helper], type_ignores=[]), "actual-apt-diagnostic", "exec"), namespace)
+capture = namespace["apt_build_diagnostic"]
+with tempfile.TemporaryDirectory() as temp:
+    root = pathlib.Path(temp)
+    base = root / ".data-ci-guest"; base.mkdir(mode=0o700)
+    first_parent = base / ("attempt-" + "a" * 32); first_parent.mkdir(mode=0o700)
+    second_parent = base / ("attempt-" + "b" * 32); second_parent.mkdir(mode=0o700)
+    (first_parent / "pid1-private").mkdir(mode=0o700); (second_parent / "pid1-private").mkdir(mode=0o700)
+    first = first_parent / "pid1-private" / "runtime"; first.mkdir(mode=0o700)
+    second = second_parent / "pid1-private" / "runtime"; second.mkdir(mode=0o700)
+    filler = b"safe prefix line\n" + b"x" * 20000 + b"\n"
+    tail = (b"plain BuildKit terminal failure\x1b[31m red\x1b[0m https://user:password@example.invalid/path?token=secret\n"
+        b"Authorization: Bearer super-secret\ntoken=hidden /private/tmp/host-path " + str(root).encode() + b"\n")
+    raw = filler + tail
+    source = first / "apt-image-build.stderr.private"; source.write_bytes(raw); source.chmod(0o600)
+    reads = []; original_read = os.read
+    def bounded_read(fd, size): reads.append(size); assert size <= 16384; return original_read(fd, size)
+    os.read = bounded_read
+    try: result = capture(first, root, first_parent)
+    finally: os.read = original_read
+    assert result["channel"] == "stderr" and result["rawBytes"] == len(raw)
+    assert result["rawSha256"] == hashlib.sha256(raw).hexdigest() and result["tailOffset"] == len(raw) - 16384 and result["inputTruncated"] is True
+    assert result["redactedPayloadSha256"] == hashlib.sha256(result["payload"].encode()).hexdigest()
+    assert len(result["payload"].encode()) <= 15000 and result["redactedOutputTruncated"] is False
+    assert "BuildKit terminal failure" in result["payload"] and "password" not in result["payload"] and "secret" not in result["payload"]
+    assert "super-secret" not in result["payload"] and "hidden" not in result["payload"] and "host-path" not in result["payload"]
+    assert "\x1b" not in result["payload"] and source.read_bytes() == raw and reads and max(reads) <= 16384
+    source.write_bytes(b"y" * 16000 + b"\xff"); source.chmod(0o600)
+    clipped = capture(first, root, first_parent)
+    assert clipped["redactedOutputTruncated"] is True and len(clipped["payload"].encode()) == 15000
+    source.write_bytes(b"malformed " + bytes([255]) + b" input"); source.chmod(0o600)
+    assert chr(0xfffd) in capture(first, root, first_parent)["payload"]
+    wrong_root = pathlib.Path(temp) / "wrong-root"; wrong_root.mkdir(mode=0o700)
+    assert capture(first, wrong_root, first_parent) is None
+    # Passing another attempt directory cannot select the first attempt's diagnostic.
+    other = second / "apt-image-build.stderr.private"; other.write_bytes(b"other attempt"); other.chmod(0o600)
+    assert "other attempt" in capture(second, root, second_parent)["payload"]
+    assert capture(first, root, second_parent) is None
+    # Empty stderr may use only the same attempt's stdout; two empty streams yield no payload.
+    source.write_bytes(b""); fallback = first / "apt-image-build.stdout.private"; fallback.write_bytes(b"stdout fallback"); fallback.chmod(0o600)
+    assert capture(first, root, first_parent)["channel"] == "stdout"
+    fallback.write_bytes(b""); assert capture(first, root, first_parent) is None
+    # Refuse symlink, multiply linked, wrong-mode and oversized phase files.
+    fallback.unlink(); source.unlink(); source.symlink_to(other)
+    assert capture(first, root, first_parent) is None
+    source.unlink(); source.write_bytes(b"secret"); source.chmod(0o600); os.link(source, first / "extra-link")
+    assert capture(first, root, first_parent) is None
+    (first / "extra-link").unlink(); source.chmod(0o644); assert capture(first, root, first_parent) is None
+    source.chmod(0o600)
+    with source.open("wb") as stream: stream.truncate(32 * 1024 * 1024 + 1)
+    source.chmod(0o600); assert capture(first, root, first_parent) is None
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
   it("records only bounded child status and closed apt build failure signals in private SYS1 diagnostics", () => {
     const model = String.raw`
-import ast, json, os, pathlib, re, secrets, subprocess, sys, tempfile, types
+import ast, hashlib, json, os, pathlib, re, secrets, stat, subprocess, sys, tempfile, types
 source_path = pathlib.Path(sys.argv[1]); tree = ast.parse(source_path.read_text())
 main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
 run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == "run")
 classify = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "classify_apt_build_failure")
+apt_diagnostic = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "apt_build_diagnostic")
 write_diagnostic = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "write_diagnostic")
 host_call = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "host_call")
-constant_names = {"APT_BUILD_STDERR_TAIL_BYTES", "APT_BUILD_FAILURE_CLASSES", "APT_BUILD_FAILURE_SIGNATURES", "DIAGNOSTIC_HOST_FAILURE_OPERATIONS"}
+constant_names = {"APT_BUILD_STDERR_TAIL_BYTES", "APT_BUILD_DIAGNOSTIC_TAIL_BYTES", "APT_BUILD_DIAGNOSTIC_OUTPUT_BYTES", "APT_BUILD_DIAGNOSTIC_READ_BYTES", "APT_BUILD_FAILURE_CLASSES", "APT_BUILD_FAILURE_SIGNATURES", "DIAGNOSTIC_HOST_FAILURE_OPERATIONS"}
 constants = [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in constant_names for target in node.targets)]
-namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": secrets,
+namespace = {"hashlib": hashlib, "json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": secrets, "stat": stat,
     "DIAGNOSTIC_STAGES": {"buildkit-builder", "complete"}, "DIAGNOSTIC_FAILURES": {"subprocess"}, "DIAGNOSTIC_CLEANUP": {"not-started", "completed"},
     "DIAGNOSTIC_OPERATIONS": {"build-apt-image"}, "DIAGNOSTIC_DIRECTORY": None,
     "DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_FAILURE_STAGE": None, "DIAGNOSTIC_FAILURE_OPERATION": None,
@@ -1295,7 +1371,7 @@ namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": se
     "DIAGNOSTIC_CLEANUP_OPERATION": None, "DIAGNOSTIC_CHILD_EXIT_CODE": None,
     "DIAGNOSTIC_APT_BUILD_OOM_OBSERVED": None, "DIAGNOSTIC_APT_BUILD_FAILURE_CLASS": None,
     "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None}
-exec(compile(ast.Module(body=constants + [host_call, run, classify, write_diagnostic], type_ignores=[]), "actual-sys1-diagnostic-functions", "exec"), namespace)
+exec(compile(ast.Module(body=constants + [host_call, run, classify, apt_diagnostic, write_diagnostic], type_ignores=[]), "actual-sys1-diagnostic-functions", "exec"), namespace)
 class Child:
     def __init__(self, returncode): self.returncode = returncode
     def poll(self): return self.returncode
@@ -1308,6 +1384,7 @@ def popen(_argv, **kwargs):
     returncode, stderr = responses.pop(0); kwargs["stderr"].write(stderr)
     return Child(returncode)
 with tempfile.TemporaryDirectory() as temp:
+    os.umask(0o077)
     out = pathlib.Path(temp); diag = out / "attempt"; diag.mkdir(mode=0o700)
     namespace.update({"cleaning": False, "set_diagnostic_stage": lambda _stage: None,
         "set_diagnostic_operation": lambda _operation: None, "operation_for_phase": lambda _phase: "build-apt-image",
@@ -1316,7 +1393,7 @@ with tempfile.TemporaryDirectory() as temp:
         "f": {"attemptByteCap": 1024}, "resource": types.SimpleNamespace(RLIMIT_FSIZE=1, setrlimit=lambda *_args: None),
         "subprocess": types.SimpleNamespace(Popen=popen, CalledProcessError=subprocess.CalledProcessError),
         "time": types.SimpleNamespace(monotonic=lambda: 0, sleep=lambda _seconds: None), "receipt": {"phases": []},
-        "save": lambda: None, "DIAGNOSTIC_DIRECTORY": diag})
+        "save": lambda: None, "DIAGNOSTIC_DIRECTORY": diag, "DIAGNOSTIC_ROOT": out, "DIAGNOSTIC_RUNTIME_DIRECTORY": None})
     successful_out = out / "success"; successful_out.mkdir(mode=0o700)
     namespace["out"] = successful_out
     assert namespace["run"](["buildx", "build"], "apt-image-build") == b""
@@ -1328,18 +1405,24 @@ with tempfile.TemporaryDirectory() as temp:
     assert success_row["childExitCode"] is None and success_row["aptBuildOOMObserved"] is False and success_row["aptBuildFailureClass"] is None
     assert success_row["hostFailureOperation"] is None and success_row["hostFailureErrno"] is None
     namespace.update({"DIAGNOSTIC_DIRECTORY": diag, "DIAGNOSTIC_CLEANUP_STATE": "not-started"})
-    failed_out = out / "failure"; failed_out.mkdir(mode=0o700); namespace["out"] = failed_out
+    attempt_base = out / ".data-ci-guest"; attempt_base.mkdir(mode=0o700)
+    attempt_dir = attempt_base / ("attempt-" + "c" * 32); attempt_dir.mkdir(mode=0o700)
+    private_dir = attempt_dir / "pid1-private"; private_dir.mkdir(mode=0o700)
+    failed_out = private_dir / "runtime"; failed_out.mkdir(mode=0o700); namespace["out"] = failed_out; namespace["DIAGNOSTIC_RUNTIME_DIRECTORY"] = failed_out; namespace["DIAGNOSTIC_DIRECTORY"] = attempt_dir
     try: namespace["run"](["buildx", "build"], "apt-image-build")
     except subprocess.CalledProcessError as error: assert error.returncode == 23
     else: raise AssertionError("nonzero apt image build unexpectedly passed")
     namespace.update({"DIAGNOSTIC_FAILURE": "subprocess", "DIAGNOSTIC_FAILURE_STAGE": "buildkit-builder",
         "DIAGNOSTIC_FAILURE_OPERATION": "build-apt-image"})
     namespace["write_diagnostic"]()
-    serialized = (diag / "pid1-diagnostic.private.json").read_text()
+    serialized = (attempt_dir / "pid1-diagnostic.private.json").read_text()
     row = json.loads(serialized)
     assert row["childExitCode"] == 23 and row["aptBuildOOMObserved"] is True and row["aptBuildFailureClass"] == "oom-marker"
     assert row["hostFailureOperation"] is None and row["hostFailureErrno"] is None
-    assert "OOMKilled" not in serialized and "/private/" not in serialized
+    assert "OOMKilled" in serialized and "/private/" not in serialized and row["aptBuildDiagnostic"]["channel"] == "stderr"
+    raw_stream = failed_out / "apt-image-build.stderr.private"; raw_stream.unlink(); raw_stream.symlink_to(pathlib.Path(temp) / "foreign")
+    namespace["write_diagnostic"](); refused = json.loads((attempt_dir / "pid1-diagnostic.private.json").read_text())
+    assert refused["aptBuildDiagnostic"] is None and refused["childExitCode"] == 23 and refused["cleanupState"] == "not-started"
 `;
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");

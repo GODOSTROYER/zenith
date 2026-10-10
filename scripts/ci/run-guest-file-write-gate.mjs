@@ -357,9 +357,27 @@ const PID1_HOST_FAILURE_OPERATIONS = new Set(["pre-run-guard", "phase-stream-ope
 const PID1_DIAGNOSTIC_OPERATIONS = new Set(["prepare", "bind", "disk-admission", "docker-admission", "resolve-build-tools", "build-original-fixtures", "validate-build-output", "binary-build-metadata", "prepare-build-context", "create-context", "verify-context", "create-builder", "verify-builder", "build-apt-image", "load-apt-image", "release-builder", "create-pid1", "verify-pid1", "guest-baseline", "guest-prerequisite", "actual-systemd-case", "guest-postcondition", "cleanup-reconcile", "cleanup-stop-pid1", "cleanup-remove-pid1", "cleanup-release-builder", "cleanup-remove-image", "cleanup-remove-context", "cleanup-verify-baseline", "cleanup-close-guard", "cleanup-unknown", "unknown"]);
 /** Fixed, non-sensitive failure metadata; this never contributes test events or admission. */
 export function validatePid1Diagnostic(value) {
+  const apt = value?.aptBuildDiagnostic;
+  const validApt = apt === null || Boolean(apt && typeof apt === "object" && !Array.isArray(apt)
+    && JSON.stringify(Object.keys(apt).sort()) === JSON.stringify(["channel", "inputTruncated", "payload", "rawBytes", "rawSha256", "redactedOutputTruncated", "redactedPayloadSha256", "tailOffset"].sort())
+    && (apt.channel === "stderr" || apt.channel === "stdout")
+    && Number.isSafeInteger(apt.rawBytes) && apt.rawBytes >= 0 && apt.rawBytes <= 32 * 1024 * 1024
+    && Number.isSafeInteger(apt.tailOffset) && apt.tailOffset === Math.max(0, apt.rawBytes - 16_384)
+    && apt.inputTruncated === (apt.tailOffset > 0)
+    && typeof apt.redactedOutputTruncated === "boolean"
+    && typeof apt.payload === "string" && Buffer.byteLength(apt.payload, "utf8") <= 16_384
+    && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/u.test(apt.payload)
+    && !/https?:\/\/[^\s/?#]+:[^\s/@]*@/iu.test(apt.payload)
+    && !/https?:\/\/[^\s?#]+\?(?!\[redacted\])[^\s#]+/iu.test(apt.payload)
+    && !/\b(?:authorization|proxy-authorization)\s*[:=]\s*(?!\[redacted\])[^\s,;]+/iu.test(apt.payload)
+    && !/\b[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?key|token|password|passwd|secret)\s*[:=]\s*(?!\[redacted\])[^\s,;]+/iu.test(apt.payload)
+    && !/(?:\/Users\/|\/private\/|\/tmp\/|\/var\/folders\/)[^\s"'<>]+/u.test(apt.payload)
+    && /^[a-f0-9]{64}$/.test(apt.rawSha256)
+    && /^[a-f0-9]{64}$/.test(apt.redactedPayloadSha256)
+    && digest(Buffer.from(apt.payload, "utf8")) === apt.redactedPayloadSha256);
   if (!value || typeof value !== "object" || Array.isArray(value)
-    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["aptBuildFailureClass", "aptBuildOOMObserved", "childExitCode", "cleanupFailureClass", "cleanupOperation", "cleanupState", "failureClass", "failureOperation", "failureStage", "hostFailureErrno", "hostFailureOperation", "schemaVersion"].sort())
-    || value.schemaVersion !== 5 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage)
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["aptBuildDiagnostic", "aptBuildFailureClass", "aptBuildOOMObserved", "childExitCode", "cleanupFailureClass", "cleanupOperation", "cleanupState", "failureClass", "failureOperation", "failureStage", "hostFailureErrno", "hostFailureOperation", "schemaVersion"].sort())
+    || value.schemaVersion !== 6 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage) || !validApt || apt !== null && (value.failureOperation !== "build-apt-image" || value.failureClass !== "subprocess" || value.childExitCode === null)
     || !(value.failureClass === null || PID1_DIAGNOSTIC_FAILURES.has(value.failureClass))
     || !PID1_DIAGNOSTIC_CLEANUP.has(value.cleanupState)
     || !(value.failureOperation === null || PID1_DIAGNOSTIC_OPERATIONS.has(value.failureOperation))
@@ -382,7 +400,7 @@ export function validatePid1Diagnostic(value) {
   return { failureStage: value.failureStage, failureClass: value.failureClass, failureOperation: value.failureOperation,
     cleanupState: value.cleanupState, cleanupFailureClass: value.cleanupFailureClass, cleanupOperation: value.cleanupOperation,
     childExitCode: value.childExitCode, aptBuildOOMObserved: value.aptBuildOOMObserved, aptBuildFailureClass: value.aptBuildFailureClass,
-    hostFailureOperation: value.hostFailureOperation, hostFailureErrno: value.hostFailureErrno };
+    hostFailureOperation: value.hostFailureOperation, hostFailureErrno: value.hostFailureErrno, aptBuildDiagnostic: apt };
 }
 function pid1FixtureDiagnostic(directory) {
   const file = path.join(directory, "pid1-diagnostic.private.json");
@@ -391,7 +409,7 @@ function pid1FixtureDiagnostic(directory) {
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
   try {
     const st = fs.fstatSync(fd);
-    if (!st.isFile() || st.uid !== process.getuid() || st.nlink !== 1 || (st.mode & 0o7777) !== 0o600 || st.size === 0 || st.size > 1024) throw new Error("pid1-diagnostic");
+    if (!st.isFile() || st.uid !== process.getuid() || st.nlink !== 1 || (st.mode & 0o7777) !== 0o600 || st.size === 0 || st.size > 32 * 1024) throw new Error("pid1-diagnostic");
     return validatePid1Diagnostic(JSON.parse(fs.readFileSync(fd, "utf8")));
   } catch { return null; }
   finally { fs.closeSync(fd); }

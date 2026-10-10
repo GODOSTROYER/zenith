@@ -17,6 +17,8 @@ DIAGNOSTIC_FAILURES={'assertion','filesystem','subprocess','timeout','interrupt'
 DIAGNOSTIC_CLEANUP={'not-started','in-progress','completed','failed'}
 DIAGNOSTIC_STAGE='prepare'
 DIAGNOSTIC_DIRECTORY=None
+DIAGNOSTIC_ROOT=None
+DIAGNOSTIC_RUNTIME_DIRECTORY=None
 DIAGNOSTIC_FAILURE=None
 DIAGNOSTIC_FAILURE_STAGE=None
 DIAGNOSTIC_OPERATION='prepare'
@@ -31,6 +33,9 @@ DIAGNOSTIC_HOST_FAILURE_OPERATION=None
 DIAGNOSTIC_HOST_FAILURE_ERRNO=None
 DIAGNOSTIC_HOST_FAILURE_OPERATIONS={'pre-run-guard','phase-stream-open','child-spawn','child-register','child-poll','run-guard-check','output-cap-scan','child-drain','phase-stream-close','phase-receipt-save','phase-stdout-read','apt-stderr-read','apt-receipt-save','apt-classifier-read','unknown'}
 APT_BUILD_STDERR_TAIL_BYTES=65_536
+APT_BUILD_DIAGNOSTIC_TAIL_BYTES=16_384
+APT_BUILD_DIAGNOSTIC_OUTPUT_BYTES=15_000
+APT_BUILD_DIAGNOSTIC_READ_BYTES=8_192
 # Labels describe recognized private-output markers, not asserted build causes.
 APT_BUILD_FAILURE_CLASSES={'apt-network-marker','apt-package-marker','apt-signature-marker','base-image-pull-marker','oom-marker','multiple-signatures','unknown'}
 APT_BUILD_FAILURE_SIGNATURES=(
@@ -102,6 +107,67 @@ def classify_apt_build_failure(stderr_path):
  if not matches:return 'unknown'
  if len(matches)>1:return 'multiple-signatures'
  return matches.pop()
+def apt_build_diagnostic(out,root,attempt_directory):
+ """Return a bounded redacted tail from this attempt's closed apt build streams."""
+ out=pathlib.Path(out);attempt_directory=pathlib.Path(attempt_directory)
+ if not out.is_absolute() or attempt_directory!=root/'.data-ci-guest'/attempt_directory.name or out!=attempt_directory/'pid1-private'/'runtime' or not re.fullmatch('attempt-[a-f0-9]{32}',attempt_directory.name):return None
+ for directory in (root/'.data-ci-guest',attempt_directory,attempt_directory/'pid1-private',out):
+  try:st=directory.lstat()
+  except OSError:return None
+  if not stat.S_ISDIR(st.st_mode) or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)!=0o700:return None
+ source=out/'apt-image-build.stderr.private';channel='stderr'
+ flags=os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)
+ try:fd=os.open(source,flags)
+ except OSError:return None
+ try:
+  before=os.fstat(fd)
+  if not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid() or before.st_nlink!=1 or stat.S_IMODE(before.st_mode)!=0o600 or before.st_size>32*1024*1024:return None
+  size=before.st_size;full=hashlib.sha256();offset=0
+  while offset<size:
+   chunk=os.read(fd,min(APT_BUILD_DIAGNOSTIC_READ_BYTES,size-offset))
+   if not chunk:return None
+   full.update(chunk);offset+=len(chunk)
+  after=os.fstat(fd)
+  if (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns):return None
+  tail_offset=max(0,size-APT_BUILD_DIAGNOSTIC_TAIL_BYTES);os.lseek(fd,tail_offset,os.SEEK_SET);tail=os.read(fd,APT_BUILD_DIAGNOSTIC_TAIL_BYTES)
+  if len(tail)!=size-tail_offset:return None
+ except OSError:return None
+ finally:os.close(fd)
+ if not tail:
+  channel='stdout';source=out/'apt-image-build.stdout.private'
+  try:fd=os.open(source,flags)
+  except OSError:return None
+  try:
+   before=os.fstat(fd)
+   if not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid() or before.st_nlink!=1 or stat.S_IMODE(before.st_mode)!=0o600 or before.st_size>32*1024*1024:return None
+   size=before.st_size;full=hashlib.sha256();offset=0
+   while offset<size:
+    chunk=os.read(fd,min(APT_BUILD_DIAGNOSTIC_READ_BYTES,size-offset))
+    if not chunk:return None
+    full.update(chunk);offset+=len(chunk)
+   after=os.fstat(fd)
+   if (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns):return None
+   tail_offset=max(0,size-APT_BUILD_DIAGNOSTIC_TAIL_BYTES);os.lseek(fd,tail_offset,os.SEEK_SET);tail=os.read(fd,APT_BUILD_DIAGNOSTIC_TAIL_BYTES)
+   if len(tail)!=size-tail_offset:return None
+  except OSError:return None
+  finally:os.close(fd)
+ if not tail:return None
+ raw_hash=full.hexdigest();input_truncated=tail_offset>0
+ text=tail.decode('utf-8','replace')
+ text=re.sub(r'\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\|$)|[@-_])','',text)
+ text=''.join(c if c in '\n\t' or 32<=ord(c)<127 or ord(c)>=160 else ' ' for c in text)
+ if input_truncated:text=text.split('\n',1)[1] if '\n' in text else ''
+ text=re.sub(r'(?i)(https?://)[^/@\s]+@',r'\1[redacted]@',text)
+ text=re.sub(r'(?i)(https?://[^\s?#]+)\?[^\s#]*',r'\1?[redacted]',text)
+ text=re.sub(r'(?im)^(\s*(?:authorization|proxy-authorization)\s*[:=]\s*)[^\r\n]*',r'\1[redacted]',text)
+ text=re.sub(r'(?im)\b([A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?key|token|password|passwd|secret))([\s]*[:=][\s]*)[^\r\n]*',r'\1\2[redacted]',text)
+ text=re.sub(r'(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*',r'\1 [redacted]',text)
+ for prefix in sorted({str(pathlib.Path(root)),str(pathlib.Path(out)),str(pathlib.Path.home())},key=len,reverse=True):
+  if prefix and prefix!='/':text=text.replace(prefix,'[local-path]')
+ text=re.sub(r'(?<![\w])/(?:Users|private|tmp|var/folders)/[^\s\"\'<>]+','[local-path]',text)
+ encoded=text.encode('utf-8');payload=encoded[:APT_BUILD_DIAGNOSTIC_OUTPUT_BYTES].decode('utf-8','ignore')
+ return {'channel':channel,'rawBytes':size,'rawSha256':raw_hash,'tailOffset':tail_offset,'inputTruncated':input_truncated,
+  'redactedOutputTruncated':len(encoded)>APT_BUILD_DIAGNOSTIC_OUTPUT_BYTES,'redactedPayloadSha256':hashlib.sha256(payload.encode()).hexdigest(),'payload':payload}
 def host_call(operation,callback):
  global DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO
  try:return callback()
@@ -112,17 +178,21 @@ def host_call(operation,callback):
    DIAGNOSTIC_HOST_FAILURE_ERRNO=number if type(number) is int and 1<=number<=4095 else None
   raise
 def initialize_diagnostic(root,attempt):
- global DIAGNOSTIC_DIRECTORY
+ global DIAGNOSTIC_DIRECTORY,DIAGNOSTIC_ROOT
  if not re.fullmatch('[a-f0-9]{32}',attempt) or root.resolve()!=root:raise RuntimeError('diagnostic_scope')
  base=root/'.data-ci-guest';directory=base/('attempt-'+attempt)
  for path in (base,directory):
   st=path.lstat()
   assert stat.S_ISDIR(st.st_mode) and st.st_uid==os.getuid() and stat.S_IMODE(st.st_mode)==0o700
- DIAGNOSTIC_DIRECTORY=directory
+ DIAGNOSTIC_DIRECTORY=directory;DIAGNOSTIC_ROOT=root
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
- row={'schemaVersion':5,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS,'hostFailureOperation':DIAGNOSTIC_HOST_FAILURE_OPERATION,'hostFailureErrno':DIAGNOSTIC_HOST_FAILURE_ERRNO}
+ apt_detail=None
+ if DIAGNOSTIC_FAILURE=='subprocess' and DIAGNOSTIC_FAILURE_OPERATION=='build-apt-image' and DIAGNOSTIC_CHILD_EXIT_CODE is not None:
+  try:apt_detail=apt_build_diagnostic(DIAGNOSTIC_RUNTIME_DIRECTORY,DIAGNOSTIC_ROOT,DIAGNOSTIC_DIRECTORY)
+  except Exception:apt_detail=None
+ row={'schemaVersion':6,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS,'hostFailureOperation':DIAGNOSTIC_HOST_FAILURE_OPERATION,'hostFailureErrno':DIAGNOSTIC_HOST_FAILURE_ERRNO,'aptBuildDiagnostic':apt_detail}
  assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
  assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['failureOperation'] is None and row['cleanupState']=='completed')
  assert row['failureClass'] is None or row['failureOperation'] in DIAGNOSTIC_OPERATIONS
@@ -139,7 +209,7 @@ def write_diagnostic():
  target=DIAGNOSTIC_DIRECTORY/'pid1-diagnostic.private.json';tmp=DIAGNOSTIC_DIRECTORY/('.pid1-diagnostic-'+secrets.token_hex(8)+'.tmp')
  fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
  try:
-  with os.fdopen(fd,'wb',closefd=False) as out:out.write((json.dumps(row,separators=(',',':'))+'\n').encode());out.flush();os.fsync(fd)
+  with os.fdopen(fd,'wb',closefd=False) as out:out.write((json.dumps(row,separators=(',',':'),ensure_ascii=False)+'\n').encode('utf-8'));out.flush();os.fsync(fd)
  finally:os.close(fd)
  os.replace(tmp,target)
  dfd=os.open(DIAGNOSTIC_DIRECTORY,os.O_RDONLY|getattr(os,'O_DIRECTORY',0))
@@ -194,7 +264,7 @@ def prepare(root,attempt,arch):
  return private,f
 
 def main():
- global P,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE,DIAGNOSTIC_CLEANUP_OPERATION
+ global P,DIAGNOSTIC_RUNTIME_DIRECTORY,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE,DIAGNOSTIC_CLEANUP_OPERATION
  assert __debug__
  a=argparse.ArgumentParser();a.add_argument('--root',required=True);a.add_argument('--attempt',required=True);a.add_argument('--arch',required=True);args=a.parse_args()
  os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare');set_diagnostic_operation('prepare')
@@ -202,7 +272,7 @@ def main():
  assert not pathlib.Path('/c/Users/user/.local/sdk/node22').exists()
  set_diagnostic_stage('disk-admission');set_diagnostic_operation('disk-admission')
  assert shutil.disk_usage(P).free>=FLOOR+f['setupHeadroomBytes']
- os.umask(0o077);token=secrets.token_hex(6);out=P/'runtime';out.mkdir(mode=0o700)
+ os.umask(0o077);token=secrets.token_hex(6);out=P/'runtime';out.mkdir(mode=0o700);DIAGNOSTIC_RUNTIME_DIRECTORY=out
  receipt={'status':'failed','diagnosticOnly':False,'scope':'one actual installed signed-update/rollback native Linux PID1 scenario; no production signer, cloud, default-stack or generic Go skip acceptance','cleanupComplete':False,'phases':[]};write(out/'receipt.private.json',receipt)
  # Exact fresh names are recorded before any delivery; unknown delivery blocks removal.
  name='zenith-mach04-'+token;builder='zenith-owned-'+token;context='zenith-owned-context-'+token
@@ -382,7 +452,7 @@ def main():
    target=src/n;target.parent.mkdir(mode=0o700,parents=True,exist_ok=True);shutil.copyfile(root/n,target);assert sha(target)==sha(root/n)
   mutate(['context','create',context,'--docker','host='+ENDPOINT],'create-owned-context');context_snapshot=obj(['context','inspect',context],'context-identity');assert context_snapshot[0]['Endpoints']['docker']['Host']==ENDPOINT
   mutate(['buildx','create','--name',builder,'--driver','docker-container','--driver-opt','default-load=true,image='+BUILD_IMAGE+',memory=1g','--bootstrap',context],'create-owned-builder',180);builder_snapshot=capture_builder('builder-captured');receipt['builder']=builder_snapshot;save()
-  mutate(['buildx','build','--builder',builder,'--platform','linux/'+f['arch'],'--pull','--no-cache','--build-arg','SYSTEMD_BASE='+BASE_IMAGE,'--label','zenith.mach04.owner='+token,'--load','-t',tag,str(contextdir)],'apt-image-build',600)
+  mutate(['buildx','build','--builder',builder,'--progress=plain','--platform','linux/'+f['arch'],'--pull','--no-cache','--build-arg','SYSTEMD_BASE='+BASE_IMAGE,'--label','zenith.mach04.owner='+token,'--load','-t',tag,str(contextdir)],'apt-image-build',600)
   loaded=obj(['image','inspect',tag],'loaded-image')[0];assert loaded['Os']=='linux' and loaded['Architecture']==f['arch'] and loaded['Config']['Labels']['zenith.mach04.owner']==token and loaded['RepoTags']==[tag] and not loaded.get('RepoDigests');image=loaded['Id'];receipt['imageInspectSha256']=hashlib.sha256(json.dumps(loaded,sort_keys=True).encode()).hexdigest();receipt['imageId']=image;save()
   release_builder() # The 1GiB apt-only builder is gone before the 512MiB test.
   result=mutate(['run','-d','--name',name,'--label','zenith.mach04.owner='+token,'--platform','linux/'+f['arch'],'--privileged','--cgroupns','private','--network','none','--memory','512m','--memory-swap','512m','--cpus','2','--pids-limit','512','--log-driver','json-file','--log-opt','max-size=1m','--log-opt','max-file=1','--tmpfs','/run:rw,nosuid,nodev,size=64m','--tmpfs','/run/lock:rw,nosuid,nodev,size=16m','--tmpfs','/tmp:rw,nosuid,nodev,size=64m','--mount','type=bind,source='+str(src)+',target=/src,readonly','--mount','type=bind,source='+str(binaries)+',target=/fixtures,readonly',image],'create-disposable-pid1')

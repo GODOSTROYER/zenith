@@ -285,6 +285,7 @@ function packageFixtureEvidence(directory, attemptId, arch, contract) {
 
 /** Strict fresh terminal contract for the isolated PID1 phase. Report cases alone never prove cleanup. */
 export function validatePid1Fixture(proof, attemptId, arch, contract, sourceCommit, raw) {
+  const expectedBaseImage = contract?.baseImageByArch?.[arch];
   const guard = proof?.guard;
   const custody = guard?.socketCustody;
   const socketIdentity = (row, kinds) => Array.isArray(row) && row.length === 4
@@ -329,7 +330,7 @@ export function validatePid1Fixture(proof, attemptId, arch, contract, sourceComm
   if (proof?.schemaVersion !== 1 || proof.attempt !== attemptId || proof.arch !== arch || proof.emulated !== false
     || proof.status !== "passed" || proof.cleanupComplete !== true || proof.delivery !== null || proof.execDelivery !== null
     || proof.sourceCommit !== sourceCommit || !SHA256.test(proof.sourceContractSha256 ?? "")
-    || proof.baseImage !== contract.baseImage || proof.builderImage !== contract.builderImage
+    || !["amd64", "arm64"].includes(arch) || typeof expectedBaseImage !== "string" || proof.baseImage !== expectedBaseImage || proof.builderImage !== contract.builderImage
     || JSON.stringify(proof.nativeCases) !== JSON.stringify(contract.requiredCases.map(item => item.test))
     || proof.rawReportSha256 !== digest(raw)
     || !guard || guard.sourceStartMatched !== true || guard.sourceEndMatched !== true

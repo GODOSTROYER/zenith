@@ -1125,7 +1125,17 @@ describe("mandatory direct native package phase admission", () => {
         observedOwnedGroups: [4242], ownedProcesses: [{ pid: 4242, rootPid: 4242, uid: testUid, pgid: 4242, session: 4242, startTicks: 1234, observedPgids: [4242] }] },
     });
     expect(validatePid1Fixture(good(), attempt, "arm64", phase, commit, raw).cleanupComplete).toBe(true);
+    expect(phase.baseImage).toBe(phase.baseImageByArch.arm64);
+    const amd64 = good(); amd64.arch = "amd64"; amd64.baseImage = phase.baseImageByArch.amd64;
+    expect(validatePid1Fixture(amd64, attempt, "amd64", phase, commit, raw).baseImage).toBe(phase.baseImageByArch.amd64);
     const rejected = (mutate: (proof: ReturnType<typeof good>) => void) => { const proof = good(); mutate(proof); expect(() => validatePid1Fixture(proof, attempt, "arm64", phase, commit, raw)).toThrow("pid1-fixture"); };
+    rejected(proof => { proof.baseImage = phase.baseImageByArch.amd64; });
+    const wrongAmd64 = good(); wrongAmd64.arch = "amd64"; wrongAmd64.baseImage = phase.baseImageByArch.arm64;
+    expect(() => validatePid1Fixture(wrongAmd64, attempt, "amd64", phase, commit, raw)).toThrow("pid1-fixture");
+    const missingImage = good(); delete missingImage.baseImage;
+    expect(() => validatePid1Fixture(missingImage, attempt, "arm64", phase, commit, raw)).toThrow("pid1-fixture");
+    const unsupportedArch = good(); unsupportedArch.arch = "riscv64"; delete unsupportedArch.baseImage;
+    expect(() => validatePid1Fixture(unsupportedArch, attempt, "riscv64", phase, commit, raw)).toThrow("pid1-fixture");
     rejected(proof => { proof.delivery = "create-disposable-pid1"; });
     rejected(proof => { proof.cleanupComplete = false; });
     rejected(proof => { proof.nativeCases = []; });
@@ -1349,6 +1359,27 @@ with tempfile.TemporaryDirectory() as temp:
 `;
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
+  it("selects only the verified Ubuntu child digest for the actual native architecture", () => {
+    const model = String.raw`
+import ast, json, pathlib, sys
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+constants = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "BASE_IMAGES" for target in node.targets))
+selector = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "base_image_for_arch")
+namespace = {}
+exec(compile(ast.Module(body=[constants, selector], type_ignores=[]), "actual-native-image-selector", "exec"), namespace)
+images = namespace["BASE_IMAGES"]
+assert namespace["base_image_for_arch"]("amd64") == "ubuntu:24.04@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b"
+assert namespace["base_image_for_arch"]("arm64") == "ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7"
+assert images["amd64"] != images["arm64"]
+try: namespace["base_image_for_arch"]("riscv64")
+except AssertionError: pass
+else: raise AssertionError("unknown architecture was admitted")
+print(json.dumps(images, sort_keys=True))
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toEqual(linuxGuestManifest().pid1Phase.baseImageByArch);
   });
   it("records only bounded child status and closed apt build failure signals in private SYS1 diagnostics", () => {
     const model = String.raw`

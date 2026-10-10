@@ -10,7 +10,7 @@ FLOOR=12_000_000_000
 ENDPOINT='unix:///var/run/docker.sock'
 CASE='TestSystemdSignedUpdateAndRollback'
 PACKAGE='github.com/GODOSTROYER/zenith/go/internal/runner/update'
-BASE_IMAGE='ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7'
+BASE_IMAGES={'amd64':'ubuntu:24.04@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b','arm64':'ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7'}
 BUILD_IMAGE='moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea'
 DIAGNOSTIC_STAGES={'prepare','bind','disk-admission','docker-admission','fixture-build','buildkit-builder','pid1-container','guest-baseline','guest-prerequisite','actual-systemd-case','guest-postcondition','cleanup','complete','unknown'}
 DIAGNOSTIC_FAILURES={'assertion','filesystem','subprocess','timeout','interrupt','json','other'}
@@ -33,6 +33,10 @@ DIAGNOSTIC_HOST_FAILURE_OPERATION=None
 DIAGNOSTIC_HOST_FAILURE_ERRNO=None
 DIAGNOSTIC_HOST_FAILURE_OPERATIONS={'pre-run-guard','phase-stream-open','child-spawn','child-register','child-poll','run-guard-check','output-cap-scan','child-drain','phase-stream-close','phase-receipt-save','phase-stdout-read','apt-stderr-read','apt-receipt-save','apt-classifier-read','unknown'}
 APT_BUILD_STDERR_TAIL_BYTES=65_536
+
+def base_image_for_arch(arch):
+ assert arch in BASE_IMAGES
+ return BASE_IMAGES[arch]
 APT_BUILD_DIAGNOSTIC_TAIL_BYTES=16_384
 APT_BUILD_DIAGNOSTIC_OUTPUT_BYTES=15_000
 APT_BUILD_DIAGNOSTIC_READ_BYTES=8_192
@@ -268,7 +272,7 @@ def main():
  assert __debug__
  a=argparse.ArgumentParser();a.add_argument('--root',required=True);a.add_argument('--attempt',required=True);a.add_argument('--arch',required=True);args=a.parse_args()
  os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare');set_diagnostic_operation('prepare')
- P,f=prepare(root,args.attempt,args.arch);set_diagnostic_stage('bind');set_diagnostic_operation('bind');root=bind(f)
+ P,f=prepare(root,args.attempt,args.arch);base_image=base_image_for_arch(f['arch']);set_diagnostic_stage('bind');set_diagnostic_operation('bind');root=bind(f)
  assert not pathlib.Path('/c/Users/user/.local/sdk/node22').exists()
  set_diagnostic_stage('disk-admission');set_diagnostic_operation('disk-admission')
  assert shutil.disk_usage(P).free>=FLOOR+f['setupHeadroomBytes']
@@ -452,7 +456,7 @@ def main():
    target=src/n;target.parent.mkdir(mode=0o700,parents=True,exist_ok=True);shutil.copyfile(root/n,target);assert sha(target)==sha(root/n)
   mutate(['context','create',context,'--docker','host='+ENDPOINT],'create-owned-context');context_snapshot=obj(['context','inspect',context],'context-identity');assert context_snapshot[0]['Endpoints']['docker']['Host']==ENDPOINT
   mutate(['buildx','create','--name',builder,'--driver','docker-container','--driver-opt','default-load=true,image='+BUILD_IMAGE+',memory=1g','--bootstrap',context],'create-owned-builder',180);builder_snapshot=capture_builder('builder-captured');receipt['builder']=builder_snapshot;save()
-  mutate(['buildx','build','--builder',builder,'--progress=plain','--platform','linux/'+f['arch'],'--pull','--no-cache','--build-arg','SYSTEMD_BASE='+BASE_IMAGE,'--label','zenith.mach04.owner='+token,'--load','-t',tag,str(contextdir)],'apt-image-build',600)
+  mutate(['buildx','build','--builder',builder,'--progress=plain','--platform','linux/'+f['arch'],'--pull','--no-cache','--build-arg','SYSTEMD_BASE='+base_image,'--label','zenith.mach04.owner='+token,'--load','-t',tag,str(contextdir)],'apt-image-build',600)
   loaded=obj(['image','inspect',tag],'loaded-image')[0];assert loaded['Os']=='linux' and loaded['Architecture']==f['arch'] and loaded['Config']['Labels']['zenith.mach04.owner']==token and loaded['RepoTags']==[tag] and not loaded.get('RepoDigests');image=loaded['Id'];receipt['imageInspectSha256']=hashlib.sha256(json.dumps(loaded,sort_keys=True).encode()).hexdigest();receipt['imageId']=image;save()
   release_builder() # The 1GiB apt-only builder is gone before the 512MiB test.
   result=mutate(['run','-d','--name',name,'--label','zenith.mach04.owner='+token,'--platform','linux/'+f['arch'],'--privileged','--cgroupns','private','--network','none','--memory','512m','--memory-swap','512m','--cpus','2','--pids-limit','512','--log-driver','json-file','--log-opt','max-size=1m','--log-opt','max-file=1','--tmpfs','/run:rw,nosuid,nodev,size=64m','--tmpfs','/run/lock:rw,nosuid,nodev,size=16m','--tmpfs','/tmp:rw,nosuid,nodev,size=64m','--mount','type=bind,source='+str(src)+',target=/src,readonly','--mount','type=bind,source='+str(binaries)+',target=/fixtures,readonly',image],'create-disposable-pid1')
@@ -496,7 +500,7 @@ def main():
     try:receipt['hostCustody']=guard.close()
     except BaseException:receipt['hostCustodyRefused']=True
   save() # All private setup/binary/log files retained; no host tree deletion.
- terminal={'schemaVersion':1,'attempt':f['attempt'],'arch':f['arch'],'emulated':False,'status':receipt['status'],'cleanupComplete':receipt['cleanupComplete'],'delivery':pin,'execDelivery':exec_pin,'sourceCommit':f['sourceCommit'],'sourceContractSha256':f['sourceContractSha256'],'baseImage':BASE_IMAGE,'builderImage':BUILD_IMAGE,'nativeCases':[CASE],'tools':f['tools'],'binaries':receipt.get('binaries'),'guard':receipt.get('hostCustody'),'rawReportSha256':sha(out/'actual-one-systemd-scenario.stdout.private') if (out/'actual-one-systemd-scenario.stdout.private').is_file() else None}
+ terminal={'schemaVersion':1,'attempt':f['attempt'],'arch':f['arch'],'emulated':False,'status':receipt['status'],'cleanupComplete':receipt['cleanupComplete'],'delivery':pin,'execDelivery':exec_pin,'sourceCommit':f['sourceCommit'],'sourceContractSha256':f['sourceContractSha256'],'baseImage':base_image,'builderImage':BUILD_IMAGE,'nativeCases':[CASE],'tools':f['tools'],'binaries':receipt.get('binaries'),'guard':receipt.get('hostCustody'),'rawReportSha256':sha(out/'actual-one-systemd-scenario.stdout.private') if (out/'actual-one-systemd-scenario.stdout.private').is_file() else None}
  write(P/'terminal.record',terminal)
  if receipt['status']=='passed':set_diagnostic_stage('complete');sys.stdout.buffer.write((out/'actual-one-systemd-scenario.stdout.private').read_bytes())
  write_diagnostic()

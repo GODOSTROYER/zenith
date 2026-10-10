@@ -6367,6 +6367,10 @@ export function linuxGuestManifest() {
     pid1Phase: {
       requiredCases: LINUX_GUEST_PID1_CASES, requiredPackages: [`${GO_MODULE}/internal/runner/update`], noTestPackages: [], allowedSkips: [],
       baseImage: "ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7",
+      baseImageByArch: {
+        amd64: "ubuntu:24.04@sha256:f610ab94648195aa356059f5b41d6085c9d4d903c072430cdd1af7bdb646106b",
+        arm64: "ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7",
+      },
       builderImage: "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
       scope: "Actual installed signed update/rollback in fresh isolated native Linux PID1/cgroup guest; modeled control protocol, no default backend or production signing authority.",
     },

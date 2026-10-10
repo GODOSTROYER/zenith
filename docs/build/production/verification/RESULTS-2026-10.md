@@ -1,3 +1,7 @@
+## New-machine handoff publication, 10 October 2026
+
+Baseline28ea0b75 preserved; no product acceptance executed. Current exact-source remote inventory: main37798520911 completed12 success/7 failure/1 cancelled; native workers37798520926 two success; native platforms37798520928 two success. Complete job inventory and scoped historical evidence shipped in the [Mac mini transfer](../transfer/2026-10-10-mac-mini/README.md). Hosted reviewed candidate remains uncommitted/runtime pending; SYS1 draft remains interrupted/unreviewed; PID1 R2 remains reviewed/preflight-only; supervisor142 retains six actual/136 modeled scope and missing raw-case-report limitation. Ledger9 verified/67 in progress/2 planned; all78 criteria and four false release states unchanged. [Current source, permissions and executable continuation order](../HANDOFF-MAC-MINI-2026-10-10.md). Publication CI is separate and must be inspected at its exact SHA.
+
 ## Reviewed c7 CI repairs, 8 October 2026
 
 Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).

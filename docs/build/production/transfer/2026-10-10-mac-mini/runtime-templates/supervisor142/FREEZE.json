@@ -1,0 +1,11 @@
+{
+  "sourceCommit": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+  "tree": "454a416b9b8a6b0d39b89206c1339c3b451d0a23",
+  "controllerSha256": "91f875053249c5270119c2af1f05c20c692a796b0884ea7d518ece9d4b6f5a77",
+  "contractSha256": "c4278a0d3f4fb8f2a126ffd3afd163a3a2a7135f5b0db0fa9748d93152253225",
+  "runtimeSha256": "68615cfd1c7a9e460447215c5fb2e83eefd89d2c38dcb34a674493199a11eba6",
+  "ownedGuardSha256": "9b0f9cfdea69697b6effa65c77d09762613fdc5496fb767c4fbb0d57fa27095c",
+  "executionPerformed": false,
+  "scope": "Whole142Linuxfile+sixnativecontrols; nofullpackaged-worker acceptance",
+  "hostFloorBytes": 12000000000
+}

@@ -1,3 +1,7 @@
+## Current new-machine entry point, 10 October 2026
+
+Read [Mac mini handoff](HANDOFF-MAC-MINI-2026-10-10.md) first. Includes actual unfinished source packets, hash-verified transfer, final baseline CI and permissions. Supersedes older machine/identity/status summaries; preserves verifier scope and historical evidence. Baseline28ea: main12 success/7 failure/1 cancelled; native worker2 success; native platform2 success. Ledger9 verified/67 in progress/2 planned. Old-host work remains paused; no acceptance run or requirement promotion in this publication.
+
 ## Current verifier results, 8 October 2026
 
 Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).

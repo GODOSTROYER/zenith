@@ -1,0 +1,12 @@
+{
+  "name": "zenith-native-supervisor-lock-projection",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "vitest": "4.1.11",
+    "js-yaml": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=22.22.2 <23"
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "schema": "zenith-prod-ci-08-source-bound-evidence/v1",
+  "createdAtUtc": "2026-10-10T17:30:08Z",
+  "scope": "Evidence-only checkpoint for source434512b5. No full-suite or release acceptance is claimed; preserve all gate outcomes and required levels.",
+  "candidateSource": {
+    "commit": "434512b5c6d0f0a7be7590f6061ef3c4360823b5",
+    "cleanAtObservation": true,
+    "branch": "codex/production-2026-10-02",
+    "relation": "two local commits ahead of origin9933510e at evidence capture; source434 exact-SHA CI not yet observed",
+    "exactSourceCi": "not observed; candidate not yet pushed at snapshot"
+  },
+  "focusedRepair": {
+    "sourceCommit": "434512b5c6d0f0a7be7590f6061ef3c4360823b5",
+    "runScope": [
+      "tests/ci/guest-file-write-gate.test.ts",
+      "tests/ci/release-gates.test.ts",
+      "tests/controlplane/services.test.ts"
+    ],
+    "counts": {
+      "passed": 344,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 344,
+      "pendingIdentityCount": 0
+    },
+    "wrapperExit": 0,
+    "vitestExit": 0,
+    "strictIdentityAndCaseCountersMatched": true,
+    "sourceFreezeSha256": "edde90540d5d1a1eeb97365cb4fc74e02560feb0bcff8db10e494e6ae2affdfe",
+    "minimumFreeBytes": 395659132928,
+    "diskFloorBytes": 23622320128,
+    "ownedDataCleanup": "removed",
+    "summarySha256": "28be824e3398efe9d8b22ed831abc011b4462f5699aa41a81802e1f5075c99bd",
+    "identityReportSha256": "f19b5ec6b9072823effde3f4eeffe9c807b7c9932488f6dcc205a4cbb542a091",
+    "runnerSha256": "9330bbe595dc3d5e40b9c0d5bf3c6a3980b9880ab2577e4964efe880211c5f76",
+    "executionReceiptSha256": "93c7b253ed281751ee71243ca62e082d99fda6c4ec7a74a76175ff4baf7b97af",
+    "scopeLimit": "Three whole files only; not full Node/DOM acceptance."
+  },
+  "r14FullOn993": {
+    "sourceCommit": "9933510e9459a16403913f74bc055914129539ea",
+    "durationSeconds": 480.64,
+    "vitestReportCounts": {
+      "passed": 24525,
+      "failed": 1,
+      "pending": 1939,
+      "total": 26465
+    },
+    "wrapperExit": 2,
+    "acceptance": "NOT PASS; hard process-custody violation and refusal, no waiver",
+    "failedAssertion": {
+      "file": "tests/ci/release-gates.test.ts",
+      "expectation": "job timeout expected90 to be <=45",
+      "statusOn434": "the focused source434 repair retained the strict assertion and passed this whole file; no full rerun on434 yet"
+    },
+    "custody": {
+      "eventCount": 57,
+      "dropped": 0,
+      "quarantines": 2,
+      "reasons": {
+        "parent_bracket_mismatch": 1,
+        "parent_capture_mismatch": 1
+      },
+      "pendingObservationsResolvedAbsent": 7,
+      "finalRegisteredAbsenceProven": true,
+      "acceptance": "the two sticky quarantines remain; terminal registered-set absence does not clear them"
+    },
+    "rawIdentityReportSha256": "19bf1621893738658a0fb72f7088bc6fac8dca056163665db1901c7ae4a24789",
+    "rawVitestReportSha256": "8186e53762d12b6a528c9beeed1e208b33317b9d4048ba2b40ee589c140dd91f",
+    "custodySha256": "bc3822bcf1a374d7358ba1b0ea199084d2fb3212694bca710aad7962cce98397",
+    "diagnosisSha256": "7ed50293acb9e28a77e3e771d35578a585267d4dbce0217030b5328d24e5ddb7",
+    "rawPrivateArtifacts": "retained in private checkpoint; no raw identities or test output embedded here"
+  },
+  "latestObservedCi993": {
+    "sourceCommit": "9933510e9459a16403913f74bc055914129539ea",
+    "mainRunId": 38067119176,
+    "snapshotObservedAtUtc": "2026-10-10T17:30:08Z",
+    "snapshotSha256": "f7ce18f090c3a0b629e855bd34e3082b713b6a31974e90109ac59c4008440206",
+    "snapshotMarkdownSha256": "459a9df226adacdceb823f401b1fc821c27708e6bfeaaac4b26027660b5b08d0",
+    "mainStatus": "completed_failure",
+    "mainJobs": {
+      "success": 17,
+      "failure": 3,
+      "skipped": 8,
+      "active": 0
+    },
+    "acrossThreeWorkflows": {
+      "success": 21,
+      "failure": 3,
+      "skipped": 8,
+      "active": 0
+    },
+    "verify": {
+      "conclusion": "failure",
+      "jobId": 114256911315,
+      "unitDurationSeconds": 2438.24,
+      "counts": {
+        "filesPassed": 1138,
+        "filesFailed": 1,
+        "filesSkipped": 94,
+        "testsPassed": 24543,
+        "testsFailed": 1,
+        "testsSkipped": 1921,
+        "testsTotal": 26465
+      },
+      "failedAssertion": "tests/ci/release-gates.test.ts:739:50 expected90<=45",
+      "smoke": "skipped",
+      "gimbal": "skipped",
+      "privateLogSha256": "7ab7da3b2470077ed9fd40dcd3c6b70b2f866a8a8cef80afa960549b438caa43"
+    },
+    "failures": [
+      {
+        "job": "go",
+        "jobId": 114256911521,
+        "failure": "BuildKit build-apt-image setup before PID1/test events; cleanup completed; underlying cause unknown; not a systemd test failure",
+        "rawLogSha256": "b93732345fa2dc0c8d6776843d6a1cfc217a52c2275058a154d98d2db143943f"
+      },
+      {
+        "job": "platform-postgres",
+        "jobId": 114256911617,
+        "failure": "one PGlite lease-renewal timing assertion observed2099.632264 <2100 after2105ms; sibling occurrence passed; cleanup succeeded",
+        "rawLogSha256": "d1c61652e0164e4126299a568c613fdf0a7daed7265246686f433835f2eab507"
+      },
+      {
+        "job": "verify",
+        "jobId": 114256911315,
+        "failure": "strict timeout assertion expected90<=45; source434 focused whole-file run passed with45-minute rule retained"
+      }
+    ],
+    "nativeSkippedPlatforms": {
+      "runId": 38067118968,
+      "conclusion": "success",
+      "jobs": 2
+    },
+    "nativePackagedWorkers": {
+      "runId": 38067119010,
+      "conclusion": "success",
+      "jobs": 2
+    },
+    "scope": "Terminal evidence is bound only to993; source434 current CI remains unobserved."
+  },
+  "additionalFocusedContracts": {
+    "pg16PopenR2": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "mock-only owned-Popen ledger tests; no engine acceptance",
+      "executionLogSha256": "b8e2a7ab1a353d3cd2ce9cb774e1368eab5eb4b250e3c578992d8b68a176c992"
+    },
+    "j1J4R3": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "mock-only J1/J4 contract tests; no actual default-stack acceptance",
+      "executionLogSha256": "1db0da4fbfbc1cce49e7db1b0a9c0ff91b63d2ab4ee0618849a05b277ce194d4"
+    }
+  },
+  "integratedChecks434": {
+    "sourceCommit": "434512b5c6d0f0a7be7590f6061ef3c4360823b5",
+    "typescript": "5120MiB nonincremental exit0",
+    "typescriptLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "actionlint": "pass",
+    "ledgerCheck": "pass",
+    "defaultHeapAttempt": "OOM retained as failed diagnostic; not acceptance; 5120MiB result is authoritative for the compiler check",
+    "exactSourceCi": "not yet observed"
+  },
+  "ongoingWork": {
+    "gpg": "installed closure verification passed19/19 receipts and17/17 retained bottle hashes; this closes only the installed prerequisite check, not MinIO runtime acceptance",
+    "pg5": "owned fixture cleanup author active; prior PG5 wrapper refusal and cleanup uncertainty remain until accepted receipt",
+    "r15": "prospective guard repair active; no acceptance",
+    "minio": "R5 preparation active; no run/acceptance",
+    "ux": "UX-01.3 source-only; review and runtime pending"
+  },
+  "resourceSnapshot": {
+    "freeBytesApprox": 395000000000,
+    "memoryAvailablePercent": 60,
+    "swapUsedBytes": 0,
+    "source": "root-provided point-in-time observation; not continuous-run capacity evidence"
+  },
+  "ledgerInvariant": {
+    "states": {
+      "verified": 9,
+      "inProgress": 67,
+      "planned": 2
+    },
+    "totalRequirements": 78,
+    "acceptanceCriteriaChanged": false,
+    "requiredEvidenceChanged": false,
+    "releaseFlags": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    },
+    "promotions": 0
+  },
+  "pg5R5Refused": {
+    "sourceCommit": "9933510e9459a16403913f74bc055914129539ea",
+    "vitestReportCounts": {
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0
+    },
+    "wrapperExit": 2,
+    "refusal": "sticky vm-disk-probe failure with resource breach and custody uncertainty",
+    "acceptance": "NOT PASS; retained fixture and pending cleanup; do not treat 38/0/0 report as accepted",
+    "privateEvidence": "preserved in durable private checkpoint; postgres.env omitted from copied evidence"
+  },
+  "gpgInstalledClosure": {
+    "status": "PASS",
+    "scope": "read-only installed prerequisite closure and executable verification only; not MinIO runtime/source acceptance",
+    "receiptPath": "private artifact /tmp/zenith-resume-minio-gpg-installed-r1.json",
+    "receiptSha256": "844d8d125315a88781cc3eb2b9d70da0419383cc2fb6f8e2d36250eeb2a97fb4",
+    "manifestSha256": "009b0e3109daeaec437ebdec140de7a9ea6a720707034fc57bc7e55fbb8d9541",
+    "closureExpected": 19,
+    "closureVerified": 19,
+    "retainedExpectedBottles": 17,
+    "bottleHashesMatched": 17,
+    "runtimeDependencySetMatchesManifest": true,
+    "gpgVersion": "2.5.24",
+    "findings": 0
+  }
+}

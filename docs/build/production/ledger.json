@@ -1564,6 +1564,12 @@
           "commit": "84a672be47e36c01193baa4fcf0a1ed396b9a125",
           "result": "Terminal exact-SHA CI run38057465682 observed2026-10-10T14:40:28+00:00:18 success/2 failure/8 skipped. Verify failed24516P/8F/1921S; eight112-vs-113 assertions in two files. Go failed at BuildKit builder setup before tests; systemd acceptance did not execute. Separate native worker/platform runs succeeded. Applies only to predecessor84a.",
           "artifact": "docs/build/production/verification/CI-2026-10-10-84a672be-terminal.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9933510e9459a16403913f74bc055914129539ea",
+          "result": "Terminal CI run38067119176 observed2026-10-10T17:30:08Z: across32 jobs21 success/3 failure/8 skipped; main28 jobs17 success/3 failure/8 skipped. Verify reported24543 passed/1 failed/1921 skipped, unit2438.24s; strict timeout assertion90<=45 failed, Smoke/Gimbal skipped. Go failed BuildKit build-apt-image before PID1 test events (cleanup complete, cause unknown, not a systemd test failure); platform-postgres had one PGlite lease-renewal timing miss. Native workflows each passed2 jobs. This terminal result is bound to9933510e; exact-source CI434 remains unobserved.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-434512b5-current.json"
         }
       ],
       "requiredEvidence": [
@@ -3171,6 +3177,12 @@
           "environment": "Native Darwin ARM64, Node22.23.3, actual generated Ed25519 keys; no Docker/cloud/default-stack acceptance. Compiler retry heap4096MiB.",
           "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-08-signature-fixture.json",
           "result": "24 passed /0 failed /0 skipped. Reviewed negative fixture flips one actual signature byte instead of potentially unchanged random AA suffix. Original eight refusal cases retained; affected lint and full compiler passed. Initial compiler heap exit134 remains recorded. Requirement remains in_progress."
+        },
+        {
+          "level": "contract",
+          "commit": "434512b5c6d0f0a7be7590f6061ef3c4360823b5",
+          "result": "Read-only installed GnuPG prerequisite verification passed:19/19 dependency receipts matched and17/17 retained expected bottle hashes matched; runtime dependency set matched manifest, GPG2.5.24 executed, zero findings. Scope closes only installed prerequisite verification; it does not prove MinIO runtime/source acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-434512b5-current.json"
         }
       ],
       "requiredEvidence": [

@@ -1,3 +1,25 @@
+## Immediate dependency queue, 10 October 2026
+
+1. **Root:** review/apply this evidence-only publication patch on434, then push and inspect CI bound to exact SHA. CI993 is terminal failure, not a current-source result.
+2. **Root:** run a fresh full Node/DOM suite on one frozen current source in parallel with exact-SHA CI inspection when resources permit. Full R14 on993 remains refused/not pass from two sticky custody quarantines; focused344 pass covers only three files.
+3. **Root/owner:** diagnose Go BuildKit `build-apt-image` setup before PID1 tests; cleanup completed, cause unknown. Validate the integrated platform-PG monotonic timing fix in fresh CI and real PostgreSQL scope. Do not characterize the Go setup failure as a systemd test failure.
+4. **PG5 owner:** settle retained fixture and cleanup/custody uncertainty after wrapper-refused38/0/0 run before retry. PG6 Popen10/0/0 is mock-only.
+5. **R15 owner:** complete prospective guard repair and review. **GPG prerequisite:** installed closure passed19/19 receipts and17/17 retained bottles; keep MinIO runtime/source acceptance pending.
+6. **MinIO owner (R5):** finish source/pinning/tool preparation, then follow reviewed sequence and separate runtime gate. **UX-01.3 owner:** source-only work still needs review and runtime evidence.
+7. **J1/J4 owner:** nine R3 mocked contracts are contract evidence only; execute actual prerequisites in fixed J1 -> J4 -> J2 order after source gates; then require separately reviewed J2-only cleanup/absence before UX, with J1 retained until Auth cleanup.
+
+Resource snapshot (~395GB free,60% memory available,0 swap) is point-in-time only. AirPlay Receiver stays off while authorized tests need port5000. Live cloud calls/spend and production sign-off remain separately authorized.
+
+## Current integrated CI-08 checkpoint, 10 October 2026
+
+Candidate source `434512b5c6d0f0a7be7590f6061ef3c4360823b5` was clean and two commits ahead of origin at `9933510e` at evidence capture; exact-source CI434 has not been observed. The focused repair run on434 passed **344/0/0 across344 exact identities** over three whole files (`guest-file-write-gate`, `release-gates`, and `controlplane/services`), with wrapper exit0, strict identity/case counters and source freeze matching, owned cleanup, and a minimum free-space reading of395,659,132,928 bytes above the22GiB floor. This is focused evidence only, not full Node/DOM acceptance.
+
+The preceding full R14 run on993 is **NOT PASS**: 24,525 passed/1 failed/1,939 pending (26,465 total) over480.64s; wrapper exit2 due two sticky process-custody quarantines. Its one assertion failure expected90<=45. Source434 restores the45-minute setting and its focused whole-file test passes without weakening the assertion, but no full rerun on434 is available. The two quarantines remain unresolved; final registered-process absence does not clear them.
+
+Terminal CI for993, observed at `2026-10-10T17:30:08Z`, finished with **21 success/3 failure/8 skipped across32 jobs**; the main28-job run had17/3/8. Verify reported24,543 passed/1 failed/1,921 skipped; its strict timeout assertion expected90<=45 failed after2,438.24s, and Smoke/Gimbal were skipped. Go failed at BuildKit `build-apt-image` before PID1/test events; cleanup completed and the underlying cause is unknown, so this is not a systemd test failure. Platform PostgreSQL had one PGlite lease-renewal timing miss (2099.632264 vs2100 after2105ms); sibling occurrence passed and cleanup succeeded. Both native workflows passed two jobs each. This CI result is bound to993 only; CI434 remains unobserved.
+
+PG16 owned-Popen mocks10/0/0 and J1/J4 R3 contract mocks9/0/0 passed; both are mocked scope only. TypeScript5120MiB, actionlint and ledger checks passed on434; the default-heap OOM remains a failed diagnostic. GPG installed prerequisite closure passed19/19 receipts and17/17 retained bottle hashes, with no findings; this does not establish MinIO runtime acceptance. Ledger remains **9 verified/67 in progress/2 planned** across78 requirements; acceptance criteria and required evidence are unchanged, all four release flags remain false, and there is no promotion. See the [sanitized receipt](evidence/PROD-CI-08/2026-10-10-434512b5-current.json) and [builder queue](BUILD-BLOCKERS-2026-10-10.md).
+
 ## Current verifier status and builder blockers, 10 October 2026
 
 - f99 focused R4: **582P/0F/2 skipped-gated J4**,584 exact identities, `pendingIdentityCount: 0`; all nine prior failures passed. Compiler/lint f99 exit0; eight changed paths independently reviewed by Sol.

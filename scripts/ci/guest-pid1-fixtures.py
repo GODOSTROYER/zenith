@@ -19,7 +19,33 @@ DIAGNOSTIC_STAGE='prepare'
 DIAGNOSTIC_DIRECTORY=None
 DIAGNOSTIC_FAILURE=None
 DIAGNOSTIC_FAILURE_STAGE=None
+DIAGNOSTIC_OPERATION='prepare'
+DIAGNOSTIC_FAILURE_OPERATION=None
 DIAGNOSTIC_CLEANUP_STATE='not-started'
+DIAGNOSTIC_CLEANUP_FAILURE_CLASS=None
+DIAGNOSTIC_CLEANUP_OPERATION=None
+DIAGNOSTIC_OPERATIONS={
+ 'prepare','bind','disk-admission','docker-admission','resolve-build-tools','build-original-fixtures',
+ 'validate-build-output','binary-build-metadata','prepare-build-context','create-context','verify-context','create-builder',
+ 'verify-builder','build-apt-image','load-apt-image','release-builder','create-pid1','verify-pid1','guest-baseline',
+ 'guest-prerequisite','actual-systemd-case','guest-postcondition','cleanup-reconcile','cleanup-stop-pid1',
+ 'cleanup-remove-pid1','cleanup-release-builder','cleanup-remove-image','cleanup-remove-context',
+ 'cleanup-verify-baseline','cleanup-close-guard','cleanup-unknown','unknown'
+}
+RUN_OPERATIONS={
+ 'resolved-build-tools':'resolve-build-tools','build-original-fixtures':'build-original-fixtures',
+ 'binary-build-info-zenithd-1.0.0':'binary-build-metadata','binary-build-info-zenithd-1.1.0':'binary-build-metadata',
+ 'binary-build-info-update-systemd.test':'binary-build-metadata','create-owned-context':'create-context',
+ 'context-identity':'verify-context','create-owned-builder':'create-builder','builder-captured':'verify-builder',
+ 'builder-captured-descriptor':'verify-builder','builder-captured-container':'verify-builder','builder-captured-volume':'verify-builder',
+ 'builder-captured-buildkit-image':'verify-builder','builder-before-release-descriptor':'verify-builder',
+ 'builder-before-release-container':'verify-builder','builder-before-release-volume':'verify-builder',
+ 'builder-before-release-buildkit-image':'verify-builder',
+ 'apt-image-build':'build-apt-image','loaded-image':'load-apt-image','release-builder':'release-builder',
+ 'create-disposable-pid1':'create-pid1','container-created':'verify-pid1',
+ 'pid1-cgroup-and-clean-baseline':'guest-baseline','installed-apt-package-versions':'guest-prerequisite',
+ 'actual-one-systemd-scenario':'actual-systemd-case','independent-guest-fixture-absence':'guest-postcondition'
+}
 RUN_STAGES={
  'native-info':'docker-admission','baseline-containers':'docker-admission','baseline-images':'docker-admission','baseline-volumes':'docker-admission',
  'test-absent':'docker-admission','builder-absent-before':'docker-admission','cache-absent-before':'docker-admission','baseline-contexts':'docker-admission','baseline-builders':'docker-admission','image-absent':'docker-admission',
@@ -36,6 +62,14 @@ def write(p,v):
 def set_diagnostic_stage(stage):
  global DIAGNOSTIC_STAGE
  DIAGNOSTIC_STAGE=stage if stage in DIAGNOSTIC_STAGES else 'unknown'
+def set_diagnostic_operation(operation):
+ global DIAGNOSTIC_OPERATION
+ DIAGNOSTIC_OPERATION=operation if operation in DIAGNOSTIC_OPERATIONS else 'unknown'
+def operation_for_phase(phase):
+ return RUN_OPERATIONS.get(phase,RUN_STAGES.get(phase,'unknown'))
+def set_cleanup_operation(operation):
+ global DIAGNOSTIC_CLEANUP_OPERATION
+ DIAGNOSTIC_CLEANUP_OPERATION=operation if operation in DIAGNOSTIC_OPERATIONS else 'cleanup-unknown'
 def classify_failure(error):
  if isinstance(error,AssertionError):return 'assertion'
  if isinstance(error,(subprocess.TimeoutExpired,TimeoutError)):return 'timeout'
@@ -55,9 +89,12 @@ def initialize_diagnostic(root,attempt):
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
- row={'schemaVersion':1,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'cleanupState':DIAGNOSTIC_CLEANUP_STATE}
+ row={'schemaVersion':2,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION}
  assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
- assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['cleanupState']=='completed')
+ assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['failureOperation'] is None and row['cleanupState']=='completed')
+ assert row['failureClass'] is None or row['failureOperation'] in DIAGNOSTIC_OPERATIONS
+ assert (row['cleanupFailureClass'] is None) == (row['cleanupOperation'] is None)
+ assert row['cleanupFailureClass'] is None or row['cleanupFailureClass'] in DIAGNOSTIC_FAILURES and row['cleanupOperation'] in DIAGNOSTIC_OPERATIONS and row['cleanupState']=='failed'
  target=DIAGNOSTIC_DIRECTORY/'pid1-diagnostic.private.json';tmp=DIAGNOSTIC_DIRECTORY/('.pid1-diagnostic-'+secrets.token_hex(8)+'.tmp')
  fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
  try:
@@ -116,13 +153,13 @@ def prepare(root,attempt,arch):
  return private,f
 
 def main():
- global P,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_CLEANUP_STATE
+ global P,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE
  assert __debug__
  a=argparse.ArgumentParser();a.add_argument('--root',required=True);a.add_argument('--attempt',required=True);a.add_argument('--arch',required=True);args=a.parse_args()
- os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare')
- P,f=prepare(root,args.attempt,args.arch);set_diagnostic_stage('bind');root=bind(f)
+ os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare');set_diagnostic_operation('prepare')
+ P,f=prepare(root,args.attempt,args.arch);set_diagnostic_stage('bind');set_diagnostic_operation('bind');root=bind(f)
  assert not pathlib.Path('/c/Users/user/.local/sdk/node22').exists()
- set_diagnostic_stage('disk-admission')
+ set_diagnostic_stage('disk-admission');set_diagnostic_operation('disk-admission')
  assert shutil.disk_usage(P).free>=FLOOR+f['setupHeadroomBytes']
  os.umask(0o077);token=secrets.token_hex(6);out=P/'runtime';out.mkdir(mode=0o700)
  receipt={'status':'failed','diagnosticOnly':False,'scope':'one actual installed signed-update/rollback native Linux PID1 scenario; no production signer, cloud, default-stack or generic Go skip acceptance','cleanupComplete':False,'phases':[]};write(out/'receipt.private.json',receipt)
@@ -132,7 +169,7 @@ def main():
  env={'PATH':f['path'],'HOME':str(out),'TMPDIR':str(out),'LANG':'C','TZ':'UTC','GOTOOLCHAIN':'local','GOROOT':f['goRoot'],'GOENV':'off','GOFLAGS':'-mod=readonly','GOCACHE':str(out/'go-cache'),'GOMODCACHE':str(out/'go-modules')}
  config=out/'docker';config.mkdir(mode=0o700);write(config/'config.json',{'cliPluginsExtraDirs':[f['dockerPluginDir']]});env['DOCKER_CONFIG']=str(config)
  command=[f['tools']['docker']['path'],'--host='+ENDPOINT]
- set_diagnostic_stage('docker-admission')
+ set_diagnostic_stage('docker-admission');set_diagnostic_operation('docker-admission')
  guard=OwnedGuard(out,floor=FLOOR,socket_path=ENDPOINT[7:],socket_owner=0,source_contract=P/'SOURCE-CONTRACT.json');assert guard.sourceStartMatched
  pin=None;exec_pin=None;builder_snapshot=None;container_snapshot=None;image=None;context_snapshot=None;cleaning=False;baseline=None
  def save():write(out/'receipt.private.json',receipt)
@@ -140,7 +177,9 @@ def main():
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
  def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None):
   if cleaning:set_diagnostic_stage('cleanup')
-  elif phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
+  else:
+   if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
+   set_diagnostic_operation(operation_for_phase(phase))
   guard.check(cleanup=cleaning,bootstrap=phase=='native-info')
   childenv={**env,**(extra or {})}
   def limits():resource.setrlimit(resource.RLIMIT_FSIZE,(32*1024**2,32*1024**2))
@@ -159,7 +198,9 @@ def main():
  def mutate(argv,phase,timeout=60):
   nonlocal pin
   if cleaning:set_diagnostic_stage('cleanup')
-  elif phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
+  else:
+   if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
+   set_diagnostic_operation(operation_for_phase(phase))
   assert pin is None and exec_pin is None;pin=phase;receipt['unconfirmedDelivery']=phase;save();result=run(argv,phase,timeout);pin=None;receipt['unconfirmedDelivery']=None;save();return result
  def obj(argv,phase):return json.loads(run(argv,phase))
  def absent(kind,value,phase):
@@ -250,7 +291,9 @@ def main():
  def execute(argv,phase,timeout=60):
   nonlocal exec_pin
   if cleaning:set_diagnostic_stage('cleanup')
-  elif phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
+  else:
+   if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
+   set_diagnostic_operation(operation_for_phase(phase))
   assert pin is None and exec_pin is None;c=owned_container(phase+'-before');assert c['State']['Running'] and not c.get('ExecIDs')
   exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario')
   assert not owned_container(phase+'-after').get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
@@ -267,6 +310,7 @@ def main():
   assert [str(pathlib.Path(n).resolve(strict=True)) for n in resolved]==[str(pathlib.Path(f['tools'][k]['path']).resolve(strict=True)) for k in ['go','python','git']]
   receipt['actualResolvedBuildTools']=resolved;save()
   run(['/bin/bash',str(root/'deploy/zenithd/acceptance/build.sh')],'build-original-fixtures',900,cwd=root,docker=False,extra={'ZENITH_UPDATE_FIXTURE_OUT':str(binaries)})
+  set_diagnostic_operation('validate-build-output')
   bind(f);assert (binaries/'source-sha').read_text().strip()==f['sourceCommit'] and (binaries/'source-working-tree.patch').stat().st_size==0
   expected_build_inventory=''.join(f['goBuildInputs'][n]+'  '+n[3:]+'\n' for n in sorted(f['goBuildInputs']))
   assert (binaries/'source-inputs.sha256').read_text()==expected_build_inventory
@@ -275,6 +319,7 @@ def main():
    p=binaries/n;s=p.lstat();assert stat.S_ISREG(s.st_mode) and s.st_nlink==1 and s.st_uid==os.getuid()
    h=p.read_bytes()[:20];assert h[:4]==b'\x7fELF' and h[4:6]==b'\x02\x01' and int.from_bytes(h[18:20],'little')==(183 if f['arch']=='arm64' else 62)
    receipt['binaries'][n]={'sha256':sha(p),'bytes':s.st_size};run([f['tools']['go']['path'],'version','-m',str(p)],'binary-build-info-'+n,docker=False)
+  set_diagnostic_operation('prepare-build-context')
   contextdir=out/'build-context';contextdir.mkdir(mode=0o700);shutil.copyfile(root/'deploy/zenithd/acceptance/Dockerfile',contextdir/'Dockerfile');assert sha(contextdir/'Dockerfile')==sha(root/'deploy/zenithd/acceptance/Dockerfile')
   src=out/'source';src.mkdir(mode=0o700)
   for n in ['deploy/zenithd/acceptance/cgroup-check.sh','deploy/zenithd/zenithd.service']:
@@ -296,24 +341,31 @@ def main():
   execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"; test -z "$(systemctl list-units --all --no-legend "zenith-mach04-*" )"'],'independent-guest-fixture-absence')
   for n,b in receipt['binaries'].items():assert sha(binaries/n)==b['sha256']
   bind(f);receipt['passed']=1;receipt['failed']=receipt['skipped']=0;receipt['status']='passed_pending_cleanup';save()
- except BaseException as e:DIAGNOSTIC_FAILURE=classify_failure(e);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE;receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
+ except BaseException as e:DIAGNOSTIC_FAILURE=classify_failure(e);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE;DIAGNOSTIC_FAILURE_OPERATION=DIAGNOSTIC_OPERATION;receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
  finally:
-  set_diagnostic_stage('cleanup');DIAGNOSTIC_CLEANUP_STATE='in-progress';cleaning=True;guard.cleaning=True
+  set_diagnostic_stage('cleanup');set_diagnostic_operation('cleanup-unknown');set_cleanup_operation('cleanup-reconcile');DIAGNOSTIC_CLEANUP_STATE='in-progress';cleaning=True;guard.cleaning=True
   try:
    reconcile_delivery()
    if container_snapshot:
-    c=owned_container('before-stop');assert not c.get('ExecIDs');mutate(['stop','--time','20',name],'stop-owned-pid1',60);assert not owned_container('after-stop')['State']['Running'];mutate(['rm',name],'remove-owned-container');absent('container',name,'container-absent-after')
-   if builder_snapshot:release_builder()
+    set_cleanup_operation('cleanup-stop-pid1')
+    c=owned_container('before-stop');assert not c.get('ExecIDs');mutate(['stop','--time','20',name],'stop-owned-pid1',60);assert not owned_container('after-stop')['State']['Running']
+    set_cleanup_operation('cleanup-remove-pid1');mutate(['rm',name],'remove-owned-container');absent('container',name,'container-absent-after')
+   if builder_snapshot:
+    set_cleanup_operation('cleanup-release-builder');release_builder()
    if image:
+    set_cleanup_operation('cleanup-remove-image')
     current=obj(['image','inspect',image],'image-before-remove')[0];assert current['Id']==image and current['RepoTags']==[tag] and not current.get('RepoDigests') and image.encode() not in baseline['images'];assert not run(['container','ls','-aq','--filter','ancestor='+image],'image-unused').strip();mutate(['image','rm',image],'remove-exact-owned-image')
    if context_snapshot:
+    set_cleanup_operation('cleanup-remove-context')
     assert obj(['context','inspect',context],'context-before-remove')==context_snapshot;mutate(['context','rm',context],'remove-owned-context')
-   receipt['retainedPrerequisiteImageIds']=sorted(n.decode() for n in set(run(['image','ls','-aq','--no-trunc'],'remaining-prerequisite-images').splitlines())-set(baseline['images']))
+   set_cleanup_operation('cleanup-verify-baseline');receipt['retainedPrerequisiteImageIds']=sorted(n.decode() for n in set(run(['image','ls','-aq','--no-trunc'],'remaining-prerequisite-images').splitlines())-set(baseline['images']))
    assert set(baseline['containers'])<=set(run(['container','ls','-aq','--no-trunc'],'baseline-containers-after').splitlines()) and set(baseline['images'])<=set(run(['image','ls','-aq','--no-trunc'],'baseline-images-after').splitlines()) and set(baseline['volumes'])<=set(run(['volume','ls','-q'],'baseline-volumes-after').splitlines())
-   bind(f);receipt['hostCustody']=guard.close();assert not guard.violation and guard.minimum>=FLOOR and guard.minimum_docker_root is not None and guard.minimum_docker_root>=FLOOR;receipt['cleanupComplete']=True;DIAGNOSTIC_CLEANUP_STATE='completed'
+   bind(f);set_cleanup_operation('cleanup-close-guard');receipt['hostCustody']=guard.close();assert not guard.violation and guard.minimum>=FLOOR and guard.minimum_docker_root is not None and guard.minimum_docker_root>=FLOOR;receipt['cleanupComplete']=True;DIAGNOSTIC_CLEANUP_STATE='completed';DIAGNOSTIC_CLEANUP_FAILURE_CLASS=None;DIAGNOSTIC_CLEANUP_OPERATION=None
    if receipt['status']=='passed_pending_cleanup':receipt['status']='passed'
   except BaseException as e:
-   DIAGNOSTIC_FAILURE=DIAGNOSTIC_FAILURE or classify_failure(e);DIAGNOSTIC_CLEANUP_STATE='failed';receipt['cleanupFailureClass']=type(e).__name__;receipt['cleanupComplete']=False;receipt['status']='failed'
+   DIAGNOSTIC_CLEANUP_FAILURE_CLASS=classify_failure(e);DIAGNOSTIC_FAILURE=DIAGNOSTIC_FAILURE or DIAGNOSTIC_CLEANUP_FAILURE_CLASS
+   DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_FAILURE_STAGE or 'cleanup';DIAGNOSTIC_FAILURE_OPERATION=DIAGNOSTIC_FAILURE_OPERATION or DIAGNOSTIC_CLEANUP_OPERATION or 'cleanup-unknown'
+   DIAGNOSTIC_CLEANUP_STATE='failed';receipt['cleanupFailureClass']=type(e).__name__;receipt['cleanupComplete']=False;receipt['status']='failed'
    if not guard.stop.is_set():
     try:receipt['hostCustody']=guard.close()
     except BaseException:receipt['hostCustodyRefused']=True
@@ -324,10 +376,10 @@ def main():
  write_diagnostic()
  return 0 if receipt['status']=='passed' else 1
 def main_entry():
- global DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_CLEANUP_STATE
+ global DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_STATE
  try:return main()
  except BaseException as error:
-  DIAGNOSTIC_FAILURE=classify_failure(error);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE
+  DIAGNOSTIC_FAILURE=classify_failure(error);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE;DIAGNOSTIC_FAILURE_OPERATION=DIAGNOSTIC_OPERATION
   if DIAGNOSTIC_CLEANUP_STATE=='not-started':DIAGNOSTIC_CLEANUP_STATE='failed'
   try:write_diagnostic()
   except BaseException:pass

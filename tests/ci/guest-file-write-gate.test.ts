@@ -1154,12 +1154,21 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("publishes only fixed SYS1 failure stage and cleanup classes without affecting case admission", () => {
     const manifest = linuxGuestManifest();
-    const diagnostic = { schemaVersion: 1, failureStage: "docker-admission", failureClass: "filesystem", cleanupState: "failed" };
-    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "docker-admission", failureClass: "filesystem", cleanupState: "failed" });
+    const diagnostic = { schemaVersion: 2, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline" };
+    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline" });
+    expect(validatePid1Diagnostic({ schemaVersion: 2, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null }).failureOperation).toBeNull();
+    expect(validatePid1Diagnostic({ ...diagnostic, cleanupFailureClass: null, cleanupOperation: null })).toMatchObject({ failureOperation: "validate-build-output", cleanupState: "failed" });
     for (const invalid of [
       { ...diagnostic, failureStage: "/var/lib/docker" },
       { ...diagnostic, failureClass: "AssertionError: /secret/path" },
       { ...diagnostic, cleanupState: "completed; leaked" },
+      { ...diagnostic, failureOperation: "/private/output" },
+      { ...diagnostic, failureOperation: "unknown-command-argv" },
+      { ...diagnostic, cleanupFailureClass: "AssertionError: /private/tmp" },
+      { ...diagnostic, cleanupOperation: "rm -rf /private/tmp" },
+      { ...diagnostic, cleanupFailureClass: null },
+      { ...diagnostic, cleanupState: "completed" },
+      { ...diagnostic, schemaVersion: 1 },
       { ...diagnostic, environment: { TOKEN: "secret" } },
       { ...diagnostic, failureClass: null },
     ]) expect(() => validatePid1Diagnostic(invalid)).toThrow("pid1-diagnostic");
@@ -1200,7 +1209,9 @@ def popen(_argv, **kwargs):
     spawned.append(child); return child
 with tempfile.TemporaryDirectory() as temp:
     namespace.update({'guard': guard, 'cleaning': False, 'RUN_STAGES': {'native-info':'docker-admission','baseline-containers':'docker-admission'},
-        'set_diagnostic_stage': lambda _stage: None, 'P': pathlib.Path(temp), 'ENDPOINT':'unix:///var/run/docker.sock',
+        'set_diagnostic_stage': lambda _stage: None, 'set_diagnostic_operation': lambda _operation: None,
+        'operation_for_phase': lambda _phase: 'unknown', 'set_cleanup_operation': lambda _operation: None,
+        'P': pathlib.Path(temp), 'ENDPOINT':'unix:///var/run/docker.sock',
         'command':['docker'], 'env':{}, 'out':pathlib.Path(temp), 'f':{'setupHeadroomBytes':0,'attemptByteCap':100},
         'resource':types.SimpleNamespace(RLIMIT_FSIZE=1,setrlimit=lambda *_:None), 'subprocess':types.SimpleNamespace(Popen=popen),
         'time':types.SimpleNamespace(monotonic=lambda:0,sleep=lambda _seconds:None), 'receipt':{'phases':[]}, 'save':lambda:None})

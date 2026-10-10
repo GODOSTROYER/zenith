@@ -300,12 +300,13 @@ const replayAdditionIds = new Set([
   "workflows:tests/workflows/versioning-audit.test.ts:c336390bb162",
   "workflows:tests/workflows/versioning-audit.test.ts:daf8e7f59be8"
 ]);
-function withoutReplayAdditions(items: Requirement[]): Requirement[] {
-  return items.filter(item => !replayAdditionIds.has(item.id));
+const errorBoundaryWorkflowId = "workflows:tests/platform/error-boundary.test.ts:4ee93ed6c454";
+function withoutKnownWorkflowSuccessors(items: Requirement[]): Requirement[] {
+  return items.filter(item => !replayAdditionIds.has(item.id) && item.id !== errorBoundaryWorkflowId);
 }
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
-  return withoutReplayAdditions(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id) && !integrationWorkflowIds.has(item.id));
+  return withoutKnownWorkflowSuccessors(requirementsFor("workflows", sourceRoot)).filter(item => !criticalScheduleWorkflowIds.has(item.id) && !incomingWorkflowIds.has(item.id) && !integrationWorkflowIds.has(item.id));
 }
 function priorWave2WorkflowRequirements() {
   return priorCriticalScheduleWorkflowRequirements().filter(item => !wave2WorkflowIds.has(item.id));
@@ -2432,12 +2433,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(112);
+    expect(manifest.requirements).toHaveLength(113);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(112);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(113);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2699,7 +2700,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(112);
+    expect(requirementsFor("workflows", root)).toHaveLength(113);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -2938,8 +2939,8 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     const manifest = manifestFor("workflows", root);
     expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
     expect(new Set(named().map(item => item.id)).size).toBe(2);
-    expect(manifest.requirements).toHaveLength(112);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(112);
+    expect(manifest.requirements).toHaveLength(113);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(113);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
@@ -3155,8 +3156,11 @@ describe("incoming platform and workflow obligations", () => {
   });
   it("keeps all eight added workflow files in the complete mandatory lane", () => {
     const current = manifestFor("workflows", root);
-    expect(current.requirements).toHaveLength(112);
-    const added = withoutReplayAdditions(current.requirements).filter(item => incomingWorkflowFiles.has(item.file));
+    expect(current.requirements).toHaveLength(113);
+    expect(current.requirements.filter(item => item.id === errorBoundaryWorkflowId)).toEqual([
+      { file: "tests/platform/error-boundary.test.ts", id: errorBoundaryWorkflowId },
+    ]);
+    const added = withoutKnownWorkflowSuccessors(current.requirements).filter(item => incomingWorkflowFiles.has(item.file));
     expect(added).toHaveLength(8);
     expect(new Set(added.map(item => item.file))).toEqual(incomingWorkflowFiles);
     for (const item of added) {
@@ -3172,9 +3176,9 @@ describe("full history codec successor admission", () => {
     const current = manifestFor("workflows", root);
     const codec = current.requirements.filter(item => item.id === historyCodecWorkflowId);
     expect(codec).toHaveLength(1);
-    expect(current.requirements).toHaveLength(112);
-    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(111);
-    const priorWithoutCodec = withoutReplayAdditions(current.requirements).filter(item => item.id !== historyCodecWorkflowId && !integrationWorkflowIds.has(item.id));
+    expect(current.requirements).toHaveLength(113);
+    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(112);
+    const priorWithoutCodec = withoutKnownWorkflowSuccessors(current.requirements).filter(item => item.id !== historyCodecWorkflowId && !integrationWorkflowIds.has(item.id));
     expect(priorWithoutCodec).toHaveLength(75);
     expect(priorWithoutCodec.filter(item => !wave5WorkflowIds.has(item.id))).toHaveLength(70);
     expect(current.excludeFiles).not.toContain(codec[0].file);
@@ -3287,8 +3291,8 @@ describe("mixed run store application-boundary gate", () => {
 describe("mandatory frozen current-code workflow replay", () => {
   const named = (sourceRoot = root) => requirementsFor("workflows", sourceRoot).filter(item => replayAdditionIds.has(item.id));
   it("appends exactly 34 literal checks and preserves the exact 71 predecessor identities", () => {
-    const manifest = manifestFor("workflows", root), added = named(), previous = withoutReplayAdditions(manifest.requirements);
-    expect(manifest.requirements).toHaveLength(112);
+    const manifest = manifestFor("workflows", root), added = named(), previous = withoutKnownWorkflowSuccessors(manifest.requirements);
+    expect(manifest.requirements).toHaveLength(113);
     expect(previous).toHaveLength(78);
     const historicalPrevious = previous.filter(item => !integrationWorkflowIds.has(item.id));
     expect(historicalPrevious).toHaveLength(76);
@@ -3303,7 +3307,7 @@ describe("mandatory frozen current-code workflow replay", () => {
     expect(WORKFLOW_HISTORY_REPLAY_REQUIREMENTS).toHaveLength(34);
     expect(added).toHaveLength(34);
     expect(new Set(added.map(item => item.id))).toEqual(replayAdditionIds);
-    expect(manifest.requirements).toEqual([...previous, ...added]);
+    expect(manifest.requirements.filter(item => item.id !== errorBoundaryWorkflowId)).toEqual([...previous, ...added]);
     expect(added.filter(item => item.suite === "committed workflow histories: inventory and integrity")).toHaveLength(6);
     expect(added.filter(item => item.suite === "committed workflow histories replay against the current bundle")).toHaveLength(21);
     expect(added.filter(item => item.suite === "the replay gate has teeth")).toHaveLength(2);
@@ -3314,7 +3318,7 @@ describe("mandatory frozen current-code workflow replay", () => {
     expect(manifest.excludeFiles).not.toContain("tests/workflows/history-replay.test.ts");
     expect(manifest.excludeFiles).toContain("tests/workflows/history-record.test.ts");
     expect(manifest.command).not.toContain("--passWithNoTests");
-    expect(withoutReplayAdditions([...manifest.requirements, { ...added[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
+    expect(withoutKnownWorkflowSuccessors([...manifest.requirements, { ...added[0], id: "unknown-successor" }]).some(item => item.id === "unknown-successor")).toBe(true);
   });
 
   it("binds all named checks to frozen fixture filenames, declared scenarios and real SDK replay controls", () => {

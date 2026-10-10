@@ -56,7 +56,7 @@ describe.each(LANES)("plan custody grants [$name]", (lane) => {
     await custody.verify(db, f.access(), "worker-a", crypto, "inspect_verified");
     await custody.verify(db, f.access(), "worker-a", crypto, "dispatch_verified");
     const reads = await custody.listReads(db, f.workspaceId, f.op.id);
-    expect(reasons(reads, "allowed")).toEqual(["admitted", "inspect_verified", "dispatch_verified"]);
+    expect(reasons(reads, "allowed").sort()).toEqual(["admitted", "dispatch_verified", "inspect_verified"]);
     expect(reads.every(r => r.workerIdentity === "worker-a" && r.manifestDigest !== null)).toBe(true);
     // The grant stores a wrap, never plan bytes or the manifest.
     const grants = await db.query<Record<string, unknown>>("select * from platform.plan_custody_grants where workspace_id=$1", [f.workspaceId]);

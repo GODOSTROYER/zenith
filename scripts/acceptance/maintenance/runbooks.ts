@@ -32,6 +32,7 @@ export async function registeredRunbookAcceptance(): Promise<Record<string, unkn
   };
   const runbookId = `j4-${randomUUID()}`;
   const activeRuns: string[] = [];
+  let pendingCancellationId: string | undefined;
   try {
     const epoch = await seededEpoch(db);
     const machine = await repos.machines.getMachine(db, target.workspaceId, target.targetId);
@@ -59,6 +60,7 @@ export async function registeredRunbookAcceptance(): Promise<Record<string, unkn
     assert(next.version.version === version.version + 1);
     const pending = await request(`/api/platform/v1/runbooks/${runbookId}/runs`, { version: next.version.version, targets, maxRunDurationSec: 120, maxParallelTargets: 1 }) as { run: RunbookRunRecord };
     activeRuns.push(pending.run.id);
+    pendingCancellationId = pending.run.id;
     assert(pending.run.status === "pending_approval", "Raw exec bypassed independent human approval.");
     await request(`/api/platform/v1/runbooks/runs/${pending.run.id}/cancel`, { reason: "Owned J4 acceptance cancellation" });
     const cancelled = await waitRun(pending.run.id);
@@ -66,11 +68,26 @@ export async function registeredRunbookAcceptance(): Promise<Record<string, unkn
     assert(await seededEpoch(db) === epoch);
     return { schema: 1, level: "local_engine", registeredSignedDelivery: true, brokerSemanticsBound: true, oneDelivery: true, durableEvidence: true, auditJoin: true, pendingCancellation: true, rawExecApprovalRequired: true, epochPreserved: true };
   } finally {
-    try {
+    const errors: unknown[] = [];
     for (const id of activeRuns) {
-      const detail = await request(`/api/platform/v1/runbooks/runs/${id}`) as { run: RunbookRunRecord };
-      if (["approved", "running", "pending_approval"].includes(detail.run.status)) await request(`/api/platform/v1/runbooks/runs/${id}/cancel`, { reason: "Owned J4 cleanup" });
+      try {
+        let detail = await request(`/api/platform/v1/runbooks/runs/${id}`) as unknown as { run: RunbookRunRecord; steps: RunbookStepRecord[]; audit: RunbookAuditRecord[] };
+        if (["approved", "running", "pending_approval"].includes(detail.run.status)) {
+          await request(`/api/platform/v1/runbooks/runs/${id}/cancel`, { reason: "Owned J4 cleanup" });
+          detail = await waitRun(id);
+        }
+        assert(!["approved", "running", "pending_approval"].includes(detail.run.status), "J4 run cancellation did not settle; retain the namespace/database.");
+        if (id === pendingCancellationId) {
+          assert(detail.run.status === "cancelled", "Pre-approval cancellation did not persist; retain the namespace/database.");
+          assert(detail.steps.length === 0 && !detail.audit.some(event => event.event === "run.step.authorized"), "Pre-approval cancellation reached step authorization; retain the namespace/database.");
+          const deliveries = await db.query<{ id: string }>("select mr.id from platform.machine_requests mr join platform.machine_runbook_run_steps s on s.workspace_id=mr.workspace_id and s.operation_id=mr.operation_id where s.workspace_id=$1 and s.run_id=$2", [target.workspaceId, id]);
+          assert(deliveries.length === 0, "Pre-approval cancellation left a machine delivery; retain the namespace/database.");
+        }
+      } catch (error) {
+        errors.push(error);
+      }
     }
-    } finally { await db.close(); }
+    try { await db.close(); } catch (error) { errors.push(error); }
+    if (errors.length) throw new AggregateError(errors, "Owned runbook cleanup is unconfirmed; retain the namespace/database.");
   }
 }

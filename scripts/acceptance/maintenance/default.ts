@@ -2,8 +2,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
-import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { Client, Connection, ScheduleNotFoundError } from "@temporalio/client";
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
@@ -20,12 +18,24 @@ async function wait<T>(read: () => Promise<T | false>, budgetMs = 180_000): Prom
   do { const value = await read(); if (value !== false) return value; await new Promise(resolve => setTimeout(resolve, 1000)); } while (Date.now() < deadline);
   throw new Error("Default maintenance acceptance deadline exceeded.");
 }
+async function closedWithin(child: ChildProcess, timeoutMs: number): Promise<{ code: number | null; signal: NodeJS.Signals | null } | undefined> {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => { child.removeListener("close", onClose); resolve(undefined); }, timeoutMs);
+    const onClose = (code: number | null, signal: NodeJS.Signals | null) => { clearTimeout(timer); resolve({ code, signal }); };
+    child.once("close", onClose);
+  });
+}
 async function stop(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  const closed = once(child, "close");
-  child.kill("SIGTERM");
-  const kill = setTimeout(() => child.kill("SIGKILL"), 15_000);
-  try { await closed; } finally { clearTimeout(kill); }
+  assert(child.exitCode === null && child.signalCode === null, "Owned worker exited before the planned stop.");
+  assert(child.kill("SIGTERM"), "Could not signal the owned worker for shutdown.");
+  let result = await closedWithin(child, 15_000);
+  if (!result) {
+    const killed = child.kill("SIGKILL");
+    result = await closedWithin(child, 5_000);
+    assert(result, "Owned worker did not close after SIGKILL.");
+    assert(killed, "Owned worker required forced termination.");
+  }
+  assert(result.signal === "SIGTERM" || (result.signal === null && result.code === 0), "Owned worker did not stop cleanly after SIGTERM.");
 }
 export async function defaultMaintenanceAcceptance(): Promise<Record<string, unknown>> {
   assert(process.env.ZENITH_TEST_MAINTENANCE === "1", "Not run: needs the Mac default stack and ZENITH_TEST_MAINTENANCE=1.");
@@ -56,7 +66,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       return await response.json() as Record<string, unknown>;
     };
     const start = () => {
-      const child = spawn(process.execPath, [path.resolve("node_modules/tsx/dist/cli.mjs"), "workers/execution/worker.ts"], { env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=1024", ZENITH_WORKER_IDENTITY: `j4-maintenance-${randomUUID()}`, ZENITH_WORKER_RECONCILE_SCHEDULE_MODE: "provision", ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS: "1", ZENITH_WORKER_RECONCILE_CONCURRENCY: "1" }, stdio: "ignore", windowsHide: true });
+      const child = spawn(process.execPath, ["--import", "tsx", "workers/execution/worker.ts"], { env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=1024", ZENITH_WORKER_IDENTITY: `j4-maintenance-${randomUUID()}`, ZENITH_WORKER_RECONCILE_SCHEDULE_MODE: "provision", ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS: "1", ZENITH_WORKER_RECONCILE_CONCURRENCY: "1" }, stdio: "ignore", windowsHide: true });
       child.once("error", () => { /* wait() fails on absent health; no secret-bearing diagnostics */ });
       worker = child;
     };

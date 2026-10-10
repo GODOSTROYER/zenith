@@ -134,7 +134,7 @@
     "@gltf-transform/core": "^4.5.0",
     "@gltf-transform/extensions": "^4.5.0",
     "@gltf-transform/functions": "^4.5.0",
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.2.0",
     "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4.1.7",
     "@temporalio/testing": "1.24.0",

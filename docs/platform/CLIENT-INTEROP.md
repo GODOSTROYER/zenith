@@ -187,13 +187,13 @@ credentials or issuer on the build machine); they are the verifier's checklist.
 
 ### The official MCP SDK client
 
-`@modelcontextprotocol/client` is **not installed** in this repository (only
-`@modelcontextprotocol/server@2.0.0`) and no dependency could be added for this
-requirement, so the automated harness uses its own spec-conformant fetch client
+`@modelcontextprotocol/client` is a regular pinned devDependency in `package.json`
+(exact `2.2.0`, alongside `@modelcontextprotocol/server@2.0.0`). It is pinned at
+2.2.0 because 2.0.0 is affected by GHSA-6qxp-vccf-f47h, which 2.2.0 fixes. The
+automated harness still uses its own spec-conformant fetch client
 (`scripts/agent/mcp-conformance/client.ts`). `--official` runs one connect /
-list / call-with-progress leg through the official client when the verifier
-installs it (`npm install --no-save @modelcontextprotocol/client@2.0.0`). That leg
-is written against the 1.x-shaped API and has **not** been executed.
+list / call-with-progress leg through the official client. That leg is written
+against the 1.x-shaped API and has **not** been executed.
 
 ## 8. Limits, stated plainly
 

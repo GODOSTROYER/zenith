@@ -4515,7 +4515,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J10: pinned official SDK 2.0 conformance and local TLS Keycloak DCR/browser harness built. Targeted in-process verification recorded in verify/PROD-UX-02.md; actual issuer, PostgreSQL and Claude Code/Codex operated acceptance await Mac verification.",
+      "implementationNote": "J10: pinned official SDK 2.2.0 conformance and local TLS Keycloak DCR/browser harness built. Targeted in-process verification recorded in verify/PROD-UX-02.md; actual issuer, PostgreSQL and Claude Code/Codex operated acceptance await Mac verification. MCP client bumped to 2.2.0 on 2026-10-10 to clear GHSA-6qxp-vccf-f47h.",
       "evidence": [],
       "requiredEvidence": [
         "contract",

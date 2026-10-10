@@ -16,7 +16,7 @@
  *   --foreign-principal-token a different valid principal (must not resume your streams)
  *   --only a,b              run only these step ids
  *   --json                  machine-readable output
- *   --official              also run the pinned official MCP SDK 2.0.0 client leg
+ *   --official              also run the pinned official MCP SDK 2.2.0 client leg
  *   --foreign-issuer-token  a valid signed token minted by ANOTHER issuer (must be refused)
  *   --slow-tool / --slow-args a disposable held read for in-flight cancellation
  *   --print-commands        print the commands for real coding-agent clients and exit
@@ -76,7 +76,7 @@ MCP Inspector (any transport-level check, including Last-Event-ID and cancellati
                                            # Authentication header: Authorization: Bearer <token>
 
 Official MCP SDK client
-  npm run agent:conformance -- --official ... # pinned @modelcontextprotocol/client@2.0.0 is installed
+  npm run agent:conformance -- --official ... # pinned @modelcontextprotocol/client@2.2.0 is installed
   # Local Keycloak/TLS/DCR setup and operated-client checklist:
   # docs/build/production/verify/PROD-UX-02.md
 

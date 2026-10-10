@@ -481,9 +481,10 @@ jobs:
 
   verify:
     runs-on: ubuntu-latest
-    # Serial full-suite execution takes about 16 minutes before setup, typecheck
-    # and lint. Keep enough job budget without changing test-level deadlines.
-    timeout-minutes: 45
+    # The complete canonical Node/DOM suites run serially with setup, typecheck,
+    # lint, and final checks in this job. Reserve finite wall time for that full
+    # run without changing test-level deadlines or the canonical test command.
+    timeout-minutes: 90
 
     env:
       # Use an ignored directory in the disposable CI checkout. github.workspace

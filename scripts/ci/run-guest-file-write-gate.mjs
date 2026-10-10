@@ -349,6 +349,32 @@ export function validatePid1Fixture(proof, attemptId, arch, contract, sourceComm
     toolInventorySha256: digest(JSON.stringify(Object.fromEntries(Object.entries(proof.tools).map(([name, row]) => [name, row.sha256])))),
     binaryInventorySha256: digest(JSON.stringify(proof.binaries)), baseImage: proof.baseImage, builderImage: proof.builderImage };
 }
+const PID1_DIAGNOSTIC_STAGES = new Set(["prepare", "bind", "disk-admission", "docker-admission", "fixture-build", "buildkit-builder", "pid1-container", "guest-baseline", "guest-prerequisite", "actual-systemd-case", "guest-postcondition", "cleanup", "complete", "unknown"]);
+const PID1_DIAGNOSTIC_FAILURES = new Set(["assertion", "filesystem", "subprocess", "timeout", "interrupt", "json", "other"]);
+const PID1_DIAGNOSTIC_CLEANUP = new Set(["not-started", "in-progress", "completed", "failed"]);
+/** Fixed, non-sensitive failure metadata; this never contributes test events or admission. */
+export function validatePid1Diagnostic(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["cleanupState", "failureClass", "failureStage", "schemaVersion"].sort())
+    || value.schemaVersion !== 1 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage)
+    || !(value.failureClass === null || PID1_DIAGNOSTIC_FAILURES.has(value.failureClass))
+    || !PID1_DIAGNOSTIC_CLEANUP.has(value.cleanupState)
+    || value.failureClass === null && (value.failureStage !== "complete" || value.cleanupState !== "completed")
+    || value.failureClass !== null && value.failureStage === "complete") throw new Error("pid1-diagnostic");
+  return { failureStage: value.failureStage, failureClass: value.failureClass, cleanupState: value.cleanupState };
+}
+function pid1FixtureDiagnostic(directory) {
+  const file = path.join(directory, "pid1-diagnostic.private.json");
+  let fd;
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.uid !== process.getuid() || st.nlink !== 1 || (st.mode & 0o7777) !== 0o600 || st.size === 0 || st.size > 1024) throw new Error("pid1-diagnostic");
+    return validatePid1Diagnostic(JSON.parse(fs.readFileSync(fd, "utf8")));
+  } catch { return null; }
+  finally { fs.closeSync(fd); }
+}
 function pid1FixtureEvidence(directory, attemptId, arch, contract, commit, raw) {
   const folder = path.join(directory, "pid1-private"); ownedDirectory(folder);
   const fd = fs.openSync(path.join(folder, "terminal.record"), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
@@ -402,11 +428,13 @@ export async function runNativeGate(root = process.cwd(), attemptId = randomByte
       const validation = ["race", "package-native", "pid1-native", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
         verdict: result.observation.observed && result.observation.status === 0 && result.observation.signal === null && raw.length === 0 ? "passed" : "failed",
       };
+      const fixtureDiagnostic = step.id === "pid1-native" && (validation.verdict !== "passed" || result.observation.status !== 0)
+        ? pid1FixtureDiagnostic(directory) : null;
       const fixture = step.id === "package-native" && validation.verdict === "passed" && result.drained && !result.interrupted
         ? packageFixtureEvidence(directory, attemptId, versions.GOARCH, manifest.packagePhase)
         : step.id === "pid1-native" && validation.verdict === "passed" && result.drained && !result.interrupted
           ? pid1FixtureEvidence(directory, attemptId, versions.GOARCH, manifest.pid1Phase, before.commit, raw) : null;
-      evidence.steps.push({ ...(fixture ? { fixture } : {}), id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
+      evidence.steps.push({ ...(fixture ? { fixture } : {}), ...(fixtureDiagnostic ? { fixtureDiagnostic } : {}), id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
       if (validation.verdict !== "passed" || !result.drained || result.interrupted) throw new Error("execution");
     }
     const after = sourceBinding(root);

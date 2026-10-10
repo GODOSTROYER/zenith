@@ -12,9 +12,61 @@ CASE='TestSystemdSignedUpdateAndRollback'
 PACKAGE='github.com/GODOSTROYER/zenith/go/internal/runner/update'
 BASE_IMAGE='ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7'
 BUILD_IMAGE='moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea'
+DIAGNOSTIC_STAGES={'prepare','bind','disk-admission','docker-admission','fixture-build','buildkit-builder','pid1-container','guest-baseline','guest-prerequisite','actual-systemd-case','guest-postcondition','cleanup','complete','unknown'}
+DIAGNOSTIC_FAILURES={'assertion','filesystem','subprocess','timeout','interrupt','json','other'}
+DIAGNOSTIC_CLEANUP={'not-started','in-progress','completed','failed'}
+DIAGNOSTIC_STAGE='prepare'
+DIAGNOSTIC_DIRECTORY=None
+DIAGNOSTIC_FAILURE=None
+DIAGNOSTIC_FAILURE_STAGE=None
+DIAGNOSTIC_CLEANUP_STATE='not-started'
+RUN_STAGES={
+ 'native-info':'docker-admission','baseline-containers':'docker-admission','baseline-images':'docker-admission','baseline-volumes':'docker-admission',
+ 'test-absent':'docker-admission','builder-absent-before':'docker-admission','cache-absent-before':'docker-admission','baseline-contexts':'docker-admission','baseline-builders':'docker-admission','image-absent':'docker-admission',
+ 'resolved-build-tools':'fixture-build','build-original-fixtures':'fixture-build','binary-build-info-zenithd-1.0.0':'fixture-build','binary-build-info-zenithd-1.1.0':'fixture-build','binary-build-info-update-systemd.test':'fixture-build',
+ 'create-owned-context':'buildkit-builder','context-identity':'buildkit-builder','create-owned-builder':'buildkit-builder','builder-captured':'buildkit-builder',
+ 'apt-image-build':'buildkit-builder','loaded-image':'buildkit-builder','release-builder':'buildkit-builder',
+ 'create-disposable-pid1':'pid1-container','container-created':'pid1-container',
+ 'pid1-cgroup-and-clean-baseline':'guest-baseline','installed-apt-package-versions':'guest-prerequisite','actual-one-systemd-scenario':'actual-systemd-case',
+ 'independent-guest-fixture-absence':'guest-postcondition'
+}
 def sha(p):return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 def write(p,v):
  t=p.with_suffix('.new');t.write_text(json.dumps(v,indent=2)+'\n');t.chmod(0o600);os.replace(t,p)
+def set_diagnostic_stage(stage):
+ global DIAGNOSTIC_STAGE
+ DIAGNOSTIC_STAGE=stage if stage in DIAGNOSTIC_STAGES else 'unknown'
+def classify_failure(error):
+ if isinstance(error,AssertionError):return 'assertion'
+ if isinstance(error,(subprocess.TimeoutExpired,TimeoutError)):return 'timeout'
+ if isinstance(error,(InterruptedError,KeyboardInterrupt)):return 'interrupt'
+ if isinstance(error,OSError):return 'filesystem'
+ if isinstance(error,subprocess.SubprocessError):return 'subprocess'
+ if isinstance(error,json.JSONDecodeError):return 'json'
+ return 'other'
+def initialize_diagnostic(root,attempt):
+ global DIAGNOSTIC_DIRECTORY
+ if not re.fullmatch('[a-f0-9]{32}',attempt) or root.resolve()!=root:raise RuntimeError('diagnostic_scope')
+ base=root/'.data-ci-guest';directory=base/('attempt-'+attempt)
+ for path in (base,directory):
+  st=path.lstat()
+  assert stat.S_ISDIR(st.st_mode) and st.st_uid==os.getuid() and stat.S_IMODE(st.st_mode)==0o700
+ DIAGNOSTIC_DIRECTORY=directory
+def write_diagnostic():
+ if DIAGNOSTIC_DIRECTORY is None:return
+ failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
+ row={'schemaVersion':1,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'cleanupState':DIAGNOSTIC_CLEANUP_STATE}
+ assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
+ assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['cleanupState']=='completed')
+ target=DIAGNOSTIC_DIRECTORY/'pid1-diagnostic.private.json';tmp=DIAGNOSTIC_DIRECTORY/('.pid1-diagnostic-'+secrets.token_hex(8)+'.tmp')
+ fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
+ try:
+  with os.fdopen(fd,'wb',closefd=False) as out:out.write((json.dumps(row,separators=(',',':'))+'\n').encode());out.flush();os.fsync(fd)
+ finally:os.close(fd)
+ os.replace(tmp,target)
+ dfd=os.open(DIAGNOSTIC_DIRECTORY,os.O_RDONLY|getattr(os,'O_DIRECTORY',0))
+ try:os.fsync(dfd)
+ finally:os.close(dfd)
 def bind(f):
  root=pathlib.Path(f['root']);assert root.resolve()==root
  assert subprocess.check_output([f['tools']['git']['path'],'rev-parse','HEAD'],cwd=root,text=True).strip()==f['sourceCommit']
@@ -64,11 +116,13 @@ def prepare(root,attempt,arch):
  return private,f
 
 def main():
- global P
+ global P,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_CLEANUP_STATE
  assert __debug__
  a=argparse.ArgumentParser();a.add_argument('--root',required=True);a.add_argument('--attempt',required=True);a.add_argument('--arch',required=True);args=a.parse_args()
- os.umask(0o077);P,f=prepare(pathlib.Path(args.root),args.attempt,args.arch);root=bind(f)
+ os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare')
+ P,f=prepare(root,args.attempt,args.arch);set_diagnostic_stage('bind');root=bind(f)
  assert not pathlib.Path('/c/Users/user/.local/sdk/node22').exists()
+ set_diagnostic_stage('disk-admission')
  assert shutil.disk_usage(P).free>=FLOOR+f['setupHeadroomBytes']
  os.umask(0o077);token=secrets.token_hex(6);out=P/'runtime';out.mkdir(mode=0o700)
  receipt={'status':'failed','diagnosticOnly':False,'scope':'one actual installed signed-update/rollback native Linux PID1 scenario; no production signer, cloud, default-stack or generic Go skip acceptance','cleanupComplete':False,'phases':[]};write(out/'receipt.private.json',receipt)
@@ -78,12 +132,15 @@ def main():
  env={'PATH':f['path'],'HOME':str(out),'TMPDIR':str(out),'LANG':'C','TZ':'UTC','GOTOOLCHAIN':'local','GOROOT':f['goRoot'],'GOENV':'off','GOFLAGS':'-mod=readonly','GOCACHE':str(out/'go-cache'),'GOMODCACHE':str(out/'go-modules')}
  config=out/'docker';config.mkdir(mode=0o700);write(config/'config.json',{'cliPluginsExtraDirs':[f['dockerPluginDir']]});env['DOCKER_CONFIG']=str(config)
  command=[f['tools']['docker']['path'],'--host='+ENDPOINT]
+ set_diagnostic_stage('docker-admission')
  guard=OwnedGuard(out,floor=FLOOR,socket_path=ENDPOINT[7:],socket_owner=0,source_contract=P/'SOURCE-CONTRACT.json');assert guard.sourceStartMatched
  pin=None;exec_pin=None;builder_snapshot=None;container_snapshot=None;image=None;context_snapshot=None;cleaning=False;baseline=None
  def save():write(out/'receipt.private.json',receipt)
  def interrupt(signum,frame):raise InterruptedError('owned interrupt')
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
  def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None):
+  if cleaning:set_diagnostic_stage('cleanup')
+  elif phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
   guard.check(cleanup=cleaning,bootstrap=phase=='native-info')
   childenv={**env,**(extra or {})}
   def limits():resource.setrlimit(resource.RLIMIT_FSIZE,(32*1024**2,32*1024**2))
@@ -91,15 +148,18 @@ def main():
    child=guard.register(subprocess.Popen((command+argv) if docker else argv,cwd=cwd,env=childenv,stdout=stdout,stderr=stderr,start_new_session=True,preexec_fn=limits));deadline=time.monotonic()+timeout
    try:
     while child.poll() is None:
-     guard.check(cleanup=cleaning);assert time.monotonic()<deadline
+     guard.check(cleanup=cleaning)
+     if time.monotonic()>=deadline:raise TimeoutError()
      assert sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink())<=f['attemptByteCap'];time.sleep(.25)
    finally:guard.drain(child)
   receipt['phases'].append({'phase':phase,'exitCode':child.returncode});save()
   if phase=='apt-image-build':receipt['aptBuildOOMObserved']=bool(re.search(rb'(?i)out of memory|oomkilled', (out/(phase+'.stderr.private')).read_bytes()));save()
-  assert child.returncode==0,'fixed phase failed'
+  if child.returncode!=0:raise subprocess.CalledProcessError(child.returncode,'owned-child')
   return (out/(phase+'.stdout.private')).read_bytes()
  def mutate(argv,phase,timeout=60):
   nonlocal pin
+  if cleaning:set_diagnostic_stage('cleanup')
+  elif phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
   assert pin is None and exec_pin is None;pin=phase;receipt['unconfirmedDelivery']=phase;save();result=run(argv,phase,timeout);pin=None;receipt['unconfirmedDelivery']=None;save();return result
  def obj(argv,phase):return json.loads(run(argv,phase))
  def absent(kind,value,phase):
@@ -189,6 +249,8 @@ def main():
   pin=None;receipt['unconfirmedDelivery']=None;save()
  def execute(argv,phase,timeout=60):
   nonlocal exec_pin
+  if cleaning:set_diagnostic_stage('cleanup')
+  elif phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
   assert pin is None and exec_pin is None;c=owned_container(phase+'-before');assert c['State']['Running'] and not c.get('ExecIDs')
   exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario')
   assert not owned_container(phase+'-after').get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
@@ -234,9 +296,9 @@ def main():
   execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"; test -z "$(systemctl list-units --all --no-legend "zenith-mach04-*" )"'],'independent-guest-fixture-absence')
   for n,b in receipt['binaries'].items():assert sha(binaries/n)==b['sha256']
   bind(f);receipt['passed']=1;receipt['failed']=receipt['skipped']=0;receipt['status']='passed_pending_cleanup';save()
- except BaseException as e:receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
+ except BaseException as e:DIAGNOSTIC_FAILURE=classify_failure(e);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE;receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
  finally:
-  cleaning=True;guard.cleaning=True
+  set_diagnostic_stage('cleanup');DIAGNOSTIC_CLEANUP_STATE='in-progress';cleaning=True;guard.cleaning=True
   try:
    reconcile_delivery()
    if container_snapshot:
@@ -248,16 +310,26 @@ def main():
     assert obj(['context','inspect',context],'context-before-remove')==context_snapshot;mutate(['context','rm',context],'remove-owned-context')
    receipt['retainedPrerequisiteImageIds']=sorted(n.decode() for n in set(run(['image','ls','-aq','--no-trunc'],'remaining-prerequisite-images').splitlines())-set(baseline['images']))
    assert set(baseline['containers'])<=set(run(['container','ls','-aq','--no-trunc'],'baseline-containers-after').splitlines()) and set(baseline['images'])<=set(run(['image','ls','-aq','--no-trunc'],'baseline-images-after').splitlines()) and set(baseline['volumes'])<=set(run(['volume','ls','-q'],'baseline-volumes-after').splitlines())
-   bind(f);receipt['hostCustody']=guard.close();assert not guard.violation and guard.minimum>=FLOOR and guard.minimum_docker_root is not None and guard.minimum_docker_root>=FLOOR;receipt['cleanupComplete']=True
+   bind(f);receipt['hostCustody']=guard.close();assert not guard.violation and guard.minimum>=FLOOR and guard.minimum_docker_root is not None and guard.minimum_docker_root>=FLOOR;receipt['cleanupComplete']=True;DIAGNOSTIC_CLEANUP_STATE='completed'
    if receipt['status']=='passed_pending_cleanup':receipt['status']='passed'
   except BaseException as e:
-   receipt['cleanupFailureClass']=type(e).__name__;receipt['cleanupComplete']=False;receipt['status']='failed'
+   DIAGNOSTIC_FAILURE=DIAGNOSTIC_FAILURE or classify_failure(e);DIAGNOSTIC_CLEANUP_STATE='failed';receipt['cleanupFailureClass']=type(e).__name__;receipt['cleanupComplete']=False;receipt['status']='failed'
    if not guard.stop.is_set():
     try:receipt['hostCustody']=guard.close()
     except BaseException:receipt['hostCustodyRefused']=True
   save() # All private setup/binary/log files retained; no host tree deletion.
  terminal={'schemaVersion':1,'attempt':f['attempt'],'arch':f['arch'],'emulated':False,'status':receipt['status'],'cleanupComplete':receipt['cleanupComplete'],'delivery':pin,'execDelivery':exec_pin,'sourceCommit':f['sourceCommit'],'sourceContractSha256':f['sourceContractSha256'],'baseImage':BASE_IMAGE,'builderImage':BUILD_IMAGE,'nativeCases':[CASE],'tools':f['tools'],'binaries':receipt.get('binaries'),'guard':receipt.get('hostCustody'),'rawReportSha256':sha(out/'actual-one-systemd-scenario.stdout.private') if (out/'actual-one-systemd-scenario.stdout.private').is_file() else None}
  write(P/'terminal.record',terminal)
- if receipt['status']=='passed':sys.stdout.buffer.write((out/'actual-one-systemd-scenario.stdout.private').read_bytes())
+ if receipt['status']=='passed':set_diagnostic_stage('complete');sys.stdout.buffer.write((out/'actual-one-systemd-scenario.stdout.private').read_bytes())
+ write_diagnostic()
  return 0 if receipt['status']=='passed' else 1
-if __name__=='__main__':raise SystemExit(main())
+def main_entry():
+ global DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_CLEANUP_STATE
+ try:return main()
+ except BaseException as error:
+  DIAGNOSTIC_FAILURE=classify_failure(error);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE
+  if DIAGNOSTIC_CLEANUP_STATE=='not-started':DIAGNOSTIC_CLEANUP_STATE='failed'
+  try:write_diagnostic()
+  except BaseException:pass
+  return 1
+if __name__=='__main__':raise SystemExit(main_entry())

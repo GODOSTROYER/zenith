@@ -26,6 +26,13 @@ import type { ReconcilePassPorts } from "@/lib/reconcile/pass-types";
 import type { ReconcileSweepActivities, ReconcileSweepResult } from "@/lib/workflows/definitions/reconcileSweep";
 
 describe("durable reconciliation scalar boundary", () => {
+  it("classifies only bounded Temporal startup stderr signatures", () => {
+    expect(classifyTemporalStartupStderr("bind: address already in use")).toBe("address_in_use");
+    expect(classifyTemporalStartupStderr("database is locked")).toBe("database_locked");
+    expect(classifyTemporalStartupStderr("unable to open database file")).toBe("database_open_failed");
+    expect(classifyTemporalStartupStderr("permission denied /private/secret/token")).toBe("permission_denied");
+    expect(classifyTemporalStartupStderr("provider token=/private/secret/token")).toBe("unknown");
+  });
   it("narrows resource pressure with explicit bounded integers", () => {
     expect(reconcileSweepInput()).toEqual({ contract: "zenith.reconcile-sweep.v1", maxEnvironments: 25, environmentConcurrency: 3 });
     expect(Object.isFrozen(reconcileSweepInput())).toBe(true);
@@ -64,18 +71,42 @@ describe("durable reconciliation scalar boundary", () => {
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => { const server = createServer(); server.once("error", reject); server.listen(0, "127.0.0.1", () => { const port = (server.address() as { port: number }).port; server.close((error) => error ? reject(error) : resolve(port)); }); });
 }
+function classifyTemporalStartupStderr(text: string): "address_in_use" | "database_locked" | "database_open_failed" | "permission_denied" | "unknown" {
+  return text.includes("bind: address already in use") ? "address_in_use"
+    : text.includes("database is locked") ? "database_locked"
+    : text.includes("unable to open database file") ? "database_open_failed"
+    : text.includes("permission denied") ? "permission_denied" : "unknown";
+}
 class DurableServer {
   private child?: ChildProcess;
+  private childClosed = false;
+  private launchFailed = false;
+  private startupStderr = Buffer.alloc(0);
+  private startupStderrTruncated = false;
   env?: TestWorkflowEnvironment;
   constructor(readonly cli: string, readonly directory: string, readonly port: number) {}
+  private startupFailure(): Error {
+    // Publish only fixed classifications and process exit metadata, never raw stderr.
+    const classifier = this.launchFailed ? "spawn_failed" : classifyTemporalStartupStderr(this.startupStderr.toString("utf8"));
+    return new Error(`Owned durable Temporal process exited before readiness. ${JSON.stringify({ classifier,
+      exitCode: this.child?.exitCode ?? null, signalCode: this.child?.signalCode ?? null,
+      stderrTruncated: this.startupStderrTruncated })}`);
+  }
   async start(): Promise<void> {
     if (this.port === 7233) throw new Error("Refusing default Temporal port.");
-    this.child = spawn(this.cli, ["--disable-config-env", "--disable-config-file", "server", "start-dev", "--headless", "--ip", "127.0.0.1", "--port", String(this.port), "--http-port", String(await freePort()), "--metrics-port", String(await freePort()), "--db-filename", path.join(this.directory, "owned-temporal.sqlite"), "--search-attribute", "ZenithScheduleOwner=Keyword"], { stdio: "ignore", windowsHide: true });
+    this.childClosed = false; this.launchFailed = false;
+    this.startupStderr = Buffer.alloc(0); this.startupStderrTruncated = false;
+    this.child = spawn(this.cli, ["--disable-config-env", "--disable-config-file", "server", "start-dev", "--headless", "--ip", "127.0.0.1", "--port", String(this.port), "--http-port", String(await freePort()), "--metrics-port", String(await freePort()), "--db-filename", path.join(this.directory, "owned-temporal.sqlite"), "--search-attribute", "ZenithScheduleOwner=Keyword"], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     const child = this.child;
-    let failed = false;
-    child.once("error", () => { failed = true; });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      const remaining = 8192 - this.startupStderr.length;
+      if (chunk.length > remaining) this.startupStderrTruncated = true;
+      if (remaining > 0) this.startupStderr = Buffer.concat([this.startupStderr, chunk.subarray(0, remaining)]);
+    });
+    child.once("error", () => { this.launchFailed = true; });
+    child.once("close", () => { this.childClosed = true; });
     await waitFor("owned durable Temporal frontend", async () => {
-      if (failed || child.exitCode !== null) throw new Error("Owned durable Temporal process exited before readiness.");
+      if (this.launchFailed || this.childClosed) throw this.startupFailure();
       let connection: Connection | undefined;
       try { connection = await Connection.connect({ address: `127.0.0.1:${this.port}`, connectTimeout: 500 }); await connection.workflowService.describeNamespace({ namespace: "default" }); return true; }
       catch { return false; }

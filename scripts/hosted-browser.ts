@@ -11,7 +11,8 @@
  * expensive lie in the suite, because gate 12 is the only one that watches a
  * real rendering engine execute the artifact.
  *
- * What it does, for real, with no doubles:
+ * What it does, with a synthetic identity-provider fixture and no mocked
+ * gateway/build/data modules:
  *
  *   1. publishes `fixtures/tracker-app` through the real `recipe-local` runner
  *      into a real content-addressed artifact and activates the release;
@@ -86,6 +87,22 @@ async function main(): Promise<number> {
   const gateway = await import("@/lib/hosted/gateway");
   const release = await import("@/lib/hosted/release");
 
+  /* The browser journey uses a local identity-provider fixture at the real
+     launch route. Opaque, server-created fixture keys keep identities out of
+     URLs and the app-host cookie jar; this is synthetic auth, not MFA or a
+     provider acceptance claim. */
+  const launchRoute = await import("@/app/api/hosted/apps/[appId]/launch/route");
+  const fixtureSessions = new Map<string, { subject: string; email: string }>();
+  access.setSessionAuthorityForTests(access.supabaseSessionAuthority({
+    createClient: (req) => {
+      const who = fixtureSessions.get(req?.cookies.get("zenith-browser-fixture")?.value ?? "");
+      return { auth: { getUser: async () => ({
+        data: { user: who ? { id: who.subject, email: who.email, email_confirmed_at: "2026-01-01T00:00:00.000Z" } : null },
+        error: null,
+      }) } };
+    },
+  }));
+
   authority.openAuthority();
 
   /* ------------------------- 1. a real published app ---------------------- */
@@ -125,7 +142,15 @@ async function main(): Promise<number> {
 
   /* ------------------------ 2. a loopback app host ----------------------- */
 
-  const server = await journey.startGatewayServer(gateway.handleGateway, {
+  const server = await journey.startGatewayServer(async (req, params) => {
+    const url = new URL(req.url);
+    const controlLaunch = /^\/api\/hosted\/apps\/([^/]+)\/launch$/.exec(url.pathname);
+    const controlHost = new URL(process.env.ZENITH_CONTROL_ORIGIN!).host;
+    if (req.headers.get("host") === controlHost && controlLaunch && req.method === "GET") {
+      return launchRoute.GET(req, { params: Promise.resolve({ appId: decodeURIComponent(controlLaunch[1]!) }) });
+    }
+    return gateway.handleGateway(req, params);
+  }, {
     hosts: ["127.0.0.1", "::1"],
   });
   // The control origin carries the port app hostnames are built with, so the
@@ -135,33 +160,38 @@ async function main(): Promise<number> {
   const appOrigin = `http://${appHost}`;
   process.stdout.write(`gateway listening on ${server.bound.join(", ")}:${server.port} as ${appHost}\n`);
 
-  /* The owner's own session, used for the second-identity conflict. Redeemed
-     over the loopback socket rather than in process, so it is a real cookie. */
-  const ownerState = `state-${randomUUID()}`;
-  const ownerRedirect = new URL((await access.createExchange(app.id, OWNER.subject, ownerState)).redirect);
-  const ownerCallback = await journey.loopbackRequest(server.port, {
-    host: appHost,
-    path: `${ownerRedirect.pathname}${ownerRedirect.search}`,
-  });
-  const ownerCookie = /__Host-zenith_app=([^;]+)/.exec(ownerCallback.setCookie.join("\n"))?.[1];
-  if (!ownerCookie) {
-    process.stderr.write("the owner's exchange did not produce a session cookie; nothing else can run\n");
-    await server.close();
-    return 1;
-  }
-
   /* ----------------------------- 3. the browser -------------------------- */
 
   const { chromium } = await import("playwright-core");
   const attempts: string[] = [];
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let browserName = "";
+  const closeOwned = async (): Promise<void> => {
+    try {
+      await browser?.close();
+    } finally {
+      try {
+        await server.close();
+      } finally {
+        try {
+          await data.closeAllAppData();
+        } finally {
+          fixtureSessions.clear();
+          access.setSessionAuthorityForTests(null);
+          authority.closeAuthority();
+        }
+      }
+    }
+  };
   const candidates: Array<{
     name: string;
     options: Parameters<typeof chromium.launch>[0];
   }> = [
     { name: "chrome", options: { channel: "chrome" } },
     { name: "msedge", options: { channel: "msedge" } },
+    ...(fs.existsSync(chromium.executablePath())
+      ? [{ name: chromium.executablePath(), options: { executablePath: chromium.executablePath() } }]
+      : []),
     ...["/usr/bin/chromium-browser", "/snap/bin/chromium", "/usr/bin/chromium"]
       .filter((executablePath) => fs.existsSync(executablePath))
       .map((executablePath) => ({ name: executablePath, options: { executablePath } })),
@@ -183,13 +213,69 @@ async function main(): Promise<number> {
     }
   }
   if (!browser) {
-    await server.close();
-    await data.closeAllAppData();
-    authority.closeAuthority();
+    await closeOwned();
     process.stderr.write(`${NO_BROWSER_MESSAGE}\n\ntried:\n  ${attempts.join("\n  ")}\n`);
     return 2;
   }
   process.stdout.write(`driving ${browserName} through playwright-core\n`);
+
+  const addFixtureIdentity = async (
+    context: import("playwright-core").BrowserContext,
+    identity: { subject: string; email: string }
+  ): Promise<void> => {
+    const fixtureKey = randomUUID();
+    fixtureSessions.set(fixtureKey, identity);
+    await context.addCookies([{
+      name: "zenith-browser-fixture",
+      value: fixtureKey,
+      url: `http://localhost:${server.port}`,
+      httpOnly: true,
+      sameSite: "Lax",
+    }]);
+  };
+
+  const followSignIn = async (page: import("playwright-core").Page): Promise<void> => {
+    const signin = await page.goto(`${appOrigin}/_zenith/auth/signin`, { waitUntil: "domcontentloaded" });
+    if (signin?.status() !== 200) throw new Error(`sign-in page answered ${signin?.status() ?? "no response"}`);
+    const stateCookie = (await page.context().cookies(appOrigin)).find((one) => one.name === "__Host-zenith_login");
+    if (!stateCookie?.httpOnly || !stateCookie.secure) throw new Error("the sign-in page did not mint its HttpOnly Secure browser nonce");
+    const launchHref = await page.locator("a.go").getAttribute("href");
+    if (!launchHref) throw new Error("the sign-in page did not render its launch link");
+    const launchUrl = new URL(launchHref);
+    if (launchUrl.origin !== `http://localhost:${server.port}` || launchUrl.searchParams.get("state") !== stateCookie.value) {
+      throw new Error("the sign-in link did not carry this browser's nonce to the local control route");
+    }
+    const final = await page.goto(launchUrl.href, { waitUntil: "domcontentloaded" });
+    if (final?.status() !== 200 || new URL(page.url()).host !== appHost) {
+      throw new Error(`the real launch route/callback did not return to the app (${final?.status() ?? "no response"})`);
+    }
+  };
+
+  // Owner session also follows the real sign-in -> control launch -> callback
+  // path, then remains a separate identity for the conflict journey.
+  let ownerCookie = "";
+  try {
+    const ownerContext = await browser.newContext();
+    try {
+      await addFixtureIdentity(ownerContext, OWNER);
+      const ownerPage = await ownerContext.newPage();
+      await followSignIn(ownerPage);
+      const session = (await ownerContext.cookies(appOrigin)).find((one) => one.name === "__Host-zenith_app");
+      if (session) ownerCookie = session.value;
+    } finally {
+      await ownerContext.close();
+    }
+  } catch (err) {
+    const kind = err instanceof Error ? err.name : "Error";
+    process.stderr.write(`the owner's browser launch setup failed (${kind}); nothing else can run\n`);
+    await closeOwned();
+    return 1;
+  }
+  if (!ownerCookie) {
+    process.stderr.write("the owner's browser launch did not produce an app session cookie; nothing else can run\n");
+    await closeOwned();
+    return 1;
+  }
 
   const viewports = [
     { name: "desktop", width: 1280, height: 800 },
@@ -218,6 +304,7 @@ async function main(): Promise<number> {
       hasTouch: viewport.name === "mobile",
       isMobile: false,
     });
+    await addFixtureIdentity(context, recipient);
     const page = await context.newPage();
     const consoleErrors: string[] = [];
     const networkLogs: string[] = [];
@@ -231,20 +318,21 @@ async function main(): Promise<number> {
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     try {
-      /* --- open the app through the real exchange --- */
-      const state = `state-${randomUUID()}`;
-      const redirect = (await access.createExchange(app.id, recipient.subject, state)).redirect;
-      await page.goto(redirect, { waitUntil: "domcontentloaded" });
+      /* --- browser-held nonce through app sign-in and the real launch route --- */
+      await followSignIn(page);
 
       const cookies = await context.cookies();
       const session = cookies.find((one) => one.name === "__Host-zenith_app");
       cookieWasSecure = session ? session.secure : false;
+      const sessionFlags = Boolean(
+        session && session.secure && session.httpOnly && session.sameSite === "Lax" && session.path === "/"
+      );
       record(
         label,
         "the __Host- session cookie is accepted on http://*.localhost",
-        Boolean(session),
+        sessionFlags,
         session
-          ? `secure=${String(session.secure)} httpOnly=${String(session.httpOnly)} path=${session.path}`
+          ? `secure=${String(session.secure)} httpOnly=${String(session.httpOnly)} sameSite=${session.sameSite} path=${session.path}`
           : "Chrome did not store the cookie — a __Host- cookie needs a trustworthy origin"
       );
 
@@ -377,16 +465,14 @@ async function main(): Promise<number> {
       for (const message of [...consoleErrors, ...pageErrors])
         process.stdout.write(`        console: ${message}\n`);
     } catch (err) {
-      record(label, "the journey ran to the end", false, err instanceof Error ? err.message : String(err));
+      const kind = err instanceof Error ? err.name : "Error";
+      record(label, "the journey ran to the end", false, `failed (${kind})`);
     } finally {
       await context.close();
     }
   }
 
-  await browser.close();
-  await server.close();
-  await data.closeAllAppData();
-  authority.closeAuthority();
+  await closeOwned();
 
   const failed = steps.filter((step) => !step.ok);
   const summary = {
@@ -428,6 +514,7 @@ async function tabTo(
 main()
   .then((code) => process.exit(code))
   .catch((err: unknown) => {
-    process.stderr.write(`hosted-browser failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+    const kind = err instanceof Error ? err.name : "Error";
+    process.stderr.write(`hosted-browser failed (${kind})\n`);
     process.exit(1);
   });

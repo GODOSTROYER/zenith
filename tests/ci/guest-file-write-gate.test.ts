@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
-import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, validatePid1Fixture, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
+import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, validatePid1Diagnostic, validatePid1Fixture, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 const pkg = "github.com/GODOSTROYER/zenith/go/internal/machine/ops";
 
@@ -1151,6 +1151,31 @@ describe("mandatory direct native package phase admission", () => {
     const lossless = JSON.parse(JSON.stringify(good())) as FixtureProof;
     expect(lossless.guard.diskCustody.dockerRoot!.identity.fsid).toBe("9007199254740993");
     expect(validatePid1Fixture(lossless, attempt, "arm64", phase, commit, raw).cleanupComplete).toBe(true);
+  });
+  it("publishes only fixed SYS1 failure stage and cleanup classes without affecting case admission", () => {
+    const manifest = linuxGuestManifest();
+    const diagnostic = { schemaVersion: 1, failureStage: "docker-admission", failureClass: "filesystem", cleanupState: "failed" };
+    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "docker-admission", failureClass: "filesystem", cleanupState: "failed" });
+    for (const invalid of [
+      { ...diagnostic, failureStage: "/var/lib/docker" },
+      { ...diagnostic, failureClass: "AssertionError: /secret/path" },
+      { ...diagnostic, cleanupState: "completed; leaked" },
+      { ...diagnostic, environment: { TOKEN: "secret" } },
+      { ...diagnostic, failureClass: null },
+    ]) expect(() => validatePid1Diagnostic(invalid)).toThrow("pid1-diagnostic");
+    expect(validateGoEvents("", goodExit, manifest.pid1Phase).verdict).toBe("failed");
+    expect(fs.readFileSync("scripts/ci/run-guest-file-write-gate.mjs", "utf8")).toContain('step.id === "pid1-native" && (validation.verdict !== "passed" || result.observation.status !== 0)');
+  });
+  it("classifies timeout and interruption before their shared OSError base class", () => {
+    const model = String.raw`
+import importlib.util, json, pathlib, subprocess, sys
+spec = importlib.util.spec_from_file_location('pid1_diagnostic', sys.argv[1])
+module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+print(json.dumps([module.classify_failure(error) for error in [TimeoutError(), InterruptedError(), OSError(), subprocess.TimeoutExpired('owned-child', 1)]]))
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
+    expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toEqual(["timeout", "interrupt", "filesystem", "timeout"]);
   });
   it("refuses each missing root case while the other actual report observations pass", () => {
     const phase = linuxGuestManifest().packagePhase;

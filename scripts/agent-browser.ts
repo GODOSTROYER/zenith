@@ -23,7 +23,12 @@
  *      identity-provider double as NEXT_PUBLIC_SUPABASE_URL — the same single
  *      double `scripts/agent-acceptance.ts` uses, and for the same reason:
  *      `verifyRequestIdentity` refuses rather than admitting an unverified
- *      session, and that behaviour is being kept, not worked around;
+ *      session, and that behaviour is being kept, not worked around. Its
+ *      ephemeral RS256 session carries signed AAL2 and fresh TOTP claims; the
+ *      provider returns a synthetic verified-factor record for the existing
+ *      step-up guard. This exercises that protocol path, not an authenticator
+ *      enrollment or MFA ceremony, and it does not establish acceptance by a
+ *      default Supabase deployment/provider;
  *   3. opens `/agent/link?code=…` **signed out** and checks the middleware
  *      redirect carries the path *and* the query;
  *   4. signs in by installing the cookie `@supabase/ssr` itself minted, and
@@ -54,6 +59,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import net from "node:net";
+import { createSign, generateKeyPairSync, randomUUID } from "node:crypto";
 import type { Request } from "playwright-core";
 import { spawn, type ChildProcess } from "node:child_process";
 
@@ -148,26 +154,43 @@ const record = (viewport: string, name: string, ok: boolean, detail: string): bo
 
 /* --------------------------- the identity provider --------------------------- */
 
-/** A JWT auth-js will decode and then validate by asking the provider. */
-function accessToken(): string {
-  const part = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");
-  return [
-    part({ alg: "HS256", typ: "JWT" }),
-    part({
-      sub: OWNER.subject,
-      email: OWNER.email,
-      aud: "authenticated",
-      role: "authenticated",
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600,
-      user_metadata: { full_name: OWNER.name },
-      app_metadata: {},
-    }),
-    Buffer.alloc(32, 9).toString("base64url"),
-  ].join(".");
+interface SyntheticSigningKey {
+  privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"];
+  jwk: JsonWebKey & { kid: string; use: "sig"; alg: "RS256" };
 }
 
-async function startIdentityProvider(token: string): Promise<{ origin: string; close: () => Promise<void> }> {
+/** The loopback provider's ephemeral signing key; never written or logged. */
+function syntheticSigningKey(): SyntheticSigningKey {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: "jwk" }) as JsonWebKey;
+  return { privateKey, jwk: { ...jwk, kid: randomUUID(), use: "sig", alg: "RS256" } };
+}
+
+/** A short-lived AAL2 test session verified against the loopback JWKS. */
+function accessToken(key: SyntheticSigningKey): string {
+  const part = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const header = part({ alg: "RS256", typ: "JWT", kid: key.jwk.kid });
+  const payload = part({
+    sub: OWNER.subject,
+    email: OWNER.email,
+    aud: "authenticated",
+    role: "authenticated",
+    iat: now,
+    exp: now + 3600,
+    session_id: randomUUID(),
+    aal: "aal2",
+    amr: [{ method: "totp", timestamp: now - 1 }],
+    user_metadata: { full_name: OWNER.name },
+    app_metadata: {},
+  });
+  const signer = createSign("RSA-SHA256");
+  signer.update(`${header}.${payload}`);
+  signer.end();
+  return `${header}.${payload}.${signer.sign(key.privateKey).toString("base64url")}`;
+}
+
+async function startIdentityProvider(token: string, jwk: SyntheticSigningKey["jwk"]): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const send = (status: number, body: unknown): void => {
@@ -175,6 +198,8 @@ async function startIdentityProvider(token: string): Promise<{ origin: string; c
       res.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(text) });
       res.end(text);
     };
+    if (url.pathname === "/auth/v1/.well-known/jwks.json")
+      return send(200, { keys: [jwk] });
     if (url.pathname === "/auth/v1/user") {
       if ((req.headers.authorization ?? "").replace(/^Bearer\s+/i, "") !== token)
         return send(401, { message: "invalid claim: missing sub claim", code: 401 });
@@ -186,6 +211,7 @@ async function startIdentityProvider(token: string): Promise<{ origin: string; c
         email_confirmed_at: "2026-01-01T00:00:00.000Z",
         user_metadata: { full_name: OWNER.name },
         app_metadata: {},
+        factors: [{ id: "synthetic-totp", factor_type: "totp", status: "verified" }],
         created_at: "2026-01-01T00:00:00.000Z",
       });
     }
@@ -219,8 +245,9 @@ async function main(): Promise<number> {
   fs.rmSync(DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(path.join(DATA_DIR, "agent-authority"), { recursive: true, mode: 0o700 });
 
-  const token = accessToken();
-  const provider = await startIdentityProvider(token);
+  const signingKey = syntheticSigningKey();
+  const token = accessToken(signingKey);
+  const provider = await startIdentityProvider(token, signingKey.jwk);
   process.env.NEXT_PUBLIC_SUPABASE_URL = provider.origin;
 
   const port = await freePort();

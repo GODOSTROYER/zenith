@@ -353,12 +353,13 @@ const PID1_DIAGNOSTIC_STAGES = new Set(["prepare", "bind", "disk-admission", "do
 const PID1_DIAGNOSTIC_FAILURES = new Set(["assertion", "filesystem", "subprocess", "timeout", "interrupt", "json", "other"]);
 const PID1_DIAGNOSTIC_CLEANUP = new Set(["not-started", "in-progress", "completed", "failed"]);
 const PID1_APT_BUILD_FAILURE_CLASSES = new Set(["apt-network-marker", "apt-package-marker", "apt-signature-marker", "base-image-pull-marker", "oom-marker", "multiple-signatures", "unknown"]);
+const PID1_HOST_FAILURE_OPERATIONS = new Set(["pre-run-guard", "phase-stream-open", "child-spawn", "child-register", "child-poll", "run-guard-check", "output-cap-scan", "child-drain", "phase-stream-close", "phase-receipt-save", "phase-stdout-read", "apt-stderr-read", "apt-receipt-save", "apt-classifier-read", "unknown"]);
 const PID1_DIAGNOSTIC_OPERATIONS = new Set(["prepare", "bind", "disk-admission", "docker-admission", "resolve-build-tools", "build-original-fixtures", "validate-build-output", "binary-build-metadata", "prepare-build-context", "create-context", "verify-context", "create-builder", "verify-builder", "build-apt-image", "load-apt-image", "release-builder", "create-pid1", "verify-pid1", "guest-baseline", "guest-prerequisite", "actual-systemd-case", "guest-postcondition", "cleanup-reconcile", "cleanup-stop-pid1", "cleanup-remove-pid1", "cleanup-release-builder", "cleanup-remove-image", "cleanup-remove-context", "cleanup-verify-baseline", "cleanup-close-guard", "cleanup-unknown", "unknown"]);
 /** Fixed, non-sensitive failure metadata; this never contributes test events or admission. */
 export function validatePid1Diagnostic(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)
-    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["aptBuildFailureClass", "aptBuildOOMObserved", "childExitCode", "cleanupFailureClass", "cleanupOperation", "cleanupState", "failureClass", "failureOperation", "failureStage", "schemaVersion"].sort())
-    || value.schemaVersion !== 4 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage)
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["aptBuildFailureClass", "aptBuildOOMObserved", "childExitCode", "cleanupFailureClass", "cleanupOperation", "cleanupState", "failureClass", "failureOperation", "failureStage", "hostFailureErrno", "hostFailureOperation", "schemaVersion"].sort())
+    || value.schemaVersion !== 5 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage)
     || !(value.failureClass === null || PID1_DIAGNOSTIC_FAILURES.has(value.failureClass))
     || !PID1_DIAGNOSTIC_CLEANUP.has(value.cleanupState)
     || !(value.failureOperation === null || PID1_DIAGNOSTIC_OPERATIONS.has(value.failureOperation))
@@ -370,13 +371,18 @@ export function validatePid1Diagnostic(value) {
     || !(value.aptBuildFailureClass === null || PID1_APT_BUILD_FAILURE_CLASSES.has(value.aptBuildFailureClass))
     || value.aptBuildFailureClass !== null && (value.failureOperation !== "build-apt-image" || value.failureClass !== "subprocess" || value.childExitCode === null)
     || (value.failureOperation === "build-apt-image" && value.failureClass === "subprocess" && value.childExitCode !== null) !== (value.aptBuildFailureClass !== null)
+    || !(value.hostFailureOperation === null || PID1_HOST_FAILURE_OPERATIONS.has(value.hostFailureOperation))
+    || value.hostFailureOperation !== null && value.failureClass !== "filesystem"
+    || !(value.hostFailureErrno === null || Number.isSafeInteger(value.hostFailureErrno) && value.hostFailureErrno >= 1 && value.hostFailureErrno <= 4095)
+    || value.hostFailureErrno !== null && (value.failureClass !== "filesystem" || value.hostFailureOperation === null)
     || value.failureClass === null && (value.failureStage !== "complete" || value.failureOperation !== null || value.cleanupState !== "completed")
     || value.failureClass !== null && (value.failureStage === "complete" || value.failureOperation === null)
     || (value.cleanupFailureClass === null) !== (value.cleanupOperation === null)
     || value.cleanupFailureClass !== null && value.cleanupState !== "failed") throw new Error("pid1-diagnostic");
   return { failureStage: value.failureStage, failureClass: value.failureClass, failureOperation: value.failureOperation,
     cleanupState: value.cleanupState, cleanupFailureClass: value.cleanupFailureClass, cleanupOperation: value.cleanupOperation,
-    childExitCode: value.childExitCode, aptBuildOOMObserved: value.aptBuildOOMObserved, aptBuildFailureClass: value.aptBuildFailureClass };
+    childExitCode: value.childExitCode, aptBuildOOMObserved: value.aptBuildOOMObserved, aptBuildFailureClass: value.aptBuildFailureClass,
+    hostFailureOperation: value.hostFailureOperation, hostFailureErrno: value.hostFailureErrno };
 }
 function pid1FixtureDiagnostic(directory) {
   const file = path.join(directory, "pid1-diagnostic.private.json");

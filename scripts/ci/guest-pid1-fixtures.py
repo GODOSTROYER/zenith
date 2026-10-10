@@ -27,6 +27,9 @@ DIAGNOSTIC_CLEANUP_OPERATION=None
 DIAGNOSTIC_CHILD_EXIT_CODE=None
 DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=None
 DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=None
+DIAGNOSTIC_HOST_FAILURE_OPERATION=None
+DIAGNOSTIC_HOST_FAILURE_ERRNO=None
+DIAGNOSTIC_HOST_FAILURE_OPERATIONS={'pre-run-guard','phase-stream-open','child-spawn','child-register','child-poll','run-guard-check','output-cap-scan','child-drain','phase-stream-close','phase-receipt-save','phase-stdout-read','apt-stderr-read','apt-receipt-save','apt-classifier-read','unknown'}
 APT_BUILD_STDERR_TAIL_BYTES=65_536
 # Labels describe recognized private-output markers, not asserted build causes.
 APT_BUILD_FAILURE_CLASSES={'apt-network-marker','apt-package-marker','apt-signature-marker','base-image-pull-marker','oom-marker','multiple-signatures','unknown'}
@@ -99,6 +102,15 @@ def classify_apt_build_failure(stderr_path):
  if not matches:return 'unknown'
  if len(matches)>1:return 'multiple-signatures'
  return matches.pop()
+def host_call(operation,callback):
+ global DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO
+ try:return callback()
+ except OSError as error:
+  if DIAGNOSTIC_FAILURE is None and DIAGNOSTIC_HOST_FAILURE_OPERATION is None and not isinstance(error,(TimeoutError,InterruptedError)):
+   DIAGNOSTIC_HOST_FAILURE_OPERATION=operation if operation in DIAGNOSTIC_HOST_FAILURE_OPERATIONS else 'unknown'
+   number=error.errno
+   DIAGNOSTIC_HOST_FAILURE_ERRNO=number if type(number) is int and 1<=number<=4095 else None
+  raise
 def initialize_diagnostic(root,attempt):
  global DIAGNOSTIC_DIRECTORY
  if not re.fullmatch('[a-f0-9]{32}',attempt) or root.resolve()!=root:raise RuntimeError('diagnostic_scope')
@@ -110,7 +122,7 @@ def initialize_diagnostic(root,attempt):
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
- row={'schemaVersion':4,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS}
+ row={'schemaVersion':5,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS,'hostFailureOperation':DIAGNOSTIC_HOST_FAILURE_OPERATION,'hostFailureErrno':DIAGNOSTIC_HOST_FAILURE_ERRNO}
  assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
  assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['failureOperation'] is None and row['cleanupState']=='completed')
  assert row['failureClass'] is None or row['failureOperation'] in DIAGNOSTIC_OPERATIONS
@@ -121,6 +133,9 @@ def write_diagnostic():
  assert row['aptBuildOOMObserved'] is None or type(row['aptBuildOOMObserved']) is bool
  assert row['aptBuildFailureClass'] is None or row['aptBuildFailureClass'] in APT_BUILD_FAILURE_CLASSES and row['failureClass']=='subprocess' and row['failureOperation']=='build-apt-image' and row['childExitCode'] is not None
  assert (row['aptBuildFailureClass'] is not None)==(row['failureClass']=='subprocess' and row['failureOperation']=='build-apt-image' and row['childExitCode'] is not None)
+ assert row['hostFailureOperation'] is None or row['hostFailureOperation'] in DIAGNOSTIC_HOST_FAILURE_OPERATIONS and row['failureClass']=='filesystem'
+ assert row['hostFailureErrno'] is None or type(row['hostFailureErrno']) is int and 1<=row['hostFailureErrno']<=4095 and row['failureClass']=='filesystem' and row['hostFailureOperation'] is not None
+ assert row['hostFailureOperation'] is not None or row['hostFailureErrno'] is None
  target=DIAGNOSTIC_DIRECTORY/'pid1-diagnostic.private.json';tmp=DIAGNOSTIC_DIRECTORY/('.pid1-diagnostic-'+secrets.token_hex(8)+'.tmp')
  fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
  try:
@@ -207,26 +222,35 @@ def main():
   else:
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
    set_diagnostic_operation(operation_for_phase(phase))
-  guard.check(cleanup=cleaning,bootstrap=phase=='native-info')
+  host_call('pre-run-guard',lambda:guard.check(cleanup=cleaning,bootstrap=phase=='native-info'))
   childenv={**env,**(extra or {})}
   def limits():resource.setrlimit(resource.RLIMIT_FSIZE,(32*1024**2,32*1024**2))
-  with (out/(phase+'.stdout.private')).open('xb') as stdout,(out/(phase+'.stderr.private')).open('xb') as stderr:
-   child=guard.register(subprocess.Popen((command+argv) if docker else argv,cwd=cwd,env=childenv,stdout=stdout,stderr=stderr,start_new_session=True,preexec_fn=limits));deadline=time.monotonic()+timeout
+  stdout=host_call('phase-stream-open',lambda:(out/(phase+'.stdout.private')).open('xb'))
+  try:stderr=host_call('phase-stream-open',lambda:(out/(phase+'.stderr.private')).open('xb'))
+  except BaseException:
+   host_call('phase-stream-close',stdout.close);raise
+  try:
+   child=host_call('child-spawn',lambda:subprocess.Popen((command+argv) if docker else argv,cwd=cwd,env=childenv,stdout=stdout,stderr=stderr,start_new_session=True,preexec_fn=limits))
+   child=host_call('child-register',lambda:guard.register(child));deadline=time.monotonic()+timeout
    try:
-    while child.poll() is None:
-     guard.check(cleanup=cleaning,bootstrap=phase=='native-info')
+    while host_call('child-poll',child.poll) is None:
+     host_call('run-guard-check',lambda:guard.check(cleanup=cleaning,bootstrap=phase=='native-info'))
      if time.monotonic()>=deadline:raise TimeoutError()
-     assert sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink())<=f['attemptByteCap'];time.sleep(.25)
-   finally:guard.drain(child)
-  receipt['phases'].append({'phase':phase,'exitCode':child.returncode});save()
+     total=host_call('output-cap-scan',lambda:sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink()))
+     assert total<=f['attemptByteCap'];time.sleep(.25)
+   finally:host_call('child-drain',lambda:guard.drain(child))
+  finally:
+   try:host_call('phase-stream-close',stdout.close)
+   finally:host_call('phase-stream-close',stderr.close)
+  host_call('phase-receipt-save',lambda:(receipt['phases'].append({'phase':phase,'exitCode':child.returncode}),save()))
   if phase=='apt-image-build':
-   DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=bool(re.search(rb'(?i)out of memory|oomkilled', (out/(phase+'.stderr.private')).read_bytes()));receipt['aptBuildOOMObserved']=DIAGNOSTIC_APT_BUILD_OOM_OBSERVED;save()
+   DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=bool(re.search(rb'(?i)out of memory|oomkilled',host_call('apt-stderr-read',lambda:(out/(phase+'.stderr.private')).read_bytes())));receipt['aptBuildOOMObserved']=DIAGNOSTIC_APT_BUILD_OOM_OBSERVED;host_call('apt-receipt-save',save)
   if child.returncode!=0:
    if phase=='apt-image-build' and DIAGNOSTIC_FAILURE is None:
-    DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=classify_apt_build_failure(out/(phase+'.stderr.private'))
+    DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=host_call('apt-classifier-read',lambda:classify_apt_build_failure(out/(phase+'.stderr.private')))
    if DIAGNOSTIC_FAILURE is None and DIAGNOSTIC_CHILD_EXIT_CODE is None:DIAGNOSTIC_CHILD_EXIT_CODE=child.returncode
    raise subprocess.CalledProcessError(child.returncode,'owned-child')
-  return (out/(phase+'.stdout.private')).read_bytes()
+  return host_call('phase-stdout-read',lambda:(out/(phase+'.stdout.private')).read_bytes())
  def mutate(argv,phase,timeout=60):
   nonlocal pin
   if cleaning:set_diagnostic_stage('cleanup')

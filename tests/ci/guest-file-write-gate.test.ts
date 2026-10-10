@@ -1154,15 +1154,18 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("publishes only fixed SYS1 failure stage and cleanup classes without affecting case admission", () => {
     const manifest = linuxGuestManifest();
-    const diagnostic = { schemaVersion: 4, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null };
-    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null });
-    expect(validatePid1Diagnostic({ schemaVersion: 4, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null, aptBuildFailureClass: null }).failureOperation).toBeNull();
+    const diagnostic = { schemaVersion: 5, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null };
+    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null });
+    expect(validatePid1Diagnostic({ schemaVersion: 5, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null }).failureOperation).toBeNull();
     expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: -9, aptBuildOOMObserved: true }).childExitCode).toBe(-9);
     expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: 17 }).childExitCode).toBe(17);
     const aptFailure = { ...diagnostic, failureStage: "buildkit-builder", failureClass: "subprocess", failureOperation: "build-apt-image", cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: 1 };
     for (const failureClass of ["apt-network-marker", "apt-package-marker", "apt-signature-marker", "base-image-pull-marker", "oom-marker", "multiple-signatures", "unknown"] as const) {
       expect(validatePid1Diagnostic({ ...aptFailure, aptBuildFailureClass: failureClass }).aptBuildFailureClass).toBe(failureClass);
     }
+    const hostFailure = { ...diagnostic, failureClass: "filesystem", hostFailureOperation: "phase-stream-open", hostFailureErrno: 13 };
+    expect(validatePid1Diagnostic(hostFailure)).toMatchObject({ hostFailureOperation: "phase-stream-open", hostFailureErrno: 13 });
+    expect(validatePid1Diagnostic({ ...hostFailure, hostFailureErrno: null }).hostFailureErrno).toBeNull();
     expect(validatePid1Diagnostic({ ...diagnostic, cleanupFailureClass: null, cleanupOperation: null })).toMatchObject({ failureOperation: "validate-build-output", cleanupState: "failed" });
     for (const invalid of [
       { ...diagnostic, failureStage: "/var/lib/docker" },
@@ -1182,11 +1185,16 @@ describe("mandatory direct native package phase admission", () => {
       { ...diagnostic, aptBuildFailureClass: "apt-network" },
       { ...aptFailure, aptBuildFailureClass: null },
       { ...aptFailure, childExitCode: null, aptBuildFailureClass: "unknown" },
+      { ...hostFailure, hostFailureOperation: "private filename" },
+      { ...hostFailure, hostFailureErrno: 4096 },
+      { ...diagnostic, hostFailureErrno: 13 },
+      { ...diagnostic, hostFailureOperation: "child-spawn" },
       { ...diagnostic, cleanupFailureClass: null },
       { ...diagnostic, cleanupState: "completed" },
       { ...diagnostic, schemaVersion: 1 },
       { ...diagnostic, schemaVersion: 2 },
       { ...diagnostic, schemaVersion: 3 },
+      { ...diagnostic, schemaVersion: 4 },
       { ...diagnostic, environment: { TOKEN: "secret" } },
       { ...diagnostic, failureClass: null },
     ]) expect(() => validatePid1Diagnostic(invalid)).toThrow("pid1-diagnostic");
@@ -1200,8 +1208,10 @@ source = pathlib.Path(sys.argv[1]).read_text()
 tree = ast.parse(source)
 main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
 run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == 'run')
+host_call = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'host_call')
+host_operations = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'DIAGNOSTIC_HOST_FAILURE_OPERATIONS' for target in node.targets))
 namespace = {}
-exec(compile(ast.Module(body=[run], type_ignores=[]), 'actual-pid1-run', 'exec'), namespace)
+exec(compile(ast.Module(body=[host_operations, host_call, run], type_ignores=[]), 'actual-pid1-run', 'exec'), namespace)
 work = next(node.body for node in main.body if isinstance(node, ast.Try))
 root_admission = next(node for node in work if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute) and node.value.func.attr == 'add_docker_root')
 native_info = next(node for node in work if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == 'obj' and any(isinstance(target, ast.Name) and target.id == 'info' for target in node.targets))
@@ -1226,7 +1236,9 @@ def popen(_argv, **kwargs):
     child = Child(kwargs['stdout']); child.stdout.write(b'{"OSType":"linux","DockerRootDir":"/unavailable"}')
     spawned.append(child); return child
 with tempfile.TemporaryDirectory() as temp:
-    namespace.update({'guard': guard, 'cleaning': False, 'RUN_STAGES': {'native-info':'docker-admission','baseline-containers':'docker-admission'},
+    namespace.update({'guard': guard, 'cleaning': False, 'DIAGNOSTIC_FAILURE': None,
+        'DIAGNOSTIC_HOST_FAILURE_OPERATION': None, 'DIAGNOSTIC_HOST_FAILURE_ERRNO': None,
+        'RUN_STAGES': {'native-info':'docker-admission','baseline-containers':'docker-admission'},
         'set_diagnostic_stage': lambda _stage: None, 'set_diagnostic_operation': lambda _operation: None,
         'operation_for_phase': lambda _phase: 'unknown', 'set_cleanup_operation': lambda _operation: None,
         'P': pathlib.Path(temp), 'ENDPOINT':'unix:///var/run/docker.sock',
@@ -1271,7 +1283,8 @@ main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and 
 run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == "run")
 classify = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "classify_apt_build_failure")
 write_diagnostic = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "write_diagnostic")
-constant_names = {"APT_BUILD_STDERR_TAIL_BYTES", "APT_BUILD_FAILURE_CLASSES", "APT_BUILD_FAILURE_SIGNATURES"}
+host_call = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "host_call")
+constant_names = {"APT_BUILD_STDERR_TAIL_BYTES", "APT_BUILD_FAILURE_CLASSES", "APT_BUILD_FAILURE_SIGNATURES", "DIAGNOSTIC_HOST_FAILURE_OPERATIONS"}
 constants = [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in constant_names for target in node.targets)]
 namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": secrets,
     "DIAGNOSTIC_STAGES": {"buildkit-builder", "complete"}, "DIAGNOSTIC_FAILURES": {"subprocess"}, "DIAGNOSTIC_CLEANUP": {"not-started", "completed"},
@@ -1280,8 +1293,9 @@ namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": se
     "DIAGNOSTIC_STAGE": "buildkit-builder", "DIAGNOSTIC_OPERATION": "build-apt-image",
     "DIAGNOSTIC_CLEANUP_STATE": "not-started", "DIAGNOSTIC_CLEANUP_FAILURE_CLASS": None,
     "DIAGNOSTIC_CLEANUP_OPERATION": None, "DIAGNOSTIC_CHILD_EXIT_CODE": None,
-    "DIAGNOSTIC_APT_BUILD_OOM_OBSERVED": None, "DIAGNOSTIC_APT_BUILD_FAILURE_CLASS": None}
-exec(compile(ast.Module(body=constants + [run, classify, write_diagnostic], type_ignores=[]), "actual-sys1-diagnostic-functions", "exec"), namespace)
+    "DIAGNOSTIC_APT_BUILD_OOM_OBSERVED": None, "DIAGNOSTIC_APT_BUILD_FAILURE_CLASS": None,
+    "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None}
+exec(compile(ast.Module(body=constants + [host_call, run, classify, write_diagnostic], type_ignores=[]), "actual-sys1-diagnostic-functions", "exec"), namespace)
 class Child:
     def __init__(self, returncode): self.returncode = returncode
     def poll(self): return self.returncode
@@ -1312,6 +1326,7 @@ with tempfile.TemporaryDirectory() as temp:
     namespace["write_diagnostic"]()
     success_row = json.loads((successful_diag / "pid1-diagnostic.private.json").read_text())
     assert success_row["childExitCode"] is None and success_row["aptBuildOOMObserved"] is False and success_row["aptBuildFailureClass"] is None
+    assert success_row["hostFailureOperation"] is None and success_row["hostFailureErrno"] is None
     namespace.update({"DIAGNOSTIC_DIRECTORY": diag, "DIAGNOSTIC_CLEANUP_STATE": "not-started"})
     failed_out = out / "failure"; failed_out.mkdir(mode=0o700); namespace["out"] = failed_out
     try: namespace["run"](["buildx", "build"], "apt-image-build")
@@ -1323,10 +1338,114 @@ with tempfile.TemporaryDirectory() as temp:
     serialized = (diag / "pid1-diagnostic.private.json").read_text()
     row = json.loads(serialized)
     assert row["childExitCode"] == 23 and row["aptBuildOOMObserved"] is True and row["aptBuildFailureClass"] == "oom-marker"
+    assert row["hostFailureOperation"] is None and row["hostFailureErrno"] is None
     assert "OOMKilled" not in serialized and "/private/" not in serialized
 `;
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
+  it("serializes only bounded host operation and errno from actual run wrapper failures", () => {
+    const model = String.raw`
+import ast, errno, json, os, pathlib, re, secrets, subprocess, sys, tempfile, types
+source_path = pathlib.Path(sys.argv[1]); tree = ast.parse(source_path.read_text())
+main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == "run")
+host_call = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "host_call")
+classify_failure = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "classify_failure")
+write_diagnostic = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "write_diagnostic")
+constant_names = {"DIAGNOSTIC_STAGES", "DIAGNOSTIC_FAILURES", "DIAGNOSTIC_CLEANUP", "DIAGNOSTIC_OPERATIONS", "DIAGNOSTIC_HOST_FAILURE_OPERATIONS"}
+constants = [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in constant_names for target in node.targets)]
+namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": secrets, "subprocess": subprocess,
+    "DIAGNOSTIC_DIRECTORY": None, "DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_FAILURE_STAGE": None, "DIAGNOSTIC_FAILURE_OPERATION": None,
+    "DIAGNOSTIC_CLEANUP_STATE": "completed", "DIAGNOSTIC_CLEANUP_FAILURE_CLASS": None, "DIAGNOSTIC_CLEANUP_OPERATION": None,
+    "DIAGNOSTIC_CHILD_EXIT_CODE": None, "DIAGNOSTIC_APT_BUILD_OOM_OBSERVED": None, "DIAGNOSTIC_APT_BUILD_FAILURE_CLASS": None,
+    "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None,
+    "DIAGNOSTIC_STAGE": "fixture-build", "DIAGNOSTIC_OPERATION": "build-original-fixtures",
+    "RUN_STAGES": {"build-original-fixtures": "fixture-build"}, "operation_for_phase": lambda _phase: "build-original-fixtures"}
+exec(compile(ast.Module(body=constants + [host_call, classify_failure, write_diagnostic, run], type_ignores=[]), "actual-sys1-run-diagnostic", "exec"), namespace)
+class Child:
+    returncode = 0
+    def poll(self): return self.returncode
+class Guard:
+    def check(self, **_kwargs): pass
+    def register(self, child): return child
+    def drain(self, _child): pass
+cases = ["phase-stream-open", "child-spawn", "phase-receipt-save", "phase-stdout-read"]
+expected_errno = {"phase-stream-open": errno.EEXIST, "child-spawn": errno.EACCES,
+    "phase-receipt-save": errno.ENOSPC, "phase-stdout-read": errno.ENOENT}
+with tempfile.TemporaryDirectory() as temp:
+    root = pathlib.Path(temp)
+    for case in cases:
+        out = root / case; out.mkdir(mode=0o700)
+        diag = root / (case + "-diagnostic"); diag.mkdir(mode=0o700)
+        if case == "phase-stream-open": (out / "build-original-fixtures.stdout.private").touch()
+        def popen(_argv, **kwargs):
+            if case == "child-spawn": raise PermissionError(errno.EACCES, "private path /must-not-serialize")
+            if case == "phase-stdout-read": (out / "build-original-fixtures.stdout.private").unlink()
+            return Child()
+        def save():
+            if case == "phase-receipt-save": raise OSError(errno.ENOSPC, "private path /must-not-serialize")
+        namespace.update({"DIAGNOSTIC_DIRECTORY": diag, "DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_FAILURE_STAGE": None,
+            "DIAGNOSTIC_FAILURE_OPERATION": None, "DIAGNOSTIC_CLEANUP_STATE": "completed", "DIAGNOSTIC_CLEANUP_FAILURE_CLASS": None,
+            "DIAGNOSTIC_CLEANUP_OPERATION": None, "DIAGNOSTIC_CHILD_EXIT_CODE": None,
+            "DIAGNOSTIC_APT_BUILD_OOM_OBSERVED": None, "DIAGNOSTIC_APT_BUILD_FAILURE_CLASS": None,
+            "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None,
+            "cleaning": False, "set_diagnostic_stage": lambda _stage: None, "set_diagnostic_operation": lambda _operation: None,
+            "guard": Guard(), "env": {}, "command": ["docker"], "out": out, "f": {"attemptByteCap": 1024},
+            "resource": types.SimpleNamespace(RLIMIT_FSIZE=1, setrlimit=lambda *_args: None),
+            "subprocess": types.SimpleNamespace(Popen=popen, CalledProcessError=subprocess.CalledProcessError,
+                TimeoutExpired=subprocess.TimeoutExpired, SubprocessError=subprocess.SubprocessError),
+            "time": types.SimpleNamespace(monotonic=lambda: 0, sleep=lambda _seconds: None), "receipt": {"phases": []}, "save": save})
+        try: namespace["run"](["buildx", "build"], "build-original-fixtures")
+        except OSError as error:
+            namespace.update({"DIAGNOSTIC_FAILURE": namespace["classify_failure"](error),
+                "DIAGNOSTIC_FAILURE_STAGE": "fixture-build", "DIAGNOSTIC_FAILURE_OPERATION": "build-original-fixtures"})
+        else: raise AssertionError("synthetic host failure unexpectedly passed: " + case)
+        namespace["write_diagnostic"]()
+        serialized = (diag / "pid1-diagnostic.private.json").read_text()
+        row = json.loads(serialized)
+        assert row["failureClass"] == "filesystem" and row["failureOperation"] == "build-original-fixtures"
+        assert row["hostFailureOperation"] == case and row["hostFailureErrno"] == expected_errno[case]
+        assert "must-not-serialize" not in serialized and "/tmp/" not in serialized and "private path" not in serialized
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+    expect(child.stdout).toBe("");
+  });
+  it("retains only the first filesystem operation and bounded errno before cleanup", () => {
+    const model = String.raw`
+import ast, errno, pathlib, sys
+source_path = pathlib.Path(sys.argv[1]); tree = ast.parse(source_path.read_text())
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "host_call")
+constants = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "DIAGNOSTIC_HOST_FAILURE_OPERATIONS" for target in node.targets))
+namespace = {"DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None}
+exec(compile(ast.Module(body=[constants, helper], type_ignores=[]), "actual-sys1-host-diagnostic", "exec"), namespace)
+def fail(error):
+    def raise_error(): raise error
+    try: namespace["host_call"]("child-spawn", raise_error)
+    except OSError: pass
+    else: raise AssertionError("synthetic OSError unexpectedly passed")
+fail(PermissionError(errno.EACCES, "private path must not be serialized"))
+assert namespace["DIAGNOSTIC_HOST_FAILURE_OPERATION"] == "child-spawn"
+assert namespace["DIAGNOSTIC_HOST_FAILURE_ERRNO"] == errno.EACCES
+namespace["DIAGNOSTIC_FAILURE"] = "filesystem"
+fail(OSError(errno.EIO, "another private path"))
+assert namespace["DIAGNOSTIC_HOST_FAILURE_OPERATION"] == "child-spawn" and namespace["DIAGNOSTIC_HOST_FAILURE_ERRNO"] == errno.EACCES
+namespace.update({"DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None})
+fail(OSError("errno unavailable"))
+assert namespace["DIAGNOSTIC_HOST_FAILURE_OPERATION"] == "child-spawn" and namespace["DIAGNOSTIC_HOST_FAILURE_ERRNO"] is None
+namespace.update({"DIAGNOSTIC_FAILURE": "assertion", "DIAGNOSTIC_HOST_FAILURE_OPERATION": None, "DIAGNOSTIC_HOST_FAILURE_ERRNO": None})
+fail(OSError(errno.EIO, "cleanup private path"))
+assert namespace["DIAGNOSTIC_HOST_FAILURE_OPERATION"] is None and namespace["DIAGNOSTIC_HOST_FAILURE_ERRNO"] is None
+namespace.update({"DIAGNOSTIC_FAILURE": None})
+fail(TimeoutError(errno.ETIMEDOUT, "timeout must keep its existing classification"))
+assert namespace["DIAGNOSTIC_HOST_FAILURE_OPERATION"] is None and namespace["DIAGNOSTIC_HOST_FAILURE_ERRNO"] is None
+fail(InterruptedError(errno.EINTR, "interrupt must keep its existing classification"))
+assert namespace["DIAGNOSTIC_HOST_FAILURE_OPERATION"] is None and namespace["DIAGNOSTIC_HOST_FAILURE_ERRNO"] is None
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+    expect(child.stdout).toBe("");
   });
   it("classifies only fixed apt build signatures from a bounded stderr tail", () => {
     const model = String.raw`

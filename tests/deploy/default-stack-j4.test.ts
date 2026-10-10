@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import os from "node:os";
@@ -436,6 +436,8 @@ describe("J4 deferred default-stack admission", () => {
   it("retries a failed canonical readiness without contacting the retired J4 Temporal endpoint", async () => {
     const fixture = makeFixture();
     try {
+      mkdirSync(path.join(fixture.directory, "tls"), { mode: 0o700 });
+      writeFileSync(path.join(fixture.directory, "tls/ca.crt"), "fixture CA for the mocked product-database connection\n", { mode: 0o600 });
       const epoch = "2026-10-10 00:00:00+00";
       const runId = "9e5927e3-f12a-4888-a9d8-63e340fd365a";
       const closure = {
@@ -507,6 +509,7 @@ describe("J4 deferred default-stack admission", () => {
 
   it("keeps J4 credentials when the final owned-resource inventory is not empty", async () => {
     const fixture = makeFixture();
+    vi.stubEnv("ZENITH_ACCEPTANCE_DEFAULT_STACK", "1");
     try {
       const docker = installDockerInventoryMock(fixture.state, true);
       await expect(cleanupDefaultStack(fixture.state)).rejects.toThrow("default-stack:owned-resources-remain");
@@ -517,12 +520,14 @@ describe("J4 deferred default-stack admission", () => {
       expect(existsSync(path.join(fixture.directory, "j4/data/plans"))).toBe(true);
       expect(existsSync(path.join(fixture.directory, "j4/ownership.json"))).toBe(true);
     } finally {
+      vi.unstubAllEnvs();
       rmSync(fixture.directory, { recursive: true, force: true });
     }
   });
 
   it("rejects symlinked J4 credentials and a foreign ownership manifest after inventory is empty", async () => {
     const fixture = makeFixture();
+    vi.stubEnv("ZENITH_ACCEPTANCE_DEFAULT_STACK", "1");
     try {
       seedCleanupReceipts(fixture.directory);
       const docker = installDockerInventoryMock(fixture.state, false);
@@ -548,12 +553,14 @@ describe("J4 deferred default-stack admission", () => {
       expect(existsSync(path.join(fixture.directory, "j4/cron.secret"))).toBe(true);
       expect(existsSync(path.join(fixture.directory, "j4/data/plans"))).toBe(true);
     } finally {
+      vi.unstubAllEnvs();
       rmSync(fixture.directory, { recursive: true, force: true });
     }
   });
 
   it("deletes J4 credentials only after empty inventory and retains nonsecret receipts and ownership", async () => {
     const fixture = makeFixture();
+    vi.stubEnv("ZENITH_ACCEPTANCE_DEFAULT_STACK", "1");
     try {
       seedCleanupReceipts(fixture.directory);
       const docker = installDockerInventoryMock(fixture.state, false);
@@ -569,6 +576,7 @@ describe("J4 deferred default-stack admission", () => {
       expect(existsSync(path.join(fixture.directory, "j4-completion.receipt.json"))).toBe(true);
       expect(existsSync(path.join(fixture.directory, "cleanup.receipt.json"))).toBe(true);
     } finally {
+      vi.unstubAllEnvs();
       rmSync(fixture.directory, { recursive: true, force: true });
     }
   });

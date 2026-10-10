@@ -121,7 +121,9 @@ export function deferredJ4Composition(document, apiEnvFile, namespace, temporalP
   return result;
 }
 
-/** Install the private overlay while keeping every canonical prepared file byte-exact. */
+/** Install the private overlay while keeping every canonical prepared file byte-exact.
+ * @param {string | Buffer | undefined} [deferredCompositionBytes]
+ */
 export function prepareJ4Ownership(state, config, compositionBytes, j4 = {}, deferredCompositionBytes = undefined) {
   if (state.profile !== 'lean' || !/^j4-[a-z0-9-]{1,50}$/.test(j4.namespace ?? '') || j4.temporalPort !== ports.j4Temporal) fail('j4-options');
   const dir = path.join(state.directory, 'j4'); fs.mkdirSync(dir, { mode: 0o700 }); assertPrivate(dir, true);
@@ -340,10 +342,12 @@ export async function verifyJ4Prestart(state) {
   return { receipt, currentDatabase, currentTemporal, services, api };
 }
 
+/** @returns {Record<string, string>} */
 export function j4HostEnvironment(state) {
   const config = readPrepared(path.join(state.directory, 'installation'));
   const manifest = readOwnership(state.directory);
   assertDeferredJ4State(state, manifest);
+  /** @type {Record<string, string>} */
   const env = { ...environmentsFor(config, path.join(state.directory, 'installation'))['worker.env'], NODE_EXTRA_CA_CERTS: path.join(state.directory, 'tls/ca.crt') };
   const pooler = new URL(config.environment.SUPABASE_DB_URL); pooler.hostname = 'localhost'; pooler.port = String(ports.pooler);
   env.SUPABASE_DB_URL = env.ZENITH_PLATFORM_DB_URL = env.ZENITH_PLATFORM_MIGRATION_URL = pooler.href;

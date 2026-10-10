@@ -82,7 +82,11 @@ function makeFixture() {
     const config = prepare({
       mode: "disposable",
       apiPort: 36400,
-      images: Object.fromEntries(["api", "worker", "migration"].map((name, index) => [name, `registry.local/zenith/${name}@sha256:${String(index + 1).repeat(64)}`])),
+      images: {
+        api: `registry.local/zenith/api@sha256:${"1".repeat(64)}`,
+        worker: `registry.local/zenith/worker@sha256:${"2".repeat(64)}`,
+        migration: `registry.local/zenith/migration@sha256:${"3".repeat(64)}`,
+      },
       environment: {
         SUPABASE_URL: "https://supabase.localhost:54321",
         NEXT_PUBLIC_SUPABASE_URL: "https://supabase.localhost:54321",

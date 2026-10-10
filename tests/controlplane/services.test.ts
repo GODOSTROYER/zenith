@@ -61,13 +61,34 @@ describe.each(LANES)("services [$name]", (lane) => {
     it("keeps renewing while fn runs: a short lease outlives its ttl and nobody can take it", async () => {
       const s = scope();
       let stolen: Lease | null | undefined;
-      await withLease(db(), { scope: s, holder: "worker-a", ttlMs: 400, renewEveryMs: 100 }, async (_lease, signal) => {
-        await sleep(900); // > 2x the ttl
+      await withLease(db(), { scope: s, holder: "worker-a", ttlMs: 2_000, renewEveryMs: 250 }, async (initialLease, signal) => {
+        const started = performance.now();
+        const { holder, fenceToken, expiresAt: initialExpiry } = initialLease;
+        let previousExpiry = initialExpiry;
+        const expectRenewedLease = async (): Promise<void> => {
+          const current = await repos.leases.current(db(), s);
+          expect(current).toMatchObject({
+            scope: s,
+            holder,
+            fenceToken,
+          });
+          expect(Date.parse(current!.expiresAt)).toBeGreaterThan(Date.parse(previousExpiry));
+          previousExpiry = current!.expiresAt;
+        };
+
+        await sleep(2_100);
+        expect(performance.now() - started).toBeGreaterThanOrEqual(2_100);
+        await expectRenewedLease();
+        await sleep(2_100);
+        expect(performance.now() - started).toBeGreaterThanOrEqual(4_200);
+        await expectRenewedLease();
+
         stolen = await repos.leases.acquire(db(), { scope: s, holder: "thief", ttlMs: 5_000 });
         expect(signal.aborted).toBe(false);
       });
       expect(stolen).toBeNull();
-    });
+      expect(await repos.leases.current(db(), s)).toBeNull();
+    }, 8_000);
 
     it("aborts the signal when the lease is taken over, and throws LeaseLostError even if fn returns normally", async () => {
       const s = scope();

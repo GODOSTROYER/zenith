@@ -7,7 +7,7 @@ export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const cliVersion = '2.75.0';
 export const installationLabel = 'io.zenith.installation';
 export const projectLabel = 'com.supabase.cli.project';
-export const ports = Object.freeze({ api: 36400, peerApi: 36401, supabase: 54321, cliApi: 54326, db: 54322, shadow: 54320, mail: 8025, pooler: 6543, cliPooler: 54329, registry: 5000 });
+export const ports = Object.freeze({ api: 36400, peerApi: 36401, supabase: 54321, cliApi: 54326, db: 54322, shadow: 54320, mail: 8025, pooler: 6543, cliPooler: 54329, registry: 5000, j4Temporal: 17233 });
 export const fail = id => { throw new Error(`default-stack:${id}`); };
 export const minimumFreeBytes = 22 * 1024 ** 3;
 export function assertHeadroom(availableBytes) {

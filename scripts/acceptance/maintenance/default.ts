@@ -25,7 +25,12 @@ async function closedWithin(child: ChildProcess, timeoutMs: number): Promise<{ c
     child.once("close", onClose);
   });
 }
-export async function stopOwnedWorker(child: ChildProcess): Promise<void> {
+interface WorkerOwnership { restartOrdinal: number; workerIdentity: string }
+interface WorkerCloseout extends WorkerOwnership { pid: number; closed: true; exitCode: number | null; signal: NodeJS.Signals | null }
+const workerOwnership = new WeakMap<ChildProcess, WorkerOwnership>();
+export async function stopOwnedWorker(child: ChildProcess): Promise<WorkerCloseout | undefined> {
+  const ownership = workerOwnership.get(child);
+  assert(Number.isSafeInteger(child.pid) && child.pid! > 0, "Owned worker identity is unavailable.");
   assert(child.exitCode === null && child.signalCode === null, "Owned worker exited before the planned stop.");
   assert(child.kill("SIGTERM"), "Could not signal the owned worker for shutdown.");
   let result = await closedWithin(child, 15_000);
@@ -36,6 +41,8 @@ export async function stopOwnedWorker(child: ChildProcess): Promise<void> {
     assert(killed, "Owned worker required forced termination.");
   }
   assert(result.signal === "SIGTERM" || (result.signal === null && result.code === 0), "Owned worker did not stop cleanly after SIGTERM.");
+  assert(result.signal === "SIGTERM" && result.code === null || result.signal === null && result.code === 0, "Owned worker close event was not a graceful SIGTERM settlement.");
+  return ownership ? { pid: child.pid!, ...ownership, closed: true, exitCode: result.code, signal: result.signal } : undefined;
 }
 export async function defaultMaintenanceAcceptance(): Promise<Record<string, unknown>> {
   assert(process.env.ZENITH_TEST_MAINTENANCE === "1", "Not run: needs the Mac default stack and ZENITH_TEST_MAINTENANCE=1.");
@@ -43,6 +50,10 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
   localUrl(process.env.ZENITH_J4_API_ORIGIN ?? "", ["http:", "https:"]);
   const db = await openPlatformDb({ kind: "postgres", url: process.env.ZENITH_PLATFORM_DB_URL!, migrate: false, max: 2 });
   let connection: Connection | undefined, worker: ChildProcess | undefined;
+  let restartOrdinal = 0;
+  const workerClosures: WorkerCloseout[] = [];
+  const hostWorkerClosure = { schemaVersion: 1, kind: "owned_child_closeouts", runId: randomUUID(),
+    namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, children: workerClosures, graceful: false as boolean };
   const ownedSchedules: string[] = [];
   const workspaceId = `j4-billing-${randomUUID()}`;
   try {
@@ -66,8 +77,11 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       return await response.json() as Record<string, unknown>;
     };
     const start = () => {
-      const child = spawn(process.execPath, ["--import", "tsx", "workers/execution/worker.ts"], { env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=1024", ZENITH_WORKER_IDENTITY: `j4-maintenance-${randomUUID()}`, ZENITH_WORKER_RECONCILE_SCHEDULE_MODE: "provision", ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS: "1", ZENITH_WORKER_RECONCILE_CONCURRENCY: "1" }, stdio: "ignore", windowsHide: true });
+      const identity = `j4-maintenance-${randomUUID()}`;
+      const child = spawn(process.execPath, ["--import", "tsx", "workers/execution/worker.ts"], { env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=1024", ZENITH_WORKER_IDENTITY: identity, ZENITH_WORKER_RECONCILE_SCHEDULE_MODE: "provision", ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS: "1", ZENITH_WORKER_RECONCILE_CONCURRENCY: "1" }, stdio: "ignore", windowsHide: true });
       child.once("error", () => { /* wait() fails on absent health; no secret-bearing diagnostics */ });
+      restartOrdinal++;
+      workerOwnership.set(child, { restartOrdinal, workerIdentity: identity });
       worker = child;
     };
     const healthy = async (minimum: number) => {
@@ -113,7 +127,9 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
         assert((await repos.scheduledJobs.getScheduledJob(db, "billing"))!.runsTotal === billingBefore, "A second billing pass overlapped.");
       });
     });
-    await stopOwnedWorker(worker!); worker = undefined;
+    const firstCloseout = await stopOwnedWorker(worker!);
+    assert(firstCloseout, "Owned worker closeout proof is unavailable.");
+    workerClosures.push(firstCloseout); worker = undefined;
     // Real elapsed time, longer than both fallback deferral and two minute cadences.
     const until = Date.now() + 125_000;
     while (Date.now() < until) await new Promise(resolve => setTimeout(resolve, Math.min(1000, until - Date.now())));
@@ -141,7 +157,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     const status = await http("/api/internal/tick/status");
     assert(Array.isArray(status.jobs) && [...CORE_JOBS, "billing"].every(job => (status.jobs as { job: string; durable: boolean; state: string }[]).some(row => row.job === job && row.durable && row.state === "healthy")), "Default API health does not match durable readback.");
     assert(await seededEpoch(db) === epoch, "Published cleanup epoch changed.");
-    return { schema: 1, level: "local_engine", naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, housekeepingEffect: true, epochPreserved: true };
+    return { schema: 1, level: "local_engine", runId: hostWorkerClosure.runId, naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, housekeepingEffect: true, epochPreserved: true, hostWorkerClosure };
   } finally {
     const errors: unknown[] = [];
     // Drain while our worker is still alive. A cleanup failure never prevents stopping our child.
@@ -161,7 +177,13 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
         }, 120_000);
       } catch (error) { errors.push(error); }
     }
-    try { if (worker) await stopOwnedWorker(worker); } catch (error) { errors.push(error); }
+    try {
+      if (worker) {
+        const closeout = await stopOwnedWorker(worker);
+        assert(closeout, "Owned worker closeout proof is unavailable.");
+        workerClosures.push(closeout);
+      }
+    } catch (error) { errors.push(error); }
     if (connection) {
       try {
         if (!errors.length) {
@@ -180,6 +202,12 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       finally { try { await connection.close(); } catch (error) { errors.push(error); } }
     }
     try { await db.close(); } catch (error) { errors.push(error); }
+    if (!errors.length && (workerClosures.length !== 2
+      || workerClosures.some((entry, index) => entry.restartOrdinal !== index + 1 || !entry.closed || !(entry.signal === "SIGTERM" && entry.exitCode === null || entry.signal === null && entry.exitCode === 0))
+      || new Set(workerClosures.map(entry => entry.pid)).size !== 2 || new Set(workerClosures.map(entry => entry.workerIdentity)).size !== 2)) {
+      errors.push(new Error("Owned worker closeout proof is incomplete."));
+    }
     if (errors.length) throw new AggregateError(errors, "Owned maintenance cleanup is unconfirmed; retain namespace/database.");
+    hostWorkerClosure.graceful = true;
   }
 }

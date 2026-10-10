@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
 import { fileURLToPath } from 'node:url';
-import { readPrepared, probeReadiness, sourceBinding } from '../../deploy/installation.mjs';
+import { assertPrivate, readPrepared, probeReadiness, sourceBinding } from '../../deploy/installation.mjs';
 import { cli, requireEngineGate, inventory, compose, docker, readState, save } from './runtime.mjs';
 import { fail, topology, ports, root } from './config.mjs';
+import { createHash } from 'node:crypto';
 
 /** Explicit private CA and hostname verification, without changing machine trust. */
 export function supabaseRequest(state, endpoint, headers = {}) {
@@ -37,8 +38,32 @@ export function apiProbeRequest(origin, port, input, init) {
   return { url: transport, options: { ...init, headers } };
 }
 
-export async function readiness(state) {
+export async function readiness(state, { j4Resume = false } = {}) {
   requireEngineGate();
+  if (state.j4Mode === 'deferred') fail('j4-deferred-not-j1-ready');
+  if (state.j4Mode === 'resuming' && !j4Resume) fail('j4-resume-incomplete');
+  if (state.j4Mode === 'resuming') {
+    const hash = value => createHash('sha256').update(value).digest('hex');
+    const dir = path.join(state.directory, 'j4'), manifestFile = path.join(dir, 'ownership.json');
+    if (!fs.existsSync(manifestFile)) fail('j4-resume-ownership');
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+    const canonicalFile = path.join(dir, 'canonical.stack.compose.json');
+    const composeFile = path.join(state.directory, 'installation/stack.compose.json');
+    assertPrivate(canonicalFile); assertPrivate(composeFile);
+    if (manifest.schemaVersion !== 1 || manifest.kind !== 'j4_owned_stack'
+      || manifest.installationId !== state.installationId || manifest.applicationInstallationId !== state.applicationInstallationId
+      || manifest.projectId !== state.projectId || manifest.applicationProjectName !== state.applicationProjectName
+      || manifest.namespace !== state.j4Namespace || manifest.temporalPort !== state.j4TemporalPort
+      || JSON.stringify(manifest.source) !== JSON.stringify(state.source) || JSON.stringify(manifest.sourceBinding) !== JSON.stringify(state.source)
+      || hash(fs.readFileSync(canonicalFile)) !== manifest.canonicalCompositionSha256
+      || hash(fs.readFileSync(composeFile)) !== manifest.canonicalCompositionSha256
+      || state.compositionSha256 !== manifest.canonicalCompositionSha256
+      || state.canonicalCompositionSha256 !== manifest.canonicalCompositionSha256) fail('j4-resume-composition');
+    for (const [name, expected] of Object.entries(manifest.canonicalEnvironmentSha256 ?? {})) {
+      const file = path.join(state.directory, 'installation', name);
+      if (!fs.existsSync(file) || (fs.statSync(file).mode & 0o077) !== 0 || hash(fs.readFileSync(file)) !== expected) fail('j4-resume-environment');
+    }
+  }
   if (JSON.stringify(sourceBinding()) !== JSON.stringify(state.source)) fail('source-drift');
   const sizing = topology(state.profile), resources = await inventory(state);
   const checks = {};

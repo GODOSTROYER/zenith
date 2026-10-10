@@ -7,6 +7,7 @@ import { prepareJoin, privateLocation, assertPrivate, writeJson, readPrepared, s
 import { root, cliVersion, ports, topology, supabaseConfig, digestImage, installationLabel, projectLabel, stackComposition, fail, assertHeadroom } from './config.mjs';
 import { cli, run, docker, compose, requireEngineGate, save, cleanup, setResourceGuard } from './runtime.mjs';
 import { readiness } from './readiness.mjs';
+import { deferredJ4Composition, initializeJ4Namespace, j4PrestartReadiness, prepareJ4Ownership } from './j4.mjs';
 import { envValues } from '../../deploy/pin-digests.mjs';
 
 const nodeImage = 'node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402';
@@ -91,8 +92,27 @@ async function build(state, kind, file, publicEnvironment) {
   return digestImage(reference);
 }
 
-export async function up(directory, profile = 'default', imageLockFile) {
+export function parseJ4UpOptions(args) {
+  let profile = 'default', directory, imageLock, deferWorkers = false, namespace, temporalPort;
+  while (args.length) {
+    const flag = args.shift();
+    if (flag === '--j4-defer-workers') { if (deferWorkers) fail('usage'); deferWorkers = true; continue; }
+    const value = args.shift(); if (!value) fail('usage');
+    if (flag === '--profile') profile = value;
+    else if (flag === '--directory') directory = value;
+    else if (flag === '--supabase-image-lock') imageLock = value;
+    else if (flag === '--j4-namespace') { if (namespace !== undefined) fail('usage'); namespace = value; }
+    else if (flag === '--j4-temporal-port') { if (temporalPort !== undefined) fail('usage'); temporalPort = value === String(ports.j4Temporal) ? ports.j4Temporal : Number.NaN; }
+    else fail('usage');
+  }
+  const hasJ4 = deferWorkers || namespace !== undefined || temporalPort !== undefined;
+  if (hasJ4 && (!deferWorkers || profile !== 'lean' || !/^j4-[a-z0-9-]{1,50}$/.test(namespace ?? '') || temporalPort !== ports.j4Temporal)) fail('j4-options');
+  return { profile, directory, imageLock, j4: hasJ4 ? { namespace, temporalPort } : undefined };
+}
+
+export async function up(directory, profile = 'default', imageLockFile, j4Options = undefined) {
   requireEngineGate(); topology(profile);
+  if (j4Options && (profile !== 'lean' || !/^j4-[a-z0-9-]{1,50}$/.test(j4Options.namespace ?? '') || j4Options.temporalPort !== ports.j4Temporal)) fail('j4-options');
   const registryPin = digestImage(process.env.ZENITH_DEFAULT_STACK_REGISTRY_IMAGE);
   if (await run('supabase', ['--version']) !== cliVersion) fail('supabase-cli-version');
   const dir = privateLocation(directory);
@@ -168,10 +188,19 @@ export async function up(directory, profile = 'default', imageLockFile) {
     let peer;
     if (topology(profile).workers === 2) peer = prepareJoin(path.join(dir, 'installation/keyring.json'), path.join(dir, 'worker-peer'));
     await docker(['pull', nodeImage]);
-    const document = stackComposition({ ...config, supabaseKong: `supabase_kong_${state.projectId}` }, path.join(dir, 'installation'), profile, nodeImage, peer);
+    const canonicalDocument = stackComposition({ ...config, supabaseKong: `supabase_kong_${state.projectId}` }, path.join(dir, 'installation'), profile, nodeImage, peer);
+    const document = structuredClone(canonicalDocument);
     document.services['supabase-edge'].user = `${process.getuid()}:${process.getgid()}`;
     document.networks.installation.driver_opts = { 'com.docker.network.bridge.host_binding_ipv4': '127.0.0.1' };
-    writeJson(path.join(dir, 'installation/stack.compose.json'), document);
+    const canonicalComposition = `${JSON.stringify(document, null, 2)}\n`;
+    if (j4Options) {
+      const deferred = deferredJ4Composition(document, path.join(dir, 'j4/api.env'), j4Options.namespace, j4Options.temporalPort);
+      const deferredComposition = `${JSON.stringify(deferred, null, 2)}\n`;
+      const prepared = prepareJ4Ownership(state, config, canonicalComposition, j4Options, deferredComposition);
+      writeJson(path.join(dir, 'installation/stack.compose.json'), deferred);
+      state.j4Mode = 'deferred'; state.j4Namespace = j4Options.namespace; state.j4TemporalPort = j4Options.temporalPort;
+      state.canonicalCompositionSha256 = prepared.manifest.canonicalCompositionSha256;
+    } else writeJson(path.join(dir, 'installation/stack.compose.json'), document);
     state.compositionSha256 = createHash('sha256').update(fs.readFileSync(path.join(dir, 'installation/stack.compose.json'))).digest('hex');
     save(path.join(dir, 'state.json'), state);
     await compose(state, ['config', '--quiet']);
@@ -185,9 +214,20 @@ export async function up(directory, profile = 'default', imageLockFile) {
     await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate', '--status']);
     const migration = await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate']);
     if (!migration.endsWith('Already up to date.')) fail('platform-migration-not-noop');
-    await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300']);
+    if (j4Options) {
+      await compose(state, ['up', '-d', '--wait', '--wait-timeout', '180', 'supabase-edge']);
+      await initializeJ4Namespace(state);
+      const preApiDatabase = await j4PrestartReadiness(state, { includeApiProbe: false });
+      const preApiFile = path.join(dir, 'j4-preapi.receipt.json'); writeJson(preApiFile, preApiDatabase);
+      const ownershipFile = path.join(dir, 'j4/ownership.json');
+      const ownership = JSON.parse(fs.readFileSync(ownershipFile, 'utf8'));
+      ownership.preApiReceiptSha256 = createHash('sha256').update(fs.readFileSync(preApiFile)).digest('hex');
+      save(ownershipFile, ownership);
+      save(path.join(dir, 'state.json'), state);
+      await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300', 'supabase-edge', 'api']);
+    } else await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300']);
     save(path.join(dir, 'state.json'), state);
-    const receipt = await readiness(state);
+    const receipt = j4Options ? await j4PrestartReadiness(state) : await readiness(state);
     save(path.join(dir, 'state.json'), state);
     setResourceGuard(undefined);
     process.stdout.write(`${JSON.stringify({ ...receipt, directory: dir })}\n`);
@@ -196,22 +236,15 @@ export async function up(directory, profile = 'default', imageLockFile) {
     save(path.join(dir, 'state.json'), state);
     const reason = error instanceof Error && /^(default-stack|installation):[A-Za-z0-9._-]+$/.test(error.message) ? error.message : 'default-stack:failed';
     save(path.join(dir, 'failure.receipt.json'), { schemaVersion: 1, kind: 'harness_operation', status: 'failed', reason, productionReady: false });
-    try { await cleanup(state); } catch { save(path.join(dir, 'cleanup.pending.json'), { reason: 'owned-cleanup-requires-retry' }); }
+    if (j4Options) save(path.join(dir, 'j4-retain.receipt.json'), { schemaVersion: 1, kind: 'j4_owned_stack', status: 'retained_after_failure', j1Ready: false, productionReady: false });
+    else try { await cleanup(state); } catch { save(path.join(dir, 'cleanup.pending.json'), { reason: 'owned-cleanup-requires-retry' }); }
     throw error;
   } finally { setResourceGuard(undefined); }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await cli(async () => {
-  const args = process.argv.slice(2);
-  let profile = 'default', directory, imageLock;
-  while (args.length) {
-    const flag = args.shift(), value = args.shift();
-    if (!value) fail('usage');
-    if (flag === '--profile') profile = value;
-    else if (flag === '--directory') directory = value;
-    else if (flag === '--supabase-image-lock') imageLock = value;
-    else fail('usage');
-  }
+  const { profile, directory: suppliedDirectory, imageLock, j4 } = parseJ4UpOptions(process.argv.slice(2));
+  let directory = suppliedDirectory;
   if (!directory) directory = path.join(fs.realpathSync(os.tmpdir()), `zenith-default-${randomBytes(12).toString('hex')}`);
-  await up(directory, profile, imageLock);
+  await up(directory, profile, imageLock, j4);
 });

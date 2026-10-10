@@ -6,6 +6,7 @@ import { requiredChecks, validateLocalReceipt, type LocalReceipt } from "./local
 import { readiness } from "../acceptance/default-stack/readiness.mjs";
 import { readState } from "../acceptance/default-stack/runtime.mjs";
 import { hostEnvironment } from "../acceptance/default-stack/env.mjs";
+import { j4HostEnvironment, j4Mode, recordJ4Completion, verifyJ4Prestart } from "../acceptance/default-stack/j4.mjs";
 import { operatedScenario } from "./drivers/contracts";
 
 const JOURNEY_CHECKS: Readonly<Record<string, readonly string[]>> = {
@@ -34,6 +35,16 @@ export function maintenanceEnvironment(base: NodeJS.ProcessEnv, overlay: Record<
   environment.SUPABASE_DB_URL = environment.ZENITH_PLATFORM_MIGRATION_URL = database.href;
   return environment;
 }
+/** Deferred J4 admission is a machine-schedules-only readiness route. */
+export function j4ReadinessRoute(state: ReturnType<typeof readState>, scenarioId: string): "j4" | "j1" {
+  if (j4Mode(state) === "resuming") throw new Error("J1 and J2 remain blocked until explicit J4 resume passes ordinary readiness");
+  if (j4Mode(state) === "deferred") {
+    if (scenarioId !== "machine-schedules") throw new Error("Deferred J4 stack refuses J1, J2, install and non-J4 scenarios");
+    return "j4";
+  }
+  if (scenarioId === "machine-schedules") throw new Error("J4 machine-schedules requires its owned deferred J4 stack");
+  return "j1";
+}
 export function journeyScenarioStatus(scenario: string, evidence: unknown): "passed" | "failed" | "skipped" {
   const required = JOURNEY_CHECKS[scenario];
   if (!required) return "skipped";
@@ -48,6 +59,8 @@ export async function runJoinedScenario(input: { scenarioId: string; runId: stri
   if (env.ZENITH_LOCAL_JOINED_DRIVERS !== "1" || env.ZENITH_ACCEPTANCE_DEFAULT_STACK !== "1" || !env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR || existsSync(receiptFile)) throw new Error("Owned default stack and explicit joined-driver gates required");
   // J1 proves ownership, source bytes, native architecture, migrations and readiness.
   const state = readState(env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR);
+  const readinessRoute = j4ReadinessRoute(state, scenarioId);
+  if (readinessRoute === "j4" && operatedScenario(scenarioId)) throw new Error("J4 does not admit operated J1 scenarios");
   if (operatedScenario(scenarioId)) {
     if (env.ZENITH_LOCAL_OPERATED !== "1") return 2;
     // Start with J1's private CA at process launch, so real Auth requests verify TLS.
@@ -58,15 +71,20 @@ export async function runJoinedScenario(input: { scenarioId: string; runId: stri
     const receipt = validateLocalReceipt(JSON.parse(readFileSync(receiptFile, "utf8")), { scenarioId, runId, sourceCommit });
     return child.code === 0 && receipt.checks.every(check => check.status === "passed") ? 0 : 1;
   }
-  const ready = await readiness(state);
-  Object.assign(env, hostEnvironment(state));
+  const j4 = readinessRoute === "j4";
+  if (j4 && env.ZENITH_TEST_MAINTENANCE !== "1") throw new Error("J4 natural-timer gate required");
+  if (j4) await verifyJ4Prestart(state);
+  const ready = j4 ? { failed: 0, skipped: 0, passed: 1 } : await readiness(state);
+  Object.assign(env, j4 ? j4HostEnvironment(state) : hostEnvironment(state));
   let status: "passed" | "failed" | "skipped" = "passed";
   const limits = ["Owned local rehearsal only; no live cloud or production acceptance."];
   if (scenarioId === "install") {
     if (ready.failed !== 0 || ready.skipped !== 0 || ready.passed < 1) status = "failed";
   } else if (scenarioId === "machine-schedules") {
     if (env.ZENITH_TEST_MAINTENANCE !== "1") throw new Error("J4 natural-timer gate required");
-    const file = env.ZENITH_LOCAL_MAINTENANCE_ENV_FILE;
+    const j4Overlay = path.join(state.directory, "j4/maintenance.env");
+    const file = j4 ? j4Overlay : env.ZENITH_LOCAL_MAINTENANCE_ENV_FILE;
+    if (j4 && env.ZENITH_LOCAL_MAINTENANCE_ENV_FILE && path.resolve(env.ZENITH_LOCAL_MAINTENANCE_ENV_FILE) !== j4Overlay) throw new Error("J4 uses only its owned private maintenance overlay");
     if (!file || !path.isAbsolute(file) || lstatSync(file).isSymbolicLink() || !lstatSync(file).isFile() || (lstatSync(file).mode & 0o077) !== 0) throw new Error("Private J4 maintenance overlay FILE required");
     const overlay: Record<string, string> = {};
     for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
@@ -75,10 +93,17 @@ export async function runJoinedScenario(input: { scenarioId: string; runId: stri
       if (!match || match[1] in overlay) throw new Error("Malformed or duplicate maintenance overlay field");
       overlay[match[1]] = match[2];
     }
+    if (j4) {
+      const expected = j4HostEnvironment(state);
+      if (Object.keys(overlay).length !== 9 || Object.entries(overlay).some(([key, value]) => expected[key] !== value)) {
+        throw new Error("J4 overlay must exactly match this owned stack, namespace, database and private runtime");
+      }
+    }
     const child = await defaultExec([process.execPath, "node_modules/tsx/dist/cli.mjs", "scripts/acceptance/maintenance/run.ts"], { cwd: process.cwd(), env: maintenanceEnvironment(env, overlay), timeoutMs: 1_080_000 });
     if (child.code !== 0) throw new Error("J4 natural maintenance acceptance failed; retain the owned engines for inspection");
     const evidence = JSON.parse(child.stdout.trim()) as Record<string, unknown>;
     if (evidence.naturalTimers !== true || evidence.workerRestart !== true || evidence.fallbackResumed !== true || evidence.jobLeaseExclusion !== true) status = "failed";
+    if (status === "passed") await recordJ4Completion(state, evidence);
     limits.push("J4 default scheduling evidence; provider machine transports remain separately gated.");
   } else {
     const config = env.ZENITH_LOCAL_JOURNEY_CONFIG_FILE;

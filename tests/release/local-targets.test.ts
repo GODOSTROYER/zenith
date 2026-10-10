@@ -14,7 +14,7 @@ import { memoryStore } from "../../scripts/release/checkpoint";
 import { approvedScope } from "./_support";
 import { handler } from "../../fixtures/mixed-app/enricher/lambda.mjs";
 import { handler as enrich } from "../../fixtures/mixed-app/enricher/handler.mjs";
-import { maintenanceEnvironment } from "../../scripts/release/local-joined";
+import { j4ReadinessRoute, maintenanceEnvironment } from "../../scripts/release/local-joined";
 import { createEnricherServer } from "../../fixtures/mixed-app/enricher/server.mjs";
 import { createStoreFromEnv } from "../../fixtures/mixed-app/web/stores.mjs";
 
@@ -235,5 +235,29 @@ describe("J4 owned maintenance environment join", () => {
   it("refuses unrelated credentials, ordinary namespace and timer/billing mode changes", () => {
     expect(() => maintenanceEnvironment(base, { ...overlay, AWS_SECRET_ACCESS_KEY: randomBytes(24).toString("hex") })).toThrow(/Unknown/);
     for (const change of [{ ZENITH_TEMPORAL_NAMESPACE: "zenith-disposable" }, { ZENITH_SERVERLESS: "0" }, { ZENITH_BILLING: "stripe" }, { ZENITH_PLATFORM_DB_MAX: "20" }, { ZENITH_J4_API_ORIGIN: "https://example.test" }]) expect(() => maintenanceEnvironment(base, { ...overlay, ...change })).toThrow();
+  });
+});
+
+describe("deferred J4 readiness routing", () => {
+  const deferred = { j4Mode: "deferred" } as Parameters<typeof j4ReadinessRoute>[0];
+  it("routes only machine-schedules to J4 prestart readiness", () => {
+    expect(j4ReadinessRoute(deferred, "machine-schedules")).toBe("j4");
+    for (const scenario of ["install", "plan-approval", "rotation", "revocation", "restore", "billing"]) {
+      expect(() => j4ReadinessRoute(deferred, scenario)).toThrow("Deferred J4 stack refuses J1, J2, install and non-J4 scenarios");
+    }
+  });
+  it("refuses J4 machine-schedules without the deferred owner state", () => {
+    for (const j4Mode of [undefined, "canonical"]) {
+      expect(() => j4ReadinessRoute({ j4Mode } as Parameters<typeof j4ReadinessRoute>[0], "machine-schedules"))
+        .toThrow("J4 machine-schedules requires its owned deferred J4 stack");
+    }
+    expect(j4ReadinessRoute({ j4Mode: "canonical" } as Parameters<typeof j4ReadinessRoute>[0], "install")).toBe("j1");
+  });
+  it("keeps every readiness route blocked while canonical resume is in progress", () => {
+    const resuming = { j4Mode: "resuming" } as Parameters<typeof j4ReadinessRoute>[0];
+    for (const scenario of ["machine-schedules", "install", "plan-approval", "rotation", "revocation", "restore", "billing"]) {
+      expect(() => j4ReadinessRoute(resuming, scenario))
+        .toThrow("J1 and J2 remain blocked until explicit J4 resume passes ordinary readiness");
+    }
   });
 });

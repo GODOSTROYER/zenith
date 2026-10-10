@@ -336,8 +336,8 @@ describe.each(["runner", "machine"] as const)("%s job queue", (kind) => {
     const idle = await enrol(h, kind, a); // never polls: its job is never claimed
     const busy = await enrol(h, kind, a);
     const expiring = await enqueue(h, q, a, idle.id, { ttlMs: 1000 });
-    const running = await enqueue(h, q, a, busy.id, { ttlMs: 60_000 });
-    const fresh = await enqueue(h, q, a, busy.id, { ttlMs: 60_000 });
+    const running = await enqueue(h, q, a, busy.id, { id: `${a}:0-running`, ttlMs: 60_000 });
+    const fresh = await enqueue(h, q, a, busy.id, { id: `${a}:1-fresh`, ttlMs: 60_000 });
     const claimed = await q.claimNext({ workspaceId: a, agentId: busy.id, max: 1 });
     expect(claimed.map((j) => j.id), h.name).toEqual([running.id]);
     expect(await q.markRunning({ workspaceId: a, agentId: busy.id, jobId: running.id, leaseMs: 1000 })).toBe(true);

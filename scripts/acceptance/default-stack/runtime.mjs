@@ -70,6 +70,66 @@ export async function inventory(state) {
   return resources;
 }
 
+function assertJ4Node(target, boundary, top = false) {
+  const resolved = path.resolve(target);
+  if (resolved !== target || !resolved.startsWith(`${boundary}${path.sep}`)) fail('j4-cleanup-path');
+  const stat = fs.lstatSync(resolved);
+  if (stat.isSymbolicLink() || stat.uid !== process.getuid?.() || stat.mode & 0o022 || stat.nlink > 1 && stat.isFile()) fail('j4-cleanup-owner');
+  if (top) assertPrivate(resolved, stat.isDirectory());
+  return { dev: stat.dev, ino: stat.ino, uid: stat.uid, mode: stat.mode, directory: stat.isDirectory() };
+}
+
+function removeJ4PrivateTree(target, boundary, top = false) {
+  const identity = assertJ4Node(target, boundary, top);
+  if (identity.directory) {
+    for (const entry of fs.readdirSync(target)) {
+      if (entry === '.' || entry === '..' || entry.includes(path.sep)) fail('j4-cleanup-path');
+      removeJ4PrivateTree(path.join(target, entry), boundary);
+    }
+  }
+  const current = assertJ4Node(target, boundary, top);
+  if (current.dev !== identity.dev || current.ino !== identity.ino || current.uid !== identity.uid
+    || current.mode !== identity.mode || current.directory !== identity.directory) fail('j4-cleanup-identity');
+  if (identity.directory) fs.rmdirSync(target);
+  else fs.unlinkSync(target);
+}
+
+function cleanupJ4PrivateMaterials(state) {
+  const directory = path.join(state.directory, 'j4');
+  try { fs.lstatSync(directory); }
+  catch (error) { if (error?.code === 'ENOENT') return; throw error; }
+  privateLocation(directory); assertPrivate(directory, true);
+  const ownershipFile = path.join(directory, 'ownership.json'); assertPrivate(ownershipFile);
+  const manifest = JSON.parse(fs.readFileSync(ownershipFile, 'utf8'));
+  if (manifest.kind !== 'j4_owned_stack' || manifest.installationId !== state.installationId
+    || manifest.applicationInstallationId !== state.applicationInstallationId || manifest.projectId !== state.projectId
+    || manifest.applicationProjectName !== state.applicationProjectName || manifest.namespace !== state.j4Namespace
+    || manifest.temporalPort !== state.j4TemporalPort || JSON.stringify(manifest.source) !== JSON.stringify(state.source)
+    || !manifest.j4PrivatePaths) fail('j4-cleanup-binding');
+  const paths = manifest.j4PrivatePaths;
+  const expected = { data: path.join(directory, 'data'), home: path.join(directory, 'home'), planDirectory: path.join(directory, 'data/plans') };
+  if (JSON.stringify(paths) !== JSON.stringify(expected)) fail('j4-cleanup-path');
+  const secretFiles = [
+    ['api.env', manifest.j4ApiEnvironmentSha256], ['worker.env', manifest.j4WorkerEnvironmentSha256],
+    ['maintenance.env', manifest.maintenanceOverlaySha256], ['cron.secret', manifest.cronSecretSha256],
+    ['canonical.stack.compose.json', manifest.canonicalCompositionSha256],
+  ];
+  for (const [name, digest] of secretFiles) {
+    const target = path.join(directory, name);
+    try { fs.lstatSync(target); }
+    catch (error) { if (error?.code === 'ENOENT') continue; throw error; } // A previously completed cleanup remains retryable.
+    assertPrivate(target);
+    if (!/^[a-f0-9]{64}$/.test(digest ?? '') || createHash('sha256').update(fs.readFileSync(target)).digest('hex') !== digest) fail('j4-cleanup-content');
+    removeJ4PrivateTree(target, directory, true);
+  }
+  for (const target of [paths.home, paths.data]) {
+    try { fs.lstatSync(target); }
+    catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
+    privateLocation(target); assertPrivate(target, true);
+    removeJ4PrivateTree(target, directory, true);
+  }
+}
+
 export async function cleanup(state) {
   requireEngineGate();
   setResourceGuard(undefined); // Cleanup must be possible below the disk floor.
@@ -101,6 +161,7 @@ export async function cleanup(state) {
   if (resources.length) fail('owned-resources-remain');
   const receipt = { schemaVersion: 1, kind: 'local_engine', ownedResourcesRemaining: 0, removed: plan.length, forcedStops, productionReady: false };
   save(path.join(state.directory, 'cleanup.receipt.json'), receipt);
+  cleanupJ4PrivateMaterials(state);
   // Private receipts and digest inventories remain reviewable. Remove owned
   // credentials, scratch configuration and database dumps only after absence.
   for (const name of fs.readdirSync(state.directory)) {

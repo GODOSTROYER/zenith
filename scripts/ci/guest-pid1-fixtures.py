@@ -24,6 +24,8 @@ DIAGNOSTIC_FAILURE_OPERATION=None
 DIAGNOSTIC_CLEANUP_STATE='not-started'
 DIAGNOSTIC_CLEANUP_FAILURE_CLASS=None
 DIAGNOSTIC_CLEANUP_OPERATION=None
+DIAGNOSTIC_CHILD_EXIT_CODE=None
+DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=None
 DIAGNOSTIC_OPERATIONS={
  'prepare','bind','disk-admission','docker-admission','resolve-build-tools','build-original-fixtures',
  'validate-build-output','binary-build-metadata','prepare-build-context','create-context','verify-context','create-builder',
@@ -89,12 +91,15 @@ def initialize_diagnostic(root,attempt):
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
- row={'schemaVersion':2,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION}
+ row={'schemaVersion':3,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED}
  assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
  assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['failureOperation'] is None and row['cleanupState']=='completed')
  assert row['failureClass'] is None or row['failureOperation'] in DIAGNOSTIC_OPERATIONS
  assert (row['cleanupFailureClass'] is None) == (row['cleanupOperation'] is None)
  assert row['cleanupFailureClass'] is None or row['cleanupFailureClass'] in DIAGNOSTIC_FAILURES and row['cleanupOperation'] in DIAGNOSTIC_OPERATIONS and row['cleanupState']=='failed'
+ assert row['childExitCode'] is None or type(row['childExitCode']) is int and -255<=row['childExitCode']<=255 and row['childExitCode']!=0
+ assert row['childExitCode'] is None or row['failureClass']=='subprocess'
+ assert row['aptBuildOOMObserved'] is None or type(row['aptBuildOOMObserved']) is bool
  target=DIAGNOSTIC_DIRECTORY/'pid1-diagnostic.private.json';tmp=DIAGNOSTIC_DIRECTORY/('.pid1-diagnostic-'+secrets.token_hex(8)+'.tmp')
  fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
  try:
@@ -176,6 +181,7 @@ def main():
  def interrupt(signum,frame):raise InterruptedError('owned interrupt')
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
  def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None):
+  global DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED
   if cleaning:set_diagnostic_stage('cleanup')
   else:
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
@@ -192,8 +198,11 @@ def main():
      assert sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink())<=f['attemptByteCap'];time.sleep(.25)
    finally:guard.drain(child)
   receipt['phases'].append({'phase':phase,'exitCode':child.returncode});save()
-  if phase=='apt-image-build':receipt['aptBuildOOMObserved']=bool(re.search(rb'(?i)out of memory|oomkilled', (out/(phase+'.stderr.private')).read_bytes()));save()
-  if child.returncode!=0:raise subprocess.CalledProcessError(child.returncode,'owned-child')
+  if phase=='apt-image-build':
+   DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=bool(re.search(rb'(?i)out of memory|oomkilled', (out/(phase+'.stderr.private')).read_bytes()));receipt['aptBuildOOMObserved']=DIAGNOSTIC_APT_BUILD_OOM_OBSERVED;save()
+  if child.returncode!=0:
+   if DIAGNOSTIC_FAILURE is None and DIAGNOSTIC_CHILD_EXIT_CODE is None:DIAGNOSTIC_CHILD_EXIT_CODE=child.returncode
+   raise subprocess.CalledProcessError(child.returncode,'owned-child')
   return (out/(phase+'.stdout.private')).read_bytes()
  def mutate(argv,phase,timeout=60):
   nonlocal pin

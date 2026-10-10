@@ -1154,9 +1154,11 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("publishes only fixed SYS1 failure stage and cleanup classes without affecting case admission", () => {
     const manifest = linuxGuestManifest();
-    const diagnostic = { schemaVersion: 2, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline" };
-    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline" });
-    expect(validatePid1Diagnostic({ schemaVersion: 2, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null }).failureOperation).toBeNull();
+    const diagnostic = { schemaVersion: 3, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false };
+    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false });
+    expect(validatePid1Diagnostic({ schemaVersion: 3, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null }).failureOperation).toBeNull();
+    expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: -9, aptBuildOOMObserved: true }).childExitCode).toBe(-9);
+    expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: 17 }).childExitCode).toBe(17);
     expect(validatePid1Diagnostic({ ...diagnostic, cleanupFailureClass: null, cleanupOperation: null })).toMatchObject({ failureOperation: "validate-build-output", cleanupState: "failed" });
     for (const invalid of [
       { ...diagnostic, failureStage: "/var/lib/docker" },
@@ -1166,9 +1168,15 @@ describe("mandatory direct native package phase admission", () => {
       { ...diagnostic, failureOperation: "unknown-command-argv" },
       { ...diagnostic, cleanupFailureClass: "AssertionError: /private/tmp" },
       { ...diagnostic, cleanupOperation: "rm -rf /private/tmp" },
+      { ...diagnostic, childExitCode: 256 },
+      { ...diagnostic, childExitCode: 0 },
+      { ...diagnostic, childExitCode: 1.5 },
+      { ...diagnostic, childExitCode: true },
+      { ...diagnostic, childExitCode: 17 },
+      { ...diagnostic, aptBuildOOMObserved: "OOMKilled /private/stderr" },
       { ...diagnostic, cleanupFailureClass: null },
       { ...diagnostic, cleanupState: "completed" },
-      { ...diagnostic, schemaVersion: 1 },
+      { ...diagnostic, schemaVersion: 2 },
       { ...diagnostic, environment: { TOKEN: "secret" } },
       { ...diagnostic, failureClass: null },
     ]) expect(() => validatePid1Diagnostic(invalid)).toThrow("pid1-diagnostic");
@@ -1244,6 +1252,56 @@ print(json.dumps([module.classify_failure(error) for error in [TimeoutError(), I
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
     expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
     expect(JSON.parse(child.stdout)).toEqual(["timeout", "interrupt", "filesystem", "timeout"]);
+  });
+  it("records only bounded child status and the apt OOM marker in private SYS1 diagnostics", () => {
+    const model = String.raw`
+import ast, json, os, pathlib, re, secrets, subprocess, sys, tempfile, types
+source_path = pathlib.Path(sys.argv[1]); tree = ast.parse(source_path.read_text())
+main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == "run")
+write_diagnostic = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "write_diagnostic")
+namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": secrets,
+    "DIAGNOSTIC_STAGES": {"buildkit-builder"}, "DIAGNOSTIC_FAILURES": {"subprocess"}, "DIAGNOSTIC_CLEANUP": {"not-started"},
+    "DIAGNOSTIC_OPERATIONS": {"build-apt-image"}, "DIAGNOSTIC_DIRECTORY": None,
+    "DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_FAILURE_STAGE": None, "DIAGNOSTIC_FAILURE_OPERATION": None,
+    "DIAGNOSTIC_STAGE": "buildkit-builder", "DIAGNOSTIC_OPERATION": "build-apt-image",
+    "DIAGNOSTIC_CLEANUP_STATE": "not-started", "DIAGNOSTIC_CLEANUP_FAILURE_CLASS": None,
+    "DIAGNOSTIC_CLEANUP_OPERATION": None, "DIAGNOSTIC_CHILD_EXIT_CODE": None,
+    "DIAGNOSTIC_APT_BUILD_OOM_OBSERVED": None}
+exec(compile(ast.Module(body=[run, write_diagnostic], type_ignores=[]), "actual-sys1-diagnostic-functions", "exec"), namespace)
+class Child:
+    returncode = 23
+    def poll(self): return self.returncode
+class Guard:
+    def check(self, **_kwargs): pass
+    def register(self, child): return child
+    def drain(self, _child): pass
+def popen(_argv, **kwargs):
+    kwargs["stderr"].write(b"OOMKilled /private/apt-image-build.stderr")
+    return Child()
+with tempfile.TemporaryDirectory() as temp:
+    out = pathlib.Path(temp); diag = out / "attempt"; diag.mkdir(mode=0o700)
+    namespace.update({"cleaning": False, "set_diagnostic_stage": lambda _stage: None,
+        "set_diagnostic_operation": lambda _operation: None, "operation_for_phase": lambda _phase: "build-apt-image",
+        "RUN_STAGES": {},
+        "guard": Guard(), "env": {}, "command": ["docker"], "out": out,
+        "f": {"attemptByteCap": 1024}, "resource": types.SimpleNamespace(RLIMIT_FSIZE=1, setrlimit=lambda *_args: None),
+        "subprocess": types.SimpleNamespace(Popen=popen, CalledProcessError=subprocess.CalledProcessError),
+        "time": types.SimpleNamespace(monotonic=lambda: 0, sleep=lambda _seconds: None), "receipt": {"phases": []},
+        "save": lambda: None, "DIAGNOSTIC_DIRECTORY": diag})
+    try: namespace["run"](["buildx", "build"], "apt-image-build")
+    except subprocess.CalledProcessError as error: assert error.returncode == 23
+    else: raise AssertionError("nonzero apt image build unexpectedly passed")
+    namespace.update({"DIAGNOSTIC_FAILURE": "subprocess", "DIAGNOSTIC_FAILURE_STAGE": "buildkit-builder",
+        "DIAGNOSTIC_FAILURE_OPERATION": "build-apt-image"})
+    namespace["write_diagnostic"]()
+    serialized = (diag / "pid1-diagnostic.private.json").read_text()
+    row = json.loads(serialized)
+    assert row["childExitCode"] == 23 and row["aptBuildOOMObserved"] is True
+    assert "OOMKilled" not in serialized and "/private/" not in serialized
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
   });
   it("binds the SYS1 cleanup-success diagnostic reset to module state", () => {
     const model = String.raw`

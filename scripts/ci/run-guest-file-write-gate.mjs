@@ -356,19 +356,23 @@ const PID1_DIAGNOSTIC_OPERATIONS = new Set(["prepare", "bind", "disk-admission",
 /** Fixed, non-sensitive failure metadata; this never contributes test events or admission. */
 export function validatePid1Diagnostic(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)
-    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["cleanupFailureClass", "cleanupOperation", "cleanupState", "failureClass", "failureOperation", "failureStage", "schemaVersion"].sort())
-    || value.schemaVersion !== 2 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage)
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["aptBuildOOMObserved", "childExitCode", "cleanupFailureClass", "cleanupOperation", "cleanupState", "failureClass", "failureOperation", "failureStage", "schemaVersion"].sort())
+    || value.schemaVersion !== 3 || !PID1_DIAGNOSTIC_STAGES.has(value.failureStage)
     || !(value.failureClass === null || PID1_DIAGNOSTIC_FAILURES.has(value.failureClass))
     || !PID1_DIAGNOSTIC_CLEANUP.has(value.cleanupState)
     || !(value.failureOperation === null || PID1_DIAGNOSTIC_OPERATIONS.has(value.failureOperation))
     || !(value.cleanupFailureClass === null || PID1_DIAGNOSTIC_FAILURES.has(value.cleanupFailureClass))
     || !(value.cleanupOperation === null || PID1_DIAGNOSTIC_OPERATIONS.has(value.cleanupOperation))
+    || !(value.childExitCode === null || Number.isSafeInteger(value.childExitCode) && value.childExitCode >= -255 && value.childExitCode <= 255 && value.childExitCode !== 0)
+    || value.childExitCode !== null && value.failureClass !== "subprocess"
+    || !(value.aptBuildOOMObserved === null || typeof value.aptBuildOOMObserved === "boolean")
     || value.failureClass === null && (value.failureStage !== "complete" || value.failureOperation !== null || value.cleanupState !== "completed")
     || value.failureClass !== null && (value.failureStage === "complete" || value.failureOperation === null)
     || (value.cleanupFailureClass === null) !== (value.cleanupOperation === null)
     || value.cleanupFailureClass !== null && value.cleanupState !== "failed") throw new Error("pid1-diagnostic");
   return { failureStage: value.failureStage, failureClass: value.failureClass, failureOperation: value.failureOperation,
-    cleanupState: value.cleanupState, cleanupFailureClass: value.cleanupFailureClass, cleanupOperation: value.cleanupOperation };
+    cleanupState: value.cleanupState, cleanupFailureClass: value.cleanupFailureClass, cleanupOperation: value.cleanupOperation,
+    childExitCode: value.childExitCode, aptBuildOOMObserved: value.aptBuildOOMObserved };
 }
 function pid1FixtureDiagnostic(directory) {
   const file = path.join(directory, "pid1-diagnostic.private.json");

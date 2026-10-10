@@ -481,10 +481,8 @@ jobs:
 
   verify:
     runs-on: ubuntu-latest
-    # The complete canonical Node/DOM suites run serially with setup, typecheck,
-    # lint, and final checks in this job. Reserve finite wall time for that full
-    # run without changing test-level deadlines or the canonical test command.
-    timeout-minutes: 90
+    # Preserve the repository maximum while running every canonical core step.
+    timeout-minutes: 45
 
     env:
       # Use an ignored directory in the disposable CI checkout. github.workspace

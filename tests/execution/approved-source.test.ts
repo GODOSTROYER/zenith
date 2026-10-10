@@ -60,7 +60,7 @@ describe("approved executable source semantics [isolated ports]",()=>{
   it("source verification runs again after upload and an approval loss prevents StartBuild",async()=>{
     const w=world(),{lease}=await planned(w),prepare=w.sourceBundle.prepare.bind(w.sourceBundle);
     w.sourceBundle.prepare=async(...args)=>{const result=await prepare(...args);w.broker.approval={approved:false,rejected:false};return result;};
-    await expect(w.activities.buildArtifacts({operationId:OP,lease})).rejects.toThrow("Current approval changed");expect(w.sourceBundle.calls).toHaveLength(1);expect(w.build.started).toHaveLength(0);
+    await expect(w.activities.buildArtifacts({operationId:OP,lease})).rejects.toThrow("Current policy or human approval changed");expect(w.sourceBundle.calls).toHaveLength(1);expect(w.build.started).toHaveLength(0);
   });
   it("a plan evidence with another source set refuses before provider/tool access",async()=>{
     const w=world(),{lease}=await planned(w);w.evidence.ofKind("tofu_plan")[0].summary.executableSourceDigest="f".repeat(64);

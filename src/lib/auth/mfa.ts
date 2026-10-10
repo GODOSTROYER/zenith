@@ -6,8 +6,8 @@ import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, isSupabaseConfigured } from "@/lib/s
 import { workspaceMfaControl } from "./mfa-policy";
 
 export const MFA_REQUIRED = "Verify your authenticator before continuing with this privileged action.";
-const unavailable = () => new ApiError("MFA could not be verified. This action was refused.", 503, { fix: "Check the identity provider and workspace MFA configuration, then retry." });
-const required = () => new ApiError(MFA_REQUIRED, 403, { fix: "Open /account/mfa/challenge, verify your authenticator, then review and submit the action again." });
+const unavailable = () => new ApiError("MFA could not be verified. This action was refused.", 503, { code: "policy_unavailable", fix: "Check the identity provider and workspace MFA configuration, then retry." });
+const required = (code: "mfa_required" | "browser_session_required" = "mfa_required") => new ApiError(MFA_REQUIRED, 403, { code, fix: "Open /account/mfa/challenge, verify your authenticator, then review and submit the action again." });
 
 /**
  * Signature-verified claims AND live provider identity, from this request's cookies.
@@ -15,16 +15,16 @@ const required = () => new ApiError(MFA_REQUIRED, 403, { fix: "Open /account/mfa
  * No demo bypass. No positive cache. AAL2 is additional to membership/policy/approval.
  */
 export async function requireStepUp(req: NextRequest, options: { subject: string; workspaceId?: string; sessionId?: string }): Promise<{ subject: string; aal: "aal2" }> {
-  if (req.headers.has("authorization") || req.headers.has("x-zenith-actor") || req.headers.has("x-zenith-actor-key")) throw required();
+  if (req.headers.has("authorization") || req.headers.has("x-zenith-actor") || req.headers.has("x-zenith-actor-key")) throw required("browser_session_required");
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())) {
     const configured = process.env.ZENITH_PLATFORM_ORIGIN ?? process.env.ZENITH_AGENT_ORIGIN;
     const origin = configured ?? new URL(req.url).origin;
     // A malformed configured origin refuses rather than falling back to the request host.
     let validOrigin = false;
     try { validOrigin = new URL(origin).origin === origin; } catch { /* refuse invalid configuration */ }
-    if (!validOrigin || req.headers.get("origin") !== origin) throw required();
+    if (!validOrigin || req.headers.get("origin") !== origin) throw required("browser_session_required");
     const site = req.headers.get("sec-fetch-site");
-    if (site !== null && site !== "same-origin") throw required();
+    if (site !== null && site !== "same-origin") throw required("browser_session_required");
   }
   if (!isSupabaseConfigured()) throw unavailable();
   if (!options.subject) throw new ApiError("Sign in again to verify your session.", 401);

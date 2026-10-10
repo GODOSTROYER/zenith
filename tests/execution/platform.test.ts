@@ -227,6 +227,7 @@ describe("events and evidence ports", () => {
     const again = await ports.evidence.append({ id: "evd_fixed_1", workspaceId: ws, operationId: op.id, kind: "tofu_plan", digest: "a".repeat(64), summary: { n: 2 }, simulated: false });
     expect(again.id).toBe(first.id);
     expect(again.summary).toEqual({ n: 1 });
+    await db.query("update platform.evidence set created_at = $3::timestamptz where workspace_id = $1 and id = $2", [ws, first.id, new Date(Date.now() - 5_000).toISOString()]);
     await ports.evidence.append({ id: "evd_fixed_2", workspaceId: ws, operationId: op.id, kind: "tofu_plan", digest: "b".repeat(64), summary: { n: 3 }, simulated: false });
     expect((await ports.evidence.find({ workspaceId: ws, operationId: op.id, kind: "tofu_plan", digest: "a".repeat(64) }))?.id).toBe("evd_fixed_1");
     expect((await ports.evidence.find({ workspaceId: ws, operationId: op.id, kind: "tofu_plan" }))?.id).toBe("evd_fixed_2");

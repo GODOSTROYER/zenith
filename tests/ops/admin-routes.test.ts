@@ -10,8 +10,10 @@ import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 const OPERATOR = "0b9d4e1c-1111-4222-8333-444455556666";
 const STRANGER = "9a8b7c6d-1111-4222-8333-444455556666";
 
-const mocks = vi.hoisted(() => ({ session: vi.fn(), db: undefined as unknown as PlatformDbHandle }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), db: undefined as unknown as PlatformDbHandle, mfaClaims: vi.fn(), mfaUser: vi.fn() }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: mocks.session }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "synthetic-publishable-key", isSupabaseConfigured: () => true }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: mocks.mfaClaims, getUser: mocks.mfaUser } }) }));
 vi.mock("@/lib/ops/operator", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/ops/operator")>()), opsStore: async () => mocks.db }));
 
 const maintenance = await import("@/app/api/admin/ops/maintenance/route");
@@ -33,6 +35,10 @@ beforeEach(() => {
   vi.stubEnv("ZENITH_OPS_ADMIN_IDS", OPERATOR);
   setOpsRuntimeForTests(buildRuntime(opsLimitsFromEnv({ ZENITH_OPS_MAINTENANCE_CACHE_MS: "0" }), async () => handle));
   mocks.session.mockReset();
+  mocks.mfaClaims.mockResolvedValue({ data: { claims: { sub: OPERATOR, aal: "aal2", exp: Date.now() / 1000 + 600,
+    amr: [{ method: "totp", timestamp: Date.now() / 1000 }] } }, error: null });
+  mocks.mfaUser.mockResolvedValue({ data: { user: { id: OPERATOR, email_confirmed_at: new Date().toISOString(),
+    factors: [{ factor_type: "totp", status: "verified" }] } }, error: null });
 });
 afterEach(() => { vi.unstubAllEnvs(); setOpsRuntimeForTests(undefined); });
 

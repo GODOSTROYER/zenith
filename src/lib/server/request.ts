@@ -127,6 +127,8 @@ export interface IntegrationRequestAccess {
 }
 
 export interface RouteOptions {
+  /** Transport-specific error body, including refusals before the handler. */
+  errorResponse?: (error: unknown) => Response | undefined;
   /**
    * Optional transport authentication, before admission/boot/tenant reads.
    * Return a verified integration subject to bypass browser admission, a
@@ -255,7 +257,7 @@ export function route<P extends Record<string, string> = Record<string, string>>
         scope.finish(res.status);
         return res;
       } catch (err) {
-        const res = errorResponse(err);
+        const res = options.errorResponse?.(err) ?? errorResponse(err);
         res.headers.set("x-request-id", requestId);
         if (scope) { res.headers.set("traceparent", scope.traceparent); scope.finish(res.status, err); }
         return res;

@@ -17,6 +17,7 @@ import { registerZenithDrivers } from "@/lib/providers/zenith/drivers";
 import { findDriver } from "@/lib/drivers/types";
 import { createKubernetesToolkit } from "@/lib/platform/kubernetes-toolkit";
 import { tenantNamespace } from "@/lib/providers/zenith/tenancy";
+import { setOpsRuntimeForTests } from "@/lib/ops/runtime";
 import type { ZenithEnv } from "@/lib/providers/zenith/substrate";
 import type { AccessAttributes } from "@/lib/providers/kubernetes/guest";
 import { LANES, openLane, seedApprovedOperation } from "../controlplane/_support/harness";
@@ -43,6 +44,8 @@ describe.each(LANES)("default first managed deploy ($name, contract only)", lane
   beforeAll(async () => { ctx = await openLane(lane); }, 120_000);
   afterAll(async () => { await ctx.close(); });
   beforeEach(async () => {
+    // Each case reuses the same workspace fixture; reset the process-local OPS token bucket so one case cannot exhaust another.
+    setOpsRuntimeForTests(undefined);
     fake = await startFakeK8s();
     records = new Map(); issued = []; resolved = []; key = randomBytes(32).toString("hex"); revokeAfterMint = false;
     seams.session.mockImplementation(async (config, options, signal) => {

@@ -740,3 +740,10 @@ Integrated `c8c874027dd687d4a133e5de5d971a323eeed40b` after two complete files55
 ## Recovery client custody repair, 8 October 2026
 
 Fix `1d99b5e217c4ea3150fcecd3976f3f7380c05a0f` creates private0700 temp files under the existing same-path runner mount, preserving file ownership and argument quoting. PostgreSQL password/TLS-mode forwarding uses environment names only. Original host/tmp container mismatch is documented; no product/migration or permission-widening changes. Root full120/0/0, compiler0 in12.19s, lint/actionlint/diff0 and independent review passed. Actual recovery lane, complete final CI and remaining default journeys are pending.
+
+
+Results PROD-CI-08, 10 October: de8079cd integrates reviewed browser shutdown/SYS1 admission. Browser44/44, SYS1 targeted187/0/0, compiler/lint pass. Earlier browser orphan/receipt failure retained. Full8bb unit failed24321/169/1939 with collection mismatch and lost supervisor custody; exact8bb CI main18success/2failure/8skip, side workflows2success each. Complete local/default/operated gates and successor CI remain pending. See latest RESULTS and cleanup checkpoint; no promotion.
+
+## Results: unit repair candidate, 10 October 2026
+
+Current reviewed candidate1019/0/0 across24 targeted files; compiler/lint pass. Exact de807 CI18success2fail8skip; full verify and actual SYS1 remain failed. Complete clean-SHA full/native/default/operated gates pending; no milestone promotion. [Evidence](evidence/PROD-CI-08/2026-10-10-newmac-unit-repairs.json).

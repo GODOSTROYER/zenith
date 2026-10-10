@@ -19,10 +19,18 @@ const adapters = vi.hoisted(() => ({
   userId: "alice", liveSubject: "alice", emailVerified: true, identityUnavailable: false,
   token: "", scopes: ["read", "write"],
   verifyCredential: vi.fn<(header: string) => Promise<{ id: string; workspaceId: string; subject: string; label: string }>>(),
+  mfaClaims: vi.fn(), mfaUser: vi.fn(),
 }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
-vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
+vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(),
+  SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "synthetic-publishable-key", isSupabaseConfigured: () => true }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: adapters.mfaClaims, getUser: adapters.mfaUser } }) }));
+vi.mock("@/lib/controlplane/db/open", () => ({ platformDb: async () => ({ kind: "synthetic-mfa-policy-store" }) }));
+vi.mock("@/lib/controlplane/db/repos/workspace-mfa-controls", () => ({
+  getWorkspaceMfaControls: async (_sql: unknown, workspaceId: string) => ({ workspaceId,
+    privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null }),
+}));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => ({ id: adapters.userId, name: adapters.userId, email: `${adapters.userId}@zenith.test` }) }));
 vi.mock("@/lib/hosted/access/identity", () => ({ verifyRequestIdentity: async () => {
   if (adapters.identityUnavailable) throw new Error("identity adapter unavailable");
@@ -65,6 +73,10 @@ beforeEach(async () => {
   adapters.userId = adapters.liveSubject = "alice"; adapters.emailVerified = true; adapters.identityUnavailable = false;
   adapters.token = `za_${randomBytes(24).toString("hex")}`; adapters.scopes = ["read", "write"];
   adapters.verifyCredential.mockReset();
+  adapters.mfaClaims.mockImplementation(async () => ({ data: { claims: { sub: adapters.userId, aal: "aal2", exp: Date.now() / 1000 + 600,
+    amr: [{ method: "totp", timestamp: Date.now() / 1000 }] } }, error: null }));
+  adapters.mfaUser.mockImplementation(async () => ({ data: { user: { id: adapters.userId, email_confirmed_at: new Date().toISOString(),
+    factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }));
   adapters.verifyCredential.mockImplementation(async (header) => {
     if (header !== `Bearer ${adapters.token}`) throw new BrokerError("unauthenticated", "Present a valid integration credential.");
     return { id: "integration-a", workspaceId: WS, subject: "alice", label: "Route fixture" };

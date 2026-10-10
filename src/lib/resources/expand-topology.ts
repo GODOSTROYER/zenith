@@ -104,6 +104,8 @@ export const contain = (ctx: Ctx, topo: Topologies, place: Place, address: strin
 export function propagateNamespaces(ctx: Ctx, topo: Topologies): void {
   for (const node of ctx.b.nodes.values()) {
     if ((node.provider !== "kubernetes" && node.provider !== "zenith") || node.kind === "provider_native" || !node.nativeType.startsWith("k8s:")) continue;
+    // Build-only compiler nodes are not Kubernetes objects and have no namespace field.
+    if (node.nativeType === "k8s:BuildRegistry" || node.nativeType === "k8s:BuildPipeline") continue;
     const network = topo.get(placeKey(node))?.network;
     const networkNamespace = network ? ctx.b.nodes.get(network)?.spec.namespace : undefined;
     const namespace = typeof networkNamespace === "string"

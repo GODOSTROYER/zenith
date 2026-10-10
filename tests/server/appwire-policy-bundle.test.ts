@@ -48,12 +48,15 @@ describe("policy deployment packaging", () => {
     for (const copy of copies) {
       const args = copy[1].trim().split(/\s+/);
       expect(args.some((arg) => arg.startsWith("--") || arg.startsWith("[")), "extend this layout helper when COPY syntax changes").toBe(false);
-      const destination = path.resolve(root, args.pop()!);
+      const destinationArg = args.pop()!;
+      const destination = path.resolve(root, destinationArg);
       expect(destination === root || destination.startsWith(root + path.sep)).toBe(true);
-      mkdirSync(destination, { recursive: true });
+      const fileDestination = args.length === 1 && statSync(path.join(repository, args[0])).isFile()
+        && destinationArg !== "." && !destinationArg.endsWith(path.sep);
+      mkdirSync(fileDestination ? path.dirname(destination) : destination, { recursive: true });
       for (const source of args) {
         const input = path.join(repository, source);
-        const output = statSync(input).isDirectory() ? destination : path.join(destination, path.basename(source));
+        const output = fileDestination ? destination : statSync(input).isDirectory() ? destination : path.join(destination, path.basename(source));
         cpSync(input, output, { recursive: true });
       }
     }

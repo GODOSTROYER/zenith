@@ -33,7 +33,13 @@ afterEach(() => {
 
 function compose(w: World, policy?: BuildIsolationPolicy) {
   const unavailable = async (): Promise<never> => { throw new Error("Unexpected portability mutation in egress fixture."); };
-  const ports = { ...w.deps, releaseSafety: undefined, portability: {
+  const ports = { ...w.deps, releaseSafety: undefined,
+    // This isolated build is not a mixed-plan child. Keep its empty typed-input
+    // binding explicit so the real composition cannot fall through to SQL.
+    typedInputs: {
+      producerContract: async () => [], load: async () => [],
+      capture: async () => ({ recorded: 0 }), resolveSecret: unavailable,
+    }, portability: {
     recordExport: unavailable, getExport: unavailable, recordRestore: unavailable,
     adopt: unavailable, release: unavailable, getAdoption: unavailable,
     adoptionFacts: async () => [],

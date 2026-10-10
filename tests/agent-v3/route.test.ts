@@ -51,9 +51,12 @@ describe("MCP v3 HTTP", () => {
   });
   it("tools/list emits exact schemas, hints and _meta.zenith", async () => {
     await setup(); const res = await route.POST(request("tools/list")); expect(res.status).toBe(200);
-    const body = await res.json(); expect(body.result.tools).toHaveLength(16);
+    const body = await res.json(); expect(body.result.tools).toHaveLength(TOOL_NAMES.length);
     for (const tool of TOOL_CATALOG) expect(body.result.tools).toContainEqual(expect.objectContaining({ name: tool.name, inputSchema: tool.inputSchema,
       annotations: tool.annotations, _meta: { zenith: expect.objectContaining({ contractVersion: 3, schemaVersion: tool.schemaVersion, schemaDigest: tool.schemaDigest }) } }));
+    const events = body.result.tools.find((tool: { name: string }) => tool.name === "zenith_get_operation_events");
+    expect(events).toMatchObject({ title: "Get operation events", _meta: { zenith: { access: "read", requiredScope: "read" } } });
+    expect(events.inputSchema.required).toEqual(["workspaceId", "operationId"]);
   });
   it("modern protocol requests also use JSON and the same catalog/strict tools", async () => {
     const { h } = await setup();
@@ -62,7 +65,9 @@ describe("MCP v3 HTTP", () => {
     const meta = { [PROTOCOL_VERSION_META_KEY]: "2026-07-28", [CLIENT_CAPABILITIES_META_KEY]: {} };
     const list = await route.POST(request("tools/list", { _meta: meta }, { "mcp-method": "tools/list" }));
     expect(list.status, await list.clone().text()).toBe(200); expect(list.headers.get("content-type")).toContain("application/json");
-    expect((await list.json()).result.tools).toHaveLength(16);
+    const listedTools = (await list.json()).result.tools;
+    expect(listedTools).toHaveLength(TOOL_NAMES.length);
+    expect(listedTools.map((tool: { name: string }) => tool.name)).toContain("zenith_get_operation_events");
     const call = await route.POST(request("tools/call", { _meta: meta, name: "zenith_get_topology", arguments: argsFor("zenith_get_topology") }, { "mcp-method": "tools/call", "mcp-name": "zenith_get_topology" }));
     expect(call.status).toBe(200); expect((await call.json()).result.structuredContent.ok).toBe(true);
     expect(h.authorizeRead).toHaveBeenCalledTimes(1);

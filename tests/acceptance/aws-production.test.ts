@@ -286,7 +286,7 @@ describe("CLI admission and explicit credentials (offline)", () => {
     perm.expiresAt = new Date(Date.now() + 60_000).toISOString();
     await writeFile(permissionFile, JSON.stringify({ awsLive: perm }));
     const argv = ["--account", settings.accountId, "--run-id", settings.runId, "--db-security-group", settings.dbSecurityGroup, "--permissions", permissionFile, "--out", directory];
-    const env = { ZENITH_LIVE_AWS: "1", ZENITH_LIVE_AWS_BUDGET_USD: "10" };
+    const env = { ZENITH_LIVE_AWS: "1", ZENITH_LIVE_AWS_BUDGET_USD: "10", ZENITH_LIVE_BUDGET_FILE: path.join(directory, "run-budget.json") };
     const model = modeled(p); let constructed = 0;
     const deps = { source: () => perm.sourceCommit, transport: async () => { constructed++; return model.transport; } };
     const io = { out: () => undefined, err: () => undefined };

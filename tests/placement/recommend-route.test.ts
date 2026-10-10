@@ -7,6 +7,9 @@ import type { NextRequest as RequestType } from "next/server";
 
 tempDataDir("zenith-placement-route-");
 const auth = vi.hoisted(() => ({ verify: vi.fn(), authorize: vi.fn(), session: vi.fn(), configured: vi.fn() }));
+// A syntactically valid, fake linked-agent bearer; the authority below is a
+// test adapter and never resolves this into a production credential.
+const TEST_BEARER = `Bearer za_${"x".repeat(43)}`;
 vi.mock("@/lib/agent-access/authority", () => ({ requireCredentialAuthority: async () => ({ verify: auth.verify }) }));
 vi.mock("@/lib/capabilities/platform", () => ({ platformBroker: async () => ({ authorizeRead: auth.authorize }) }));
 type RouteHandler = (req: RequestType, params: { id: string }) => Promise<Response>;
@@ -36,9 +39,9 @@ const request = (id = "env-a", body: unknown = {}, headers: Record<string, strin
 
 describe("placement REST read", () => {
   it("supports a bearer and authorizes placement.solve at project scope", async () => {
-    const response = await request("env-a", { constraints: { userRegions: ["india"] } }, { authorization: "Bearer opaque-test-token" });
+    const response = await request("env-a", { constraints: { userRegions: ["india"] } }, { authorization: TEST_BEARER });
     expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toContain("no-store");
-    expect(auth.verify).toHaveBeenCalledWith("Bearer opaque-test-token");
+    expect(auth.verify).toHaveBeenCalledWith(TEST_BEARER);
     expect(auth.authorize).toHaveBeenCalledWith({ capability: "placement.solve", scope: { workspaceId: "ws-a", projectId: "proj-a", environmentId: "env-a" } }, expect.objectContaining({ kind: "integration", id: "int-a" }));
     const body = await response.json(); expect(body.result.chosen.cost.lines.length).toBeGreaterThan(0); expect(body).not.toHaveProperty("grant");
   });
@@ -61,6 +64,6 @@ describe("placement REST read", () => {
   });
   it("refuses unknown mutation fields and conflicting workspace selection", async () => {
     expect((await request("env-a", { apply: true })).status).toBe(400);
-    expect((await request("env-a", {}, { authorization: "Bearer opaque-test-token", "x-zenith-workspace": "ws-b" })).status).toBe(404);
+    expect((await request("env-a", {}, { authorization: TEST_BEARER, "x-zenith-workspace": "ws-b" })).status).toBe(404);
   });
 });

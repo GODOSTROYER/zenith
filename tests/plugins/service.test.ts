@@ -221,6 +221,10 @@ describe("revocation", () => {
     expect(await revokePlugin(h.deps, { workspaceId: h.ws, registrationId: reg.id, revokedBy: "alice", reason: "again" })).toMatchObject({ grantsRevoked: 0 });
     // the parent credential is untouched
     expect(await h.parents.lookup("bob", h.ws, h.credentialId)).not.toBeNull();
+    const anchor = Date.now() - 5_000;
+    for (const [kind, offset] of [["registered", 0], ["approved", 1_000], ["grant_issued", 2_000], ["revoked", 3_000]] as const) {
+      await h.db.query("update platform.plugin_events set created_at = $4::timestamptz where workspace_id = $1 and registration_id = $2 and kind = $3", [h.ws, reg.id, kind, new Date(anchor + offset).toISOString()]);
+    }
     const kinds = (await repos.plugins.listEvents(h.db, h.ws, reg.id)).map((e) => e.kind);
     expect(kinds).toEqual(["registered", "approved", "grant_issued", "grant_issued", "revoked"]);
   });

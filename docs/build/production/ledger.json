@@ -548,7 +548,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "reopened_c7_GHSA_6qxp_vccf_f47h; narrow_client_core_upgrade_awaits_explicit_authorization",
+      "implementationStatus": "builder_client_core_2.2.0_integrated_e2f27ca8; fresh_audit_zero_findings; complete_gate_pending",
       "evidence": [
         {
           "level": "contract",
@@ -1522,6 +1522,24 @@
           "commit": "e8970f2510d617da825b6861e2c3b1023456e152",
           "result": "Reviewed synthetic agent browser44/0/0 and hosted24/0/0; retainedcaseidentities/diskguard/cleanup. Integratedcompiler5120MiB/lint0; SYS1contracts186/0/0. Actuale854reconciliation38/0/0; remote15success4failure8skip1active. Completecoherentgates/nativeSYS1/defaultAuth/CIpending; no promotion.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-newmac-browser-checkpoint.json"
+        },
+        {
+          "level": "contract",
+          "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+          "result": "Reviewed browser44/44 direct-child/listener shutdown and SYS1 targeted187/0/0; compiler/lint pass. Original browser orphan and receipt failure retained. Full8bb unit24321P169F1939pending, collection mismatch/supervisor refusal; CI18success2failure8skip. Overall/default/privileged gates pending; no promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-newmac-cleanup-checkpoint.json"
+        },
+        {
+          "level": "contract",
+          "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+          "result": "Reviewed current minimal platform error/namespace repairs and stale fixtures pass 1019/0/0 across24 targeted files with continuous22GiB floor; compiler/lint pass. Full coherent unit/default/engine gates remain pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-newmac-unit-repairs.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+          "result": "Exact de8079cdf CI terminal18success2failure8skip; verify24343passed166failed1921skipped; SYS1 fixture-build failure before tests. Separate native worker/platform workflows each2success.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-de8079cdf-ci.json"
         }
       ],
       "requiredEvidence": [

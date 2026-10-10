@@ -38,8 +38,9 @@ afterAll(async () => {
 });
 
 describe("registration", () => {
-  it("has exactly one driver per native type in the KUBERNETES row, none claiming more than contract evidence", () => {
-    const row = new Set(Object.values(NATIVE_TYPE_TABLE.kubernetes));
+  it("has exactly one driver per resource native type, with build-only compiler mappings explicitly unsupported", () => {
+    const row = new Set(Object.entries(NATIVE_TYPE_TABLE.kubernetes).filter(([kind]) => !["container_registry", "build_pipeline"].includes(kind)).map(([, nativeType]) => nativeType));
+    for (const nativeType of ["k8s:BuildRegistry", "k8s:BuildPipeline"]) expect(findDriver("kubernetes", nativeType)).toBeUndefined();
     expect(new Set(kubernetesDrivers.map((d) => d.nativeType))).toEqual(row);
     expect(kubernetesDrivers).toHaveLength(row.size);
     for (const d of kubernetesDrivers) {
@@ -63,13 +64,15 @@ describe("registration", () => {
     expect(first).toHaveLength(kubernetesDrivers.length);
     expect(listDrivers("zenith")).toHaveLength(kubernetesDrivers.length);
     expect(listDrivers("kubernetes")).toHaveLength(before);
-    for (const nativeType of new Set(Object.values(NATIVE_TYPE_TABLE.kubernetes))) {
+    for (const nativeType of new Set(kubernetesDrivers.map((driver) => driver.nativeType))) {
       const d = getDriver("zenith", nativeType);
       expect(d.id.startsWith("zenith.")).toBe(true);
       expect(d.provider).toBe("zenith");
     }
     expect(findDriver("zenith", "zenith:managed_postgres")).toBeUndefined();
     expect(findDriver("zenith", "zenith:object_store")).toBeUndefined();
+    expect(findDriver("zenith", "k8s:BuildRegistry")).toBeUndefined();
+    expect(findDriver("zenith", "k8s:BuildPipeline")).toBeUndefined();
     expect(getDriver("kubernetes", "k8s:Deployment").id).toBe("kubernetes.deployment@1");
     expect(getDriver("zenith", "k8s:Deployment").capabilities.operations).toEqual(getDriver("kubernetes", "k8s:Deployment").capabilities.operations);
   });

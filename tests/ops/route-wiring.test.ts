@@ -1,13 +1,24 @@
 /**
  * PROD-OPS-02 reachability: the real `route()` wrapper (under every product and platform API route)
  * applies admission, answers refusals as 429/503 + Retry-After, and returns a traceparent.
- * File-store demo mode, exactly like tests/api/serverless-flush.test.ts: no mocks of route() itself.
+ * File-store routes with a synthetic signed-in AAL2/TOTP provider fixture. The route() wrapper and
+ * privileged guard remain real; the selected backpressure target receives a valid same-origin proof.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-ops-route-", { fast: true });
+
+const authFixture = vi.hoisted(() => ({ claims: vi.fn(), user: vi.fn() }));
+vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => ({ id: "operator", email: "operator@zenith.test", name: "Operator" }) }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "synthetic-publishable-key", isSupabaseConfigured: () => true }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: authFixture.claims, getUser: authFixture.user } }) }));
+vi.mock("@/lib/controlplane/db/open", () => ({ platformDb: async () => ({ kind: "synthetic-mfa-policy-store" }) }));
+vi.mock("@/lib/controlplane/db/repos/workspace-mfa-controls", () => ({
+  getWorkspaceMfaControls: async (_sql: unknown, workspaceId: string) => ({ workspaceId,
+    privilegedActionsRequireAal2: true, requireForAllMutations: false, maxAgeSeconds: null }),
+}));
 
 const { db, resetDb, flush } = await import("@/lib/db/store");
 const { route, currentRequest } = await import("@/lib/server/request");
@@ -32,6 +43,11 @@ describe("route() admission wiring", () => {
     resetDb();
     flush();
     db().workspaces.push({ id: "ws_ops", slug: "ops", name: "Ops", createdAt: new Date().toISOString() });
+    db().members.push({ id: "operator", workspaceId: "ws_ops", role: "admin", name: "Operator", email: "operator@zenith.test" });
+    authFixture.claims.mockResolvedValue({ data: { claims: { sub: "operator", aal: "aal2", exp: Date.now() / 1000 + 600,
+      amr: [{ method: "totp", timestamp: Date.now() / 1000 }] } }, error: null });
+    authFixture.user.mockResolvedValue({ data: { user: { id: "operator", email_confirmed_at: new Date().toISOString(),
+      factors: [{ factor_type: "totp", status: "verified" }] } }, error: null });
   });
   afterEach(() => { setOpsRuntimeForTests(undefined); });
 
@@ -105,7 +121,9 @@ describe("route() admission wiring", () => {
   it("the platform API wrapper answers a dispatch refusal with the platform error body and Retry-After", async () => {
     install({});
     const handler = platformRoute(async () => { throw new BackpressureError("concurrency_exceeded", "dispatch", "This workspace already has 25 operations running or queued.", 30, "ws_ops"); });
-    const res = await handler(new NextRequest("http://zenith.test/api/platform/v1/operations/op_1/start-portability", { method: "POST" }), { params: Promise.resolve({}) });
+    const res = await handler(new NextRequest("http://zenith.test/api/platform/v1/operations/op_1/start-portability", {
+      method: "POST", headers: { origin: "http://zenith.test", cookie: "zenith-workspace=ws_ops" },
+    }), { params: Promise.resolve({}) });
     expect(res.status).toBe(429);
     expect(res.headers.get("retry-after")).toBe("30");
     expect(((await res.json()) as { error: { code: string; fix: string } }).error).toMatchObject({ code: "concurrency_exceeded" });

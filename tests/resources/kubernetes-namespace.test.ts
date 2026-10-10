@@ -18,9 +18,20 @@ import { PROD, fullManifest, manifest, res, svc, webDb } from "./_fixtures";
 
 const env: ExpandEnv = { ...PROD, provider: "kubernetes", region: "contract-cluster" };
 const tuned = (namespace: string): ManifestV2 => ({ ...fullManifest(), version: 2, providerConfig: { kubernetes: { namespace } } });
-const kubernetesNodes = (graph: ReturnType<typeof expandManifest>) => graph.nodes.filter((n) => n.nativeType.startsWith("k8s:"));
+const kubernetesNodes = (graph: ReturnType<typeof expandManifest>) => graph.nodes.filter((n) => n.nativeType.startsWith("k8s:") && n.kind !== "container_registry" && n.kind !== "build_pipeline");
 
 describe("namespaces on expanded Kubernetes nodes", () => {
+  it("keeps compiler-only build specs outside namespace propagation", () => {
+    const input = tuned("build-workloads");
+    const graph = expandManifest(input, env);
+    const build = graph.nodes.filter((node) => node.nativeType === "k8s:BuildRegistry" || node.nativeType === "k8s:BuildPipeline");
+    expect(new Set(build.map((node) => node.nativeType))).toEqual(new Set(["k8s:BuildRegistry", "k8s:BuildPipeline"]));
+    for (const node of build) expect(node.spec, node.address).not.toHaveProperty("namespace");
+    for (const node of kubernetesNodes(graph)) expect(node.spec.namespace, node.address).toBe("build-workloads");
+    for (const node of graph.nodes) expect(node.specDigest, node.address).toBe(specDigestOf(node));
+    expect(graph.graphDigest).toBe(graphDigestOf(graph.nodes, graph.edges));
+    expect(expandManifest(input, env)).toEqual(graph);
+  });
   it.each(["kubernetes", "zenith"] as const)("carries the network namespace on every Kubernetes-bound %s node", (provider) => {
     const input = tuned("tenant-workloads");
     const before = JSON.stringify(input);
@@ -33,7 +44,7 @@ describe("namespaces on expanded Kubernetes nodes", () => {
       ...(provider === "kubernetes" ? ["postgres", "redis"] : []),
     ]));
     for (const node of bound) expect(node.spec.namespace, node.address).toBe(namespace);
-    for (const node of graph.nodes.filter((n) => !n.nativeType.startsWith("k8s:"))) expect(node.spec).not.toHaveProperty("namespace");
+    for (const node of graph.nodes.filter((n) => !bound.includes(n))) expect(node.spec).not.toHaveProperty("namespace");
     for (const node of graph.nodes) expect(node.specDigest, node.address).toBe(specDigestOf(node));
     expect(graph.graphDigest).toBe(graphDigestOf(graph.nodes, graph.edges));
     expect(JSON.stringify(input)).toBe(before);

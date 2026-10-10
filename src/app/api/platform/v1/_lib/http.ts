@@ -12,15 +12,15 @@
  *    services behind it never hold one in a response shape, and operation
  *    payloads are scrubbed on the way out.
  *
- * Errors that are not ours (`ApiError` from the workspace helpers, anything
- * unexpected) are rethrown so `route()` answers them exactly like every other
- * route: the product's own error body, and a generic 500 that leaks nothing.
+ * Expected ApiError refusals, including the outer route's authentication
+ * guards, receive bounded diagnostics and a stable platform code. Unexpected
+ * errors retain the generic server response that leaks no diagnostics.
  */
 import type { NextRequest } from "next/server";
 import type { ZodTypeAny, z } from "zod";
 import { AgentError } from "@/lib/agent-access/security";
 import { BrokerError, isBrokerError } from "@/lib/capabilities/errors";
-import { json } from "@/lib/server/errors";
+import { ApiError, json } from "@/lib/server/errors";
 import { route, safeRequestError } from "@/lib/server/request";
 import { backpressureResponse, isBackpressureError } from "@/lib/ops/errors";
 import { isPlatformBearerRequest } from "./bearer-paths";
@@ -70,6 +70,12 @@ function failure(error: unknown): Response | undefined {
     const safe = safeRequestError(error) as { message: string };
     return json({ error: { code: error.code, message: safe.message } }, error.status);
   }
+  if (error instanceof ApiError) {
+    const safe = safeRequestError(error);
+    if (!(safe instanceof ApiError)) return undefined;
+    const fallback: Record<number, string> = { 400: "invalid_request", 401: "unauthenticated", 403: "policy_denied", 404: "not_found", 409: "conflict", 503: "policy_unavailable" };
+    return json({ error: { code: safe.platformCode ?? fallback[safe.status] ?? "internal", message: safe.message, ...(safe.fix ? { fix: safe.fix } : {}) } }, safe.status);
+  }
   return undefined;
 }
 
@@ -79,6 +85,7 @@ function failure(error: unknown): Response | undefined {
  */
 export function platformRoute<P extends Record<string, string> = Record<string, string>>(fn: (req: NextRequest, params: P) => Promise<Answer>) {
   return route<P>({
+    errorResponse: failure,
     integrationAccess: async (req) => {
       if (!isPlatformBearerRequest(req.nextUrl.pathname, req.method, req.headers.get("authorization"))) return undefined;
       try {

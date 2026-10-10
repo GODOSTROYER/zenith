@@ -1,0 +1,376 @@
+{
+  "observedAtUtc": "2026-10-10T13:44:46Z",
+  "source": "GitHub Actions read-only metadata and job logs/artifact",
+  "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+  "runs": [
+    {
+      "id": 38053622867,
+      "workflow": "CI",
+      "workflowId": 348020673,
+      "path": ".github/workflows/ci.yml",
+      "event": "push",
+      "branch": "codex/production-2026-10-02",
+      "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "failure",
+      "createdAt": "2026-10-10T12:53:24Z",
+      "updatedAt": "2026-10-10T13:36:02Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38053622867"
+    },
+    {
+      "id": 38053622871,
+      "workflow": "Native packaged workers",
+      "workflowId": 375194309,
+      "path": ".github/workflows/packaged-workers.yml",
+      "event": "push",
+      "branch": "codex/production-2026-10-02",
+      "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "createdAt": "2026-10-10T12:53:24Z",
+      "updatedAt": "2026-10-10T13:00:00Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38053622871"
+    },
+    {
+      "id": 38053622902,
+      "workflow": "Native skipped platforms",
+      "workflowId": 376122592,
+      "path": ".github/workflows/skipped-platforms.yml",
+      "event": "push",
+      "branch": "codex/production-2026-10-02",
+      "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "createdAt": "2026-10-10T12:53:24Z",
+      "updatedAt": "2026-10-10T12:54:36Z",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38053622902"
+    }
+  ],
+  "jobTotals": {
+    "main": {
+      "success": 18,
+      "failure": 2,
+      "skipped": 8
+    },
+    "packagedWorkers": {
+      "success": 2
+    },
+    "skippedPlatforms": {
+      "success": 2
+    }
+  },
+  "jobs": [
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555254,
+      "name": "tofu",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555338,
+      "name": "supply-chain",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555345,
+      "name": "adversarial",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555353,
+      "name": "workflow-history-replay",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555378,
+      "name": "hosted",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555389,
+      "name": "operation-gates (reconciliation)",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555395,
+      "name": "agent",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555397,
+      "name": "workflows",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555400,
+      "name": "policy",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555404,
+      "name": "wave5-contract",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555442,
+      "name": "postgres",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555443,
+      "name": "operation-gates (workflow-intents)",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555460,
+      "name": "ledger",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555476,
+      "name": "build",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555478,
+      "name": "platform-postgres",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555503,
+      "name": "recovery",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555510,
+      "name": "generated",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555532,
+      "name": "verify",
+      "conclusion": "failure",
+      "startedAt": "2026-10-10T12:53:28Z",
+      "completedAt": "2026-10-10T13:36:02Z",
+      "failedStep": "Run canonical full core suite",
+      "suiteCounts": {
+        "failed": 19,
+        "passed": 1117,
+        "skipped": 94,
+        "total": 1230
+      },
+      "testCounts": {
+        "failed": 166,
+        "passed": 24343,
+        "skipped": 1921,
+        "total": 26430
+      },
+      "failedFiles": [
+        "tests/acceptance/aws-production.test.ts",
+        "tests/acceptance/packaged-worker.test.ts",
+        "tests/agent-journey.test.ts",
+        "tests/agent-v3/route.test.ts",
+        "tests/api/workspace-sharing.test.ts",
+        "tests/execution/approved-source.test.ts",
+        "tests/execution/build-egress-composition.test.ts",
+        "tests/ops/admin-routes.test.ts",
+        "tests/ops/data-plane-independence.test.ts",
+        "tests/ops/route-wiring.test.ts",
+        "tests/placement/recommend-route.test.ts",
+        "tests/providers/kubernetes/drivers.test.ts",
+        "tests/resources/kubernetes-namespace.test.ts",
+        "tests/resources/spec-conformance.test.ts",
+        "tests/server/appwire-admission.test.ts",
+        "tests/server/appwire-policy-bundle.test.ts",
+        "tests/sources/github-callback.test.ts",
+        "tests/waitlist/api.test.ts",
+        "tests/machines/runbook-routes.test.ts"
+      ]
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555533,
+      "name": "docker",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555546,
+      "name": "go",
+      "conclusion": "failure",
+      "startedAt": "2026-10-10T12:53:27Z",
+      "completedAt": "2026-10-10T12:57:22Z",
+      "failedStep": "Required native Linux race and authentic golden comparison",
+      "failedStepExitCode": 1,
+      "diagnostic": {
+        "stage": "fixture-build",
+        "class": "assertion",
+        "cleanupState": "failed"
+      },
+      "stepResults": [
+        {
+          "step": "race",
+          "exitCode": 0,
+          "packages": 22,
+          "leaves": 1077,
+          "passedLeaves": 1074,
+          "failedLeaves": 0,
+          "skippedLeaves": 3
+        },
+        {
+          "step": "package-native",
+          "exitCode": 0,
+          "packages": 1,
+          "leaves": 8,
+          "passedLeaves": 8,
+          "failedLeaves": 0,
+          "skippedLeaves": 0
+        },
+        {
+          "step": "pid1-native",
+          "exitCode": 1,
+          "packages": 0,
+          "leaves": 0,
+          "passedLeaves": 0,
+          "failedLeaves": 0,
+          "skippedLeaves": 0,
+          "requiredTest": "TestSystemdSignedUpdateAndRollback",
+          "requiredTestStatus": "missing"
+        }
+      ]
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217555988,
+      "name": "j15-operated-upgrade",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217556048,
+      "name": "drivers-d4-export",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217556069,
+      "name": "drv1-private-source",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217556195,
+      "name": "drivers-d4-two-tenants",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217556200,
+      "name": "j15-operated-restore",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217556932,
+      "name": "drv2-drift-repair",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217576442,
+      "name": "drv1-update-rollback",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622867,
+      "workflow": "CI",
+      "jobId": 114217585514,
+      "name": "drv2-crash-partition",
+      "conclusion": "skipped"
+    },
+    {
+      "runId": 38053622871,
+      "workflow": "Native packaged workers",
+      "jobId": 114217555019,
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622871,
+      "workflow": "Native packaged workers",
+      "jobId": 114217555179,
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622902,
+      "workflow": "Native skipped platforms",
+      "jobId": 114217554891,
+      "name": "windows-acl",
+      "conclusion": "success"
+    },
+    {
+      "runId": 38053622902,
+      "workflow": "Native skipped platforms",
+      "jobId": 114217554987,
+      "name": "linux-systemd",
+      "conclusion": "success"
+    }
+  ],
+  "failureAssessment": {
+    "go": "The race suite and package-native fixture passed. PID1-native exited 1 before any test events; attached sanitized diagnostic says fixture-build/assertion/cleanup failed. The required TestSystemdSignedUpdateAndRollback is missing because fixture provisioning failed. The artifact carries only the allowlisted classification, so it does not establish a more specific underlying cause. No source fix is justified from this evidence alone.",
+    "verify": "Full core suite exited 1: 166 failed, 24,343 passed, 1,921 skipped across 1,230 suites. 19 failed suite file identities are listed on the verify job. No raw failure text or request identifiers are included."
+  },
+  "evidenceHashes": {
+    "goJobLogSha256": "1623579249b71673046ac0a5dfe7c485b104dfbe6d7842aff1893bcb07776991",
+    "verifyJobLogSha256": "b2546eb8774a6b67653eb0f66d45e2c03db66a7657c6ed9dafd63c562b621560",
+    "linuxGuestArtifactSha256": "a5cb00507968888c59807a210977921d0923d7fc0db9ae59bcee567def689d02"
+  }
+}

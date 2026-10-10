@@ -11,15 +11,21 @@ import { redactCredentials } from "@/lib/credentials/redact";
 import { redactOutput } from "@/lib/tofu/redact";
 import { backpressureBody, isBackpressureError } from "@/lib/ops/errors";
 
-/** Every error body is `{ error: { message, fix? } }` — errors name their fix. */
+export type ApiErrorCode = "browser_session_required" | "mfa_required" | "policy_unavailable";
+export const isApiErrorCode = (code: unknown): code is ApiErrorCode =>
+  code === "browser_session_required" || code === "mfa_required" || code === "policy_unavailable";
+
+/** Generic routes expose message/fix; platform routes also expose a finite code. */
 export class ApiError extends Error {
   readonly status: number;
   readonly fix?: string;
-  constructor(message: string, status = 400, opts: { fix?: string } = {}) {
+  readonly platformCode?: ApiErrorCode;
+  constructor(message: string, status = 400, opts: { fix?: string; code?: ApiErrorCode } = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.fix = opts.fix;
+    this.platformCode = isApiErrorCode(opts.code) ? opts.code : undefined;
   }
 }
 
@@ -43,6 +49,7 @@ export function safeRequestError(error: unknown): unknown {
     if (error instanceof ApiError) {
       return new ApiError(text(error.message, 2048), error.status, {
         ...(error.fix ? { fix: text(error.fix, 2048) } : {}),
+        ...(isApiErrorCode(error.platformCode) ? { code: error.platformCode } : {}),
       });
     }
     if (!(error instanceof Error)) return { name: "NonErrorThrown", message: "A non-Error value was thrown." };

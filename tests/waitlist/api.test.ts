@@ -12,9 +12,12 @@ const mocks = vi.hoisted(() => ({
   admit: vi.fn(),
   admitted: vi.fn(),
   consumeRateLimit: vi.fn(),
+  mfaClaims: vi.fn(), mfaUser: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: mocks.session }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "synthetic-publishable-key", isSupabaseConfigured: () => true }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: mocks.mfaClaims, getUser: mocks.mfaUser } }) }));
 vi.mock("@/lib/waitlist/repository", () => ({ waitlistRepository: mocks.repository }));
 vi.mock("@/lib/server/request", () => ({
   route: () => { throw new Error("Waitlist routes must not bootstrap a workspace or require product admission."); },
@@ -84,6 +87,10 @@ beforeEach(() => {
   vi.stubEnv("ZENITH_WAITLIST_RATE_LIMIT_SECRET", "test-waitlist-rate-limit-secret-0123456789");
   vi.stubEnv("ZENITH_WAITLIST_TRUSTED_IP_HEADER", undefined);
   mocks.session.mockResolvedValue(operator);
+  mocks.mfaClaims.mockResolvedValue({ data: { claims: { sub: OPERATOR, aal: "aal2", exp: Date.now() / 1000 + 600,
+    amr: [{ method: "totp", timestamp: Date.now() / 1000 }] } }, error: null });
+  mocks.mfaUser.mockResolvedValue({ data: { user: { id: OPERATOR, email_confirmed_at: new Date().toISOString(),
+    factors: [{ factor_type: "totp", status: "verified" }] } }, error: null });
   mocks.repository.mockResolvedValue({
     join: mocks.join,
     list: mocks.list,
@@ -325,7 +332,7 @@ describe("operator FIFO batch admission", () => {
   });
 
   it("caps admission body bytes even when Content-Length understates the size", async () => {
-    const response = await admit(rawPost("/api/admin/waitlist/admit", JSON.stringify({ count: 1, requestId: REQUEST_ID }).padEnd(8193, " "), { "content-length": "1" }));
+    const response = await admit(rawPost("/api/admin/waitlist/admit", JSON.stringify({ count: 1, requestId: REQUEST_ID }).padEnd(8193, " "), { origin: ORIGIN, "content-length": "1" }));
     expect(response.status).toBe(413);
     expect(mocks.admit).not.toHaveBeenCalled();
   });

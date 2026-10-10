@@ -103,7 +103,7 @@ describe("integration admission before product state", () => {
     const handler = vi.fn();
     const response = await platformRoute(handler)(request("/operations", "GET", header), ctx);
     expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({ error: { code: "unauthorized" } });
+    expect(await response.json()).toMatchObject({ error: { code: failure === "malformed" ? "unauthenticated" : "unauthorized" } });
     expect(response.headers.get("x-request-id")).toBeTruthy();
     expect(handler).not.toHaveBeenCalled();
     expect(state.boot).not.toHaveBeenCalled();

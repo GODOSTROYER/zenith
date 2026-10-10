@@ -11,9 +11,11 @@ import { api, INSTALL_TOKEN, USER_TOKEN, json, keys } from "./fixtures";
 
 tempDataDir("zenith-github-callback-", { fast: true });
 process.env.ZENITH_STORE = "file";
-const state = vi.hoisted(() => ({ user: { id: "human", email: "human@zenith.test", name: "Human" } as SessionUser | null, verified: true, db: undefined as PlatformDb | undefined, identityGate: undefined as { entered: () => void; wait: Promise<void> } | undefined }));
+const state = vi.hoisted(() => ({ user: { id: "human", email: "human@zenith.test", name: "Human" } as SessionUser | null, verified: true, db: undefined as PlatformDb | undefined, identityGate: undefined as { entered: () => void; wait: Promise<void> } | undefined, mfaClaims: vi.fn(), mfaUser: vi.fn() }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
-vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
+vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(),
+  SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "synthetic-publishable-key", isSupabaseConfigured: () => true }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: state.mfaClaims, getUser: state.mfaUser } }) }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
 vi.mock("@/lib/hosted/access/identity", () => ({ verifyRequestIdentity: async () => {
@@ -44,6 +46,10 @@ beforeEach(async () => {
   vi.stubEnv("ZENITH_GITHUB_APP_CLIENT_ID", "Iv1.synthetic"); vi.stubEnv("ZENITH_GITHUB_APP_CLIENT_SECRET_FILE", material.config.clientSecretFile!);
   fetchImpl = api(); vi.stubGlobal("fetch", fetchImpl); state.verified = true; state.identityGate = undefined;
   state.user = { id: "human", email: "human@zenith.test", name: "Human" };
+  state.mfaClaims.mockImplementation(async () => ({ data: { claims: { sub: state.user?.id ?? "", aal: "aal2", exp: Date.now() / 1000 + 600,
+    amr: [{ method: "totp", timestamp: Date.now() / 1000 }] } }, error: null }));
+  state.mfaUser.mockImplementation(async () => ({ data: { user: { id: state.user?.id ?? "", email_confirmed_at: new Date().toISOString(),
+    factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }));
   resetDb({ workspaces: ["ws-a", "ws-b"].map((id) => ({ id, name: id, slug: id, createdAt: new Date(0).toISOString() } as Workspace)), members: [
     { id: "human", workspaceId: "ws-a", email: "human@zenith.test", name: "Human", role: "admin" },
     { id: "editor", workspaceId: "ws-a", email: "editor@zenith.test", name: "Editor", role: "editor" },

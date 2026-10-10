@@ -1570,6 +1570,24 @@
           "commit": "9933510e9459a16403913f74bc055914129539ea",
           "result": "Terminal CI run38067119176 observed2026-10-10T17:30:08Z: across32 jobs21 success/3 failure/8 skipped; main28 jobs17 success/3 failure/8 skipped. Verify reported24543 passed/1 failed/1921 skipped, unit2438.24s; strict timeout assertion90<=45 failed, Smoke/Gimbal skipped. Go failed BuildKit build-apt-image before PID1 test events (cleanup complete, cause unknown, not a systemd test failure); platform-postgres had one PGlite lease-renewal timing miss. Native workflows each passed2 jobs. This terminal result is bound to9933510e; exact-source CI434 remains unobserved.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-434512b5-current.json"
+        },
+        {
+          "level": "contract",
+          "commit": "9543936c8cb1c40a1345cbe92fafeb5382e05c29",
+          "result": "Full R15 two-worker Node/DOM core run passed24527/0/1939 (26466 exact identities),481.38s; Vitest and wrapper exit0, exact identity/case counters matched, source unchanged, zero custody quarantines, owned temp data removed, minimum free space394202906624 bytes above23622320128-byte floor. This is full core scope only; skip accounting uses same-process collection/completion identity joins and arithmetic suite counters. No overall release promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-9543936c-r15-full.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "9543936c8cb1c40a1345cbe92fafeb5382e05c29",
+          "result": "Terminal exact-SHA CI observed2026-10-10T18:00:59Z: across32 jobs22 success/2 failure/8 skipped; main28 jobs18/2/8. Verify failed in ESLint before unit suites began (unused sleep and prefer-const timer in tests/controlplane/services.test.ts). Go build-apt-image child exited1 before PID1 tests; cleanup completed, deeper stderr unavailable, OOM not observed but not ruled out. Native packaged and platform workflows each2/2 succeeded.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-9543936c-r15-full.json"
+        },
+        {
+          "level": "contract",
+          "commit": "6612eeaa2b8de261f233f5a564ceafce534036cf",
+          "result": "Follow-on focused R15 regression scope passed345/0/0 across345 exact identities; wrapper0, stable source freeze, identity/case counters matched, owned temp data removed, minimum free space394312065024 bytes above23622320128-byte floor. This is focused evidence only; it does not establish full-suite acceptance for6612eeaa or later source. Prior a211db03 attempt 344/1/0 wrapper1 remains failed.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-9543936c-r15-full.json"
         }
       ],
       "requiredEvidence": [

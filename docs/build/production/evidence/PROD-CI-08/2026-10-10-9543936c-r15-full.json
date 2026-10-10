@@ -1,0 +1,168 @@
+{
+  "schema": "zenith-prod-ci-08-source-bound-evidence/v1",
+  "createdAtUtc": "2026-10-10T18:03:01Z",
+  "scope": "Full Node/DOM core run and exact-SHA CI evidence for published source9543936c. This closes this full-suite execution scope only; it does not close PROD-CI-08 or authorize an overall release promotion.",
+  "source": {
+    "commit": "9543936c8cb1c40a1345cbe92fafeb5382e05c29",
+    "published": true,
+    "frozen": true,
+    "sourceCount": 5853,
+    "sourceFreezeSha256": "cec30c0db5b6502239f3338ea9dc7f0eaa9c5c26dd95b4b636f41b82432ad261",
+    "sourceFreezeArtifactSha256": "e06af3bc927aa1a83f660e2cafcc0b127011664acd892d527d0d04445d71bfab"
+  },
+  "fullNodeDom": {
+    "status": "PASS",
+    "runner": "R15 full core with reviewed two-worker local derivative",
+    "durationSeconds": 481.38,
+    "counts": {
+      "passed": 24527,
+      "failed": 0,
+      "skipped": 1939,
+      "total": 26466,
+      "collectedIdentities": 26466,
+      "completedIdentities": 26466,
+      "pendingIdentities": 0
+    },
+    "vitestExit": 0,
+    "wrapperExit": 0,
+    "exactCaseCountersMatched": true,
+    "identityCountersMatched": true,
+    "sourceUnchanged": true,
+    "quarantines": 0,
+    "disk": {
+      "minimumFreeBytes": 394202906624,
+      "floorBytes": 23622320128,
+      "initialFreeBytes": 395274788864,
+      "finalFreeBytes": 394571902976
+    },
+    "ownedTemporaryDataCleanup": "removed after child exit",
+    "summarySha256": "58c0514074e9118710fb4a4fc357b8189447d93fdf1f12a01a34a19b96d815c8",
+    "rawIdentityReportSha256": "24ae59fbdcba53e9ac0132567068a087fb9021d493de6323f49fabaf25703b43",
+    "rawVitestReportSha256": "b858124c5e734d2f8c65c9bbf7db9363ec56564a2e4fa303cc00f72864adeaf0",
+    "rawVitestLogSha256": "9896f279c5e8ace0c931f928e68c721726490f293b3195ea30803f0377b74a07",
+    "outerExecutionLogSha256": "d48c737577ecaecf1fca9a4216894ddb74c40030779e392800840d9e4f667a0a",
+    "runnerSha256": "11889ec7460205667c5c07366955696e5def745b136cbfb114c7f3192f666897",
+    "scopeLimit": "Full Node/DOM suite only; not engine, live browser, default stack, cloud or complete release acceptance. Skip accounting uses same-process collection/completion identities and arithmetic suite counters, not an independent suite inventory.",
+    "identityReporterCodeSha256": "71d13bb91cbc8dca8b1ac0be79185e1e92d7e4cbfcd8347300cdfbde7f4b00a1",
+    "executionReceiptSha256": "f438e16d7e179eb01756802eb6130fc3329883feafec8aa14f4a94f1e469dee8"
+  },
+  "exactShaCi": {
+    "sourceCommit": "9543936c8cb1c40a1345cbe92fafeb5382e05c29",
+    "observedAtUtc": "2026-10-10T18:00:59Z",
+    "allWorkflowsTerminal": true,
+    "runs": {
+      "main": {
+        "runId": 38072606862,
+        "conclusion": "failure",
+        "jobs": 28,
+        "success": 18,
+        "failure": 2,
+        "skipped": 8
+      },
+      "nativePackagedWorkers": {
+        "runId": 38072606843,
+        "conclusion": "success",
+        "jobs": 2,
+        "success": 2
+      },
+      "nativeSkippedPlatforms": {
+        "runId": 38072606827,
+        "conclusion": "success",
+        "jobs": 2,
+        "success": 2
+      }
+    },
+    "aggregate": {
+      "jobs": 32,
+      "success": 22,
+      "failure": 2,
+      "skipped": 8
+    },
+    "snapshotSha256": "1df088b75a43a7f04a14b0df109a7a588b6cd818c1b6fb315da9b8ef3372452f",
+    "snapshotMarkdownSha256": "ca00385f44d691a1eb8a5ef5c071793baf4ed95d1991dd570d27b975291fb209",
+    "failures": [
+      {
+        "job": "verify",
+        "jobId": 114272962840,
+        "cause": "ESLint failed before unit suites started",
+        "file": "tests/controlplane/services.test.ts",
+        "diagnostics": [
+          "line22:121 unused 'sleep'",
+          "line73:19 'timer' should be const"
+        ],
+        "rawLogSha256": "b268919fbd7cc25b21542c6fe7bc70126322318648e6482059d18f48a1d8c8bb"
+      },
+      {
+        "job": "go",
+        "jobId": 114272962887,
+        "cause": "BuildKit build-apt-image subprocess/fixture exited1 before any PID1 test event; cleanup completed; deeper stderr unavailable; OOM was not observed but is not ruled out",
+        "pid1TestEvents": 0,
+        "requiredTest": "TestSystemdSignedUpdateAndRollback",
+        "packageNative": "8/8 passed",
+        "race": "1074 passed/0 failed/3 skipped across22 packages",
+        "rawLogSha256": "b5d204ce265a8bb8f3f3b69e78fe17bf1e37bb50953bded3eaa3157a1d442fd7",
+        "sanitizedArtifactSha256": "c166c34923edf9f6221f87bdf481be2e6c2ba727da060e6f4c5e930809d84e09"
+      }
+    ]
+  },
+  "ledgerInvariant": {
+    "states": {
+      "verified": 9,
+      "inProgress": 67,
+      "planned": 2
+    },
+    "totalRequirements": 78,
+    "criteriaChanged": false,
+    "requiredEvidenceChanged": false,
+    "releaseFlags": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    },
+    "promotions": 0
+  },
+  "followOnFocusedR15": {
+    "sourceCommit": "6612eeaa2b8de261f233f5a564ceafce534036cf",
+    "status": "PASS focused scope only",
+    "counts": {
+      "passed": 345,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 345,
+      "pendingIdentities": 0
+    },
+    "wrapperExit": 0,
+    "sourceStable": true,
+    "sourceFreezeSha256": "d80132f2bac11f77c2db8f81ec9266fdb6ac2ed56d7d947e17cfc4a3e5640d24",
+    "minimumFreeBytes": 394312065024,
+    "diskFloorBytes": 23622320128,
+    "ownedTemporaryDataCleanup": "removed after child exit",
+    "summarySha256": "b9f8a7a46797d312125b86964b3a06f9922935494f51bca7be3534bbb2762a27",
+    "identityReportSha256": "7c5e3be1fccbed2f481996f0e6e10fdf7e61d723df6367a71db906d1716b9f21",
+    "vitestReportSha256": "27d7cd2c93ada18b51fd366ef9130b02a8c9601afe899e7b0d69c7b453fbf9f0",
+    "vitestLogSha256": "148dee0c6a52d35b682fe60e777a87beda93368ba0d5b18feae025301ca495a7",
+    "executionLogSha256": "f44d114bc01cc8a0f25b27c65a293b8adf6482d9991c0bb817c2437b9a164af7",
+    "limitation": "Focused R15 regression only; does not establish a full-suite pass on6612eeaa or any later head. The prior a211db03 focused attempt remains recorded separately as344 passed/1 failed/0 skipped with wrapper1 because its diagnostic mock whitelist omitted a completed-cleanup state."
+  },
+  "pg5CleanupLatest": {
+    "sourceCommit": "a211db03e9bffc5a32465cabde6d8cfde1428ef6",
+    "status": "REFUSED; NOT CLEANUP ACCEPTANCE",
+    "wrapperExit": 2,
+    "failure": "vm-disk-probe; initial fast direct-child leader capture ESRCH; custody uncertain; resourceBreach false",
+    "ownedPostgresMutationReached": false,
+    "retainedData": "not removed; original refusal retained",
+    "outerExecutionLogSha256": "1431dcbaab79d04251b138553bd9743773b1549d46ad5bd323674fb3e40d87c6",
+    "scope": "no engine acceptance or cleanup completion claim"
+  },
+  "integratedSourceChanges": {
+    "commits": [
+      "a211db03e9bffc5a32465cabde6d8cfde1428ef6",
+      "6612eeaa2b8de261f233f5a564ceafce534036cf"
+    ],
+    "lint": "unused import removed; const timer; focused ESLint passed",
+    "diagnostics": "strict schema4 closed-enum private BuildKit marker classification; focused345/0/0 passed on6612eeaa",
+    "currentHeadFullRun": "pending;954 full PASS remains bound to954"
+  },
+  "updatedAtUtc": "2026-10-10T18:08:57.436064+00:00"
+}

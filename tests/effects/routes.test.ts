@@ -13,6 +13,8 @@ import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-effect-routes-", { fast: true });
 process.env.ZENITH_STORE = "file";
+// Identity/policy transports are fixture adapters; the shipping MFA guard still verifies them.
+const stepUp = vi.hoisted(() => ({ aal: "aal2", policyAvailable: true }));
 const adapters = vi.hoisted(() => ({
   platform: undefined as PlatformEffects | undefined,
   userId: "alice", liveSubject: "alice", emailVerified: true,
@@ -29,6 +31,18 @@ vi.mock("@/lib/platform/effects", () => ({ platformEffects: async () => {
   if (!adapters.platform) throw new Error("test composition absent");
   return adapters.platform;
 } }));
+
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: adapters.userId, aal: stepUp.aal, exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: adapters.userId, email_confirmed_at: "2026-01-01T00:00:00.000Z", factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
+vi.mock("@/lib/auth/mfa-policy", async (original) => {
+  const policy = await original<typeof import("@/lib/auth/mfa-policy")>();
+  return { ...policy, workspaceMfaControl: async () => {
+    if (!stepUp.policyAvailable) { const { ApiError } = await import("@/lib/server/errors"); throw new ApiError("Workspace MFA controls could not be verified.", 503); }
+    return policy.DEFAULT_MFA_CONTROL;
+  } };
+});
 
 const { resetDb } = await import("@/lib/db/store");
 const { BrokerError } = await import("@/lib/capabilities/errors");
@@ -54,6 +68,7 @@ let reads = 0;
 beforeAll(async () => { db = await openPlatformDb({ kind: "pglite" }); });
 afterAll(async () => { await db.close(); });
 beforeEach(() => {
+  stepUp.aal = "aal2"; stepUp.policyAvailable = true;
   vi.stubEnv("ZENITH_PLATFORM_ORIGIN", "https://zenith.test");
   adapters.userId = adapters.liveSubject = "alice"; adapters.emailVerified = true;
   adapters.token = `za_${randomBytes(24).toString("hex")}`;
@@ -99,6 +114,11 @@ function call(handler: Handler, pathname: string, body?: unknown, options: Optio
 async function refused(response: Response, status: number, code: string) {
   expect(response.status).toBe(status); expect(response.headers.get("cache-control")).toBe("no-store");
   expect(await response.json()).toMatchObject({ error: { code } });
+}
+async function refusedStepUp(response: Response) {
+  expect(response.status).toBe(403);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(await response.json()).toMatchObject({ error: { message: "Verify your authenticator before continuing with this privileged action." } });
 }
 async function uncertainEffect() {
   const s = await seed(db, WS);
@@ -193,16 +213,27 @@ describe("POST /effects/:id/resolve", () => {
     await refused(await call(resolveEffect, `/${y.effectId}/resolve`, { decision: "confirm_not_applied", bindingDigest: await bindingFor(WS, y.effectId, "confirm_not_applied"), reason: "nothing there at all" }), 409, "invalid_state");
   });
 
+  it("refuses unverified MFA and unavailable policy before resolving the effect", async () => {
+    const { s, e } = await withReadback();
+    const before = await store.get(db, s.workspaceId, e.effectId);
+    const body = { decision: "confirm_applied", bindingDigest: await bindingFor(s.workspaceId, e.effectId, "confirm_applied"), reason: "reviewed effect" };
+    stepUp.aal = "aal1";
+    await refusedStepUp(await call(resolveEffect, `/${e.effectId}/resolve`, body));
+    stepUp.aal = "aal2"; stepUp.policyAvailable = false;
+    expect((await call(resolveEffect, `/${e.effectId}/resolve`, body)).status).toBe(503);
+    expect(await store.get(db, s.workspaceId, e.effectId)).toEqual(before);
+  });
+
   it("is browser-only: an integration credential is refused whatever it says", async () => {
     const { s, e } = await withReadback();
-    await refused(await call(resolveEffect, `/${e.effectId}/resolve`, { decision: "confirm_applied", bindingDigest: await bindingFor(s.workspaceId, e.effectId, "confirm_applied"), reason: "credential attempt" }, { headers: { authorization: `Bearer ${adapters.token}` } }), 403, "browser_session_required");
+    await refusedStepUp(await call(resolveEffect, `/${e.effectId}/resolve`, { decision: "confirm_applied", bindingDigest: await bindingFor(s.workspaceId, e.effectId, "confirm_applied"), reason: "credential attempt" }, { headers: { authorization: `Bearer ${adapters.token}` } }));
     expect((await store.get(db, s.workspaceId, e.effectId))!.state).toBe("uncertain");
   });
 
   it("refuses a cross-origin request and a non-admin member", async () => {
     const { s, e } = await withReadback();
     const body = { decision: "confirm_applied", bindingDigest: await bindingFor(s.workspaceId, e.effectId, "confirm_applied"), reason: "from elsewhere" };
-    await refused(await call(resolveEffect, `/${e.effectId}/resolve`, body, { headers: { origin: "https://evil.test" } }), 403, "browser_session_required");
+    await refusedStepUp(await call(resolveEffect, `/${e.effectId}/resolve`, body, { headers: { origin: "https://evil.test" } }));
     human("editor");
     await refused(await call(resolveEffect, `/${e.effectId}/resolve`, body), 403, "role_insufficient");
     human("viewer");

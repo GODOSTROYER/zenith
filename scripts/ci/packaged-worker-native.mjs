@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { packagedWorkerManifest } from "./gate-manifest.mjs";
-import { assertOwnedPackagedBuilder, command as acceptanceCommand, createPrivateScratch, packagedSourceDigest, sanitizeClientEvidence, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence } from "../acceptance/packaged-worker.mjs";
+import { assertOwnedPackagedBuilder, command as acceptanceCommand, createPrivateScratch, packagedSourceDigest, sanitizeClientEvidence, sanitizePackagedReadiness, sanitizePackagedSweepEvidence, sanitizePgWaiterEvidence, sanitizeTemporalControlEvidence, sanitizePackagedBuildFailure } from "../acceptance/packaged-worker.mjs";
 
 const BUILDKIT_IMAGE = "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea";
 const REFUSALS = ["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"];
@@ -364,14 +364,16 @@ const CHILD_INFLIGHT_COMMAND_PHASES = [
  * @param {unknown} [guardCategory]
  * @param {unknown} [commandCategory]
  * @param {unknown} [commandPhase]
+ * @param {unknown} [buildFailure]
  */
-export function sanitizeChildFailure(phase, workerCategory, guardCategory, commandCategory, commandPhase) {
+export function sanitizeChildFailure(phase, workerCategory, guardCategory, commandCategory, commandPhase, buildFailure) {
   const inFlight = typeof phase === "string" && ["inflight-schema-shutdown", "inflight-fresh-worker-recovery"].includes(phase);
   const guard = inFlight && typeof guardCategory === "string" && CHILD_INFLIGHT_GUARD_CATEGORIES.includes(guardCategory);
   const command = inFlight && typeof commandCategory === "string" && CHILD_COMMAND_CATEGORIES.includes(commandCategory);
+  const build = phase === "fresh-image-build" ? sanitizePackagedBuildFailure(buildFailure) : undefined;
   return { phase: typeof phase === "string" && CHILD_FAILURE_PHASES.includes(phase) ? phase : "unavailable",
     workerCategory: typeof workerCategory === "string" && CHILD_WORKER_CATEGORIES.includes(workerCategory) ? workerCategory : "unavailable",
-    ...(guard ? { guardCategory } : {}), ...(command ? { commandCategory } : {}),
+    ...(guard ? { guardCategory } : {}), ...(command ? { commandCategory } : {}), ...(build ? { buildFailure: build } : {}),
     ...(command && typeof commandPhase === "string" && CHILD_INFLIGHT_COMMAND_PHASES.includes(commandPhase) ? { commandPhase } : {}) };
 }
 
@@ -396,9 +398,9 @@ export function assertArtifactShape(value, platform) {
     if (value.status !== "failed" || value.failurePhase !== "actual-packaged-worker" || !Number.isInteger(value.childExitCode) || value.childExitCode < 1
       || !record(value.childFailure)) fail();
     const diagnostic = sanitizeChildFailure(value.childFailure.phase, value.childFailure.workerCategory,
-      value.childFailure.guardCategory, value.childFailure.commandCategory, value.childFailure.commandPhase);
+      value.childFailure.guardCategory, value.childFailure.commandCategory, value.childFailure.commandPhase, value.childFailure.buildFailure);
     if (JSON.stringify(Object.keys(value.childFailure).sort()) !== JSON.stringify(Object.keys(diagnostic).sort())
-      || Object.entries(diagnostic).some(([key, field]) => value.childFailure[key] !== field)) fail();
+      || Object.entries(diagnostic).some(([key, field]) => JSON.stringify(value.childFailure[key]) !== JSON.stringify(field))) fail();
   }
   if (value.environment !== undefined) {
     const allowed = ["os", "processArch", "dockerOS", "dockerArch", "emulated", "node", "totalRamGiB", "availableRamGiB", "dockerRamGiB", "sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"];
@@ -820,7 +822,7 @@ export async function nativeMain(args = process.argv.slice(2)) {
       && new RegExp(`^zenith-pkg-${parsed.platform.split("/")[1]}-[a-f0-9]{12}$`).test(raw.runId ?? "")) {
       childFailure = sanitizeChildFailure(raw.failurePhase,
         raw.failurePhase === "inflight-fresh-worker-recovery" ? raw.recoveryWorkerFailureCategory : raw.workerFailureCategory,
-        raw.failureReason?.category, raw.failureCommand?.category, raw.failureCommand?.phase);
+        raw.failureReason?.category, raw.failureCommand?.category, raw.failureCommand?.phase, raw.buildFailure);
     }
     checks = executedChecks(raw, parsed.platform, child.code);
     const marker = assertReleaseMarker(await privateJson(config.marker), config);

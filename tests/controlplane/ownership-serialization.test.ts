@@ -466,11 +466,35 @@ describe.skipIf(!PG_URL)("environment ownership serialization [postgres, indepen
       try {
         await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 43));
         const before = await db.query("select version,checksum from platform.schema_migrations order by version");
-        expect(await migratePlatformDb(db)).toMatchObject({ applied: PLATFORM_MIGRATIONS.filter(m => m.version > 43).map(m => m.version) });
+        // This owned scratch fixture is drained. Admit only the contracts
+        // actually pending in each bounded phase, restoring the caller exactly.
+        const migrateOwnedRange = async (target: number, contracts: readonly number[]) => {
+          const prior = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+          process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [prior, ...contracts].filter(value => value !== undefined && value !== "").join(",");
+          try { return await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= target)); }
+          finally {
+            if (prior === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+            else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = prior;
+          }
+        };
+        expect(await migrateOwnedRange(52, [49, 51])).toMatchObject({ applied: PLATFORM_MIGRATIONS.filter(m => m.version > 43 && m.version <= 52).map(m => m.version) });
+        const aclSql = `select c.relname,c.relacl::text as acl,c.relowner,c.relrowsecurity
+          from pg_class c join pg_namespace n on n.oid=c.relnamespace
+          where n.nspname='platform' and c.relkind in ('r','p','S') order by c.relname`;
+        const before53Acl = await db.query(aclSql);
+        expect(await migrateOwnedRange(53, [])).toMatchObject({ applied: [53] });
+        expect(await db.query("select version from platform.schema_migrations order by version"))
+          .toEqual(PLATFORM_MIGRATIONS.filter(m => m.version <= 53).map(m => ({ version: m.version })));
         expect(await db.query("select version,checksum from platform.schema_migrations where version<=43 order by version")).toEqual(before);
-        // The migration adds invoker triggers, no tables, roles or privilege elevation.
+        // Migration 53 adds invoker triggers, no tables, roles or privilege elevation.
+        expect(await db.query(aclSql)).toEqual(before53Acl);
         expect(await db.query("select prosecdef from pg_proc where oid='platform.serialize_field_ownership()'::regprocedure")).toEqual([{ prosecdef: false }]);
+        // Current emitter/service-role behavior is a distinct 54..58 phase;
+        // no current aggregate is presented as historical schema-53 SQL.
+        expect(await migrateOwnedRange(58, [57, 58])).toMatchObject({ applied: PLATFORM_MIGRATIONS.filter(m => m.version > 53).map(m => m.version) });
+        const currentLedger = await db.query("select version,name,checksum from platform.schema_migrations order by version");
         await db.exec(renderSupabaseMigration());
+        expect(await db.query("select version,name,checksum from platform.schema_migrations order by version")).toEqual(currentLedger);
         const f = await fixture(db), write = await mutation(db, f, "fact");
         await asService(db, write);
         await expect(asService(db, tx => repos.operations.claimForExecution(tx, f.claim))).rejects.toMatchObject(conflict);

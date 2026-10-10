@@ -523,6 +523,9 @@ jobs:
       - run: npm ci --ignore-scripts
 
       - name: Typecheck
+        # The complete current source graph exceeds Node's default heap.
+        env:
+          NODE_OPTIONS: --max-old-space-size=5120
         run: node scripts/ci/run-gate.mjs core --run --step typecheck
 
       - name: Lint
@@ -1911,9 +1914,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          recovery_tmp="$(mktemp -d "$RUNNER_TEMP/zenith-recovery.XXXXXX")"
+          chmod 700 "$recovery_tmp"
+          echo "TMPDIR=$recovery_tmp" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/pg-tools"
           for tool in pg_dump pg_restore; do
-            printf '#!/usr/bin/env bash\nset -euo pipefail\nexec docker run --rm --user "$(id -u):$(id -g)" --network host -v "%s:%s" -v "%s:%s" %s %s "$@"\n' "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" "$RUNNER_TEMP" "$RUNNER_TEMP" "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685" "$tool" > "$RUNNER_TEMP/pg-tools/$tool"
+            cat > "$RUNNER_TEMP/pg-tools/$tool" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
+          EOF
             chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
           done
           echo "ZENITH_TEST_PG_DUMP_BIN=$RUNNER_TEMP/pg-tools/pg_dump" >> "$GITHUB_ENV"

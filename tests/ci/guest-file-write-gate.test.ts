@@ -5,13 +5,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LINUX_GUEST_SERVICE_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
+import { LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
 import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 const pkg = "github.com/GODOSTROYER/zenith/go/internal/machine/ops";
 
 // Only these exact service successors leave predecessor hash assertions; current admission stays complete.
 type NativeGuestCase = ReturnType<typeof linuxGuestManifest>["requiredCases"][number];
+const runnerUpdateGuestIds = new Set(LINUX_GUEST_RUNNER_UPDATE_CASES.map(item => item.id));
 const serviceGuestIds = new Set([
   "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureStrictArgsAndPriorPreconditions",
   "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureVersionSeparatesPurposeAndBindsAllLocalSemantics",
@@ -40,7 +41,7 @@ const serviceGuestIds = new Set([
   "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestResultGoldens/service.configure-filesystem",
 ]);
 function predecessorGuestCases(items: readonly NativeGuestCase[]): NativeGuestCase[] {
-  return items.filter(item => !serviceGuestIds.has(item.id));
+  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id));
 }
 const goodExit = { status: 0, signal: null, observed: true };
 const contract = {
@@ -91,6 +92,26 @@ function fullRequiredStream() {
 }
 
 describe("native Go evidence admission", () => {
+  it("reports only bounded fixed malformed-event reasons without admitting or exposing their contents", () => {
+    const marker = "private-event-content-never-publish";
+    const rejected: unknown[] = [null, { Action: marker }, { Action: "start", Package: marker },
+      { Action: "run", Package: pkg, Test: marker }, { Action: "output", Package: pkg, Output: { marker } },
+      { Action: "pass", Package: pkg, Elapsed: marker },
+      { Action: "build-output", ImportPath: pkg, Output: marker, [marker]: marker },
+      { Action: "build-output", ImportPath: marker + "\n", Output: marker },
+      { Action: "build-output", ImportPath: pkg, Output: { marker } }];
+    const raw = rejected.map(item => JSON.stringify(item)).join("\n") + "\n" + stream();
+    const result = validateGoEvents(raw, goodExit, contract);
+    expect(result.verdict).toBe("failed"); expect(result.problems).toEqual(["malformed"]);
+    expect(result.counts).toEqual(verdict(records()).counts);
+    expect(result.required).toEqual(verdict(records()).required);
+    expect(result.malformedEvents).toEqual(["event_shape", "action", "package", "test_name", "output", "elapsed", "build_unknown_field", "build_import_path"]
+      .map((reason, index) => ({ line: index + 1, reason })));
+    expect(JSON.stringify(result)).not.toContain(marker);
+    expect(validateGoEvents(marker + "\n" + stream(), goodExit, contract).malformedEvents).toEqual([{ line: 1, reason: "json_parse" }]);
+    expect(validateGoEvents(JSON.stringify(rejected[8]) + "\n" + stream(), goodExit, contract).malformedEvents).toEqual([{ line: 1, reason: "build_output" }]);
+  });
+
   it("admits inert official Go build output without granting test or package authority", () => {
     const before = verdict(records());
     const marker = "inert-build-output-do-not-publish";
@@ -230,7 +251,7 @@ describe("native Go evidence admission", () => {
     expect(manifest.requiredPackages).toEqual([
       "internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine",
       "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol",
-      "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds",
+      "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds", "internal/runner/update",
     ].map(name => `${modulePath}/${name}`));
     const existing = [
       ["internal/agent/spool", "spool_test.go", "TestPutSurvivesReopenAndFirstResultWins"],
@@ -256,6 +277,27 @@ describe("native Go evidence admission", () => {
       const foreign = items.map(item => item.Package === packageName ? { ...item, Package: packageName + "/foreign" } : item);
       expect(validateGoEvents(stream(foreign), goodExit, manifest).problems).toContain("malformed");
     }
+  });
+
+  it("requires all six runner update controls and refuses unexecuted systemd update acceptance", () => {
+    const manifest = linuxGuestManifest(), packageName = "github.com/GODOSTROYER/zenith/go/internal/runner/update";
+    const names = [
+      "TestDirectiveRefusesWrongAuthorityAndBindings", "TestHoldPersistsAndRevisionsCannotBeReplayed",
+      "TestCorruptionAndPersistenceFailureDoNotGrantAuthority", "TestFreshnessIsRequiredAfterRestartAndExpiry",
+      "TestStageRequiresExactRequestedEnvelopeAndIndependentReleaseSignature", "TestDisabledLocalUpdatesCannotBeEnabledRemotely",
+    ];
+    expect(LINUX_GUEST_RUNNER_UPDATE_CASES).toEqual(names.map(test => ({ package: packageName, test, id: `linux-guest:${packageName}:${test}` })));
+    expect(manifest.noTestPackages).not.toContain(packageName);
+    expect(manifest.allowedSkips.some(item => item.package === packageName)).toBe(false);
+    const source = fs.readFileSync("go/internal/runner/update/control_test.go", "utf8"), items = fullRequiredStream();
+    for (const test of names) {
+      expect(source).toContain(`func ${test}(t *testing.T)`);
+      expect(validateGoEvents(stream(items.filter(item => item.Package !== packageName || item.Test !== test)), goodExit, manifest).verdict).toBe("failed");
+      for (const Action of ["fail", "skip"]) expect(validateGoEvents(stream(items.map(item => item.Package === packageName && item.Test === test && item.Action === "pass" ? { ...item, Action } : item)), goodExit, manifest).verdict).toBe("failed");
+    }
+    const final = items.findIndex(item => item.Package === packageName && item.Action === "pass" && item.Test === undefined);
+    items.splice(final, 0, { Action: "run", Package: packageName, Test: "TestSystemdSignedUpdateAndRollback" }, { Action: "skip", Package: packageName, Test: "TestSystemdSignedUpdateAndRollback" });
+    expect(validateGoEvents(stream(items), goodExit, manifest).verdict).toBe("failed");
   });
 
   it("admits only the existing release CLI no-test lifecycle without giving it test authority", () => {
@@ -785,10 +827,10 @@ describe("upload native requirement admission", () => {
     expect(LINUX_GUEST_SERVICE_CASES.map(item => item.id).sort()).toEqual([...serviceGuestIds].sort());
     expect(upload).toHaveLength(49); expect(predecessor).toHaveLength(123);
     expect(new Set(predecessor.map((item) => item.id)).size).toBe(123);
-    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
-    expect(new Set(manifest.raceCases.map(item => item.id)).size).toBe(148);
-    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(152);
-    expect(manifest.raceCases.map(item => item.id).sort()).toEqual([...predecessor, ...LINUX_GUEST_SERVICE_CASES].map(item => item.id).sort());
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
+    expect(new Set(manifest.raceCases.map(item => item.id)).size).toBe(154);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(158);
+    expect(manifest.raceCases.map(item => item.id).sort()).toEqual([...predecessor, ...LINUX_GUEST_SERVICE_CASES, ...LINUX_GUEST_RUNNER_UPDATE_CASES].map(item => item.id).sort());
     expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
     const future = { package: pkg, test: "TestFuture", id: `linux-guest:${pkg}:TestFuture` };
     expect(predecessorGuestCases([...manifest.raceCases, future])).toContainEqual(future);
@@ -1033,8 +1075,8 @@ describe("mandatory direct native package phase admission", () => {
     const manifest = linuxGuestManifest();
     expect(predecessorGuestCases(manifest.raceCases)).toHaveLength(123);
     expect(predecessorGuestCases(manifest.requiredCases)).toHaveLength(127);
-    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
-    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(152);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(158);
     expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
     expect(manifest.packagePhase.requiredCases).toEqual(nativePackageNames.map(test => ({ package: nativePackage, test, id: `linux-guest:${nativePackage}:${test}` })));
     expect(manifest.packagePhase.requiredPackages).toEqual([nativePackage]);
@@ -1254,7 +1296,7 @@ function systemdArtifactFixture() {
 }
 
 describe("separate actual systemd requirement admission models", () => {
-  it("pins all15 literal identities and the unchanged152 package/skip/golden contract", () => {
+  it("pins all15 literal identities and the native package/skip/golden contract", () => {
     const manifest = linuxSystemdManifest(); expect(manifest.lane).toBe("linux-systemd");
     expect(manifest.steps.map(step => step.id)).toEqual(["ops", "signed"]);
     expect(manifest.steps.map(step => step.requiredCases.length)).toEqual([8, 7]);
@@ -1278,7 +1320,7 @@ describe("separate actual systemd requirement admission models", () => {
       expect(phase.command).toEqual(["go", "test", "-p=1", "-tags=zenith_systemd_acceptance", "-json", "-count=1", phase.id === "ops" ? "./internal/machine/ops" : "./internal/machine", "-run", `^${phase.requiredCases[0].test}$`]);
       expect(phase.noTestPackages).toEqual([]); expect(phase.allowedSkips).toEqual([]);
     }
-    expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().packagePhase.requiredCases).toHaveLength(4);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(158); expect(linuxGuestManifest().packagePhase.requiredCases).toHaveLength(4);
     expect(linuxGuestManifest().allowedSkips).toHaveLength(3); expect(linuxGuestManifest().requiredCases.some(item => item.id.startsWith("linux-systemd:"))).toBe(false);
   });
 
@@ -1536,7 +1578,7 @@ describe("canonical post-execution custody models", () => {
     expect(helper.indexOf('"postcheck", str(uid)')).toBeLessThan(helper.indexOf('if action == "setup":'));
     expect(helper).toContain('lock(CANONICAL_LEASE)'); expect(helper).toContain('lock(LEASE)');
     expect(helper).toContain('if any(os.path.lexists(p) for p in MARKERS):');
-    expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxSystemdManifest().requiredCases).toHaveLength(15);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(158); expect(linuxSystemdManifest().requiredCases).toHaveLength(15);
   });
 });
 

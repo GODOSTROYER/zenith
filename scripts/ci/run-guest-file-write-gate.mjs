@@ -19,6 +19,11 @@ const key = (packageName, test) => `${packageName}\0${test}`;
 export function validateGoEvents(raw, observation, contract) {
   const problems = new Set();
   const issue = (code) => problems.add(code);
+  const malformedEvents = [];
+  const malformed = (line, reason) => {
+    issue("malformed");
+    if (malformedEvents.length < 8) malformedEvents.push({ line, reason });
+  };
   if (!observation || observation.observed !== true || observation.status !== 0 || observation.signal !== null) issue("process-exit");
   const packages = new Map();
   const tests = new Map();
@@ -28,9 +33,9 @@ export function validateGoEvents(raw, observation, contract) {
   const required = new Set(contract.requiredCases.map((item) => key(item.package, item.test)));
   if (required.size !== contract.requiredCases.length || required.size === 0) issue("contract");
   if (typeof raw !== "string" || raw.length === 0 || Buffer.byteLength(raw) > 128 * 1024 * 1024 || !raw.endsWith("\n")) issue("stream");
-  else for (const line of raw.slice(0, -1).split("\n")) {
+  else for (const [index, line] of raw.slice(0, -1).split("\n").entries()) {
     let event;
-    try { event = JSON.parse(line); } catch { issue("malformed"); continue; }
+    try { event = JSON.parse(line); } catch { malformed(index + 1, "json_parse"); continue; }
     // Go interleaves BuildEvents (ImportPath, not Package) with TestEvents.
     // Build output is inert: it cannot establish a package or test lifecycle.
     if (event && typeof event === "object" && !Array.isArray(event)
@@ -39,7 +44,10 @@ export function validateGoEvents(raw, observation, contract) {
         || typeof event.ImportPath !== "string" || event.ImportPath.length === 0 || event.ImportPath.length > 2048
         || !/^[^\s\x00-\x1f\x7f]+(?: \[[^\s\x00-\x1f\x7f]+\])?$/.test(event.ImportPath)
         || (event.Action === "build-output" ? typeof event.Output !== "string" : event.Output !== undefined && typeof event.Output !== "string")) {
-        issue("malformed"); continue;
+        malformed(index + 1, Object.keys(event).some((name) => !["ImportPath", "Action", "Output"].includes(name)) ? "build_unknown_field"
+          : typeof event.ImportPath !== "string" || event.ImportPath.length === 0 || event.ImportPath.length > 2048
+            || !/^[^\s\x00-\x1f\x7f]+(?: \[[^\s\x00-\x1f\x7f]+\])?$/.test(event.ImportPath) ? "build_import_path" : "build_output");
+        continue;
       }
       if (event.Action === "build-fail") issue("build");
       continue;
@@ -48,7 +56,14 @@ export function validateGoEvents(raw, observation, contract) {
       || typeof event.Package !== "string" || !approvedPackages.has(event.Package)
       || (event.Test !== undefined && (typeof event.Test !== "string" || !/^Test[A-Za-z0-9_]+(?:\/[^\s\x00-\x1f]{1,256})*$/.test(event.Test) || event.Test.length > 2048))
       || (event.Output !== undefined && typeof event.Output !== "string")
-      || (event.Elapsed !== undefined && (typeof event.Elapsed !== "number" || !Number.isFinite(event.Elapsed) || event.Elapsed < 0))) { issue("malformed"); continue; }
+      || (event.Elapsed !== undefined && (typeof event.Elapsed !== "number" || !Number.isFinite(event.Elapsed) || event.Elapsed < 0))) {
+      malformed(index + 1, !event || typeof event !== "object" || Array.isArray(event) ? "event_shape"
+        : !actions.has(event.Action) ? "action"
+          : typeof event.Package !== "string" || !approvedPackages.has(event.Package) ? "package"
+            : event.Test !== undefined && (typeof event.Test !== "string" || !/^Test[A-Za-z0-9_]+(?:\/[^\s\x00-\x1f]{1,256})*$/.test(event.Test) || event.Test.length > 2048) ? "test_name"
+              : event.Output !== undefined && typeof event.Output !== "string" ? "output" : "elapsed");
+      continue;
+    }
     let pkg = packages.get(event.Package);
     if (event.Action === "start") {
       if (event.Test !== undefined || pkg) { issue("duplicate"); continue; }
@@ -108,7 +123,7 @@ export function validateGoEvents(raw, observation, contract) {
     if ([...tests.values()].some((child) => child.package === test.package && child.name.startsWith(test.name + "/"))) counts.parents++;
     else { counts.leaves++; if (test.terminal === "pass") counts.passedLeaves++; if (test.terminal === "fail") counts.failedLeaves++; if (test.terminal === "skip") counts.skippedLeaves++; }
   }
-  return { verdict: problems.size === 0 ? "passed" : "failed", problems: [...problems].sort(), counts, required: requiredResults };
+  return { verdict: problems.size === 0 ? "passed" : "failed", problems: [...problems].sort(), counts, required: requiredResults, ...(malformedEvents.length ? { malformedEvents } : {}) };
 }
 
 /** Hash source names+bytes privately; publish only the aggregate, never arbitrary paths. */

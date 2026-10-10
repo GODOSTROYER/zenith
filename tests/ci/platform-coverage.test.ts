@@ -12,7 +12,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -31,10 +31,11 @@ function modelRoot(prefix: string): string {
 const workflow = load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: Record<string, Job> };
 
 // Only the fixed service additions leave historical Linux comparisons.
-// Current execution continues to require all 152 observations.
+// Current execution continues to require all 158 observations.
+const runnerUpdateGuestIds = new Set(LINUX_GUEST_RUNNER_UPDATE_CASES.map(item => item.id));
 const serviceGuestIds = new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id));
 function priorServiceLinuxCases(items: ReturnType<typeof linuxGuestManifest>["requiredCases"]) {
-  return items.filter(item => !serviceGuestIds.has(item.id));
+  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id));
 }
 
 // Historical cohort checks remove only exact newly committed identities. The
@@ -127,10 +128,10 @@ const currentSuccessorPlatformCohort = [
 const ownershipSnapshotCasIds = new Set([
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7ba9c4b9e2c1",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:01845bf26fdf",
-  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:1c2299148826",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:2ecc5e990013",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:65045d56d958",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:a3e783c044c9",
-  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:348894d82a33",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:6c2424b7f1de",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:b0212eb1a020",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:852f3777058a",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7049bff8d926",
@@ -508,7 +509,7 @@ describe("cross-language Go gates", () => {
     expect(manifest.packagePhase.requiredCases.map(item => item.test)).toEqual(["TestPackageHelperNativeNoFollowAndCustody", "TestPackageFrontendLockIndependentProcess", "TestPackageNativeSignedFirstInstallAndNonReplay", "TestPackageNativeDeclaredMountAndACLRefusals"]);
     expect(manifest.packagePhase.allowedSkips).toEqual([]);
     expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(priorServiceLinuxCases(manifest.requiredCases)).toHaveLength(127);
-    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
     expect(manifest.env.CGO_ENABLED).toBe("1");
     expect(manifest.env.GOTOOLCHAIN).toBe("local");
     expect(manifest.requiredPackages).toContain("github.com/GODOSTROYER/zenith/go/internal/oci");
@@ -937,7 +938,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     expect(requirementsFor("workflows", root)).toHaveLength(112);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
-    expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(152); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
+    expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(158); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
   });
 });

@@ -73,7 +73,7 @@ export async function createPrivateScratch(source, base, prefix) {
   }
 }
 
-const COPY_INPUTS = ["package.json", "package-lock.json", "tsconfig.json", "src/lib", "workers/execution", "deploy/aws/ssm-documents", "policy/dist"];
+const COPY_INPUTS = ["package.json", "package-lock.json", "tsconfig.json", "src/lib", "workers/execution", "deploy/aws/ssm-documents", "deploy/slo/slo-definitions.json", "policy/dist"];
 const CONTEXT_CONTROLS = ["docker/worker.Dockerfile", ".dockerignore"];
 const OPTIONAL_CONTEXT_CONTROL = "docker/worker.Dockerfile.dockerignore";
 const SOURCE_BYTE_LIMIT = 64 * 1024 * 1024;
@@ -106,7 +106,7 @@ export async function packagedSourceDigest(source) {
       if ((await lstat(ancestor)).isSymbolicLink()) throw new Error("Packaged source cannot contain symlinks.");
     }
     const before = await lstat(filename);
-    if ((CONTEXT_CONTROLS.includes(relative) || ["package.json", "package-lock.json", "tsconfig.json", OPTIONAL_CONTEXT_CONTROL].includes(relative)) && !before.isFile()) {
+    if ((CONTEXT_CONTROLS.includes(relative) || ["package.json", "package-lock.json", "tsconfig.json", "deploy/slo/slo-definitions.json", OPTIONAL_CONTEXT_CONTROL].includes(relative)) && !before.isFile()) {
       throw new Error("Packaged source controls must be regular files.");
     }
     if (["src/lib", "workers/execution", "deploy/aws/ssm-documents", "policy/dist"].includes(relative) && !before.isDirectory()) {
@@ -227,6 +227,38 @@ export function parsePackagedArgs(args, env) {
 /** Raw command output remains private; only curated evidence reaches logs. */
 const activeChildren = new Set();
 const OUTPUT_LIMIT_BYTES = 2 * 1024 * 1024;
+const BUILD_FAILURE_MARKERS = ["dependency_install", "esbuild_resolution", "esbuild_transform", "node_oom", "webpack_resolution"];
+/** Observed fixed markers only. This does not identify a unique compiler cause.
+ * @param {string} output
+ * @param {number} dockerfileLines
+ */
+export function classifyPackagedBuildFailure(output, dockerfileLines) {
+  const observedMarkers = [];
+  if (/npm (?:ERR!|error code)/.test(output)) observedMarkers.push("dependency_install");
+  if (/Could not resolve "/.test(output)) observedMarkers.push("esbuild_resolution");
+  if (/\[ERROR\].*(?:Unexpected|Expected|Syntax error|No loader is configured)/.test(output)) observedMarkers.push("esbuild_transform");
+  if (/FATAL ERROR:.*Allocation failed - JavaScript heap out of memory/.test(output)) observedMarkers.push("node_oom");
+  if (/Module not found:.*(?:Can't resolve|Cannot resolve)/.test(output)) observedMarkers.push("webpack_resolution");
+  const lines = new Set([...output.matchAll(/^Dockerfile:([1-9][0-9]*)\r?$/gm)].map(match => Number(match[1]))
+    .filter(line => Number.isSafeInteger(line) && line <= dockerfileLines && line <= 10000));
+  return { observedMarkers, ...(lines.size === 1 ? { dockerfile: "docker/worker.Dockerfile", line: [...lines][0] } : {}) };
+}
+/** Refuse arbitrary fields/content at the diagnostic publication boundary.
+ * @param {unknown} value
+ */
+export function sanitizePackagedBuildFailure(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const v = /** @type {{observedMarkers?: unknown, dockerfile?: unknown, line?: unknown}} */ (value);
+  if (Object.keys(v).some(key => !["observedMarkers", "dockerfile", "line"].includes(key))
+    || !Array.isArray(v.observedMarkers) || v.observedMarkers.length > BUILD_FAILURE_MARKERS.length
+    || v.observedMarkers.some(marker => typeof marker !== "string" || !BUILD_FAILURE_MARKERS.includes(marker))
+    || new Set(v.observedMarkers).size !== v.observedMarkers.length
+    || JSON.stringify(v.observedMarkers) !== JSON.stringify([...v.observedMarkers].sort())
+    || ((v.dockerfile !== undefined || v.line !== undefined)
+      && (v.dockerfile !== "docker/worker.Dockerfile" || !Number.isSafeInteger(v.line) || Number(v.line) < 1 || Number(v.line) > 10000))) return undefined;
+  return { observedMarkers: [...v.observedMarkers], ...(v.dockerfile !== undefined ? { dockerfile: v.dockerfile, line: v.line } : {}) };
+}
+
 export class PackagedCommandError extends Error {
   /** @param {string} phase
    * @param {"command-launch" | "command-timeout" | "command-output-limit" | "command-input" | "command-exit" | "command-signal"} category
@@ -236,6 +268,8 @@ export class PackagedCommandError extends Error {
   constructor(phase, category, exitCode = null, signal = null) {
     super(`Packaged acceptance phase failed: ${phase}`);
     this.phase = phase;
+    /** @type {ReturnType<typeof classifyPackagedBuildFailure> | undefined} */
+    this.buildFailure = undefined;
     this.diagnostic = { category, exitCode: Number.isSafeInteger(exitCode) ? exitCode : null,
       signal: ["SIGTERM", "SIGKILL", "SIGINT", "SIGABRT", "SIGSEGV", "SIGBUS"].includes(signal ?? "") ? signal : null };
   }
@@ -534,9 +568,21 @@ export async function command(binary, args, phase, { timeout = 120_000, allowFai
     child.once("close", (code, signal) => {
       clearTimeout(timer);
       activeChildren.delete(child);
-      if (overflow || timedOut || inputFailed || !inputFinished || signal || (code !== 0 && (privateTransfer || !allowFailure))) reject(new PackagedCommandError(phase,
-        overflow ? "command-output-limit" : timedOut ? "command-timeout" : inputFailed || !inputFinished ? "command-input" : signal ? "command-signal" : "command-exit", code, signal));
-      else resolve({ code, out, err });
+      if (overflow || timedOut || inputFailed || !inputFinished || signal || (code !== 0 && (privateTransfer || !allowFailure))) {
+        const failure = new PackagedCommandError(phase,
+          overflow ? "command-output-limit" : timedOut ? "command-timeout" : inputFailed || !inputFinished ? "command-input" : signal ? "command-signal" : "command-exit", code, signal);
+        if (phase === "fresh-image-build" && !privateTransfer) {
+          // Only this frozen build-control path can appear in diagnostics. Raw
+          // stdout/stderr remain private buffers and are discarded on rejection.
+          const complete = async () => {
+            let lines = 0;
+            try { lines = (await readFile("docker/worker.Dockerfile", "utf8")).split("\n").length; } catch { /* Omit unverified source-line attribution. */ }
+            failure.buildFailure = classifyPackagedBuildFailure(out + "\n" + err, lines);
+            reject(failure);
+          };
+          void complete();
+        } else reject(failure);
+      } else resolve({ code, out, err });
     });
   });
 }
@@ -1763,6 +1809,10 @@ export async function packagedWorkerMain(args = process.argv.slice(2), env = pro
     if (failureReason) evidence.failureReason = failureReason;
     const failureCommand = sanitizePackagedCommandFailure(error);
     if (failureCommand) evidence.failureCommand = failureCommand;
+    if (phase === "fresh-image-build" && error instanceof PackagedCommandError && error.phase === phase) {
+      const buildFailure = sanitizePackagedBuildFailure(error.buildFailure);
+      if (buildFailure) evidence.buildFailure = buildFailure;
+    }
     await failureDiagnostics();
     // No raw docker/driver error, database URL, private env or SQL payload.
     console.error(`Packaged worker acceptance failed during ${phase}.`);

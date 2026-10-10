@@ -75,6 +75,7 @@ COPY src/lib ./src/lib
 COPY workers/execution ./workers/execution
 # SSM command documents are JSON imports compiled into the worker bundle.
 COPY deploy/aws/ssm-documents ./deploy/aws/ssm-documents
+COPY deploy/slo/slo-definitions.json ./deploy/slo/slo-definitions.json
 # `@/` imports are resolved from tsconfig `paths` and bundled; every package
 # import stays external and is satisfied by node_modules in the runtime stage.
 RUN npx esbuild workers/execution/entrypoint.ts \

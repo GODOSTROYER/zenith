@@ -7,16 +7,17 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
+import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 
 type NativeGuestCase = ReturnType<typeof linuxGuestManifest>["requiredCases"][number];
 // Historical models exclude only this fixed additive service cohort; canonical requirements stay complete.
+const runnerUpdateGuestIds = new Set(LINUX_GUEST_RUNNER_UPDATE_CASES.map(item => item.id));
 const serviceGuestIds = new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id));
 function priorServiceLinuxCases(items: readonly NativeGuestCase[]): NativeGuestCase[] {
-  return items.filter(item => !serviceGuestIds.has(item.id));
+  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id));
 }
 
 const root = process.cwd();
@@ -327,10 +328,10 @@ function withoutCurrentSuccessorCohort(requirements: Requirement[]): Requirement
 const ownershipSnapshotCasIds = new Set([
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7ba9c4b9e2c1",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:01845bf26fdf",
-  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:1c2299148826",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:2ecc5e990013",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:65045d56d958",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:a3e783c044c9",
-  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:348894d82a33",
+  "platform-postgres:tests/controlplane/ownership-transfers.test.ts:6c2424b7f1de",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:b0212eb1a020",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:852f3777058a",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7049bff8d926",
@@ -2808,11 +2809,11 @@ describe("mandatory native service.configure observations [report models]", () =
     expect(LINUX_GUEST_SERVICE_CASES).toHaveLength(25);
     expect(new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id)).size).toBe(25);
     expect(createHash("sha256").update(JSON.stringify(LINUX_GUEST_SERVICE_CASES.map(item => item.id).sort())).digest("hex")).toBe("ad13bf1b646b40e0c720aa7e42964ea453b04b25a43c11e6611055f0fecca3f1");
-    expect(manifest.raceCases).toHaveLength(148); expect(manifest.requiredCases).toHaveLength(152);
-    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(152);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(158);
     expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(historical).toHaveLength(127);
     expect(createHash("sha256").update(JSON.stringify(historical.map(item => item.id).sort())).digest("hex")).toBe("e406b4002c481023c55a418cbbfb369648f988033f4b8fa08f8d41e8dd8c51c1");
-    expect(manifest.requiredCases.map(item => item.id).sort()).toEqual([...historical, ...LINUX_GUEST_SERVICE_CASES].map(item => item.id).sort());
+    expect(manifest.requiredCases.map(item => item.id).sort()).toEqual([...historical, ...LINUX_GUEST_SERVICE_CASES, ...LINUX_GUEST_RUNNER_UPDATE_CASES].map(item => item.id).sort());
     const future = { package: "future-package", test: "TestFuture", id: "linux-guest:future-package:TestFuture" };
     expect(priorServiceLinuxCases([...manifest.requiredCases, future])).toContainEqual(future);
     expect(manifest.packagePhase.requiredCases).toHaveLength(4); expect(manifest.packagePhase.allowedSkips).toEqual([]);
@@ -2953,7 +2954,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
-    expect(linuxGuestManifest().requiredCases).toHaveLength(152);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(158);
     expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     for (const lane of Object.keys(GATE_LANES).filter(value => value !== "workflows"))

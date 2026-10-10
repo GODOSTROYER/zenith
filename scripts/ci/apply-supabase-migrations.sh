@@ -349,7 +349,6 @@ PLATFORM_TABLES=(
   incidents
   investigations
   isolation_plan_custody
-  k
   key_custody_keys
   key_rewrap_jobs
   leases

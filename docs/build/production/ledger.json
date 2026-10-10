@@ -546,9 +546,9 @@
       "acceptance": [
         "Reconcile advisories by ID/version/platform and production/build/dev reachability; safe patches, mandatory gates, reviewed expiring exceptions, no force upgrades."
       ],
-      "state": "verified",
+      "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "verified_d6965d75_exact_ci_source_and_artifacts; wider_product_release_acceptance_remains_open",
+      "implementationStatus": "reopened_c7_GHSA_6qxp_vccf_f47h; narrow_client_core_upgrade_awaits_explicit_authorization",
       "evidence": [
         {
           "level": "contract",
@@ -688,6 +688,13 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-80bb7352-ci-jobs.json",
           "runId": 37607673808,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "c7c3cff92fa42e811d13b9cb85d1f3a6f5fd9cd5",
+          "runId": 37769089337,
+          "result": "Supply-chain job113283877494 failed on high GHSA-6qxp-vccf-f47h in newly added dev client2.0.0. Maintainer advisory fixes client2.2.0 plus mandatory core2.2.0. Exploit reachability is not established; no exception or upgrade applied. Explicit narrow dependency authorization pending. Historical zero-finding receipts retained.",
+          "artifact": "docs/build/production/verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md"
         }
       ],
       "requiredEvidence": [
@@ -718,7 +725,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "remote20_and_native_bootstrap86_passed_e4c0c237_full_native_local_gate_pending",
+      "implementationStatus": "reviewed_c7_repairs_integrated_5e5417b9; CI437P6LinuxS/nativePG162P/authority92P; complete_gate_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -730,7 +737,7 @@
           "level": "remote_ci",
           "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
           "runId": 36971241225,
-          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04–06:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
         },
@@ -1443,6 +1450,66 @@
           "command": "vitest run --project=node --maxWorkers=1 --no-file-parallelism tests/ci/gate-manifest.test.ts; affected eslint; git diff --check",
           "environment": "Native Darwin ARM64 Node22.23.3/Vitest4.1.11",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json"
+        },
+        {
+          "level": "contract",
+          "commit": "95b20403e2394eeeaf874d16f601e5d8ed7a154f",
+          "result": "Root three full CI files437 passed/0 failed/6 actual-Linux-only skips; full compiler exit0 at5GiB, affected lint/actionlint0. Integrated733f81f8 has identical committed tree. No worker/Go/database/default-stack acceptance; complete gate and pushed successor CI pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-c7-reviewed-ci-repairs.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c7c3cff92fa42e811d13b9cb85d1f3a6f5fd9cd5",
+          "result": "Exactc7 plus broker7129/leases55628 reviewed source hashes: full4files162P0F0S,62mandatoryactualnativePG(33/5/11/13); canonical26SQL/schema58, independent85groups/cleanup/sourcebinding pass. FreshDB only, no restoredepoch2/defaultAuth/cloud proof. Integrated ded51029/56446629 after rootverification.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-c7-native-broker-leases.json"
+        },
+        {
+          "level": "contract",
+          "commit": "a15dbd817f69976548b3e594777c205de352fa0c",
+          "result": "Root two complete scope/release suites174 passed /0 failed /0 skipped; exact fixture classification only, lint/diff0, independent review accepted. No full gate or cloud claim.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-live-scope-fixture.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "0cc97c4ad395aabd621167371e5fe1776a1cb956",
+          "result": "Exact0cc plus four reviewed candidate test hashes:105 passed /2 failed /0 skipped. Actual PostgreSQL historical approval fixture insert returned zero rows in two tombstone cases. Cleanup/source binding passed; candidate not integrated.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-historical-fixtures-failed.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "a15dbd817f69976548b3e594777c205de352fa0c",
+          "result": "Exacta15+4reviewedtesthashes:107 passed /0 failed /0 skipped,58requiredactualnativePG (21/1/14/22),26SQL/schema58, root/Astra128groups+cleanup/sourcebinding accepted. Integrated4acebfb9; all244runtime inputs byteidentical at ea8f7093. Historical ACL and current read controls only; prior105/2 preserved.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-targeted-successor.json"
+        },
+        {
+          "level": "contract",
+          "commit": "ea8f7093d01d0e1f40ee5a665d75e9a4461529eb",
+          "result": "Coherent reviewedsource: rootcompiler5120MiB0/61.98s, allsourcebindings unchanged; affectedGo gate contracts671/0/0, workflow fixtures82/0/0, packaging135/0/6Mac-gatedLinuxcases. Nativecomponentmissingasset1\u2192canonicalasset0, cleanuptrue. FullCI/default/Linuxcounterparts/security approval stillopen; counts overlap.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-targeted-successor.json"
+        },
+        {
+          "commit": "59fe02bee566b244dc458b33cc58e34281994078",
+          "result": "Heap guard120/0/0 and full compiler exit0 in12.62s at5120MiB; subsequent sole release fixture5/0/0. Lint/actionlint/diff0. Separate scopes; full gate and new CI pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-heap-release-successor.json",
+          "level": "contract"
+        },
+        {
+          "level": "contract",
+          "commit": "58c4e192dfc3bbbf717e28b6769130cdde83714d",
+          "result": "SLO source custody repair: root136/0/6; actual original strictCOPY refusal reproduced, repaired digest accepted. Six Linux cases and image/runtime remain open.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-worker-slo-copy-binding.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c8c874027dd687d4a133e5de5d971a323eeed40b",
+          "result": "Ownership two complete files55/0/0 including36actualPG; source binding and155groups cleanup independently accepted. Gate metadata368/0/0; compiler0 in14.69s. Historical339/29 retained;1160/10/101/native100 unchanged.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-ownership-native-successor.json"
+        },
+        {
+          "level": "contract",
+          "commit": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
+          "result": "Recovery client custody root120/0/0, compiler0 in12.19s, lint/actionlint0; independent review accepted. Actual recovery lane remains pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-recovery-client-custody.json"
         }
       ],
       "requiredEvidence": [
@@ -1518,7 +1585,7 @@
           "level": "remote_ci",
           "commit": "2c9d6fa1ee5821d6b90fef4b8aab08a9ba32352a",
           "runId": 36971241225,
-          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04–06:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
+          "result": "Observed complete green pushed baseline:14 successful jobs,0 failed/cancelled. UTC05:57:04\u201306:11:33. Canonical real lanes postgres251,platformPostgres1327,policy238,OpenTofu3874,workflows861 all0F0S; allfive observed schema2 exit0 receipts/all12bindings matched, complete unchanged source/environment inventories and every required group pass. Unit16095P0F384S across776 passing/22 skipped files; actual Smoke/Gimbal pass. Mandatory complete-lock audit0. Go race11 tested packages pass; individualtest counts not emitted; Gointerop machinegoldenVitest19P0F0S. Green applies to exact2c9d6fa, not later local integrations or wider release gates.",
           "artifact": "docs/build/production/ci-36971241225.md",
           "executionReceiptComplete": true
         },
@@ -2765,7 +2832,7 @@
         {
           "level": "contract",
           "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
-          "result": "Exact unchanged9e→1c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
+          "result": "Exact unchanged9e\u21921c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
           "command": "Current9e canonical core unit execution, four allowlisted offered-catalog suites; read-only exact Git input reuse to1c",
           "environment": {
             "node": "22.23.3",
@@ -3072,7 +3139,7 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-77131a70-final.json",
           "runId": 37416369852,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37416369852",
-          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source→actual build→migration→readiness→cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
+          "result": "Fresh runbook-listed unit files: 12; 322 passed /0 failed /19 skipped. File-summary attribution only; required native/engine proof is separate. Whole source\u2192actual build\u2192migration\u2192readiness\u2192cutover/readback needs owned target; progressive rollout/code rollback is distinct from approved data restore."
         },
         {
           "level": "local_engine",
@@ -3505,7 +3572,7 @@
       ],
       "owner": "root",
       "testPaths": [],
-      "followUp": "Builder-owned security repair: underlying600-second-minimum Kubernetes bearer can exceed30–599-second remaining signed grant/session; immutable absolute deadline and fail-closed admission required. See verify/WAVE3-BUILD-AGENT-BLOCKERS.md,8October finding.",
+      "followUp": "Builder-owned security repair: underlying600-second-minimum Kubernetes bearer can exceed30\u2013599-second remaining signed grant/session; immutable absolute deadline and fail-closed admission required. See verify/WAVE3-BUILD-AGENT-BLOCKERS.md,8October finding.",
       "implementationNotes": "Final integration: migration chain 1..58, shared human step-up, owned-stack and live-helper joins assembled. Local checks in verify/FINAL-INTEGRATION.md; Mac engine/browser/live verification remains pending. No verification promotion."
     },
     {
@@ -5486,47 +5553,52 @@
     }
   ],
   "sessionState": {
-    "status": "bounded_ownership_security_fix_integrated_current_combined_gates_pending",
-    "sourceCheckpoint": "ebd309ac2ec8e6351554285f7674a6433b8255fb",
+    "status": "current_verifier_test_repairs_active_full_ci_failed",
+    "sourceCheckpoint": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
-    "lastPushedRun": 37755641326,
-    "lastPushedRunStatus": "terminal_19_success_1_verify_stale_temporal_source_pin_failure_exact_ed93",
-    "currentVerification": "docs/build/production/CURRENT-VERIFIER-CONTEXT.md",
+    "lastPushedCommit": "1f7a87e5da914742decb47db55704adfc3245c92",
+    "lastPushedRun": 37798097245,
+    "lastPushedRunStatus": "Exact1f main37798097245 and nativeworkers37798097211 running; nativeplatforms37798097373 two successes. Final repair publication needs own complete CI.",
+    "currentVerification": "Freshd90 CI37796491420 running; nativeworkers37796491251 failed prebuild strictCOPYinventory. SLO binding58c4 sourceverified, freshimage/runtime pending.",
     "remainingLocalPackets": {
-      "integratedRepairs": "40012d75 security CAS integrated7427a7d0; d25b1a85 ten mandatory PG identities. Rootnative17/0/0 and mixed124/0/0, compiler/lint/review accepted; broader writer/preissued policy open.",
-      "nativeBuild": "Changed runtime requires fresh cache-disabled native build and APFS assembly; prepared private bindings disabled until clean final commit.",
-      "defaultStackPreparation": "Independently reviewed five-service profile source, genuine25SQL/platform43/agent3, PostgreSQL STARTTLS and private credential composition; no current-source default startup acceptance. Bind fresh source/artifact before admission.",
-      "fullNativeUnit": "Exact ed93 full native21856/1/1618 retained, all1046files/identities/source/cleanup reviewed. Sole stale Temporal fixture hash corrected at b279aac8/integrated ebd309ac, affected295/0/0 and lint0; fresh complete successor pending."
+      "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
+      "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
+      "brokerAndLeases": "ded51029/56446629 integrated; sourceboundc7+2WIP actualnativePG162/0/0 including62mandatorynative. Independent receipt and85 observed groups/cleanup/sourcebinding accepted; freshDB scope only.",
+      "historicalFixtures": "Integrated4acebfb9 after actualnative107/0/0/58mandatory and independent128groups cleanup/sourcebinding. Prior105/2 retained. Exact244testedruntimeinputs match integratedea8.",
+      "nativeBuild": "Packagingasset2 integrated19a2ae14; rootactualcomponentmissingasset1\u2192canonicalasset0 and packaging135/0/6. Go5 integrated7b9ae3e3; root671/0/0 strictcontracts, current154/158 requiredcount. GenuineLinux6/newrunnerPID1/image/runtime stillpending; no generic skip exception.",
+      "defaultStackPreparation": "Historical9d reduced five-service startup/configuration capture passed limitedscope; subsequentTLS initialization failed. Ownedresources/certificates removed; fresh26SQL/schema58/defaultsource composition needed.",
+      "fullNativeUnit": "Historical9d unit counts retained only for9d. Exact0cc mainverify failed typecheck with heap OOM before full unit; current combined full unit pending.",
+      "workflowFixtures": "Integrated ea8 authority82/0/0 and 59fe release5/0/0; actual default agent/hosted journeys remain open.",
+      "ownership": "Integratedc8c87402 after actual55/0/0/36PG, independent155groups/sourcebindingcleanup,368/0/0contracts, compiler0. Exacttwo truthful titleIDs changed, counts preserved."
     },
     "permissions": {
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
-      "pending": "Live cloud calls/spend, real DNS/private GitHub App configuration, destructive retention/business/production sign-off."
+      "pending": "Narrow MCPclient/core2.2.0 upgrade authorization; livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff."
     },
-    "releaseVerdict": "10 verified /49 in_progress /19 planned; all four release flags false; CI09 reopened for changed candidate, historical green preserved",
-    "next": "Complete coherent current-candidate installation/gates, fresh native build and authorized same-Mac default-stack acceptance; push and inspect every exact CI job.",
+    "releaseVerdict": "9 verified /67 in_progress /2 planned; all four release flags false; CI07 reopened for current high MCP advisory, CI08/09 pending current complete candidate",
+    "next": "Freeze Linux supervisor142/6 and runner PID1 against final clean source; root preflight and serial actual execution. Inspect complete final CI, recover actual recovery/default journeys, build memory and Go counterpart accounting.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
       "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json",
       "cleanupComplete": true,
-      "scope": "Provider6/release1/guest49 all passed; local kind/PGlite/signed fixture limits retained."
+      "scope": "Provider6/release1/guest49 all passed; local kind/PGlite/signed fixture limits retained.",
+      "historical": true
     },
     "recordedAt": "2026-10-08",
-    "nativeRun": 37578066955,
-    "cleanup": "Fresh native fixtures/kind cleaned. Failed Next4968runtime removed only after independently proven group absence and frozen custody; nine outside-runtime files unchanged. Older559a/failedPGdatasets retained. Storagehelper0safeextra.",
-    "nativeSkippedPlatformsRun": 37578066934,
+    "nativeRun": "current37786124092_two_failed;historical37578066955",
+    "cleanup": "Failed105/2 and corrected107/0/0 native historical attempts both retained; corrected receipt128 observed groups absent, runtime/socket removed, listener refused, end source binding true. Earlier162 native and owned Supabase cleanup retain original source scope. Unrelated Docker baseline preserved.",
+    "nativeSkippedPlatformsRun": "current37786123826_two_success;historical37578066934",
     "lastPushedUnitResult": {
-      "passed": 21827,
-      "failed": 1,
-      "skipped": 1647,
-      "failure": "tests/ci/gate-manifest.test.ts:2943 stale exact Temporal diagnostic fixture SHA",
-      "downstreamUnexecuted": [
-        "Smoke",
-        "Verify Gimbal assets"
-      ]
+      "status": "not_executed_on_0cc",
+      "reason": "verify113341210148 failed Typecheck with heap OOM before unit/smoke/Gimbal",
+      "historical9d": {
+        "passed": 21828,
+        "failed": 0,
+        "skipped": 1647
+      }
     },
-    "currentWork": "Reviewed stable waitlist identity and bounded Temporal diagnostics integrated; compiler0; complete fresh candidate gates/CI and default local journey remain open."
+    "currentWork": "Reviewed historical, worker asset, Go inventory, workflow routes, compiler heap and release fixture repairs integrated. Root107/0/0 actualPG58 mandatory,671/0/0 gate contracts,82/0/0 authority,135/0/6 packaging,120/0/0 heap guards,5/0/0 release and compiler0 are separate scopes. Full source gates/new CI and ownership/Linux/default journey/security clearance remain open."
   },
   "sessionHistory": [
     {

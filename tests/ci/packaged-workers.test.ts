@@ -1,15 +1,52 @@
 /** Source and fixed-schema receipt models only. These fixtures never claim native execution. */
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createHash } from "node:crypto";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { PACKAGED_WORKER_CHECKS, packagedWorkerManifest } from "../../scripts/ci/gate-manifest.mjs";
 import { assertArtifactShape, assertAttemptedBuilderCapture, assertBuilderScope, assertLoadedImage, assertNativePrerequisites, assertOwnedContext, assertOriginalContextSnapshot, assertPublishedEvidence, assertReleaseMarker, baselinePreserved, boundBuild, builderDescriptors, executedChecks, parseHarnessOutput, parseNativeArgs, assertOwnedProcessProof, restoreContextOverride, runOwnedProcess, sanitizeChildFailure } from "../../scripts/ci/packaged-worker-native.mjs";
+import { command, PackagedCommandError, classifyPackagedBuildFailure, sanitizePackagedBuildFailure, packagedSourceDigest } from "../../scripts/acceptance/packaged-worker.mjs";
 import { digest } from "../../src/lib/controlplane/digest";
 
 const platform = "linux/amd64", hex = "a".repeat(64), commit = "b".repeat(40), imageId = `sha256:${hex}`;
 const runId = "zenith-pkg-amd64-0123456789ab";
 const read = (file: string) => fs.readFileSync(file, "utf8");
+
+describe("packaged SLO source binding", () => {
+  it("binds the exact copied SLO bytes and refuses missing, directory or symlink substitutions", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-packaged-source-"));
+    const slo = path.join(root, "deploy/slo/slo-definitions.json");
+    const canonical = fs.readFileSync("deploy/slo/slo-definitions.json");
+    try {
+      for (const [name, bytes] of Object.entries({
+        "docker/worker.Dockerfile": fs.readFileSync("docker/worker.Dockerfile"),
+        ".dockerignore": fs.readFileSync(".dockerignore"),
+        "package.json": "{}", "package-lock.json": "{}", "tsconfig.json": "{}",
+        "src/lib/source.ts": "", "workers/execution/source.ts": "",
+        "deploy/aws/ssm-documents/document.json": "{}", "policy/dist/policy.wasm": "fixture",
+        "deploy/slo/slo-definitions.json": canonical,
+      })) {
+        const file = path.join(root, name);
+        fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes);
+      }
+      const original = await packagedSourceDigest(root);
+      expect(original).toMatch(/^[a-f0-9]{64}$/);
+      fs.appendFileSync(slo, "\n");
+      expect(await packagedSourceDigest(root)).not.toBe(original);
+      fs.writeFileSync(slo, canonical);
+      expect(await packagedSourceDigest(root)).toBe(original);
+      fs.unlinkSync(slo);
+      await expect(packagedSourceDigest(root)).rejects.toMatchObject({ code: "ENOENT" });
+      fs.mkdirSync(slo);
+      await expect(packagedSourceDigest(root)).rejects.toThrow("regular files");
+      fs.rmdirSync(slo);
+      fs.symlinkSync(path.join(root, "package.json"), slo);
+      await expect(packagedSourceDigest(root)).rejects.toThrow("symlinks");
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+});
 const prerequisites = () => ({ os: "linux", processArch: "x64", dockerOS: "linux", dockerArch: "amd64", endpoint: "unix:///var/run/docker.sock", node: "22.23.3",
   totalRamGiB: 15, availableRamGiB: 10, dockerRamGiB: 15, sourceFreeGiB: 20, temporaryFreeGiB: 20, dockerFreeGiB: 20 });
 const github = { GITHUB_ACTIONS: "true", ZENITH_PACKAGED_REPOSITORY_VISIBILITY: "public", RUNNER_ENVIRONMENT: "github-hosted", RUNNER_OS: "Linux", RUNNER_ARCH: "X64", GITHUB_SHA: commit, ZENITH_PACKAGED_RUNNER_LABEL: "ubuntu-24.04" };
@@ -111,6 +148,9 @@ describe("native packaged worker canonical source contract", () => {
     expect(instructions).toContain("WORKDIR /app");
     expect(instructions).toContain("COPY package.json package-lock.json ./");
     expect(instructions).toContain("COPY src/lib ./src/lib");
+    const sloAsset = "COPY deploy/slo/slo-definitions.json ./deploy/slo/slo-definitions.json";
+    expect(instructions).toContain(sloAsset);
+    expect(instructions.indexOf(sloAsset)).toBeLessThan(instructions.findIndex(line => line.startsWith("RUN npx esbuild workers/execution/entrypoint.ts")));
     expect(instructions.indexOf("WORKDIR /app")).toBeLessThan(instructions.indexOf(install));
     expect(instructions.indexOf("COPY package.json package-lock.json ./")).toBeLessThan(instructions.indexOf(install));
     expect(instructions.indexOf(install)).toBeLessThan(instructions.indexOf("COPY src/lib ./src/lib"));
@@ -543,4 +583,40 @@ describe.skipIf(process.platform !== "linux")("native process supervisor [actual
     await expect(runOwnedProcess(process.execPath, ["-e", "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"], { timeout: 1000, grace: 300 }))
       .rejects.toMatchObject({ code: "native_process_unsettled" });
   }, 15_000);
+});
+
+
+describe("failed fresh worker build diagnostics", () => {
+  it("retains the actual command refusal and publishes only fixed observed markers and a bound Dockerfile line", async () => {
+    const marker = "private-compiler-output-never-publish";
+    const output = `Could not resolve "${marker}"\nFATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory\nDockerfile:5\n`;
+    const error = await command(process.execPath, ["-e", `process.stderr.write(${JSON.stringify(output)});process.exit(7)`], "fresh-image-build").catch(error => error);
+    expect(error).toBeInstanceOf(PackagedCommandError);
+    expect(error.diagnostic).toEqual({ category: "command-exit", exitCode: 7, signal: null });
+    const build = { observedMarkers: ["esbuild_resolution", "node_oom"], dockerfile: "docker/worker.Dockerfile", line: 5 };
+    expect(error.buildFailure).toEqual(build);
+    expect(sanitizeChildFailure("fresh-image-build", undefined, undefined, undefined, undefined, error.buildFailure)).toEqual({
+      phase: "fresh-image-build", workerCategory: "unavailable", buildFailure: build,
+    });
+    expect(JSON.stringify(error)).not.toContain(marker);
+    expect(sanitizeChildFailure("operator-pause", undefined, undefined, undefined, undefined, build)).toEqual({ phase: "operator-pause", workerCategory: "unavailable" });
+    const other = await command(process.execPath, ["-e", `process.stderr.write(${JSON.stringify(output)});process.exit(7)`], "not-a-build").catch(error => error);
+    expect(other.diagnostic).toEqual({ category: "command-exit", exitCode: 7, signal: null }); expect(other.buildFailure).toBeUndefined();
+  });
+
+  it("refuses hostile diagnostic fields and omits ambiguous or unbound source-line attribution", () => {
+    const valid = { observedMarkers: ["node_oom"], dockerfile: "docker/worker.Dockerfile", line: 5 };
+    expect(sanitizePackagedBuildFailure(valid)).toEqual(valid);
+    for (const value of [null, "private-canary", { ...valid, raw: "private-canary" },
+      { observedMarkers: ["private-canary"] }, { observedMarkers: ["node_oom", "node_oom"] },
+      { observedMarkers: ["node_oom", "esbuild_resolution"] }, { ...valid, dockerfile: "/private-canary" },
+      { ...valid, line: 0 }, { ...valid, line: 1.5 }, { ...valid, line: 10001 }, { observedMarkers: [], line: 1 }]) {
+      expect(sanitizePackagedBuildFailure(value)).toBeUndefined();
+      expect(JSON.stringify(sanitizeChildFailure("fresh-image-build", undefined, undefined, undefined, undefined, value))).not.toContain("private-canary");
+    }
+    expect(classifyPackagedBuildFailure("Dockerfile:2\nDockerfile:3\n", 10)).toEqual({ observedMarkers: [] });
+    expect(classifyPackagedBuildFailure("Dockerfile:11\n", 10)).toEqual({ observedMarkers: [] });
+    expect(classifyPackagedBuildFailure("/private-canary/Dockerfile:2\n", 10)).toEqual({ observedMarkers: [] });
+    expect(classifyPackagedBuildFailure("unrecognized private-canary", 10)).toEqual({ observedMarkers: [] });
+  });
 });

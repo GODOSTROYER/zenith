@@ -250,8 +250,57 @@ describe.skipIf(!PG_URL)("workflow start tombstone privileges [postgres]",()=>{
           const deps={...h.deps,store:legacyStore,clock:{now:()=>new Date()}};
           const broker=createBroker(deps),bound={...h,broker,deps,store:deps.store};
           const proposed=await proposeOk(bound,requestFor(bound,"service.restart","prod"),user("bob"));
-          await approveAs(bound,proposed.operation,"erin");
-          await broker.beginExecution({workspaceId:h.ids.wsA,operationId:proposed.id,holder:`workflow:${proposed.id}`,audience:"worker",leaseMs:60_000});
+          // Schema12 has no recovery authority. Current approvals/claims must refuse,
+          // not manufacture a current epoch for this historical ACL fixture.
+          expect((await tx.query<{column_name:string}>("select column_name from information_schema.columns where table_schema='platform' and table_name='operations' and column_name='recovery_epoch'"))).toEqual([]);
+          expect((await tx.query<{fn:string|null}>("select to_regprocedure('platform.current_recovery_epoch()')::text as fn"))[0].fn).toBeNull();
+          const historicalRows=async()=>({ operation:await tx.query("select * from platform.operations where workspace_id=$1 and id=$2",[h.ids.wsA,proposed.id]),
+            approvals:await tx.query("select * from platform.approvals where workspace_id=$1 and operation_id=$2 order by id",[h.ids.wsA,proposed.id]) });
+          const proposedRows=await historicalRows();
+          await expect(db.tx(async()=>{await approveAs(bound,proposed.operation,"erin");})).rejects.toMatchObject({sqlstate:"42703"});
+          expect(await historicalRows()).toEqual(proposedRows);
+          // Historical SQL construction only: these fixture rows are NOT current
+          // broker approval or execution authorization. Actual schema12 SQL binds
+          // the human reviewer and live approval to the original operation/round.
+          expect((await deps.roles.resolve(user("erin"),h.ids.wsA)).role).toBe("admin");
+          // The public operation view omits inputDigest; bind the actual SQL row.
+          const [historicalDigests]=await tx.query<{proposal_digest:string;input_digest:string}>(
+            "select proposal_digest,input_digest from platform.operations where workspace_id=$1 and id=$2",[h.ids.wsA,proposed.id]);
+          expect(historicalDigests.proposal_digest).toBe(proposed.operation.proposalDigest);
+          expect(historicalDigests.input_digest).toMatch(/^[0-9a-f]{64}$/);
+          const historicalApprovalFixture=()=>tx.query(`insert into platform.approvals
+            (id,workspace_id,operation_id,proposal_digest,decision,approver,approver_id,approver_role,policy_version,approval_round,expires_at)
+            select $3,o.workspace_id,o.id,o.proposal_digest,'approve',$4::text::jsonb,'erin','admin',d.policy_version,o.approval_round,
+              least(o.expires_at,clock_timestamp()+interval '1 hour')
+            from platform.operations o join platform.policy_decisions d on d.workspace_id=o.workspace_id and d.id=o.policy_decision_id
+            where o.workspace_id=$1 and o.id=$2 and o.status='awaiting_approval' and o.expires_at>clock_timestamp()
+              and o.approval_required and o.approval_round=0 and o.plan_digest is null and o.principal->>'id'='bob'
+              and o.proposal_digest=$5 and o.input_digest=$6
+              and d.outcome='require_approval' and d.approval->>'count'='1' and d.approval->>'minRole'='admin'
+              and not exists(select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id)
+            returning id`,[h.ids.wsA,proposed.id,randomUUID(),JSON.stringify(user("erin")),historicalDigests.proposal_digest,historicalDigests.input_digest]);
+          expect(await historicalApprovalFixture()).toHaveLength(1);
+          expect(await historicalApprovalFixture()).toHaveLength(0);
+          expect(await tx.query(`update platform.operations o set status='approved'
+            where o.workspace_id=$1 and o.id=$2 and o.status='awaiting_approval'
+              and exists(select 1 from platform.approvals a where a.workspace_id=o.workspace_id and a.operation_id=o.id
+                and a.approval_round=o.approval_round and a.proposal_digest=o.proposal_digest
+                and a.approver_id='erin' and a.decision='approve' and a.consumed_at is null and a.expires_at>clock_timestamp())
+            returning id`,[h.ids.wsA,proposed.id])).toHaveLength(1);
+          const approvedRows=await historicalRows();
+          await expect(db.tx(async()=>{await broker.beginExecution({workspaceId:h.ids.wsA,operationId:proposed.id,holder:`workflow:${proposed.id}`,audience:"worker",leaseMs:60_000});})).rejects.toMatchObject({sqlstate:"42703"});
+          expect(await historicalRows()).toEqual(approvedRows);
+          const historicalRunningFixture=()=>tx.query(`with consumed as (
+            update platform.approvals a set consumed_at=clock_timestamp() from platform.operations o
+            where o.workspace_id=$1 and o.id=$2 and o.status='approved' and o.expires_at>clock_timestamp()
+              and a.workspace_id=o.workspace_id and a.operation_id=o.id and a.approval_round=o.approval_round
+              and a.proposal_digest=o.proposal_digest and a.approver_id='erin' and a.decision='approve'
+              and a.consumed_at is null and a.expires_at>clock_timestamp() returning a.operation_id)
+            update platform.operations o set status='running',lease_holder=$3,lease_until=clock_timestamp()+interval '1 minute'
+            where o.workspace_id=$1 and o.id=$2 and o.status='approved' and exists(select 1 from consumed c where c.operation_id=o.id)
+            returning id`,[h.ids.wsA,proposed.id,`workflow:${proposed.id}`]);
+          expect(await historicalRunningFixture()).toHaveLength(1);
+          expect(await historicalRunningFixture()).toHaveLength(0);
           const request:intents.StartRequest={kind:"dayTwo",arguments:{workspaceId:h.ids.wsA,operationId:proposed.id,environmentId:h.ids.envAProd,capability:"service.restart"},
             namespace:"default",endpointDigest:digest("owned tombstone privilege frontend"),taskQueue:"owned-tombstone-privileges"};
           const store=intents.createIsolatedStartIntentStoreForTests(broker);

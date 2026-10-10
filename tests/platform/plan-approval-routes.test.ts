@@ -16,11 +16,23 @@ const { setPlatformBrokerForTests } = await import("@/lib/capabilities/platform"
 const { setBridgeDepsForTests } = await import("@/lib/bridge/deps");
 closeSharedPgliteAfterAll();
 const identity = vi.hoisted(() => ({ id: "erin" }));
+const stepUp = vi.hoisted(() => ({ aal: "aal2", policyAvailable: true }));
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/supabase/env", async (original) => ({ ...await original<typeof import("@/lib/supabase/env")>(), isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => ({ id: identity.id, name: identity.id, email: `${identity.id}@zenith.test` }) }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
 vi.mock("@/lib/hosted/access/identity", () => ({ verifyRequestIdentity: async () => ({ subject: identity.id, email: `${identity.id}@zenith.test`, emailVerified: true }) }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: identity.id, aal: stepUp.aal, exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: identity.id, email_confirmed_at: "2026-01-01T00:00:00.000Z", factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
+vi.mock("@/lib/auth/mfa-policy", async (original) => {
+  const policy = await original<typeof import("@/lib/auth/mfa-policy")>();
+  return { ...policy, workspaceMfaControl: async () => {
+    if (!stepUp.policyAvailable) { const { ApiError } = await import("@/lib/server/errors"); throw new ApiError("Workspace MFA controls could not be verified.", 503); }
+    return policy.DEFAULT_MFA_CONTROL;
+  } };
+});
 
 const { POST: approve } = await import("@/app/api/platform/v1/operations/[id]/approve/route");
 const { POST: reject } = await import("@/app/api/platform/v1/operations/[id]/reject/route");
@@ -32,6 +44,7 @@ const refusedHeaders: Record<string, string>[] = [{ authorization: "Bearer integ
 
 beforeEach(async () => {
   identity.id = "erin"; signal.mockReset(); signal.mockResolvedValue({ delivered: true });
+  stepUp.aal = "aal2"; stepUp.policyAvailable = true;
   vi.stubEnv("ZENITH_PLATFORM_ORIGIN", "https://zenith.test");
   h = await makeHarness({ kind: "pglite", engine: scriptedEngine("http-plan", () => requireApproval(1, "admin", true)) });
   setPlatformBrokerForTests(h.broker);
@@ -52,6 +65,15 @@ function call(handler: typeof approve, body: unknown, headers: Record<string, st
   return handler(new NextRequest(`https://zenith.test/api/platform/v1/operations/${op.id}/approve`, { method: "POST", headers: { "content-type": "application/json", origin: "https://zenith.test", cookie: `zenith-workspace=${h.ids.wsA}`, ...headers }, body: JSON.stringify(body) }), { params: Promise.resolve({ id: op.id }) });
 }
 describe("plan gate over browser REST", () => {
+  it.each(["aal1", "origin", "policy unavailable"])("refuses %s before changing approval authority or signalling", async (failure) => {
+    if (failure === "aal1") stepUp.aal = "aal1";
+    if (failure === "policy unavailable") stepUp.policyAvailable = false;
+    const before = { operation: await h.store.getOperation(h.ids.wsA, op.id), approvals: await h.store.listApprovals(h.ids.wsA, op.id) };
+    const reply = await call(approve, { proposalDigest: op.proposalDigest, planDigest: plan.planDigest }, failure === "origin" ? { origin: "https://other.test" } : {});
+    expect(reply.status).toBe(failure === "policy unavailable" ? 503 : 403);
+    expect({ operation: await h.store.getOperation(h.ids.wsA, op.id), approvals: await h.store.listApprovals(h.ids.wsA, op.id) }).toEqual(before);
+    expect(signal).not.toHaveBeenCalled();
+  });
   it("GET returns the authoritative review, and a browser approves the reviewed digest in round one and signals", async () => {
     const read = await detail(new NextRequest(`https://zenith.test/api/platform/v1/operations/${op.id}`, { headers: { cookie: `zenith-workspace=${h.ids.wsA}` } }), { params: Promise.resolve({ id: op.id }) });
     expect(read.status).toBe(200);

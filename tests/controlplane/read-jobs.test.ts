@@ -8,12 +8,20 @@ import type { EnqueueJobInput } from "@/lib/controlplane/db/repos/jobs";
 import { LANES, newWorkspace, openLane, seedApprovedOperation, uid } from "./_support/harness";
 
 it("freezes exactly the current catalog's non-mutating capabilities", () => {
-  expect([...READ_JOB_CAPABILITIES].sort()).toEqual(Object.values(CAPABILITIES).filter((c) => !c.mutates).map((c) => c.name).sort());
+  // Migration 5 freezes runner queue reads. The newer connection draft executes in-process,
+  // requires browser confirmation, and does not expand that published SQL constraint.
+  const reads = Object.values(CAPABILITIES).filter((c) => !c.mutates).map((c) => c.name).sort();
+  expect(READ_JOB_CAPABILITIES).toHaveLength(22);
+  expect(reads.filter((name) => !(READ_JOB_CAPABILITIES as readonly string[]).includes(name))).toEqual(["connection.plan"]);
+  expect(reads).toEqual([...READ_JOB_CAPABILITIES, "connection.plan"].sort());
+  expect(CAPABILITIES["connection.plan"]).toMatchObject({ name: "connection.plan", mutates: false, risk: "low", scopeLevel: "project", integrationScope: "plan", defaultAutonomy: 0 });
 });
 
 it("upgrades migration 4 without changing existing operation jobs and reapplies safely", async () => {
   const db = await openPlatformDb({ kind: "pglite", migrate: false });
   try {
+    // This fixture proves the historical read-queue transition, not a current-schema upgrade.
+    const historicalReadMigrations = PLATFORM_MIGRATIONS.filter((migration) => migration.version <= 5);
     await migratePlatformDb(db, PLATFORM_MIGRATIONS.slice(0, 4));
     const workspaceId = newWorkspace();
     // Seed the actual schema-4 row shape; current registration also returns migration-25 lifecycle fields.
@@ -22,12 +30,25 @@ it("upgrades migration 4 without changing existing operation jobs and reapplies 
     expect(await db.query("select column_name from information_schema.columns where table_schema = 'platform' and table_name = 'runners' and column_name in ('lifecycle', 'lifecycle_reported_at')")).toEqual([]);
     const { operation } = await seedApprovedOperation(db, workspaceId);
     const job = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId, operationId: operation.id, kind: "tofu.run", capability: "infrastructure.apply", envelope: "signed-test-envelope" });
-    expect((await migratePlatformDb(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter((migration) => migration.version > 4).map((migration) => migration.version));
+    expect((await migratePlatformDb(db, historicalReadMigrations)).applied).toEqual([5]);
     await db.exec(migration0005ReadJobs.sql);
-    expect((await migratePlatformDb(db)).applied).toEqual([]);
+    expect((await migratePlatformDb(db, historicalReadMigrations)).applied).toEqual([]);
+    expect(await db.query("select version from platform.schema_migrations order by version")).toEqual([1, 2, 3, 4, 5].map((version) => ({ version })));
     expect(await repos.jobs.get(db, workspaceId, job.id)).toEqual(job);
-    const read = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId, kind: "probe.tcp", capability: "infrastructure.observe", envelope: "signed-test-envelope" });
-    expect(read.operationId).toBe("");
+    expect(await db.query("select to_regclass('platform.tenant_quotas') as quotas")).toEqual([{ quotas: null }]);
+    const historicalJobs = () => db.query("select * from platform.runner_jobs order by id");
+    const beforeModernRead = await historicalJobs();
+    await expect(repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId, kind: "probe.tcp", capability: "infrastructure.observe", envelope: "signed-test-envelope" })).rejects.toMatchObject({ sqlstate: "42P01" });
+    expect(await historicalJobs()).toEqual(beforeModernRead);
+    // Historical fixture construction: current enqueue needs schema38 quotas. This SQL
+    // exercises schema5's NULL FK and read constraint, not current queue admission.
+    const historicalReadId = uid("job");
+    await db.query(`insert into platform.runner_jobs (id, workspace_id, runner_id, operation_id, kind, capability, envelope, expires_at)
+      values ($1, $2, $3, null, 'probe.tcp', 'infrastructure.observe', 'signed-test-envelope', clock_timestamp() + interval '5 minutes')`, [historicalReadId, workspaceId, runnerId]);
+    const read = await repos.jobs.get(db, workspaceId, historicalReadId);
+    expect(read).not.toBeNull();
+    expect(await db.query("select operation_id from platform.runner_jobs where workspace_id=$1 and id=$2", [workspaceId, historicalReadId])).toEqual([{ operation_id: null }]);
+    expect(read!.operationId).toBe("");
   } finally {
     await db.close();
   }

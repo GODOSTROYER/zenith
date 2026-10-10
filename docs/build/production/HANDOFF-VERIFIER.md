@@ -1,3 +1,7 @@
+## Current new-machine entry point, 10 October 2026
+
+Read [Mac mini handoff](HANDOFF-MAC-MINI-2026-10-10.md) first. Includes actual unfinished source packets, hash-verified transfer, final baseline CI and permissions. Supersedes older machine/identity/status summaries; preserves verifier scope and historical evidence. Baseline28ea: main12 success/7 failure/1 cancelled; native worker2 success; native platform2 success. Ledger9 verified/67 in progress/2 planned. Old-host work remains paused; no acceptance run or requirement promotion in this publication.
+
 ## Migration42 native acceptance and complete CI successor
 
 User authorized additive migration repair on7October. Fixcc9fb51b plus inventory

@@ -1,3 +1,11 @@
+## Current new-machine entry point, 10 October 2026
+
+Read [Mac mini handoff](HANDOFF-MAC-MINI-2026-10-10.md) first. Includes actual unfinished source packets, hash-verified transfer, final baseline CI and permissions. Supersedes older machine/identity/status summaries; preserves verifier scope and historical evidence. Baseline28ea: main12 success/7 failure/1 cancelled; native worker2 success; native platform2 success. Ledger9 verified/67 in progress/2 planned. Old-host work remains paused; no acceptance run or requirement promotion in this publication.
+
+## Current verifier results, 8 October 2026
+
+Integrated5e5417b9; CI08 root437/0/6, realfreshPG162/0/0(62native), authority92/0/0; compiler/lint/actionlint0. Linux/full/successorCI pending. CI07 reopened for new MCP advisory, upgrade permission pending. Ledger9/67/2 across78; four release states false. No requirement closed. [Exact current context](verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md).
+
 ## Results: Temporal source pin, 8 October 2026
 
 - PROD-CI-08: in_progress; fix b279aac8215ac1ed57ea6ac72bd93100ed6d5289, integration ebd309ac2ec8e6351554285f7674a6433b8255fb; affected295/0/0, complete native successor pending.
@@ -697,3 +705,24 @@ Run sequentially on the native Mac with Node 22, the owned lean profile (8 GB), 
 | PROD-REL-04 | `node scripts/ci/wave6-gates.mjs --requirement PROD-REL-04 --print` then execute each emitted command sequentially with the documented owned prerequisites. |
 
 Live procedure: [one owner runbook](LIVE-ACCEPTANCE.md). All rows remain implementation_complete_verification_pending. Unsupported J2 scenario projections remain incomplete, never passed.
+
+Results: PROD-CI-08 remains in_progress. Published0cc full CI10 successful/14 failed jobs; a15 scope repair174/0/0; historical4 native candidate105/2/0 remains unintegrated. See verification/CI-2026-10-08-0cc97c4a.md and RESULTS-2026-10.md.
+
+Results: PROD-CI-08 remains in_progress at integratedea8f7093: native107/0/0 including58 required; contracts671/0/0; route82/0/0; packaging135/0/6; combinedcompiler0. Every broader gate/remainingLinuxcase/pushedCI still open. RESULTS integrated-targeted-successor section preserves source scope and prior failures.
+
+Results PROD-CI-08: `59fe02bee566b244dc458b33cc58e34281994078` integrates heap guard120/0/0, full compiler0 (before later release test edit), release fixture5/0/0. Complete gates/new CI/Linux/default journeys pending.
+
+
+## Packaged worker COPY custody correction, 8 October 2026
+
+Fix `58c4e192dfc3bbbf717e28b6769130cdde83714d` binds canonical SLO asset in the strict source inventory. Fresh d90 native ARM64 and AMD64 jobs failed before building: original source digest refused `Packaged Docker COPY inventory differs from its source binding.` Root independently reproduced exit1, verified repaired digest exit0, ran whole affected suite136/0/6 and lint/diff0. New controls cover changed bytes, restoration and missing/directory/symlink refusal. Six actual Linux cases, native image/runtime and complete new CI remain pending. No gate or inventory bound weakened.
+
+
+## Ownership native successor, 8 October 2026
+
+Integrated `c8c874027dd687d4a133e5de5d971a323eeed40b` after two complete files55/0/0, including36 genuine PostgreSQL and19 PGlite cases. Root and independent reviewer verified full case Counter, source/tool binding,155 absent process groups, removed runtime/socket and refused listener. Whole gate/platform contract successor368/0/0, compiler0 in14.69s, lint/diff0. Prior339/29 contract attempt remains failed: two renamed IDs leaked into historical cohorts until their exact finite metadata references were updated. Current1160, ownership10, other1158, custody101 and native100 counts remain unchanged. Human approvals are modeled; default Auth/cloud/user journey remains open.
+
+
+## Recovery client custody repair, 8 October 2026
+
+Fix `1d99b5e217c4ea3150fcecd3976f3f7380c05a0f` creates private0700 temp files under the existing same-path runner mount, preserving file ownership and argument quoting. PostgreSQL password/TLS-mode forwarding uses environment names only. Original host/tmp container mismatch is documented; no product/migration or permission-widening changes. Root full120/0/0, compiler0 in12.19s, lint/actionlint/diff0 and independent review passed. Actual recovery lane, complete final CI and remaining default journeys are pending.

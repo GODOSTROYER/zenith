@@ -17,12 +17,19 @@ describe.each(LANES)("leases [$name]", (lane) => {
   });
 
   const scope = (): string => `env:${uid("env")}`;
+  const initialFence = async (): Promise<number> => {
+    const [state] = await ctx.db.query<{ epoch: number | string }>("select platform.current_recovery_epoch() as epoch");
+    const fence = Number(state!.epoch) * 1_000_000_000 + 1;
+    expect(Number.isSafeInteger(fence)).toBe(true);
+    return fence;
+  };
 
   it("acquire succeeds for one holder and a second holder is refused while it is live", async () => {
     const s = scope();
+    const floor = await initialFence();
     const first = await repos.leases.acquire(ctx.db, { scope: s, holder: "worker-a", ttlMs: 30_000 });
     expect(first).not.toBeNull();
-    expect(first!.fenceToken).toBe(1);
+    expect(first!.fenceToken).toBe(floor);
     expect(typeof first!.fenceToken).toBe("number");
     expect(first!.acquiredAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
     expect(Date.parse(first!.expiresAt)).toBeGreaterThan(Date.parse(first!.acquiredAt));
@@ -63,12 +70,12 @@ describe.each(LANES)("leases [$name]", (lane) => {
 
   it("uses the database clock: a 60 ms lease really lapses and can be taken", async () => {
     const s = scope();
-    await repos.leases.acquire(ctx.db, { scope: s, holder: "worker-a", ttlMs: 60 });
+    const first = (await repos.leases.acquire(ctx.db, { scope: s, holder: "worker-a", ttlMs: 60 }))!;
     expect(await repos.leases.acquire(ctx.db, { scope: s, holder: "worker-b", ttlMs: 30_000 })).toBeNull();
     await sleep(150);
     const b = await repos.leases.acquire(ctx.db, { scope: s, holder: "worker-b", ttlMs: 30_000 });
     expect(b?.holder).toBe("worker-b");
-    expect(b?.fenceToken).toBe(2);
+    expect(b?.fenceToken).toBe(first.fenceToken + 1);
   });
 
   it("renew extends a live lease for the same holder+fence and never shortens it", async () => {
@@ -104,25 +111,26 @@ describe.each(LANES)("leases [$name]", (lane) => {
 
   it("many concurrent acquires of one scope: exactly one winner", async () => {
     const s = scope();
+    const floor = await initialFence();
     const results = await Promise.all(
       Array.from({ length: 24 }, (_, i) => (i % 2 === 0 ? ctx.db : ctx.db2).tx((tx) => repos.leases.acquire(tx, { scope: s, holder: `worker-${i}`, ttlMs: 30_000 })))
     );
     const winners = results.filter((r) => r !== null);
     expect(winners).toHaveLength(1);
-    expect(winners[0]!.fenceToken).toBe(1);
+    expect(winners[0]!.fenceToken).toBe(floor);
     expect((await repos.leases.current(ctx.db, s))?.holder).toBe(winners[0]!.holder);
   });
 
   it("concurrent takeover of one expired lease: exactly one new holder and one fence increment", async () => {
     const s = scope();
-    await repos.leases.acquire(ctx.db, { scope: s, holder: "old", ttlMs: 30_000 });
+    const first = (await repos.leases.acquire(ctx.db, { scope: s, holder: "old", ttlMs: 30_000 }))!;
     await backdate(ctx.db, "leases", "expires_at", s, "scope");
     const results = await Promise.all(
       Array.from({ length: 12 }, (_, i) => (i % 2 === 0 ? ctx.db : ctx.db2).tx((tx) => repos.leases.acquire(tx, { scope: s, holder: `taker-${i}`, ttlMs: 30_000 })))
     );
     const winners = results.filter((r) => r !== null);
     expect(winners).toHaveLength(1);
-    expect(winners[0]!.fenceToken).toBe(2);
+    expect(winners[0]!.fenceToken).toBe(first.fenceToken + 1);
   });
 
   it("assertFence locks the lease row FOR SHARE: a concurrent writer of that row waits for the fenced transaction", async () => {

@@ -1,5 +1,10 @@
 # PROD-LIFE-11 Backup export import and adoption
 
+## MinIO R11 cross-compile checkpoint, 11 October 2026
+
+The pinned MinIO release source cross-compiled successfully on Darwin/ARM64 with Go1.24.2 for Linux/ARM64; the root command exited0 and the staged binary SHA-256 is recorded in the [sanitized evidence](../evidence/PROD-LIFE-11/2026-10-11-minio-r11-cross-compile.json). Runtime execution remains pending. The R9 historical refusal is permanent; no historical binary/run/audit adoption is claimed and the old marker remains retained. R7 proves current observed closure only. Wider backup adoption, decommissioning and MySQL DNS/TLS acceptance remain open.
+
+
 ## DRV-4 customer DATA operated rehearsal (8 October 2026)
 
 The `export` J15 driver now runs LIFE-11 exports and imports through real browser

@@ -1,3 +1,11 @@
+## Evidence checkpoint, 11 October 2026
+
+The exact f32 source (`f32b54ca`, freeze `7a10e470`) now has an accepted R17 native macOS ARM64 Node/DOM core result: **24,528 passed / 0 failed / 1,939 skipped across 26,467 exact identities**. This is scoped core-suite evidence. The same frozen source passed the PG10 services suite **38/0/0** (PGlite19 and PostgreSQL16.15 19), with owned cleanup, process custody and resource watchers settled. A separate R15 attempt reconciled the same assertion inventory but remains refused because of sticky `child_capture_mismatch`; its Vitest exit and cleanup acceptance are unknown. A focused SMTP candidate run passed18/0/0 on `2f55fdaa` plus the reviewed patch (commit `90403121`), and is not full-stack acceptance or evidence for f32.
+
+A J1/J4 cleanup-only operation exited0, removed two owned resources and left zero, with no forced stops; credentials/TLS and project-private state were removed, retained state remained byte-identical, and source/custody/floor checks held. This establishes cleanup only; no J1/J4 run acceptance, AirPlay restoration or trust change is claimed. MinIO R11 cross-compilation from Darwin ARM64 to Linux/ARM64 exited0 with staged binary identity recorded; runtime remains pending. Historical R9 is permanently refused; no adoption of that historical run or binary is allowed.
+
+Exact-source CI run **38086537262** was nonterminal at observation: main27/28 terminal (18 success, 1 failure, 8 skipped), Verify active, and four native jobs passed. The Go job failed in `build-apt-image` before test events; cleanup completed, the OOM marker was absent, and cause remains unknown. No all-green result is claimed. The ledger remains **9 verified / 67 in progress / 2 planned**, 78 criteria, and all four release flags false. [CI-08 evidence](evidence/PROD-CI-08/2026-10-11-f32-r17-full-core.json), [CI-09 snapshot](evidence/PROD-CI-09/2026-10-11-ci-2f55fdaa-current.json), [LIFE-11 cross-compile](evidence/PROD-LIFE-11/2026-10-11-minio-r11-cross-compile.json).
+
 ## Immediate dependency queue, 10 October 2026
 
 1. Publish the integrated lint/diagnostic fixes and evidence; inspect exact-source CI while running the reviewed full R15 core on the same frozen source. Preserve954 full PASS and6612eeaa focused345/0/0 as scoped historical evidence.
@@ -7,6 +15,13 @@
 5. Continue existing OBS-04, MACH-03, OBS-02, MACH-04 and remaining local maps with each prerequisite. COST-03 requires seven continuous days/168 actual hourly samples; external/operational approvals remain separate.
 
 Keep one heavy local workload at a time and all host/VM floors. AirPlay stays off while authorized port5000 tests need it, then restore its prior setting. No cloud spend or production sign-off is authorized.
+
+## Current open queue, 11 October 2026
+
+1. Await terminal disposition of exact-source CI run 38086537262. Preserve the one Go `build-apt-image` failure and unknown cause; do not report green while Verify is active.
+2. Focused apt-tail R2 remains 192 passed / 1 failed / 0 skipped because the required original-stage predicate was missing and lint found an unused enum. Preserve the intervening R3 no-verdict refusal; the quiet R3 retry passed193/0/0 with13 strict commands and lint. Candidate commit fbe2591c passed focused checks; publication and fresh exact-source CI remain the next steps.
+3. Publish reviewed commits after `git pull --no-rebase`, update the clean primary without resetting, and run fresh R16 complete Node/DOM validation on the new exact source. Then build a fresh R10 witness and prepare fresh joined R9 J1/J4 acceptance; old f32 receipts retain their original source and are not relabeled. Continue independently authorized local preparation while exact-source CI runs. Gate broad acceptance and publication claims on terminal exact-source CI and scoped prerequisites. Keep J1/J2 and browser/UX work open; cleanup-only evidence does not establish operated acceptance.
+4. MinIO fresh Linux/ARM64 runtime and wider backup/import/decommission acceptance remain open. R9 historical refusal is permanent; there is no historical adoption task. Keep OBS/MACH maps and external approvals visible.
 
 ## Current integrated CI-08 checkpoint, 10 October 2026
 

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-LIFE-11",
+  "evidenceLevel": "contract",
+  "kind": "minio-r11-cross-compile-provenance-only",
+  "provenanceReceiptSha256": "ac97fd00bfe20a652ab14134be1f7632a86921898b0c888ecc954bd6e66d3319",
+  "source": {
+    "releaseTag": "RELEASE.2025-09-07T16-13-09Z",
+    "commit": "07c3a429bfed433e49018cb0f78a52145d4bedeb",
+    "tree": "bf4b9c047bb29c93144faeb2222bb340b87073dc"
+  },
+  "build": {
+    "mode": "cross_compile",
+    "rootExitCode": 0,
+    "host": "Darwin/ARM64",
+    "goVersion": "1.24.2",
+    "target": "Linux/ARM64",
+    "newBinarySha256": "8abe0f7adc318d921d496fb797af87f3305ba0bd0bd0cbbc299a29507a51e2a3"
+  },
+  "resourceObservation": {
+    "minimumFreeBytes": 377659584512,
+    "maximumSampledScratchBytes": 4202429301
+  },
+  "runtimeVerification": "pending",
+  "binaryAccepted": false,
+  "historicalR9": {
+    "oldMarkerRetained": true,
+    "historicalBinaryAccepted": false,
+    "historicalRunAccepted": false,
+    "historicalAuditRestored": false,
+    "disposition": "permanent-refusal-no-historical-adoption"
+  },
+  "R7CurrentObservation": {
+    "receiptSha256": "252a5602b8fbf3ec5d83ddecfc768458cccedf7c798e220c38fcb21fc52cea70",
+    "currentObservedClosureProven": true,
+    "historicalRunAccepted": false,
+    "historicalAuditRestored": false,
+    "oldMarkerRetained": true,
+    "binaryAccepted": false
+  },
+  "limitation": "This proves cross-compilation and staged binary identity only. Linux/ARM64 runtime execution remains pending; the R9 historical refusal is permanent and no historical adoption is claimed.",
+  "productSourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "crossCompilationAndStagedIdentityAccepted": true,
+  "binaryAcceptedMeaning": "Runtime acceptance remains pending; fresh cross-compilation and staged identity are accepted separately."
+}

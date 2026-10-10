@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "contract",
+  "kind": "smtp-r2-focused-test-only",
+  "primarySourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "candidateSourceHead": "2f55fdaaf1c55c2048cd4fc2363388d0f76ad048",
+  "strictReceiptSha256": "15659b1d1e1f4c7c92b87eac3ef7fc4bc06e3ce362f98cd5063d62480fc66373",
+  "candidatePatchSha256": "a7145cf0bbf7626edc2bf95915328f52233d4042a82f50bbbbb4a61888c6a034",
+  "scope": "One focused default-stack SMTP test file on the 2f55 candidate plus reviewed patch, subsequently committed as 90403121; synthetic/local test only",
+  "counts": {
+    "filesPassed": 1,
+    "passed": 18,
+    "failed": 0,
+    "skipped": 0
+  },
+  "validation": {
+    "primarySourceStable": true,
+    "candidateSourceStable": true,
+    "strictHeldCommandCloseout": true,
+    "minimumFreeBytes": 382395027456,
+    "timeoutSeconds": 180
+  },
+  "candidatePushed": false,
+  "acceptedRunReceipt": false,
+  "acceptanceMeaning": "focused-unit-tests-only",
+  "limitation": "The focused test does not establish full default-stack or CI acceptance and does not prove the later R3 candidate.",
+  "integratedCandidateCommit": "9040312191c32a8c5c8d6f09e62b5cb678bf32c0"
+}

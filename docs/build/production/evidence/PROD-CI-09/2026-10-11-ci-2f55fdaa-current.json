@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-09",
+  "evidenceLevel": "remote_ci",
+  "kind": "exact-source-ci-nonterminal-snapshot",
+  "sourceHead": "2f55fdaaf1c55c2048cd4fc2363388d0f76ad048",
+  "ciRunId": 38086537262,
+  "snapshotDate": "2026-10-11",
+  "main": {
+    "jobCount": 28,
+    "terminalJobs": 27,
+    "success": 18,
+    "failure": 1,
+    "skipped": 8,
+    "activeJobs": [
+      "verify"
+    ]
+  },
+  "native": {
+    "jobsPassed": 4,
+    "jobs": [
+      "packaged-worker AMD64",
+      "packaged-worker ARM64",
+      "Linux systemd",
+      "Windows ACL"
+    ]
+  },
+  "goFailure": {
+    "jobId": 114314114228,
+    "step": "Required native Linux race and authentic golden comparison",
+    "stage": "buildkit-builder",
+    "operation": "build-apt-image",
+    "childExitCode": 1,
+    "testEvents": 0,
+    "cleanup": "completed",
+    "oomMarkerObserved": false,
+    "aptFailureClass": "unknown",
+    "cause": "unknown"
+  },
+  "latestSerializedSnapshotSha256": "ff005d12bc86203462869e7705e8072de9a4adeb5f76a362ebf9dab7f76c77da",
+  "serializedSnapshotNote": "The retained 2026-10-10T21:16:11Z snapshot predates the later root-reported state and is not used to assert the current 27-terminal/Verify-only counts.",
+  "goSanitizedArtifactSha256": "0418df9a8278dab3d5b962dd45eda7755460c7e297c4a41ec280ff8b3122ba07",
+  "statusCheckpointSha256": "6afa057f305f2102ec9281ce47cfbe1be0c1067c1c507603d11b7ade9f6b3d0f",
+  "terminal": false,
+  "allGreen": false,
+  "limitation": "Root-observed nonterminal disposition recorded after the last serialized snapshot; no exact final terminal inventory is claimed. Go apt-build cause remains unknown. No CI-09 or release promotion."
+}

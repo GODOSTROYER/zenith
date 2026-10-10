@@ -731,7 +731,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "focused_582P0F2skip2J4_f99; actualJ4_realChild3P0F0S_975a; compiler5120_exit0_273b93ee; fullSuite_custodySuccessor_and_exactCI_pending",
+      "implementationStatus": "focused_582P0F2skip2J4_f99; actualJ4_realChild3P0F0S_975a; compiler5120_exit0_273b93ee; R17_fullCore_24528P0F1939S; PG10_services38P0F0S; SYS1_aptTail_R3_focused193P0F0S_lintPASS; exactSourceCI_pending; cleanupOnly_pass",
       "evidence": [
         {
           "level": "local_engine",
@@ -1588,6 +1588,42 @@
           "commit": "6612eeaa2b8de261f233f5a564ceafce534036cf",
           "result": "Follow-on focused R15 regression scope passed345/0/0 across345 exact identities; wrapper0, stable source freeze, identity/case counters matched, owned temp data removed, minimum free space394312065024 bytes above23622320128-byte floor. This is focused evidence only; it does not establish full-suite acceptance for6612eeaa or later source. Prior a211db03 attempt 344/1/0 wrapper1 remains failed.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-9543936c-r15-full.json"
+        },
+        {
+          "level": "contract",
+          "commit": "f32b54ca421956f483356ba7a45d95520840de0f",
+          "result": "R17 native macOS ARM64 full Node/DOM core passed 24,528/0/1,939 across 26,467 exact identities; 25,402 Node and 1,065 DOM. Source freeze matched, custody had zero drops, owned data was removed. Scoped core result only.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-f32-r17-full-core.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "f32b54ca421956f483356ba7a45d95520840de0f",
+          "result": "PG10 services suite passed 38/0/0: PGlite19 and PostgreSQL16.15/ARM64 19. Containers, volumes and credential file were removed; process custody and resource watchers settled.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-pg10-services-r6.json"
+        },
+        {
+          "level": "contract",
+          "commit": "f32b54ca421956f483356ba7a45d95520840de0f",
+          "result": "R15 assertion inventory reconciled 24,528 passed/0 failed/1,939 skipped across 26,467 identities, but wrapper refused with sticky child_capture_mismatch; actual Vitest exit and cleanup acceptance are unknown. Retained as refused inventory evidence, not a pass.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-f32-r15-refused-inventory.json"
+        },
+        {
+          "level": "contract",
+          "commit": "2f55fdaaf1c55c2048cd4fc2363388d0f76ad048",
+          "result": "Focused SMTP candidate test passed 18/0/0 in one file with strict closeout. Candidate is unpushed and this is not full-stack acceptance or evidence for f32 source.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-smtp-r2-focused.json"
+        },
+        {
+          "level": "contract",
+          "commit": "f32b54ca421956f483356ba7a45d95520840de0f",
+          "result": "J1/J4-owned cleanup-only pass: canonical down removed two owned resources, left zero, forced stops zero, removed credential/TLS and project-private state, retained joined/state bytes, and preserved source/custody/floor checks. No J1/J4 run acceptance or trust/AirPlay claim.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-j1-owned-cleanup-only.json"
+        },
+        {
+          "level": "contract",
+          "commit": "9040312191c32a8c5c8d6f09e62b5cb678bf32c0",
+          "result": "Quiet R3 apt-tail focused validation passed193/0/0 in one file with13 strict commands, lint pass, stable source, held command closeout and minimum free space above the22GiB floor. This proves only the focused validation; exact-source CI and broader systemd acceptance remain pending. The earlier R2 failure and intervening R3 no-verdict refusal remain separate preserved records.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-sys1-apt-tail-r3-focused.json"
         }
       ],
       "requiredEvidence": [
@@ -1614,7 +1650,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "historical_e4_a4_green; awaiting_current_cas_and_mandatory_manifest_candidate_ci",
+      "implementationStatus": "historical_e4_a4_green; current_2f55_run38086537262_27terminal18success1failure8skip_verify_active_at_observation; 4nativePASS; Go_apt_build_exit1_cause_unknown; no_all_green",
       "evidence": [
         {
           "level": "remote_ci",
@@ -2017,6 +2053,14 @@
           "artifact": "docs/build/production/verification/CI-2026-10-10-e2f27ca8.md",
           "runId": 38047725580,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725580"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2f55fdaaf1c55c2048cd4fc2363388d0f76ad048",
+          "runId": 38086537262,
+          "result": "Nonterminal exact-source snapshot: 27/28 main jobs terminal (18 success, 1 failure, 8 skipped), Verify sole active at observation, and four native jobs passed. Go failed in build-apt-image before test events; cleanup completed, OOM marker absent, cause unknown. No all-green or release promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-ci-2f55fdaa-current.json",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -3259,7 +3303,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "security_transport_fix_coherent_local_verified_d6965d75; wider_backup_adoption_decommission_acceptance_and_mysql_dns_tls_support_open; wave3_gap_fixes_pending_verification",
+      "implementationStatus": "MinIO_R11_crossCompile_exit0_LinuxARM64_runtime_pending; R9_historical_refusal_permanent_no_adoption; R7_currentClosureObservationOnly; wider_backup_adoption_decommission_acceptance_and_mysql_dns_tls_support_open",
       "evidence": [
         {
           "level": "local_engine",
@@ -3386,6 +3430,12 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-08-native-minio-host-successor.json"
+        },
+        {
+          "level": "contract",
+          "result": "MinIO R11 cross-compilation succeeded from pinned source on Darwin/ARM64 Go1.24.2 to Linux/ARM64; staged binary identity recorded. Runtime verification remains pending; R9 historical acceptance is not restored, R7 current closure observation only.",
+          "artifact": "docs/build/production/evidence/PROD-LIFE-11/2026-10-11-minio-r11-cross-compile.json",
+          "commit": "f32b54ca421956f483356ba7a45d95520840de0f"
         }
       ],
       "requiredEvidence": [

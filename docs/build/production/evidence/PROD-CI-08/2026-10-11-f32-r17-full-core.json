@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "contract",
+  "kind": "r17-full-node-dom-core",
+  "sourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "sourceStable": true,
+  "sourceCount": 5854,
+  "sourceFreezeSha256": "7a10e470d2334a36096eaa7f71cc1c241c7a072cc028eaeb254747dd73d87920",
+  "rootAcceptanceReceiptSha256": "5fc810d50d8ac03c556f2e16b0b26c6a8c8439af7043d894f283c4be1dc5c4e5",
+  "executionReceiptSha256": "bb883097dc14819831c238f6395e5156924e743c84e0bcda79bcb3eca45305a1",
+  "summarySha256": "89ae6c28c5aa9030e2fa6125f751f2e523ded9764325499748689b7cec0e4660",
+  "runnerRevision": "R17",
+  "scope": "Native macOS ARM64 complete Node/DOM core plus R17 process custody and owned cleanup only",
+  "counts": {
+    "passed": 24528,
+    "failed": 0,
+    "skipped": 1939,
+    "total": 26467,
+    "exactIdentities": 26467,
+    "node": 25402,
+    "dom": 1065,
+    "suitesPassed": 4871,
+    "pendingIdentities": 0,
+    "todo": 0
+  },
+  "execution": {
+    "wrapperExitCode": 0,
+    "elapsedSeconds": 492.862,
+    "custodyEvents": 38,
+    "custodyDrops": 0,
+    "pendingBirthsTerminalConfirmed": 10,
+    "leaderExitCode": 0,
+    "ownedDataRemoved": true,
+    "minimumFreeBytes": 382373539840,
+    "diskFloorBytes": 23622320128
+  },
+  "productionApproval": false,
+  "limitation": "Scoped core-suite result only; it does not establish complete CI, engine, default-stack, browser, cloud, or release acceptance."
+}

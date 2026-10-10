@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "local_engine",
+  "kind": "postgres-services-suite-r6",
+  "sourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "sourceFreezeSha256": "7a10e470d2334a36096eaa7f71cc1c241c7a072cc028eaeb254747dd73d87920",
+  "receiptSha256": "c0540ea7f0981d5207ca18808fc537488e8f424683aeec0db9976adb62db132f",
+  "scope": "tests/controlplane/services.test.ts; PGlite plus PostgreSQL 16.15 only",
+  "counts": {
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "pglite": 19,
+    "postgres": 19
+  },
+  "engine": {
+    "postgres": "16.15",
+    "imageArchitecture": "arm64",
+    "clientServerArchitecture": "aarch64"
+  },
+  "sourceStable": true,
+  "cleanup": {
+    "containerAbsent": true,
+    "volumesAbsent": true,
+    "credentialFileRemoved": true,
+    "processCustodyComplete": true,
+    "ownedChildHandleLedgerEmpty": true,
+    "ownedChildHandleExitsObserved": 371,
+    "resourceWatchersSettled": true
+  },
+  "resourceObservation": {
+    "minimumHostFreeBytes": 382370840576,
+    "minimumDockerVmFreeBytes": 450743123968,
+    "diskFloorBytes": 23622320128
+  },
+  "limitation": "Scoped services suite evidence; no full-suite or release promotion."
+}

@@ -36,7 +36,7 @@ async function configureWorker(ctx: OperatedContext): Promise<string> {
   ensure(network.Labels?.["io.zenith.installation"] === state.applicationInstallationId, "owned-network-label");
   const file = path.join(state.directory, "installation/stack.compose.json");
   const original = privateFile(file);
-  ensure(hash(original) === state.compositionSha256, "current-composition");
+  ensure(hash(readFileSync(file)) === state.compositionSha256, "current-composition");
   const document = JSON.parse(original), worker = document.services["execution-worker"];
   ensure(state.profile === "lean" && worker.labels["io.zenith.installation"] === state.applicationInstallationId
     && worker.environment.NODE_EXTRA_CA_CERTS === "/run/zenith-ca.crt", "owned-lean-worker");

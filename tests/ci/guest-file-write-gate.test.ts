@@ -1245,6 +1245,19 @@ print(json.dumps([module.classify_failure(error) for error in [TimeoutError(), I
     expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
     expect(JSON.parse(child.stdout)).toEqual(["timeout", "interrupt", "filesystem", "timeout"]);
   });
+  it("binds the SYS1 cleanup-success diagnostic reset to module state", () => {
+    const model = String.raw`
+import pathlib, symtable, sys
+source_path = pathlib.Path(sys.argv[1])
+top = symtable.symtable(source_path.read_text(), str(source_path), "exec")
+main = next(child for child in top.get_children() if child.get_name() == "main" and child.get_type() == "function")
+cleanup_operation = main.lookup("DIAGNOSTIC_CLEANUP_OPERATION")
+assert cleanup_operation.is_global(), "main cleanup reset must update the diagnostic writer's module value"
+assert cleanup_operation.is_assigned(), "main must retain its cleanup-success reset"
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
   it("refuses each missing root case while the other actual report observations pass", () => {
     const phase = linuxGuestManifest().packagePhase;
     for (const required of phase.requiredCases) {

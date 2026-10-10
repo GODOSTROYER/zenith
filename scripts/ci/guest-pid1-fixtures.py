@@ -153,7 +153,7 @@ def prepare(root,attempt,arch):
  return private,f
 
 def main():
- global P,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE
+ global P,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE,DIAGNOSTIC_CLEANUP_OPERATION
  assert __debug__
  a=argparse.ArgumentParser();a.add_argument('--root',required=True);a.add_argument('--attempt',required=True);a.add_argument('--arch',required=True);args=a.parse_args()
  os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare');set_diagnostic_operation('prepare')

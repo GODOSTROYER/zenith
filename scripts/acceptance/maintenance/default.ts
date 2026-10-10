@@ -25,7 +25,7 @@ async function closedWithin(child: ChildProcess, timeoutMs: number): Promise<{ c
     child.once("close", onClose);
   });
 }
-async function stop(child: ChildProcess): Promise<void> {
+export async function stopOwnedWorker(child: ChildProcess): Promise<void> {
   assert(child.exitCode === null && child.signalCode === null, "Owned worker exited before the planned stop.");
   assert(child.kill("SIGTERM"), "Could not signal the owned worker for shutdown.");
   let result = await closedWithin(child, 15_000);
@@ -113,7 +113,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
         assert((await repos.scheduledJobs.getScheduledJob(db, "billing"))!.runsTotal === billingBefore, "A second billing pass overlapped.");
       });
     });
-    await stop(worker!); worker = undefined;
+    await stopOwnedWorker(worker!); worker = undefined;
     // Real elapsed time, longer than both fallback deferral and two minute cadences.
     const until = Date.now() + 125_000;
     while (Date.now() < until) await new Promise(resolve => setTimeout(resolve, Math.min(1000, until - Date.now())));
@@ -161,7 +161,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
         }, 120_000);
       } catch (error) { errors.push(error); }
     }
-    try { if (worker) await stop(worker); } catch (error) { errors.push(error); }
+    try { if (worker) await stopOwnedWorker(worker); } catch (error) { errors.push(error); }
     if (connection) {
       try {
         if (!errors.length) {

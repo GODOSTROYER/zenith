@@ -1,3 +1,11 @@
+## New Mac verifier checkpoint, 10 October 2026
+
+Integrated repair source `460874751776b8d8bfd648cfb31264b96a266c96`. Evidence retains earlier executed candidate hashes; full coherent gates and publication CI remain pending.
+
+Builder source e2f27ca8 (MCP2.2.0) and aa228f3e (Next heap) are preserved. Six current mainCI failures are under minimal verifier repair: workflow label configuration, hosted nonce protocol, agent synthetic MFA, exact recovery termination, Docker public ledger context and mandatory Linux PID1 aggregate. Root hosted22/0/0, agent40/0/0, recovery10/0/0 and Docker successor passed their scopes; final compiler/whole gates/CI remain pending. Independent Sol integration review found a64-bit filesystem-ID serialization incompatibility in SYS1 evidence; the correction passed affected696/0/0 and full5120MiB compiler, with final Sol review accepted; actual runtime proof remains pending. No product implementation request or new wave3 feature is introduced by this checkpoint.
+
+DRV1..4 implementation is present; actual local operated cases remain unverified, with eight current CI jobs skipped because owned fixture prerequisites are not configured. The verifier will run available authorized local acceptance and retain missing enforcing CNI/runtime, replay corpus, external accounts/DNS/private App and production sign-off levels explicitly. Earlier builder findings require current-source reconciliation before reopening. Ledger9/67/2,78 criteria and four false release states remain. [Current evidence](../evidence/PROD-CI-08/2026-10-10-newmac-repair-checkpoint.json).
+
 ## Current verifier integration, 8 October 2026
 
 Code5e5417b9 integrates17 reviewed repair paths: CI workflows/schema inventory/diagnostics, absent-input broker ownership check, epoch-aware lease fixtures, MFA/browser-nonce/token-rotation test composition. RootCI437/0/6Linux-only, freshnativePG162/0/0(62native), finalauthority92/0/0 and combinedcompiler/lint0. Counts overlap; completecandidate/fullsuccessorCI pending.

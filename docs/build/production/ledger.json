@@ -23,10 +23,10 @@
     ]
   },
   "stagingBranch": "codex/production-2026-10-02",
-  "identity": "Arnav Bule <arnav.bule05@gmail.com>",
-  "host": "Saivedants-MacBook-Air.local",
+  "identity": "Saivedant Hava <saivedant169@gmail.com>",
+  "host": "Mac mini Mac18,5; Apple M6; native ARM64",
   "resourcePolicy": {
-    "ramGB": 8,
+    "ramGB": 24,
     "maximumActiveImplementationWorkers": 3,
     "maximumHeavyVerificationProcesses": 1,
     "fullVitestWorkers": 1,
@@ -35,7 +35,7 @@
     "dockerStorage": "Check host free bytes before and during image gates. Remove owned test images, containers, volumes and dedicated build cache after runs. Preserve unrelated services/data; one heavy process.",
     "minimumFreeGiBBeforeImageGate": 18,
     "localDefaultStackDiskFloorGiB": 11.175870895385742,
-    "localDefaultStackProfile": "Reduced-resource local profile on this Mac only; one heavy workload; Docker4GiB/swap4GiB; user continuous12GB floor; original packaged-worker18GiB prerequisite retained separately; no unrelated cleanup",
+    "localDefaultStackProfile": "New Mac mini native ARM64, 24GiB physical RAM; Docker VM currently about7.75GiB, not the proposed12GiB. One heavy workload; continuous12GB user floor, packaged-worker18GiB prerequisite and default-stack22GiB code floor retained. No unrelated cleanup.",
     "historicalLocalDefaultStackDiskFloorGiB": 22,
     "localDefaultStackDiskFloorBytes": 12000000000
   },
@@ -695,6 +695,12 @@
           "runId": 37769089337,
           "result": "Supply-chain job113283877494 failed on high GHSA-6qxp-vccf-f47h in newly added dev client2.0.0. Maintainer advisory fixes client2.2.0 plus mandatory core2.2.0. Exploit reachability is not established; no exception or upgrade applied. Explicit narrow dependency authorization pending. Historical zero-finding receipts retained.",
           "artifact": "docs/build/production/verification/VERIFIER-C7-REPAIR-PROGRESS-2026-10-08.md"
+        },
+        {
+          "level": "contract",
+          "commit": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+          "result": "Fresh supported Node22.23.3/npm10.9.9 script-free install and complete canonical security audit passed, zero known findings after builder MCP client2.2.0 fix; no exception. Full coherent local/remote acceptance remains incomplete.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-newmac-repair-checkpoint.json"
         }
       ],
       "requiredEvidence": [
@@ -1931,6 +1937,14 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-08-temporal-source-pin.json",
           "runId": 37755641326,
           "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37755641326"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+          "result": "All current jobs inspected: main14 success/6 failure/8 skipped; native workers2 success and native platforms2 success. Operated skips are not acceptance. Whole successor CI remains required.",
+          "artifact": "docs/build/production/verification/CI-2026-10-10-e2f27ca8.md",
+          "runId": 38047725580,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725580"
         }
       ],
       "requiredEvidence": [

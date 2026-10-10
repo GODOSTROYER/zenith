@@ -1,3 +1,9 @@
+## Results: Mac mini successor repairs, 10 October 2026
+
+Integrated repair source `460874751776b8d8bfd648cfb31264b96a266c96`. Evidence retains earlier executed candidate hashes; full coherent gates and publication CI remain pending.
+
+Current pulled e2f27ca8 contains MCP2.2.0 and build heap fixes. Root owned hosted22/0/0, agent40/0/0 and real PG16.15/Temporal recovery10/0/0 passed their limited scopes. Linux ARM64 image build passed after its missing-ledger context repair; combined contracts1961/0/11 passed. Compiler fixture typing and reviewed64-bit filesystem-ID encoding are corrected; affected suites696/0/0 and full5120MiB compiler passed, final Sol review accepted. Mandatory actual SYS1/full coherent local gates/default operated journeys/final pushed CI remain pending. Current mainCI14 success/6 failure/8 skipped; native worker/platform2 successful jobs each are separate evidence. Ledger9/67/2,78 criteria, four release states false; no promotion. [Current results](verification/RESULTS-2026-10.md#mac-mini-repair-verification-10-october-2026).
+
 ## Current new-machine entry point, 10 October 2026
 
 Read [Mac mini handoff](HANDOFF-MAC-MINI-2026-10-10.md) first. Includes actual unfinished source packets, hash-verified transfer, final baseline CI and permissions. Supersedes older machine/identity/status summaries; preserves verifier scope and historical evidence. Baseline28ea: main12 success/7 failure/1 cancelled; native worker2 success; native platform2 success. Ledger9 verified/67 in progress/2 planned. Old-host work remains paused; no acceptance run or requirement promotion in this publication.

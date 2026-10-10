@@ -1,3 +1,15 @@
+## Mac mini verification resumed, 10 October 2026
+
+Integrated repair source `460874751776b8d8bfd648cfb31264b96a266c96`. Evidence retains earlier executed candidate hashes; full coherent gates and publication CI remain pending.
+
+Latest pulled source `e2f27ca8391290f3b18215fd2a9ee4c710bac941` includes the builder's MCP client2.2.0 and bounded Next build heap repairs. Fresh fetch confirms local/remote parity. Transfer integrity passed20 files before packet use. Actual host: Mac mini Mac18,5, Apple M6,12 cores,24GiB, native ARM64; Docker native Linux ARM64, about7.75GiB VM RAM. Owned workloads retain continuous12GB user floor and independent18GiB worker/22GiB default-stack floors.
+
+Minimal verifier repairs cover workflow labels, Docker ledger input, hosted nonce protocol, signed synthetic agent MFA fixture, exact Temporal termination and mandatory SYS1 aggregation. Root hosted22/0/0, agent40/0/0 and real PostgreSQL16.15/Temporal recovery10/0/0 passed their scopes; Docker image build passed after preserving its failed missing-ledger attempt. Combined contracts1961/0/11 passed;11 operated/external gated cases remain skipped. Initial successor compiler failed new fixture typing, and final review found a Linux filesystem-ID serialization issue. Both are corrected; affected suites696/0/0 and full5120MiB compiler passed, final Sol review accepted. Actual privileged SYS1, full coherent local gates, default operated journeys and successor CI remain pending.
+
+Ledger recomputed: **9 verified /67 in progress /2 planned**,78 criteria preserved, four release states false. Current e2f mainCI14 success/6 failure/8 skipped; native worker/platform workflows each2 successful jobs, separate architecture/scoped evidence. No acceptance promotion. New commits use Saivedant Hava <saivedant169@gmail.com> as author and committer per current user instruction. [Exact current CI](verification/CI-2026-10-10-e2f27ca8.md), [checkpoint evidence](evidence/PROD-CI-08/2026-10-10-newmac-repair-checkpoint.json).
+
+Earlier entries retain their historical source scope.
+
 ## Current new-machine entry point, 10 October 2026
 
 Read [Mac mini handoff](HANDOFF-MAC-MINI-2026-10-10.md) first. Includes actual unfinished source packets, hash-verified transfer, final baseline CI and permissions. Supersedes older machine/identity/status summaries; preserves verifier scope and historical evidence. Baseline28ea: main12 success/7 failure/1 cancelled; native worker2 success; native platform2 success. Ledger9 verified/67 in progress/2 planned. Old-host work remains paused; no acceptance run or requirement promotion in this publication.

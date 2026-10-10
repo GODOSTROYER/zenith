@@ -1,0 +1,508 @@
+{
+  "recordType": "PROD-CI-08 exact-SHA repair checkpoint",
+  "recordDate": "2026-10-10",
+  "source": {
+    "commit": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+    "branch": "codex/production-2026-10-02",
+    "workingTreeAtCheckpoint": "Earlier local checks used e2f plus recorded candidate hashes. Repairs integrated as46087475; documentation checkpoint and full coherent gates remain separate.",
+    "acceptanceState": "pending; no final source, clean-tree, or final CI acceptance claim",
+    "integratedRepairCommit": "460874751776b8d8bfd648cfb31264b96a266c96"
+  },
+  "remoteRuns": [
+    {
+      "workflow": "CI",
+      "runId": 38047725580,
+      "runUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725580",
+      "headSha": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+      "jobSnapshot": "current per-job refresh: all jobs terminal; latest run-level envelope was not refreshed after that per-job snapshot",
+      "jobCounts": {
+        "success": 14,
+        "failure": 6,
+        "skipped": 8
+      },
+      "jobs": [
+        {
+          "databaseId": 114200586199,
+          "name": "generated",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586306,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "databaseId": 114200586338,
+          "name": "workflow-history-replay",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586342,
+          "name": "hosted",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "databaseId": 114200586343,
+          "name": "policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586359,
+          "name": "go",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "databaseId": 114200586382,
+          "name": "tofu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586386,
+          "name": "adversarial",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586390,
+          "name": "wave5-contract",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586417,
+          "name": "ledger",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586426,
+          "name": "operation-gates (workflow-intents)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586456,
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586464,
+          "name": "docker",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "databaseId": 114200586480,
+          "name": "platform-postgres",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586484,
+          "name": "workflows",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586488,
+          "name": "recovery",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "databaseId": 114200586494,
+          "name": "supply-chain",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586519,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586549,
+          "name": "agent",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "databaseId": 114200586599,
+          "name": "operation-gates (reconciliation)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200586835,
+          "name": "drv2-drift-repair",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200586925,
+          "name": "drv1-update-rollback",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200586954,
+          "name": "j15-operated-upgrade",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200586983,
+          "name": "j15-operated-restore",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200587155,
+          "name": "drivers-d4-export",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200602546,
+          "name": "drv2-crash-partition",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200605747,
+          "name": "drv1-private-source",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "databaseId": 114200612100,
+          "name": "drivers-d4-two-tenants",
+          "status": "completed",
+          "conclusion": "skipped"
+        }
+      ]
+    },
+    {
+      "workflow": "Native packaged workers",
+      "runId": 38047725571,
+      "runUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725571",
+      "headSha": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+      "jobSnapshot": "current per-job refresh: both jobs terminal and successful; latest run-level envelope was not refreshed after that per-job snapshot",
+      "jobCounts": {
+        "success": 2
+      },
+      "jobs": [
+        {
+          "databaseId": 114200536780,
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200536899,
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "workflow": "Native skipped platforms",
+      "runId": 38047725606,
+      "runUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725606",
+      "headSha": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+      "status": "completed",
+      "conclusion": "success",
+      "jobCounts": {
+        "success": 2
+      },
+      "jobs": [
+        {
+          "databaseId": 114200536863,
+          "name": "linux-systemd",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "databaseId": 114200536936,
+          "name": "windows-acl",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "mainCiTerminalSummary": {
+    "success": 14,
+    "failure": 6,
+    "skipped": 8,
+    "inProgress": 0,
+    "total": 28
+  },
+  "operatedSkippedJobs": [
+    "drv2-drift-repair",
+    "drv1-update-rollback",
+    "j15-operated-upgrade",
+    "j15-operated-restore",
+    "drivers-d4-export",
+    "drv2-crash-partition",
+    "drv1-private-source",
+    "drivers-d4-two-tenants"
+  ],
+  "remoteFailureEvidence": [
+    {
+      "job": "verify",
+      "observed": "actionlint 1.7.12 rejected custom self-hosted runner label zenith-operated; local candidate .github/actionlint.yaml configures this label and all seven workflows linted clean, but remote e2f job remains failed"
+    },
+    {
+      "job": "hosted",
+      "observed": "remote hosted job failed one callback-cookie check; local candidate hosted acceptance reported 22 passed / 0 failed / 0 skipped"
+    },
+    {
+      "job": "go",
+      "observed": "strict evidence gate rejected a race command report with 1,074 passed / 0 failed / 4 skipped; four skipped test identities were not present in the sanitized artifact and no waiver was applied"
+    },
+    {
+      "job": "docker",
+      "observed": "remote e2f job failed because the build could not find a ledger file; a local successor Docker build on native Linux ARM64 exited 0, with minimum free bytes 402839183360 versus configured floor 23622320128; this successor is not remote CI acceptance"
+    },
+    {
+      "job": "recovery",
+      "observed": "remote recovery run reported 9 passed / 1 failed / 0 skipped; Temporal workflow remained RUNNING after query-mode terminate returned successfully. Local successor reported 10 passed / 0 failed / 0 skipped; final current-source verification remains pending"
+    },
+    {
+      "job": "agent",
+      "observed": "remote agent acceptance reported 11 of 13 checks passed; two approval submits returned HTTP 403 and no credential was issued. Local root candidate reported 40 passed / 0 failed / 0 skipped and removed owned data; local result is not remote CI acceptance"
+    }
+  ],
+  "remoteNativePlatformScopes": [
+    {
+      "job": "linux-systemd",
+      "status": "success",
+      "cases": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "cleanup": "complete",
+      "sourceCommit": "e2f27ca8391290f3b18215fd2a9ee4c710bac941"
+    },
+    {
+      "job": "windows-acl",
+      "status": "success",
+      "cases": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblings": 15
+      },
+      "cleanup": "complete",
+      "sourceCommit": "e2f27ca8391290f3b18215fd2a9ee4c710bac941"
+    },
+    {
+      "scopeNote": "Separate leaf receipts only; Windows excluded siblings are not passed tests."
+    }
+  ],
+  "localCandidateEvidence": {
+    "initialContractsRun": {
+      "passed": 1916,
+      "failed": 14,
+      "gatedSkips": 11,
+      "note": "all 14 failures were confined to evidence-sanitizer.test.ts; fixture import inventory and exact canonical external-acceptance assertion were repaired"
+    },
+    "combinedContractsRunBeforeFilesystemIdentityDelta": {
+      "passed": 1961,
+      "failed": 0,
+      "gatedSkips": 11,
+      "total": 1972,
+      "status": "passed"
+    },
+    "targetedTests": {
+      "passed": 138,
+      "failed": 0,
+      "skipped": 0
+    },
+    "sys1ContractTests": {
+      "passed": 696,
+      "failed": 0,
+      "skipped": 0,
+      "repeatedRuns": 2,
+      "scope": "four contract suites only; no actual privileged execution"
+    },
+    "hostedAcceptance": {
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0
+    },
+    "recovery": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    "agentAcceptance": {
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "ownedDataRemoved": true
+    },
+    "securityAudit": {
+      "findings": 0
+    },
+    "lint": {
+      "errors": 0,
+      "preexistingVendorWarnings": 3
+    },
+    "actionlint": {
+      "version": "1.7.12",
+      "workflowsPassed": 7,
+      "errors": 0
+    },
+    "policyAndGeneratedArtifacts": {
+      "opaTestsPassed": 219,
+      "opaTestsFailed": 0,
+      "freshPolicyWasmSha256": "708b2e07eff3762498bbbf8f99c2574717dcf7a8346acf788e3d40e3bce539e1",
+      "gimbal": "passed"
+    },
+    "nativeDockerBuildSuccessor": {
+      "exitCode": 0,
+      "platform": "native Linux ARM64",
+      "minimumFreeBytes": 402839183360,
+      "floorBytes": 23622320128,
+      "scope": "build only; not product/service acceptance"
+    },
+    "laterFilesystemIdentityDelta": "Final f_fsid string correction and fixture typing repair passed four affected suites696/0/0 and full5120MiB compiler; independent Sol delta review accepted exact source hashes. Earlier combined1961/0/11 does not include this final delta.",
+    "typecheck": {
+      "status": "passed on corrected candidate",
+      "heapMiB": 5120,
+      "diagnostics": 0
+    },
+    "filesystemIdentityDelta": "Initial optional getuid/null fixture typing errors preserved. Canonical decimal string retains fsid9007199254740993 exactly; numeric/leading-zero/exponent encodings refuse. Independent Sol review accepted, actual native Linux SYS1 still pending."
+  },
+  "ledgerSnapshot": {
+    "requirements": 78,
+    "verified": 9,
+    "inProgress": 67,
+    "planned": 2,
+    "releaseStatus": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    }
+  },
+  "evidenceSourceHashes": [
+    {
+      "path": "/tmp/zenith-newmac-ci-e2f-current.json",
+      "sha256": "d34894bb6a93e6b5bb1fa914f0b73ec266ec00c0ada8ff0b2fb62e763b7baab1"
+    },
+    {
+      "path": "/tmp/zenith-newmac-native-e2f-current.json",
+      "sha256": "867354c48da163b314612d74e1e3beee17cbf900fcfb0de113b23f0a5d2e9e4c"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/job-inventory.json",
+      "sha256": "41f1304d8b714df3ffdcd9884d87455517a00ff217ffd19e20c1662dbf69bd8a",
+      "use": "failure-detail provenance / earlier inventory snapshot only; current job states come from refreshed per-job JSON"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/README.md",
+      "sha256": "70c0378f604ee2d96509473f4d5360c7bbbbde2ed17af4b3962c6b7229fde989",
+      "use": "failure-detail provenance / earlier inventory snapshot only; current job states come from refreshed per-job JSON"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/run-38047725606.json",
+      "sha256": "5e79be6fd026ecf8869793d49c2861ea2689e6c8b65f970b22cb8c0a1f0bd93c"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/failed-logs/verify.log",
+      "sha256": "2e83e15d565d61449490407a23260d8ccf1acf6367c5a3d4510b7dd3bda06d73"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/failed-logs/hosted.log",
+      "sha256": "b22662e4535ecd1b6b16e013a9bdcb80d886c33fc2c31e169264c8974e2e8ab7"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/failed-logs/go.log",
+      "sha256": "e1fa122639a558880af26192fbd5308ff1ad9fc57b20d899fc74a38adcdeb8fb"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/failed-logs/recovery.log",
+      "sha256": "282c5527a1dd39fe2547c0f0750a0826134db07fb3bf825473b64d3a84f9869b"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/failed-logs/agent.log",
+      "sha256": "6234f13801c7d17a5e304d823d778911930f3db026c746cc99313c50780381b3"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/artifacts/platform-systemd.json",
+      "sha256": "eea95cc1150cfe1d92b239496c0f933e1c92a9ad3709acda79f50af433eeff10"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/artifacts/platform-windows.json",
+      "sha256": "66625f0672777c4b1ff0f1ad8a5df3c2ddee8bb8c6eef39209dc7cf40bdb34a3"
+    },
+    {
+      "path": "/tmp/zenith-newmac-ci-review/e2f27ca/artifacts/go-gate-sanitized.json",
+      "sha256": "4cfadf349244b41318b202b6e1ecb1f6cba81eeb7a187ad68ec1c2c77ffd6df1"
+    },
+    {
+      "path": "/Users/saivedanthava/Documents/zenith/scripts/ci/guest-pid1-owned-guard.py",
+      "sha256": "93d4f5d77a68bf0e1fb95ff227dc632adf3ec9fe0fdd3bc47dfedf1ca98f0561",
+      "role": "dirty local SYS1 candidate source"
+    },
+    {
+      "path": "/Users/saivedanthava/Documents/zenith/scripts/ci/run-guest-file-write-gate.mjs",
+      "sha256": "710b56d9ad848570f4e19597f6b86fe0fddeb7a18ebaafeb568e7388ee637b24",
+      "role": "dirty local SYS1 candidate source"
+    },
+    {
+      "path": "/Users/saivedanthava/Documents/zenith/tests/ci/guest-file-write-gate.test.ts",
+      "sha256": "aed317fb763bc1a985f370f0eaa42d99af2fb19de9af4d62170e0ffb6ee7187d",
+      "role": "dirty local SYS1 candidate source"
+    }
+  ],
+  "sanitization": "Only sanitized job inventories, sanitized logs, and sanitized platform/Go receipts are referenced. Raw CI logs, environment values, credentials, and contract JSON containing fixture URLs are not copied into this checkpoint.",
+  "remoteRunEnvelopes": [
+    {
+      "conclusion": "success",
+      "databaseId": 38047725571,
+      "headSha": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725571",
+      "workflowName": "Native packaged workers"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 38047725606,
+      "headSha": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725606",
+      "workflowName": "Native skipped platforms"
+    },
+    {
+      "conclusion": "failure",
+      "databaseId": 38047725580,
+      "headSha": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38047725580",
+      "workflowName": "CI"
+    }
+  ],
+  "finalSourceReview": {
+    "model": "Sol6.1 high",
+    "scope": "16 repair paths and final SYS1 serialization delta",
+    "verdict": "No remaining concrete source blocker; actual Linux admission and privileged SYS1 unproved",
+    "guardSha256": "93d4f5d77a68bf0e1fb95ff227dc632adf3ec9fe0fdd3bc47dfedf1ca98f0561",
+    "runnerSha256": "710b56d9ad848570f4e19597f6b86fe0fddeb7a18ebaafeb568e7388ee637b24",
+    "testSha256": "aed317fb763bc1a985f370f0eaa42d99af2fb19de9af4d62170e0ffb6ee7187d"
+  }
+}

@@ -313,7 +313,14 @@ async function main(): Promise<number> {
 
   /* -------------------------------- 3. a browser --------------------------- */
 
-  const { chromium } = await import("playwright-core");
+  let chromium: typeof import("playwright-core").chromium;
+  try {
+    ({ chromium } = await import("playwright-core"));
+  } catch (error) {
+    try { await server.stop(); }
+    finally { await provider.close(); }
+    throw error;
+  }
   const attempts: string[] = [];
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let browserName = "";
@@ -329,34 +336,43 @@ async function main(): Promise<number> {
       .filter((executablePath) => fs.existsSync(executablePath))
       .map((executablePath) => ({ name: executablePath, options: { executablePath } })),
   ];
-  for (const candidate of candidates) {
-    try {
-      browser = await chromium.launch({ ...candidate.options, headless: true });
-      browserName = candidate.name;
-      break;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // "There is no browser installed" and "the browser would not start" are
-      // different answers: only the first is exit 2.
-      if (!/not found|no such file|ENOENT|Chromium distribution/i.test(message)) throw err;
-      attempts.push(`${candidate.name}: ${message.split("\n")[0]}`);
+  try {
+    for (const candidate of candidates) {
+      try {
+        browser = await chromium.launch({ ...candidate.options, headless: true });
+        browserName = candidate.name;
+        break;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // "There is no browser installed" and "the browser would not start" are
+        // different answers: only the first is exit 2.
+        if (!/not found|no such file|ENOENT|Chromium distribution/i.test(message)) throw err;
+        attempts.push(`${candidate.name}: ${message.split("\n")[0]}`);
+      }
     }
+  } catch (error) {
+    try { if (browser) await browser.close(); }
+    finally {
+      try { await server.stop(); }
+      finally { await provider.close(); }
+    }
+    throw error;
   }
   if (!browser) {
-    server.stop();
-    await provider.close();
+    try { await server.stop(); }
+    finally { await provider.close(); }
     process.stderr.write(`${NO_BROWSER_MESSAGE}\n\ntried:\n  ${attempts.join("\n  ")}\n`);
     return 2;
   }
   process.stdout.write(`driving ${browserName} through playwright-core against ${origin}\n`);
 
-  const cookie = await sessionCookie(provider.origin, token);
   const viewports = [
     { name: "desktop", width: 1280, height: 800 },
     { name: "narrow", width: 380, height: 780 },
   ];
 
   try {
+    const cookie = await sessionCookie(provider.origin, token);
     for (const viewport of viewports) {
       const label = `${viewport.name} ${viewport.width}px`;
       const context = await browser.newContext({
@@ -647,10 +663,14 @@ async function main(): Promise<number> {
       }
     }
   } finally {
-    process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-server-final", server: server.diagnosticState() })}\n`);
-    await browser.close();
-    server.stop();
-    await provider.close();
+    try { await browser.close(); }
+    finally {
+      try { await server.stop(); }
+      finally {
+        process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-server-final", server: server.diagnosticState() })}\n`);
+        await provider.close();
+      }
+    }
   }
 
   const failed = steps.filter((step) => !step.ok);
@@ -687,8 +707,8 @@ function fetchCauseCode(error: unknown): string {
 }
 
 interface DevServer {
-  stop: () => void;
-  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; nodeOomObserved: boolean; devMemoryRestartCount: number };
+  stop: () => Promise<void>;
+  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; directChildReaped: boolean; listenerClosed: boolean; stopRequested: boolean; termDelivered: boolean; unexpectedExit: boolean; forcedStop: boolean; nodeOomObserved: boolean; devMemoryRestartCount: number };
   approvalCompileTimings: () => Array<{ route: string; durationMs: number }>;
 }
 
@@ -701,29 +721,124 @@ interface DevServer {
  * navigation is allowed to be slow.
  */
 async function startDevServer(port: number): Promise<DevServer | null> {
+  const startServerSource = [
+    'const { startServer } = require("next/dist/server/lib/start-server");',
+    'const port = Number(process.argv[1]);',
+    'if (!Number.isInteger(port) || port < 1 || port > 65535 || typeof process.send !== "function") process.exit(2);',
+    'process.once("disconnect", () => {',
+    '  const watchdog = setTimeout(() => process.exit(1), 10000);',
+    '  watchdog.unref();',
+    '  process.kill(process.pid, "SIGTERM");',
+    '});',
+    'startServer({ dir: process.cwd(), port, hostname: "127.0.0.1", isDev: true, allowRetry: false })',
+    '.then(() => process.send({ type: "zenith-next-ready", port }))',
+    '.catch(() => process.exit(1));',
+  ].join("\n");
+  const serverEnv: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "development", NEXT_RUNTIME: "nodejs" };
+  delete serverEnv.NEXT_PRIVATE_WORKER;
+  delete serverEnv.NEXT_MANUAL_SIG_HANDLE;
   const child: ChildProcess = spawn(
     process.execPath,
-    [path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next"), "dev", "-p", String(port)],
-    { cwd: process.cwd(), env: { ...process.env }, stdio: ["ignore", "pipe", "pipe"] }
+    ["-e", startServerSource, String(port)],
+    {
+      cwd: process.cwd(),
+      env: serverEnv,
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+      windowsHide: true,
+    }
   );
+  let childReaped = false;
+  let spawnError: Error | undefined;
+  let childReady = false;
+  let stopRequested = false;
+  let termDelivered = false;
+  let unexpectedExit = false;
+  let forcedStop = false;
+  let listenerClosed = false;
+  let stopPromise: Promise<void> | undefined;
+  const stop = (): Promise<void> => {
+    if (stopPromise) return stopPromise;
+    stopPromise = (async () => {
+      const postcondition = async (): Promise<boolean> => {
+        listenerClosed = await portRefused(port);
+        return childReaped && listenerClosed;
+      };
+      const waitForStop = async (milliseconds: number): Promise<boolean> => {
+        const stopDeadline = Date.now() + milliseconds;
+        while (Date.now() < stopDeadline) {
+          if (await postcondition()) return true;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        return postcondition();
+      };
+      if (!child.pid) {
+        if (!(await waitForStop(1_000))) throw new Error("Owned Next child was never created and listener refusal is unconfirmed.");
+        return;
+      }
+      if (childReaped || unexpectedExit) {
+        unexpectedExit = true;
+        throw new Error("Owned Next child exited before shutdown was requested; acceptance is refused.");
+      }
+      stopRequested = true;
+      termDelivered = child.kill("SIGTERM");
+      if (!termDelivered) {
+        unexpectedExit = true;
+        throw new Error("Owned Next TERM was not delivered; acceptance is refused.");
+      }
+      if (!(await waitForStop(5_000))) {
+        if (!childReaped) {
+          forcedStop = true;
+          child.kill("SIGKILL");
+        }
+        if (!(await waitForStop(5_000))) throw new Error("Owned Next child or loopback listener remained after bounded shutdown.");
+      }
+      if (forcedStop) throw new Error("Owned Next child required forced termination; acceptance is refused.");
+      if (unexpectedExit || child.exitCode !== 0 || child.signalCode !== null) {
+        throw new Error("Owned Next shutdown did not exit cleanly after TERM; acceptance is refused.");
+      }
+    })();
+    return stopPromise;
+  };
+  child.once("exit", () => {
+    childReaped = true;
+    if (!stopRequested) unexpectedExit = true;
+    // Next may have transient workers with inherited output handles. The
+    // acceptance contract owns the direct server child and listener only.
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+  });
+  child.once("error", (error) => { spawnError = error; });
+  child.on("message", (message) => {
+    if (message && typeof message === "object" && "type" in message && message.type === "zenith-next-ready" && "port" in message && message.port === port) {
+      childReady = true;
+    }
+  });
   const log: string[] = [];
   child.stdout?.on("data", (chunk: Buffer) => log.push(chunk.toString()));
   child.stderr?.on("data", (chunk: Buffer) => log.push(chunk.toString()));
 
   const deadline = Date.now() + 180_000;
   for (;;) {
-    if (child.exitCode !== null) {
+    if (spawnError) {
+      await stop();
+      process.stderr.write(`the dev server could not start (${spawnError.name}); no listener was accepted\n`);
+      return null;
+    }
+    if (childReaped) {
+      await stop();
       process.stderr.write(`the dev server exited with ${child.exitCode} before it answered:\n${log.join("")}\n`);
       return null;
     }
-    try {
-      const res = await fetch(`http://localhost:${port}/api/health`, { signal: AbortSignal.timeout(5_000) });
-      if (res.ok || res.status === 401 || res.status === 503) break;
-    } catch {
-      /* not up yet */
+    if (childReady) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(5_000) });
+        if (res.ok || res.status === 401 || res.status === 503) break;
+      } catch {
+        /* IPC readiness precedes this real health check. */
+      }
     }
     if (Date.now() > deadline) {
-      child.kill("SIGKILL");
+      await stop();
       process.stderr.write(`the dev server did not answer within 180s:\n${log.slice(-40).join("")}\n`);
       return null;
     }
@@ -731,10 +846,16 @@ async function startDevServer(port: number): Promise<DevServer | null> {
   }
   process.stdout.write(`next dev is answering on http://localhost:${port}\n`);
   return {
-    stop: () => child.kill("SIGKILL"),
+    stop,
     diagnosticState: () => ({
       exitCode: child.exitCode,
       signalCode: child.signalCode,
+      directChildReaped: childReaped,
+      listenerClosed,
+      stopRequested,
+      termDelivered,
+      unexpectedExit,
+      forcedStop,
       nodeOomObserved: /FATAL ERROR: [^\r\n]*JavaScript heap out of memory/.test(log.join("")),
       devMemoryRestartCount: log.join("").split("Server is approaching the used memory threshold, restarting...").length - 1,
     }),
@@ -743,6 +864,21 @@ async function startDevServer(port: number): Promise<DevServer | null> {
       (match) => ({ route: APPROVAL_ROUTE, durationMs: Math.round(Number(match[1]) * (match[2] === "s" ? 1000 : 1)) })
     ).filter((entry) => Number.isFinite(entry.durationMs) && entry.durationMs >= 0 && entry.durationMs <= 180_000).slice(-4),
   };
+}
+
+/** Confirm a TCP listener refuses loopback connections before claiming cleanup. */
+function portRefused(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const timer = setTimeout(() => { socket.destroy(); resolve(false); }, 250);
+    socket.once("connect", () => { clearTimeout(timer); socket.destroy(); resolve(false); });
+    socket.once("error", (error: NodeJS.ErrnoException) => {
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(error.code === "ECONNREFUSED");
+    });
+    socket.connect(port, "127.0.0.1");
+  });
 }
 
 /** Begin a device flow the way the plugin does: no credential, no cookie. */

@@ -1166,6 +1166,63 @@ describe("mandatory direct native package phase admission", () => {
     expect(validateGoEvents("", goodExit, manifest.pid1Phase).verdict).toBe("failed");
     expect(fs.readFileSync("scripts/ci/run-guest-file-write-gate.mjs", "utf8")).toContain('step.id === "pid1-native" && (validation.verdict !== "passed" || result.observation.status !== 0)');
   });
+  it("keeps the read-only native-info bootstrap admission through delayed child polling", () => {
+    const model = String.raw`
+import ast, json, pathlib, sys, tempfile, types
+source = pathlib.Path(sys.argv[1]).read_text()
+tree = ast.parse(source)
+main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == 'run')
+namespace = {}
+exec(compile(ast.Module(body=[run], type_ignores=[]), 'actual-pid1-run', 'exec'), namespace)
+work = next(node.body for node in main.body if isinstance(node, ast.Try))
+root_admission = next(node for node in work if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute) and node.value.func.attr == 'add_docker_root')
+native_info = next(node for node in work if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == 'obj' and any(isinstance(target, ast.Name) and target.id == 'info' for target in node.targets))
+first_mutation = min(node.lineno for node in work if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == 'mutate')
+assert native_info.lineno < root_admission.lineno < first_mutation
+class Child:
+    def __init__(self, stdout):
+        self.stdout = stdout; self.returncode = 0; self.polls = [None, None, 0]
+    def poll(self): return self.polls.pop(0) if self.polls else 0
+class Guard:
+    def __init__(self): self.checks = []; self.added = False
+    def check(self, cleanup=False, bootstrap=False):
+        self.checks.append((cleanup, bootstrap))
+        if not cleanup and not self.added and not bootstrap: raise AssertionError('docker_root_not_admitted')
+    def register(self, child): return child
+    def drain(self, _child): return None
+    def add_docker_root(self, _path, headroom=0):
+        if not self.added: raise RuntimeError('docker_root_unavailable')
+        return None
+guard = Guard(); spawned = []
+def popen(_argv, **kwargs):
+    child = Child(kwargs['stdout']); child.stdout.write(b'{"OSType":"linux","DockerRootDir":"/unavailable"}')
+    spawned.append(child); return child
+with tempfile.TemporaryDirectory() as temp:
+    namespace.update({'guard': guard, 'cleaning': False, 'RUN_STAGES': {'native-info':'docker-admission','baseline-containers':'docker-admission'},
+        'set_diagnostic_stage': lambda _stage: None, 'P': pathlib.Path(temp), 'ENDPOINT':'unix:///var/run/docker.sock',
+        'command':['docker'], 'env':{}, 'out':pathlib.Path(temp), 'f':{'setupHeadroomBytes':0,'attemptByteCap':100},
+        'resource':types.SimpleNamespace(RLIMIT_FSIZE=1,setrlimit=lambda *_:None), 'subprocess':types.SimpleNamespace(Popen=popen),
+        'time':types.SimpleNamespace(monotonic=lambda:0,sleep=lambda _seconds:None), 'receipt':{'phases':[]}, 'save':lambda:None})
+    run = namespace['run']
+    result = run(['info'], 'native-info')
+    assert json.loads(result)['DockerRootDir'] == '/unavailable'
+    assert guard.checks == [(False, True), (False, True), (False, True)]
+    native_info_poll_checks = len(guard.checks)
+    try: guard.add_docker_root('/unavailable', headroom=0)
+    except RuntimeError as error: assert str(error) == 'docker_root_unavailable'
+    else: raise AssertionError('missing Docker root was admitted')
+    before = len(spawned)
+    try: run(['container','ls'], 'baseline-containers')
+    except AssertionError as error: assert str(error) == 'docker_root_not_admitted'
+    else: raise AssertionError('later Docker command ran without root admission')
+    assert len(spawned) == before
+print(json.dumps({'nativeInfoPollChecks':native_info_poll_checks,'laterCommandRefused':True,'mutationBeforeAdmission':False}))
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toEqual({ nativeInfoPollChecks: 3, laterCommandRefused: true, mutationBeforeAdmission: false });
+  });
   it("classifies timeout and interruption before their shared OSError base class", () => {
     const model = String.raw`
 import importlib.util, json, pathlib, subprocess, sys

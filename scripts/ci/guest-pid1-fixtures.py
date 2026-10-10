@@ -148,7 +148,7 @@ def main():
    child=guard.register(subprocess.Popen((command+argv) if docker else argv,cwd=cwd,env=childenv,stdout=stdout,stderr=stderr,start_new_session=True,preexec_fn=limits));deadline=time.monotonic()+timeout
    try:
     while child.poll() is None:
-     guard.check(cleanup=cleaning)
+     guard.check(cleanup=cleaning,bootstrap=phase=='native-info')
      if time.monotonic()>=deadline:raise TimeoutError()
      assert sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink())<=f['attemptByteCap'];time.sleep(.25)
    finally:guard.drain(child)

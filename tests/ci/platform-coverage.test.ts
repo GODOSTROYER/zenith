@@ -12,7 +12,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -30,12 +30,13 @@ function modelRoot(prefix: string): string {
 
 const workflow = load(fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8")) as { jobs: Record<string, Job> };
 
-// Only the fixed service additions leave historical Linux comparisons.
-// Current execution continues to require all 158 observations.
+// Only fixed service, runner-update, and SYS1 additions leave historical Linux comparisons.
+// Current execution continues to require all 159 observations.
 const runnerUpdateGuestIds = new Set(LINUX_GUEST_RUNNER_UPDATE_CASES.map(item => item.id));
+const pid1GuestIds = new Set(LINUX_GUEST_PID1_CASES.map(item => item.id));
 const serviceGuestIds = new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id));
 function priorServiceLinuxCases(items: ReturnType<typeof linuxGuestManifest>["requiredCases"]) {
-  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id));
+  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id) && !pid1GuestIds.has(item.id));
 }
 
 // Historical cohort checks remove only exact newly committed identities. The
@@ -502,14 +503,20 @@ describe("cross-language Go gates", () => {
     expect(native["working-directory"]).toBe(".");
     const manifest = linuxGuestManifest();
     expect(manifest.command).toEqual(["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"]);
-    expect(manifest.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"]);
+    expect(manifest.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"]);
     const prerequisite = gate("go", "set -euo pipefail\ncommand -v docker >/dev/null\ncommand -v python3 >/dev/null\npython3 -c 'import sys; assert sys.version_info >= (3, 10)'", condition);
     expect(prerequisite["working-directory"]).toBe(".");
     expect(workflow.jobs.go.steps.indexOf(prerequisite)).toBeLessThan(workflow.jobs.go.steps.indexOf(native));
     expect(manifest.packagePhase.requiredCases.map(item => item.test)).toEqual(["TestPackageHelperNativeNoFollowAndCustody", "TestPackageFrontendLockIndependentProcess", "TestPackageNativeSignedFirstInstallAndNonReplay", "TestPackageNativeDeclaredMountAndACLRefusals"]);
     expect(manifest.packagePhase.allowedSkips).toEqual([]);
+    expect(manifest.pid1Phase.requiredCases).toEqual(LINUX_GUEST_PID1_CASES);
+    expect(manifest.pid1Phase.requiredPackages).toEqual(["github.com/GODOSTROYER/zenith/go/internal/runner/update"]);
+    expect(manifest.pid1Phase.noTestPackages).toEqual([]); expect(manifest.pid1Phase.allowedSkips).toEqual([]);
+    expect(manifest.pid1Phase.baseImage).toMatch(/^ubuntu:24\.04@sha256:[a-f0-9]{64}$/);
+    expect(manifest.pid1Phase.builderImage).toMatch(/^moby\/buildkit:buildx-stable-1@sha256:[a-f0-9]{64}$/);
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases, ...manifest.pid1Phase.requiredCases]);
     expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(priorServiceLinuxCases(manifest.requiredCases)).toHaveLength(127);
-    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(159);
     expect(manifest.env.CGO_ENABLED).toBe("1");
     expect(manifest.env.GOTOOLCHAIN).toBe("local");
     expect(manifest.requiredPackages).toContain("github.com/GODOSTROYER/zenith/go/internal/oci");
@@ -527,8 +534,9 @@ describe("cross-language Go gates", () => {
     // The runner observes exits and validates complete JSON lifecycles; the
     // dedicated guest gate suite checks malformed, missing and skipped reports.
     expect(manifest.steps).toEqual([
-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"] },
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"] },
       { id: "package-native", command: ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
+      { id: "pid1-native", command: ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
@@ -938,7 +946,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     expect(requirementsFor("workflows", root)).toHaveLength(112);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
-    expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(158); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
+    expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(159); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
   });
 });

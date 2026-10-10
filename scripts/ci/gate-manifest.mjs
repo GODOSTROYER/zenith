@@ -6289,6 +6289,10 @@ export const LINUX_GUEST_PACKAGE_CASES = cases(MACHINE, [
 ]);
 export const LINUX_GUEST_PACKAGE_PATTERN = "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$";
 export const LINUX_GUEST_PACKAGE_COMMAND = ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
+export const LINUX_GUEST_PID1_CASES = cases(`${GO_MODULE}/internal/runner/update`, ["TestSystemdSignedUpdateAndRollback"]);
+// This exact exclusion is valid only with the mandatory fresh owned-PID1 phase below.
+export const LINUX_GUEST_RACE_EXCLUSION = LINUX_GUEST_PACKAGE_PATTERN.slice(0, -2) + "|TestSystemdSignedUpdateAndRollback)$";
+export const LINUX_GUEST_PID1_COMMAND = ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
 export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds", "internal/runner/update"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-release", "cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_ALLOWED_SKIPS = [
@@ -6344,13 +6348,14 @@ export function linuxGuestManifest() {
     tools: { node: "22.23.3", go: "1.27.1" },
     command: ["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"],
     steps: [
-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", LINUX_GUEST_PACKAGE_PATTERN] },
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", LINUX_GUEST_RACE_EXCLUSION] },
       { id: "package-native", command: LINUX_GUEST_PACKAGE_COMMAND },
+      { id: "pid1-native", command: LINUX_GUEST_PID1_COMMAND },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
     ],
-    requiredCases: [...LINUX_GUEST_CASES, ...LINUX_GUEST_PACKAGE_CASES],
+    requiredCases: [...LINUX_GUEST_CASES, ...LINUX_GUEST_PACKAGE_CASES, ...LINUX_GUEST_PID1_CASES],
     raceCases: LINUX_GUEST_CASES,
     packagePhase: {
       requiredCases: LINUX_GUEST_PACKAGE_CASES, requiredPackages: [MACHINE], noTestPackages: [], allowedSkips: [],
@@ -6359,9 +6364,15 @@ export function linuxGuestManifest() {
       rootBytes: 2684354560, memoryBytes: 2147483648, hostReserveBytes: 8589934592,
       scope: "Direct signed helper/native kernel and dpkg only; installed unit, default backend and full lifecycle remain separate acceptance.",
     },
+    pid1Phase: {
+      requiredCases: LINUX_GUEST_PID1_CASES, requiredPackages: [`${GO_MODULE}/internal/runner/update`], noTestPackages: [], allowedSkips: [],
+      baseImage: "ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7",
+      builderImage: "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      scope: "Actual installed signed update/rollback in fresh isolated native Linux PID1/cgroup guest; modeled control protocol, no default backend or production signing authority.",
+    },
     goldenCases: cases(OPS, ["TestResultGoldens/file.write-filesystem", "TestResultGoldens/service.configure-filesystem"]),
     requiredPackages: LINUX_GUEST_PACKAGES, noTestPackages: LINUX_GUEST_NO_TEST_PACKAGES, allowedSkips: LINUX_GUEST_ALLOWED_SKIPS,
-    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "Every exact service.configure event and authentic filesystem golden comparison is mandatory; it reuses the existing unprivileged filesystem-golden root after file.write cleanup, real atomic file/intent custody with modeled systemctl replies supplies no installed-systemd or default-daemon acceptance", "Docker local Unix socket and server matching actual Linux amd64/arm64 host; Python3 and pinned native Debian12/dpkg1.21.23", "Root package phase is mandatory: fresh owned capped ext4 guest, genuine original registry/config, fixed setup-only capabilities, no host binds/emulation and no unknown Docker delivery; exact owned cleanup before phase success", "No active fixture users during validated cleanup"],
+    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "Every exact service.configure event and authentic filesystem golden comparison is mandatory; it reuses the existing unprivileged filesystem-golden root after file.write cleanup, real atomic file/intent custody with modeled systemctl replies supplies no installed-systemd or default-daemon acceptance", "Docker local Unix socket and server matching actual Linux amd64/arm64 host; Python3 and pinned native Debian12/dpkg1.21.23", "Root package phase is mandatory: fresh owned capped ext4 guest, genuine original registry/config, fixed setup-only capabilities, no host binds/emulation and no unknown Docker delivery; exact owned cleanup before phase success", "Mandatory SYS1 phase: local root-owned Docker Unix socket, pinned native Ubuntu and BuildKit images, isolated private-cgroup PID1 guest, genuine signed fixture binaries, 12 GB continuous free-disk floor plus 2 GB setup headroom and exact owned cleanup; no imported receipts or fourth allowed skip", "No active fixture users during validated cleanup"],
     reportValidation: "Strict complete Go JSON lifecycles plus observed successful exits; absent or skipped required cases fail. Raw streams remain private.",
   };
 }

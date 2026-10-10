@@ -6,13 +6,16 @@
  *
  * `scripts/smoke.ts` does this for the infrastructure product; this is its
  * counterpart for hosted apps, and it is the step CI runs after the suite so a
- * regression in the *sequence* — not in any one module — is caught. Everything
- * is real: a `recipe-local` build of `fixtures/tracker-app`, a content-
+ * regression in the *sequence* — not in any one module — is caught. It runs
+ * a real `recipe-local` build of `fixtures/tracker-app`, a content-
  * addressed artifact, a loopback HTTP server in front of `handleGateway`, a
  * hashed single-use invitation, an exchange redeemed over a socket, the fixed
  * broker writing to a per-app SQLite file, an encrypted backup, and a restore
  * into an empty directory that has to reconcile a revocation it did not know
  * about when the snapshot was taken.
+ * User identities are synthetic and supplied directly to the access API.
+ * The loopback cookie protocol does not establish genuine Supabase login,
+ * browser enforcement of Secure cookies, or default-server acceptance.
  *
  *   publish → invite → accept → launch → write → conflict → backup → revoke →
  *   denied → restore → assert
@@ -387,13 +390,13 @@ async function main(): Promise<number> {
   process.stdout.write(`\nHosted acceptance journey — app ${appId || "(not created)"}\n\n${table()}\n\n`);
   process.stdout.write(
     failed.length === 0
-      ? `PASS — ${rows.length} checks, publish through restore, no doubles.\n`
+      ? `PASS — ${rows.length} checks, publish through restore, local hosted protocol with synthetic identities.\n`
       : `FAIL — ${failed.length} of ${rows.length} checks failed: ${failed.map((row) => row.step).join(", ")}\n`
   );
   return failed.length === 0 ? 0 : 1;
 }
 
-/** Mint an exchange and redeem it over the socket, answering with the cookie header. */
+/** Bind an exchange to the gateway's real login nonce and redeem it over the socket. */
 async function redeem(
   journey: typeof import("../tests/hosted/acceptance/_journey"),
   access: typeof import("@/lib/hosted/access"),
@@ -402,14 +405,60 @@ async function redeem(
   appId: string,
   subject: string
 ): Promise<string> {
-  const url = new URL((await access.createExchange(appId, subject, `state-${randomUUID()}`)).redirect);
+  const signIn = async () => {
+    const response = await journey.loopbackRequest(port, {
+      host,
+      path: "/_zenith/auth/signin",
+      headers: { accept: "text/html" },
+    });
+    const login = response.setCookie.find((value) => value.startsWith("__Host-zenith_login="));
+    const href = /href="([^"]+\/launch\?state=[^"]+)"/.exec(response.body)?.[1];
+    if (response.status !== 200 || !login || !href)
+      throw new Error("the sign-in page did not issue a login cookie and launch state");
+    const launch = new URL(href);
+    const state = launch.searchParams.get("state");
+    const cookie = login.split(";")[0];
+    if (launch.origin !== `http://localhost:${port}` || launch.pathname !== `/api/hosted/apps/${appId}/launch`
+      || !state || cookie !== `__Host-zenith_login=${state}`
+      || !/;\s*Secure(?:;|$)/i.test(login) || !/;\s*HttpOnly(?:;|$)/i.test(login)
+      || !/;\s*SameSite=Lax(?:;|$)/i.test(login) || !/;\s*Path=\/(?:;|$)/i.test(login)
+      || /;\s*Domain=/i.test(login))
+      throw new Error("the gateway login cookie and launch state were not host-bound");
+    return { state, cookie };
+  };
+  const login = await signIn();
+  const otherBrowser = await signIn();
+  if (otherBrowser.state === login.state) throw new Error("distinct sign-ins reused a login nonce");
+  // Identity is the existing synthetic fixture; the nonce comes only from the real gateway response.
+  const url = new URL((await access.createExchange(appId, subject, login.state)).redirect);
+  if (url.origin !== `http://${host}` || url.pathname !== "/_zenith/auth/callback" || url.searchParams.get("state") !== login.state)
+    throw new Error("the exchange did not preserve the app host and gateway login state");
+  const callbackPath = `${url.pathname}${url.search}`;
+  const refusedHeaders: Record<string, string>[] = [
+    { accept: "text/html" },
+    { accept: "text/html", cookie: otherBrowser.cookie },
+  ];
+  for (const headers of refusedHeaders) {
+    const refused = await journey.loopbackRequest(port, { host, path: callbackPath, headers });
+    if (refused.status !== 303 || refused.headers.location !== "/_zenith/auth/signin?error=invalid_input"
+      || refused.setCookie.some((value) => value.startsWith("__Host-zenith_app=")))
+      throw new Error("the callback admitted a missing or cross-browser login cookie");
+  }
   const res = await journey.loopbackRequest(port, {
     host,
-    path: `${url.pathname}${url.search}`,
-    headers: { accept: "text/html" },
+    path: callbackPath,
+    headers: { accept: "text/html", cookie: login.cookie },
   });
   const value = /__Host-zenith_app=([^;]+)/.exec(res.setCookie.join("\n"))?.[1];
-  if (!value) throw new Error(`the callback answered ${res.status} and set no session cookie`);
+  if (res.status !== 303 || res.headers.location !== "/" || !value
+    || !res.setCookie.some((cookie) => cookie.startsWith("__Host-zenith_login=;") && /;\s*Max-Age=0(?:;|$)/i.test(cookie)))
+    throw new Error(`the callback answered ${res.status} without completing the bound session exchange`);
+  const replay = await journey.loopbackRequest(port, {
+    host, path: callbackPath, headers: { accept: "text/html", cookie: login.cookie },
+  });
+  if (replay.status !== 303 || replay.headers.location !== "/_zenith/auth/signin?error=sign_in_required"
+    || replay.setCookie.some((cookie) => cookie.startsWith("__Host-zenith_app=")))
+    throw new Error("the callback admitted a previously consumed exchange");
   return `__Host-zenith_app=${value}`;
 }
 

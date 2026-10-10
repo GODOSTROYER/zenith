@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { load } from "js-yaml";
 import { describe, expect, it } from "vitest";
-import { CORE_CHECKS, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
+import { CORE_CHECKS, EXTERNAL_ACCEPTANCE, GATE_LANES, LINUX_GUEST_PID1_CASES, linuxGuestManifest, manifestFor } from "../../scripts/ci/gate-manifest.mjs";
 
 interface Step {
   name?: string;
@@ -1005,14 +1005,20 @@ describe("the Go job", () => {
     ].join("\n"));
     const native = linuxGuestManifest();
     expect(native.command).toEqual(["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"]);
-    expect(native.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"]);
+    expect(native.steps.find((step) => step.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"]);
     const packageTools = stepNamed(go(), "Require local native package fixture tools");
     expect(packageTools.if).toBe("hashFiles('go/go.mod') != ''");
     expect(cmd(packageTools)).toBe("set -euo pipefail\ncommand -v docker >/dev/null\ncommand -v python3 >/dev/null\npython3 -c 'import sys; assert sys.version_info >= (3, 10)'");
     expect(go().steps.indexOf(packageTools)).toBeLessThan(go().steps.indexOf(race));
     expect(native.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
     expect(native.packagePhase.allowedSkips).toEqual([]);
-    expect(native.raceCases).toHaveLength(154); expect(native.requiredCases).toHaveLength(158);
+    expect(native.pid1Phase.requiredCases).toEqual(LINUX_GUEST_PID1_CASES);
+    expect(native.pid1Phase.requiredPackages).toEqual(["github.com/GODOSTROYER/zenith/go/internal/runner/update"]);
+    expect(native.pid1Phase.noTestPackages).toEqual([]); expect(native.pid1Phase.allowedSkips).toEqual([]);
+    expect(native.pid1Phase.baseImage).toMatch(/^ubuntu:24\.04@sha256:[a-f0-9]{64}$/);
+    expect(native.pid1Phase.builderImage).toMatch(/^moby\/buildkit:buildx-stable-1@sha256:[a-f0-9]{64}$/);
+    expect(native.requiredCases).toEqual([...native.raceCases, ...native.packagePhase.requiredCases, ...native.pid1Phase.requiredCases]);
+    expect(native.raceCases).toHaveLength(154); expect(native.requiredCases).toHaveLength(159);
     expect(native.env.CGO_ENABLED, "the race detector needs cgo").toBe("1");
 
     const build = stepNamed(go(), "Cross-build linux/amd64 and linux/arm64 without cgo");

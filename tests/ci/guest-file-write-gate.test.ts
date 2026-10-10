@@ -5,14 +5,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
-import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
+import { LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
+import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, validatePid1Fixture, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 const pkg = "github.com/GODOSTROYER/zenith/go/internal/machine/ops";
 
 // Only these exact service successors leave predecessor hash assertions; current admission stays complete.
 type NativeGuestCase = ReturnType<typeof linuxGuestManifest>["requiredCases"][number];
 const runnerUpdateGuestIds = new Set(LINUX_GUEST_RUNNER_UPDATE_CASES.map(item => item.id));
+const pid1GuestIds = new Set(LINUX_GUEST_PID1_CASES.map(item => item.id));
 const serviceGuestIds = new Set([
   "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureStrictArgsAndPriorPreconditions",
   "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestServiceConfigureVersionSeparatesPurposeAndBindsAllLocalSemantics",
@@ -41,7 +42,7 @@ const serviceGuestIds = new Set([
   "linux-guest:github.com/GODOSTROYER/zenith/go/internal/machine/ops:TestResultGoldens/service.configure-filesystem",
 ]);
 function predecessorGuestCases(items: readonly NativeGuestCase[]): NativeGuestCase[] {
-  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id));
+  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id) && !pid1GuestIds.has(item.id));
 }
 const goodExit = { status: 0, signal: null, observed: true };
 const contract = {
@@ -827,11 +828,13 @@ describe("upload native requirement admission", () => {
     expect(LINUX_GUEST_SERVICE_CASES.map(item => item.id).sort()).toEqual([...serviceGuestIds].sort());
     expect(upload).toHaveLength(49); expect(predecessor).toHaveLength(123);
     expect(new Set(predecessor.map((item) => item.id)).size).toBe(123);
-    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(159);
     expect(new Set(manifest.raceCases.map(item => item.id)).size).toBe(154);
-    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(158);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(159);
     expect(manifest.raceCases.map(item => item.id).sort()).toEqual([...predecessor, ...LINUX_GUEST_SERVICE_CASES, ...LINUX_GUEST_RUNNER_UPDATE_CASES].map(item => item.id).sort());
-    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases, ...manifest.pid1Phase.requiredCases]);
+    expect(manifest.pid1Phase.requiredCases).toEqual(LINUX_GUEST_PID1_CASES);
+    expect(manifest.allowedSkips).toHaveLength(3);
     const future = { package: pkg, test: "TestFuture", id: `linux-guest:${pkg}:TestFuture` };
     expect(predecessorGuestCases([...manifest.raceCases, future])).toContainEqual(future);
     expect(createHash("sha256").update(JSON.stringify(upload)).digest("hex")).toBe("4cb4a001976b864b82a7820d771b47272f8aedb73249183fbcf54a35f41cc4e0");
@@ -841,8 +844,9 @@ describe("upload native requirement admission", () => {
     expect(manifest.allowedSkips.map((item: { package: string; test: string; reason: string }) => item.test)).toEqual(["TestRealSystemctlAndJournalctl", "TestRealOpenTofuPlanShowApply", "TestRealOpenTofuWithProviderAndLockfile"]);
     expect(manifest.goldenCases.map((item: { package: string; test: string }) => item.test)).toEqual(["TestResultGoldens/file.write-filesystem", "TestResultGoldens/service.configure-filesystem"]);
     expect(manifest.steps).toEqual([
-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"] },
+      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"] },
       { id: "package-native", command: ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
+      { id: "pid1-native", command: ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
@@ -1075,16 +1079,17 @@ describe("mandatory direct native package phase admission", () => {
     const manifest = linuxGuestManifest();
     expect(predecessorGuestCases(manifest.raceCases)).toHaveLength(123);
     expect(predecessorGuestCases(manifest.requiredCases)).toHaveLength(127);
-    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
-    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(158);
-    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(159);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(159);
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases, ...manifest.pid1Phase.requiredCases]);
     expect(manifest.packagePhase.requiredCases).toEqual(nativePackageNames.map(test => ({ package: nativePackage, test, id: `linux-guest:${nativePackage}:${test}` })));
     expect(manifest.packagePhase.requiredPackages).toEqual([nativePackage]);
     expect(manifest.packagePhase.noTestPackages).toEqual([]); expect(manifest.packagePhase.allowedSkips).toEqual([]);
     expect(manifest.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
-    const pattern = `^(${nativePackageNames.join("|")})$`;
+    const pattern = `^(${nativePackageNames.join("|")}|TestSystemdSignedUpdateAndRollback)$`;
     expect(manifest.steps.find(item => item.id === "race")?.command).toEqual(["go", "test", "-json", "-race", "-count=1", "./...", "-skip", pattern]);
     for (const name of [...manifest.raceCases.map(item => item.test), "TestPackageNativeReadbackPreservesRegistryAndIdentity", "TestPackageNativeSignedFirstInstallAndNonReplay_foreign"]) expect(new RegExp(pattern).test(name), name).toBe(false);
+    expect(new RegExp(pattern).test(LINUX_GUEST_PID1_CASES[0].test)).toBe(true);
     expect(validateGoEvents(stream(packageRecords()), goodExit, manifest.packagePhase).verdict).toBe("passed");
   });
   it("pins the genuine native4 declarations and refuses deletion or substituted source names", () => {
@@ -1095,6 +1100,57 @@ describe("mandatory direct native package phase admission", () => {
     for (const name of nativePackageNames) expect(declared(source.replace(`func ${name}(`, `func ${name}_foreign(`))).not.toContain(name);
     expect(source).toContain('os.Getenv("ZENITH_TEST_PACKAGE_INSTALL_REQUIRED") != "1"');
     expect(source).toContain('"zenith-owned-disposable-package-install-v1\\n"');
+  });
+  it("accepts SYS1 only with exact native case, terminal cleanup, socket identity, and process custody", () => {
+    const manifest = linuxGuestManifest(), phase = manifest.pid1Phase, attempt = "a".repeat(32), commit = "b".repeat(40), raw = "native private JSON stream\n";
+    const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+    const testUid = process.getuid?.() ?? 0, testGid = process.getgid?.() ?? 0;
+    type DiskRow = { reportedPath: string; resolvedPath: string; identity: Record<string, number | string>; capacityBytes: number; minimumFreeBytes: number };
+    type FixtureProof = { delivery: string | null; cleanupComplete: boolean; nativeCases: string[]; guard: {
+      sourceStartMatched: boolean; sourceEndMatched: boolean; allRegisteredGroupsAbsent: boolean; allObservedOwnedGroupsAbsent: boolean;
+      cleanupFailure: string | null; cleanupMode: boolean; floorViolation: boolean; minimumFreeBytes: number;
+      dockerRootMinimumFreeBytes: number; diskFailure: string | null;
+      diskCustody: { attempt: DiskRow; dockerRoot: DiskRow | null };
+      socketCustody: { resolved: string; target: number[]; alias: number[]; link: string | null } | null;
+      observedOwnedGroups: number[]; ownedProcesses: { pid: number; rootPid: number; uid: number; pgid: number; session: number; startTicks: number; observedPgids: number[] }[];
+    } };
+    const good = (): FixtureProof & Record<string, unknown> => ({ schemaVersion: 1, attempt, arch: "arm64", emulated: false, status: "passed", cleanupComplete: true, delivery: null, execDelivery: null,
+      sourceCommit: commit, sourceContractSha256: hash("source"), baseImage: phase.baseImage, builderImage: phase.builderImage,
+      nativeCases: ["TestSystemdSignedUpdateAndRollback"], rawReportSha256: hash(raw),
+      tools: Object.fromEntries(["go", "git", "python", "docker", "bash", "buildx"].map(name => [name, { sha256: hash(name) }])),
+      binaries: Object.fromEntries(["zenithd-1.0.0", "zenithd-1.1.0", "update-systemd.test"].map(name => [name, { sha256: hash(name), bytes: 1 }])),
+      guard: { sourceStartMatched: true, sourceEndMatched: true, allRegisteredGroupsAbsent: true, allObservedOwnedGroupsAbsent: true, cleanupFailure: null, cleanupMode: true, floorViolation: false, minimumFreeBytes: 12_000_000_000, dockerRootMinimumFreeBytes: 12_000_000_000, diskFailure: null,
+        diskCustody: { attempt: { reportedPath: "/tmp/attempt", resolvedPath: "/tmp/attempt", identity: { device: 1, inode: 2, uid: testUid, gid: testGid, modeType: 0o040000, mountId: 3, fsid: "4", blockSize: 4096, fragmentSize: 4096, flags: 0 }, capacityBytes: 20_000_000_000, minimumFreeBytes: 12_000_000_000 }, dockerRoot: { reportedPath: "/var/lib/docker", resolvedPath: "/var/lib/docker", identity: { device: 5, inode: 6, uid: 0, gid: 0, modeType: 0o040000, mountId: 7, fsid: "9007199254740993", blockSize: 4096, fragmentSize: 4096, flags: 0 }, capacityBytes: 20_000_000_000, minimumFreeBytes: 12_000_000_000 } },
+        socketCustody: { resolved: "/run/docker.sock", target: [0, 1, 2, 49152], alias: [0, 1, 2, 49152], link: null },
+        observedOwnedGroups: [4242], ownedProcesses: [{ pid: 4242, rootPid: 4242, uid: testUid, pgid: 4242, session: 4242, startTicks: 1234, observedPgids: [4242] }] },
+    });
+    expect(validatePid1Fixture(good(), attempt, "arm64", phase, commit, raw).cleanupComplete).toBe(true);
+    const rejected = (mutate: (proof: ReturnType<typeof good>) => void) => { const proof = good(); mutate(proof); expect(() => validatePid1Fixture(proof, attempt, "arm64", phase, commit, raw)).toThrow("pid1-fixture"); };
+    rejected(proof => { proof.delivery = "create-disposable-pid1"; });
+    rejected(proof => { proof.cleanupComplete = false; });
+    rejected(proof => { proof.nativeCases = []; });
+    rejected(proof => { proof.guard.socketCustody!.target[0] = 1000; });
+    rejected(proof => { proof.guard.socketCustody!.target[3] = 32768; });
+    rejected(proof => { proof.guard.socketCustody = null; });
+    rejected(proof => { proof.guard.observedOwnedGroups = [4243]; });
+    rejected(proof => { proof.guard.ownedProcesses[0].startTicks = 0; });
+    rejected(proof => { proof.guard.ownedProcesses[0].uid = testUid + 1; });
+    rejected(proof => { proof.guard.allRegisteredGroupsAbsent = false; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot!.minimumFreeBytes = 11_999_999_999; proof.guard.dockerRootMinimumFreeBytes = 11_999_999_999; });
+    rejected(proof => { proof.guard.diskCustody.attempt.minimumFreeBytes = 11_999_999_999; proof.guard.minimumFreeBytes = 11_999_999_999; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot = null; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot!.resolvedPath = ""; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot!.identity.mountId = 0; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot!.identity.fsid = "09007199254740993"; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot!.identity.fsid = "9.007199254740993e15"; });
+    rejected(proof => { proof.guard.diskCustody.dockerRoot!.identity.fsid = 9007199254740993 as unknown as string; });
+    rejected(proof => { proof.guard.diskFailure = "filesystem_identity_changed"; });
+    // Distinct filesystem identities are valid only when both independently retain the full floor.
+    const separate = good(); separate.guard.diskCustody.dockerRoot!.identity.device = 99;
+    expect(validatePid1Fixture(separate, attempt, "arm64", phase, commit, raw).diskCustodySha256).toMatch(/^[a-f0-9]{64}$/);
+    const lossless = JSON.parse(JSON.stringify(good())) as FixtureProof;
+    expect(lossless.guard.diskCustody.dockerRoot!.identity.fsid).toBe("9007199254740993");
+    expect(validatePid1Fixture(lossless, attempt, "arm64", phase, commit, raw).cleanupComplete).toBe(true);
   });
   it("refuses each missing root case while the other actual report observations pass", () => {
     const phase = linuxGuestManifest().packagePhase;
@@ -1192,7 +1248,7 @@ print(json.dumps({'accepted': accepted, 'commands': len(commands),
     expect(helper).toContain("h.get('SecurityOpt') not in ([['apparmor=unconfined']] if apparmor else [None, []])");
     expect(helper.indexOf("save('terminal')")).toBeLessThan(helper.indexOf("sys.stdout.buffer.write(raw_events)"));
     expect(helper.indexOf("scope['cleanupComplete'] = True")).toBeGreaterThan(helper.indexOf("unrelated baseline changed"));
-    expect(runner).toContain('step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
+    expect(runner).toContain('step.id === "pid1-native" ? manifest.pid1Phase : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
     expect(runner).toContain('fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW');
     expect(runner).toContain('proof.cleanupComplete !== true || proof.delivery !== null');
     expect(runner).toContain('proof.attempt !== attemptId'); expect(runner).toContain('proof.emulated !== false');
@@ -1320,7 +1376,7 @@ describe("separate actual systemd requirement admission models", () => {
       expect(phase.command).toEqual(["go", "test", "-p=1", "-tags=zenith_systemd_acceptance", "-json", "-count=1", phase.id === "ops" ? "./internal/machine/ops" : "./internal/machine", "-run", `^${phase.requiredCases[0].test}$`]);
       expect(phase.noTestPackages).toEqual([]); expect(phase.allowedSkips).toEqual([]);
     }
-    expect(linuxGuestManifest().requiredCases).toHaveLength(158); expect(linuxGuestManifest().packagePhase.requiredCases).toHaveLength(4);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(159); expect(linuxGuestManifest().packagePhase.requiredCases).toHaveLength(4);
     expect(linuxGuestManifest().allowedSkips).toHaveLength(3); expect(linuxGuestManifest().requiredCases.some(item => item.id.startsWith("linux-systemd:"))).toBe(false);
   });
 
@@ -1578,7 +1634,7 @@ describe("canonical post-execution custody models", () => {
     expect(helper.indexOf('"postcheck", str(uid)')).toBeLessThan(helper.indexOf('if action == "setup":'));
     expect(helper).toContain('lock(CANONICAL_LEASE)'); expect(helper).toContain('lock(LEASE)');
     expect(helper).toContain('if any(os.path.lexists(p) for p in MARKERS):');
-    expect(linuxGuestManifest().requiredCases).toHaveLength(158); expect(linuxSystemdManifest().requiredCases).toHaveLength(15);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(159); expect(linuxSystemdManifest().requiredCases).toHaveLength(15);
   });
 });
 

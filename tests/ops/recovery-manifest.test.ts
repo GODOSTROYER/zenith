@@ -14,11 +14,72 @@ import {
 } from "@/lib/ops/recovery/manifest";
 import { RecoveryToolError, mustRun, pgArgs, scrub, toolsFromEnv, type CommandRunner } from "@/lib/ops/recovery/process";
 import { deliverReport, measureRecovery, registerRecoveryMeasurementSink, targetsFromEnv } from "@/lib/ops/recovery/report";
-import { runRestore, type RestoreOptions } from "@/lib/ops/recovery/restore";
+import { runRestore, terminateOpenTemporalWorkflows, type RestoreOptions } from "@/lib/ops/recovery/restore";
 
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(path.join(os.tmpdir(), "zenith-recovery-")); });
 afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+
+const temporalListEntry = (workflowId: string, runId: string, status = "WORKFLOW_EXECUTION_STATUS_RUNNING") => ({ execution: { workflowId, runId }, status });
+const temporalDescribe = (workflowId: string, runId: string, status = "WORKFLOW_EXECUTION_STATUS_TERMINATED") => ({ workflowExecutionInfo: { execution: { workflowId, runId }, status } });
+
+function temporalCommandRunner(lists: string[], describes: string[] = []) {
+  const commands: string[][] = [];
+  const run: CommandRunner = async (_file, args) => {
+    commands.push([...args]);
+    if (args[1] === "list") return { code: 0, stdout: lists.shift() ?? "[]", stderr: "" };
+    if (args[1] === "terminate") return { code: 0, stdout: "Workflow terminated", stderr: "" };
+    if (args[1] === "describe") return { code: 0, stdout: describes.shift() ?? "{}", stderr: "" };
+    return { code: 2, stdout: "", stderr: "unexpected command" };
+  };
+  return { run, commands };
+}
+
+describe("recovery Temporal termination contract", () => {
+  it("terminates each exact observed execution and verifies terminal status plus an empty unchanged query", async () => {
+    const observed = [temporalListEntry("op-first", "run-1"), temporalListEntry("reconcile-second", "run-2")];
+    const runner = temporalCommandRunner(
+      [JSON.stringify(observed), "[]"],
+      [JSON.stringify(temporalDescribe("op-first", "run-1")), JSON.stringify(temporalDescribe("reconcile-second", "run-2"))],
+    );
+    await expect(terminateOpenTemporalWorkflows(runner.run, "/temporal", "owned-ns", "127.0.0.1:7239")).resolves.toBe(2);
+    const terminations = runner.commands.filter((args) => args[1] === "terminate");
+    expect(terminations).toHaveLength(2);
+    expect(terminations[0]).toEqual(["workflow", "terminate", "--address", "127.0.0.1:7239", "--namespace", "owned-ns", "--workflow-id", "op-first", "--run-id", "run-1", "--reason", "platform store restored (recovery epoch)"]);
+    expect(terminations[1]).toContain("reconcile-second");
+    expect(runner.commands.filter((args) => args[1] === "list")).toHaveLength(2);
+    expect(runner.commands.filter((args) => args[1] === "describe")).toHaveLength(2);
+  });
+
+  it.each([
+    ["malformed JSON", "not JSON"],
+    ["an out-of-scope workflow id", JSON.stringify([temporalListEntry("other-workflow", "run-1")])],
+    ["a missing run id", JSON.stringify([{ execution: { workflowId: "op-first" }, status: "WORKFLOW_EXECUTION_STATUS_RUNNING" }])],
+    ["an unexpected execution identity field", JSON.stringify([{ execution: { workflowId: "op-first", runId: "run-1", namespace: "foreign" }, status: "WORKFLOW_EXECUTION_STATUS_RUNNING" }])],
+    ["a duplicate identity", JSON.stringify([temporalListEntry("op-first", "run-1"), temporalListEntry("op-first", "run-1")])],
+  ])("refuses %s before terminating anything", async (_case, initial) => {
+    const runner = temporalCommandRunner([initial, "[]"]);
+    await expect(terminateOpenTemporalWorkflows(runner.run, "/temporal", "owned-ns")).rejects.toMatchObject({ code: "refused" });
+    expect(runner.commands.some((args) => args[1] === "terminate")).toBe(false);
+  });
+
+  it.each([
+    ["a mismatched run id", temporalDescribe("op-first", "different-run")],
+    ["a mismatched workflow id", temporalDescribe("op-other", "run-1")],
+    ["a nonterminal status", temporalDescribe("op-first", "run-1", "WORKFLOW_EXECUTION_STATUS_RUNNING")],
+  ])("refuses when describe returns %s", async (_case, description) => {
+    const runner = temporalCommandRunner([JSON.stringify([temporalListEntry("op-first", "run-1")]), "[]"], [JSON.stringify(description)]);
+    await expect(terminateOpenTemporalWorkflows(runner.run, "/temporal", "owned-ns")).rejects.toMatchObject({ code: "refused" });
+  });
+
+  it("refuses when another matching workflow remains open after the observed executions terminate", async () => {
+    const runner = temporalCommandRunner(
+      [JSON.stringify([temporalListEntry("op-first", "run-1")]), JSON.stringify([temporalListEntry("reconcile-new", "run-2")])],
+      [JSON.stringify(temporalDescribe("op-first", "run-1"))],
+    );
+    await expect(terminateOpenTemporalWorkflows(runner.run, "/temporal", "owned-ns")).rejects.toMatchObject({ code: "refused" });
+  });
+});
 
 const component = (id: ComponentId, over: Partial<ManifestComponent> = {}): ManifestComponent =>
   ({ id, title: id, status: "covered", method: "none", note: "in the platform dump", files: [], facts: {}, ...over });

@@ -27,7 +27,12 @@ node_modules
 # except fixtures/, copied explicitly in the runner stage.
 README.md
 PRODUCT.md
-docs
+# The compiler follows the live acceptance planner's static ledger import.
+# Keep only that public JSON input; documentation and archived packets stay out.
+docs/**
+!docs/build/
+!docs/build/production/
+!docs/build/production/ledger.json
 Dockerfile
 docker-compose.yml
 .dockerignore

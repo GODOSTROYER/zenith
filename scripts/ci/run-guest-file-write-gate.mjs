@@ -283,6 +283,82 @@ function packageFixtureEvidence(directory, attemptId, arch, contract) {
     nativeStateSha256: proof.nativeStateSha256, afterNativeStateSha256: proof.afterNativeStateSha256 };
 }
 
+/** Strict fresh terminal contract for the isolated PID1 phase. Report cases alone never prove cleanup. */
+export function validatePid1Fixture(proof, attemptId, arch, contract, sourceCommit, raw) {
+  const guard = proof?.guard;
+  const custody = guard?.socketCustody;
+  const socketIdentity = (row, kinds) => Array.isArray(row) && row.length === 4
+    && row.every(Number.isSafeInteger) && row[0] === 0 && row[1] > 0 && row[2] > 0 && kinds.includes(row[3]);
+  const socketPath = typeof custody?.resolved === "string" ? custody.resolved : "";
+  const linkResolves = custody?.link === null
+    ? ["/var/run/docker.sock", "/run/docker.sock"].includes(socketPath) && custody?.alias?.[3] === 49152
+    : typeof custody?.link === "string" && path.resolve(path.dirname("/var/run/docker.sock"), custody.link) === socketPath;
+  const processRows = guard?.ownedProcesses;
+  const groups = guard?.observedOwnedGroups;
+  const processPids = Array.isArray(processRows) ? processRows.map(row => row?.pid) : [];
+  const processEvidence = Array.isArray(processRows) && processRows.length > 0
+    && processPids.every(pid => Number.isSafeInteger(pid) && pid > 0) && new Set(processPids).size === processPids.length
+    && Array.isArray(groups) && groups.length > 0
+    && groups.every((group, index) => Number.isSafeInteger(group) && group > 0 && (index === 0 || groups[index - 1] < group))
+    && processRows.every(row => row && Number.isSafeInteger(row.pid) && row.pid > 0
+      && Number.isSafeInteger(row.rootPid) && row.rootPid > 0
+      && Number.isSafeInteger(row.uid) && row.uid === process.getuid()
+      && Number.isSafeInteger(row.pgid) && row.pgid > 0
+      && Number.isSafeInteger(row.session) && row.session > 0
+      && Number.isSafeInteger(row.startTicks) && row.startTicks > 0
+      && processPids.includes(row.rootPid)
+      && Array.isArray(row.observedPgids) && row.observedPgids.includes(row.pgid)
+      && row.observedPgids.every(group => groups.includes(group)))
+    && [...new Set(processRows.flatMap(row => row.observedPgids))].sort((a, b) => a - b).join(",") === groups.join(",")
+    && processRows.some(row => row.pid === row.rootPid);
+  const diskRow = row => row && typeof row.reportedPath === "string" && path.isAbsolute(row.reportedPath)
+    && typeof row.resolvedPath === "string" && path.isAbsolute(row.resolvedPath)
+    && row.identity && ["device", "inode", "uid", "gid", "modeType", "mountId", "blockSize", "fragmentSize", "flags"]
+      .every(name => Number.isSafeInteger(row.identity[name]))
+    && typeof row.identity.fsid === "string" && /^(?:0|[1-9][0-9]*|-[1-9][0-9]*)$/.test(row.identity.fsid)
+    && row.identity.device > 0 && row.identity.inode > 0 && row.identity.mountId > 0
+    && row.identity.modeType === 0o040000 && row.identity.blockSize > 0 && row.identity.fragmentSize > 0
+    && Number.isSafeInteger(row.capacityBytes) && row.capacityBytes >= 12_000_000_000
+    && Number.isSafeInteger(row.minimumFreeBytes) && row.minimumFreeBytes >= 12_000_000_000;
+  const disks = guard?.diskCustody;
+  const attemptDisk = disks?.attempt, dockerRootDisk = disks?.dockerRoot;
+  const diskEvidence = diskRow(attemptDisk) && diskRow(dockerRootDisk)
+    && attemptDisk.minimumFreeBytes === guard.minimumFreeBytes
+    && dockerRootDisk.minimumFreeBytes === guard.dockerRootMinimumFreeBytes
+    && guard.diskFailure === null;
+  if (proof?.schemaVersion !== 1 || proof.attempt !== attemptId || proof.arch !== arch || proof.emulated !== false
+    || proof.status !== "passed" || proof.cleanupComplete !== true || proof.delivery !== null || proof.execDelivery !== null
+    || proof.sourceCommit !== sourceCommit || !SHA256.test(proof.sourceContractSha256 ?? "")
+    || proof.baseImage !== contract.baseImage || proof.builderImage !== contract.builderImage
+    || JSON.stringify(proof.nativeCases) !== JSON.stringify(contract.requiredCases.map(item => item.test))
+    || proof.rawReportSha256 !== digest(raw)
+    || !guard || guard.sourceStartMatched !== true || guard.sourceEndMatched !== true
+    || guard.allObservedOwnedGroupsAbsent !== true
+    || guard.cleanupFailure !== null || guard.cleanupMode !== true || guard.floorViolation !== false || !Number.isSafeInteger(guard.minimumFreeBytes) || guard.minimumFreeBytes < 12_000_000_000
+    || !Number.isSafeInteger(guard.dockerRootMinimumFreeBytes) || guard.dockerRootMinimumFreeBytes < 12_000_000_000 || !diskEvidence
+    || guard.allRegisteredGroupsAbsent !== true || !processEvidence
+    || !custody || !["/var/run/docker.sock", "/run/docker.sock"].includes(socketPath)
+    || !socketIdentity(custody.target, [49152]) || !socketIdentity(custody.alias, [40960, 49152])
+    || !linkResolves || typeof custody.link === "string" && custody.alias[3] !== 40960
+    || custody.link === null && custody.alias[3] !== 49152
+    || !proof.tools || ["go", "git", "python", "docker", "bash", "buildx"].some(name => !SHA256.test(proof.tools[name]?.sha256 ?? ""))
+    || !proof.binaries || ["zenithd-1.0.0", "zenithd-1.1.0", "update-systemd.test"].some(name => !SHA256.test(proof.binaries[name]?.sha256 ?? "") || !Number.isSafeInteger(proof.binaries[name]?.bytes) || proof.binaries[name].bytes <= 0)) throw new Error("pid1-fixture");
+  return { arch, emulated: false, cleanupComplete: true, sourceCommit, sourceContractSha256: proof.sourceContractSha256,
+    rawReportSha256: proof.rawReportSha256, minimumFreeBytes: guard.minimumFreeBytes, dockerRootMinimumFreeBytes: guard.dockerRootMinimumFreeBytes,
+    diskCustodySha256: digest(JSON.stringify({ attempt: attemptDisk, dockerRoot: dockerRootDisk })),
+    toolInventorySha256: digest(JSON.stringify(Object.fromEntries(Object.entries(proof.tools).map(([name, row]) => [name, row.sha256])))),
+    binaryInventorySha256: digest(JSON.stringify(proof.binaries)), baseImage: proof.baseImage, builderImage: proof.builderImage };
+}
+function pid1FixtureEvidence(directory, attemptId, arch, contract, commit, raw) {
+  const folder = path.join(directory, "pid1-private"); ownedDirectory(folder);
+  const fd = fs.openSync(path.join(folder, "terminal.record"), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.uid !== process.getuid() || st.nlink !== 1 || (st.mode & 0o7777) !== 0o600 || st.size === 0 || st.size > 1024 * 1024) throw new Error("pid1-fixture");
+    return validatePid1Fixture(JSON.parse(fs.readFileSync(fd, "utf8")), attemptId, arch, contract, commit, raw);
+  } finally { fs.closeSync(fd); }
+}
+
 export async function runNativeGate(root = process.cwd(), attemptId = randomBytes(16).toString("hex")) {
   root = path.resolve(root);
   const manifest = linuxGuestManifest();
@@ -318,16 +394,18 @@ export async function runNativeGate(root = process.cwd(), attemptId = randomByte
       const stepEnv = { ...env, ...(step.id === "goldens" ? { ZENITH_UPDATE_MACHINE_GOLDENS: "1" } : {}) };
       const phaseCommand = step.command.map((argument) => ({ "{sourceRoot}": root, "{attemptId}": attemptId, "{nativeArch}": versions.GOARCH })[argument] ?? argument);
       const command = ["flock", "--shared", "--nonblock", "/opt/zenith-file-write-mounts/.gate-lease", ...phaseCommand];
-      const result = await execute(command, step.id === "package-native" ? root : path.join(root, "go"), stepEnv, directory, step.id);
+      const result = await execute(command, ["package-native", "pid1-native"].includes(step.id) ? root : path.join(root, "go"), stepEnv, directory, step.id);
       drained = drained && result.drained;
       const raw = fs.readFileSync(result.output, "utf8");
       const contract = step.id === "goldens" ? { requiredCases: manifest.goldenCases, requiredPackages: [manifest.goldenCases[0].package], noTestPackages: [], allowedSkips: [] }
-        : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases };
-      const validation = ["race", "package-native", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
+        : step.id === "pid1-native" ? manifest.pid1Phase : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases };
+      const validation = ["race", "package-native", "pid1-native", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
         verdict: result.observation.observed && result.observation.status === 0 && result.observation.signal === null && raw.length === 0 ? "passed" : "failed",
       };
       const fixture = step.id === "package-native" && validation.verdict === "passed" && result.drained && !result.interrupted
-        ? packageFixtureEvidence(directory, attemptId, versions.GOARCH, manifest.packagePhase) : null;
+        ? packageFixtureEvidence(directory, attemptId, versions.GOARCH, manifest.packagePhase)
+        : step.id === "pid1-native" && validation.verdict === "passed" && result.drained && !result.interrupted
+          ? pid1FixtureEvidence(directory, attemptId, versions.GOARCH, manifest.pid1Phase, before.commit, raw) : null;
       evidence.steps.push({ ...(fixture ? { fixture } : {}), id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
       if (validation.verdict !== "passed" || !result.drained || result.interrupted) throw new Error("execution");
     }

@@ -15,7 +15,7 @@ export function executionBindingFixture() {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, value);
   };
-  for (const file of ["scripts/ci/gate-manifest.mjs", "scripts/ci/run-gate.mjs", "scripts/ci/sanitize-evidence.mjs", "scripts/ci/lane-report.mjs", "tests/ci/assert-lane-report.mjs"]) write(file, fs.readFileSync(path.join(sourceRoot, file)));
+  for (const file of ["scripts/ci/gate-manifest.mjs", "scripts/ci/wave6-manifest.mjs", "scripts/ci/wave6-gates.json", "scripts/ci/run-gate.mjs", "scripts/ci/sanitize-evidence.mjs", "scripts/ci/lane-report.mjs", "tests/ci/assert-lane-report.mjs"]) write(file, fs.readFileSync(path.join(sourceRoot, file)));
   write(".gitignore", "node_modules/\n.data-*/\n");
   write("tests/policy/receipt.test.ts", "// Synthetic trusted source requirement, never executed as engine acceptance.\n");
   write("package-lock.json", JSON.stringify({ packages: { "node_modules/vitest": { version: "0.0.0" } } }));

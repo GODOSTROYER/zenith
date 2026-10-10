@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
+import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -15,9 +15,10 @@ import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs
 type NativeGuestCase = ReturnType<typeof linuxGuestManifest>["requiredCases"][number];
 // Historical models exclude only this fixed additive service cohort; canonical requirements stay complete.
 const runnerUpdateGuestIds = new Set(LINUX_GUEST_RUNNER_UPDATE_CASES.map(item => item.id));
+const pid1GuestIds = new Set(LINUX_GUEST_PID1_CASES.map(item => item.id));
 const serviceGuestIds = new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id));
 function priorServiceLinuxCases(items: readonly NativeGuestCase[]): NativeGuestCase[] {
-  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id));
+  return items.filter(item => !serviceGuestIds.has(item.id) && !runnerUpdateGuestIds.has(item.id) && !pid1GuestIds.has(item.id));
 }
 
 const root = process.cwd();
@@ -1501,14 +1502,15 @@ describe("canonical native Linux guest contract", () => {
     expect(manifest.report).toBe(".data-ci-guest/attempt-{attemptId}/sanitized.json");
     expect(manifest.artifactSelection).toContain("observed CI runner outcome");
     expect(manifest.steps.map((step) => step.command)).toEqual([
-      ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$"],
+      ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"],
       ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"],
+      ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"],
       ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"],
       ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"],
       ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"],
     ]);
-    expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(manifest.packagePhase.requiredCases).toHaveLength(4);
-    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases]);
+    expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(manifest.packagePhase.requiredCases).toHaveLength(4); expect(manifest.pid1Phase.requiredCases).toEqual(LINUX_GUEST_PID1_CASES);
+    expect(manifest.requiredCases).toEqual([...manifest.raceCases, ...manifest.packagePhase.requiredCases, ...manifest.pid1Phase.requiredCases]);
     expect(manifest.packagePhase.allowedSkips).toEqual([]); expect(manifest.packagePhase.noTestPackages).toEqual([]);
     expect(manifest.packagePhase.env).toEqual({ ZENITH_TEST_PACKAGE_INSTALL_REQUIRED: "1" });
     expect(new Set(manifest.requiredCases.map((item) => item.id)).size).toBe(manifest.requiredCases.length);
@@ -2809,11 +2811,11 @@ describe("mandatory native service.configure observations [report models]", () =
     expect(LINUX_GUEST_SERVICE_CASES).toHaveLength(25);
     expect(new Set(LINUX_GUEST_SERVICE_CASES.map(item => item.id)).size).toBe(25);
     expect(createHash("sha256").update(JSON.stringify(LINUX_GUEST_SERVICE_CASES.map(item => item.id).sort())).digest("hex")).toBe("ad13bf1b646b40e0c720aa7e42964ea453b04b25a43c11e6611055f0fecca3f1");
-    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(158);
-    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(158);
+    expect(manifest.raceCases).toHaveLength(154); expect(manifest.requiredCases).toHaveLength(159);
+    expect(new Set(manifest.requiredCases.map(item => item.id)).size).toBe(159);
     expect(priorServiceLinuxCases(manifest.raceCases)).toHaveLength(123); expect(historical).toHaveLength(127);
     expect(createHash("sha256").update(JSON.stringify(historical.map(item => item.id).sort())).digest("hex")).toBe("e406b4002c481023c55a418cbbfb369648f988033f4b8fa08f8d41e8dd8c51c1");
-    expect(manifest.requiredCases.map(item => item.id).sort()).toEqual([...historical, ...LINUX_GUEST_SERVICE_CASES, ...LINUX_GUEST_RUNNER_UPDATE_CASES].map(item => item.id).sort());
+    expect(manifest.requiredCases.map(item => item.id).sort()).toEqual([...historical, ...LINUX_GUEST_SERVICE_CASES, ...LINUX_GUEST_RUNNER_UPDATE_CASES, ...LINUX_GUEST_PID1_CASES].map(item => item.id).sort());
     const future = { package: "future-package", test: "TestFuture", id: "linux-guest:future-package:TestFuture" };
     expect(priorServiceLinuxCases([...manifest.requiredCases, future])).toContainEqual(future);
     expect(manifest.packagePhase.requiredCases).toHaveLength(4); expect(manifest.packagePhase.allowedSkips).toEqual([]);
@@ -2914,7 +2916,7 @@ describe("mandatory native service.configure observations [report models]", () =
     expect(validateGoEvents("", passedExit, { ...serviceContract, requiredCases: after.requiredCases.filter(item => serviceGuestIds.has(item.id)) }).verdict).toBe("failed");
     const runner = fs.readFileSync(path.join(root, "scripts/ci/run-guest-file-write-gate.mjs"), "utf8");
     expect(runner).toContain('step.id === "goldens" ? { requiredCases: manifest.goldenCases');
-    expect(runner).toContain('step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
+    expect(runner).toContain('step.id === "pid1-native" ? manifest.pid1Phase : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases }');
     expect(after.steps.find(step => step.id === "golden-diff")?.command).toEqual(["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"]);
     expect(after.steps.find(step => step.id === "golden-status")?.command).toEqual(["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"]);
   });
@@ -2954,7 +2956,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
-    expect(linuxGuestManifest().requiredCases).toHaveLength(158);
+    expect(linuxGuestManifest().requiredCases).toHaveLength(159);
     expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
     expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
     for (const lane of Object.keys(GATE_LANES).filter(value => value !== "workflows"))

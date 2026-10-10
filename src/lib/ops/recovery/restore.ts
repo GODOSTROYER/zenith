@@ -82,6 +82,66 @@ export interface RestoreReport {
 }
 
 const MIGRATED_STORES = ["platform", "agent", "hosted"] as const;
+const TEMPORAL_OPEN_WORKFLOW_QUERY = '(WorkflowId STARTS_WITH "op-" OR WorkflowId STARTS_WITH "reconcile-") AND ExecutionStatus="Running"';
+const TEMPORAL_MAX_OPEN_WORKFLOWS = 1_000;
+const TEMPORAL_TIMEOUT_MS = 120_000;
+const TEMPORAL_MAX_OUTPUT_BYTES = 1_048_576;
+
+interface TemporalWorkflowExecution { workflowId: string; runId: string }
+
+function object(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function parseTemporalRunningList(stdout: string): TemporalWorkflowExecution[] {
+  let value: unknown;
+  try { value = JSON.parse(stdout); } catch { throw new RecoveryToolError("refused", "Temporal workflow list returned invalid JSON."); }
+  if (!Array.isArray(value) || value.length > TEMPORAL_MAX_OPEN_WORKFLOWS) throw new RecoveryToolError("refused", "Temporal workflow list returned an invalid or oversized execution inventory.");
+  const seen = new Set<string>();
+  return value.map((item) => {
+    const entry = object(item);
+    const execution = object(entry?.execution);
+    const workflowId = execution?.workflowId;
+    const runId = execution?.runId;
+    if (!execution || Object.keys(execution).sort().join(",") !== "runId,workflowId" || typeof workflowId !== "string" || !workflowId || typeof runId !== "string" || !runId || entry?.status !== "WORKFLOW_EXECUTION_STATUS_RUNNING")
+      throw new RecoveryToolError("refused", "Temporal workflow list returned an incomplete or unexpected execution identity.");
+    if (!workflowId.startsWith("op-") && !workflowId.startsWith("reconcile-")) throw new RecoveryToolError("refused", "Temporal workflow list returned an execution outside the recovery workflow prefixes.");
+    const identity = `${workflowId}\0${runId}`;
+    if (seen.has(identity)) throw new RecoveryToolError("refused", "Temporal workflow list returned a duplicate execution identity.");
+    seen.add(identity);
+    return { workflowId, runId };
+  });
+}
+
+function requireTerminatedDescribe(stdout: string, expected: TemporalWorkflowExecution): void {
+  let value: unknown;
+  try { value = JSON.parse(stdout); } catch { throw new RecoveryToolError("refused", "Temporal workflow describe returned invalid JSON."); }
+  const info = object(object(value)?.workflowExecutionInfo);
+  const execution = object(info?.execution);
+  if (!execution || Object.keys(execution).sort().join(",") !== "runId,workflowId" || execution.workflowId !== expected.workflowId || execution.runId !== expected.runId)
+    throw new RecoveryToolError("refused", "Temporal workflow describe did not confirm the requested execution identity.");
+  if (info?.status !== "WORKFLOW_EXECUTION_STATUS_TERMINATED") throw new RecoveryToolError("refused", "Temporal workflow describe did not confirm termination.");
+}
+
+/** Terminate each observed execution synchronously, then prove its status and the recovery query's empty postcondition. */
+export async function terminateOpenTemporalWorkflows(run: CommandRunner, temporal: string, namespace: string, address?: string): Promise<number> {
+  const deadline = Date.now() + TEMPORAL_TIMEOUT_MS;
+  const addressArgs = address ? ["--address", address] : [];
+  const runCommand = (label: string, args: readonly string[]) => {
+    const timeoutMs = deadline - Date.now();
+    if (timeoutMs <= 0) throw new RecoveryToolError("refused", "Temporal recovery termination exceeded its time limit.");
+    return mustRun(run, label, temporal, args, { timeoutMs, maxBuffer: TEMPORAL_MAX_OUTPUT_BYTES });
+  };
+  const list = async () => parseTemporalRunningList((await runCommand("temporal workflow list", ["workflow", "list", ...addressArgs, "--namespace", namespace, "--query", TEMPORAL_OPEN_WORKFLOW_QUERY, "--output", "json"])).stdout);
+  const observed = await list();
+  for (const execution of observed) {
+    await runCommand("temporal workflow terminate", ["workflow", "terminate", ...addressArgs, "--namespace", namespace, "--workflow-id", execution.workflowId, "--run-id", execution.runId, "--reason", "platform store restored (recovery epoch)"]);
+    const described = await runCommand("temporal workflow describe", ["workflow", "describe", ...addressArgs, "--namespace", namespace, "--workflow-id", execution.workflowId, "--run-id", execution.runId, "--output", "json"]);
+    requireTerminatedDescribe(described.stdout, execution);
+  }
+  if ((await list()).length !== 0) throw new RecoveryToolError("refused", "Temporal still has open recovery workflows after the observed executions were terminated.");
+  return observed.length;
+}
 
 export async function runRestore(deps: RestoreDeps, options: RestoreOptions): Promise<RestoreReport> {
   const now = deps.now ?? (() => new Date());
@@ -254,12 +314,7 @@ export async function runRestore(deps: RestoreDeps, options: RestoreOptions): Pr
   const t = options.temporal;
   if (t?.terminate) {
     try {
-      const address = t.address ? ["--address", t.address] : [];
-      const query = '(WorkflowId STARTS_WITH "op-" OR WorkflowId STARTS_WITH "reconcile-") AND ExecutionStatus="Running"';
-      const before = await mustRun(deps.run, "temporal workflow list", deps.tools.temporal, ["workflow", "list", ...address, "--namespace", t.namespace, "--query", query, "--output", "json"]);
-      let open = 0;
-      try { const parsed = JSON.parse(before.stdout || "[]") as unknown; open = Array.isArray(parsed) ? parsed.length : 0; } catch { open = 0; }
-      if (open > 0) await mustRun(deps.run, "temporal workflow terminate", deps.tools.temporal, ["workflow", "terminate", ...address, "--namespace", t.namespace, "--query", query, "--reason", "platform store restored (recovery epoch)", "--yes"]);
+      const open = await terminateOpenTemporalWorkflows(deps.run, deps.tools.temporal, t.namespace, t.address);
       step("temporal", "ok", `Terminated ${open} open operation workflow(s) of the lost timeline; operations they covered are uncertain or held for a decision.`);
     } catch (error) {
       step("temporal", "refused", error instanceof RecoveryToolError ? error.message : "Temporal could not be reached.");

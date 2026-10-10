@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { countsFor, effectiveEnvironmentFor, environmentDiagnosticsFor, environmentInventoryFor, environmentInventoryPath, ENVIRONMENT_FINGERPRINT_EXCLUSIONS, executionReceiptFor, executionReceiptPath, main as sanitizeMain, preserveExecutionObservation, provenanceFor, vendoredPolicyProvenanceFor, readEnvironmentInventory, sanitizedEvidence, writeEnvironmentInventory, writeExecutionReceipt } from "../../scripts/ci/sanitize-evidence.mjs";
-import { manifestFor, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+import { EXTERNAL_ACCEPTANCE, manifestFor, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
 import { validateGate } from "../../scripts/ci/run-gate.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { executionBindingFixture } from "./execution-binding-fixture.mjs";
@@ -97,7 +97,7 @@ describe("sanitized evidence boundary", () => {
   it("keeps genuinely external acceptance unverified alongside a passed ordinary gate", () => {
     const evidence = sanitizedEvidence("workflows", reportFor("workflows"), root, provenance);
     expect(evidence.verdict).toBe("passed");
-    expect(evidence.externalAcceptance).toEqual([expect.objectContaining({ id: "external-temporal-mtls", status: "unverified", releaseBlocker: expect.stringContaining("unverified") })]);
+    expect(evidence.externalAcceptance).toEqual(EXTERNAL_ACCEPTANCE.map(({ id, file, releaseBlocker }) => ({ id, file, status: "unverified", releaseBlocker })));
   });
 
   it("does not trust summary totals from a malformed report", () => {

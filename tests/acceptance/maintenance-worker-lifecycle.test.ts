@@ -10,7 +10,7 @@ type OwnedChild = {
 
 function start(script: string): OwnedChild {
   const child = spawn(process.execPath, ["-e", script], {
-    env: {},
+    env: { NODE_ENV: "test" },
     stdio: ["ignore", "ignore", "ignore", "ipc"],
     windowsHide: true,
   });

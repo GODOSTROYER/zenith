@@ -1,0 +1,288 @@
+{
+  "schema": "zenith-prod-ci-08-focused-evidence/v3",
+  "sources": {
+    "f99": {
+      "sha": "f99b6bba5909bb5f6bfd5f6293072458d3813fa1",
+      "cleanAtExecution": true,
+      "independentlyReviewedPathsBySol": [
+        "scripts/acceptance/maintenance/default.ts",
+        "scripts/acceptance/maintenance/runbooks.ts",
+        "scripts/ci/guest-pid1-fixtures.py",
+        "scripts/ci/run-guest-file-write-gate.mjs",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/guest-file-write-gate.test.ts",
+        "tests/ci/platform-coverage.test.ts",
+        "tests/controlplane/plan-custody.test.ts"
+      ],
+      "reviewMeaning": "All eight changed paths were independently reviewed by Sol; this is a path count, not eight approvals."
+    },
+    "975a": {
+      "sha": "975a27563f99ba4fdeb2d6172c1be0654f436b77",
+      "cleanAtExecution": true,
+      "j4RegressionSource": "root-integrated follow-up"
+    },
+    "273b93ee": {
+      "sha": "273b93ee1321900018a49366719eb2e3cc51909c",
+      "cleanAtInspection": true
+    }
+  },
+  "focusedCoreAtF99": {
+    "scope": "Focused R4 repair/preconditions; not full suite or actual J4 acceptance.",
+    "counts": {
+      "passed": 582,
+      "failed": 0,
+      "skippedOrGatedJ4": 2,
+      "numPendingTests": 2,
+      "skippedIdentityCount": 2,
+      "pendingIdentityCount": 0,
+      "collectedIdentityCount": 584,
+      "reportIdentityCount": 584,
+      "completedIdentityCount": 584
+    },
+    "subscopeCounts": {
+      "gate": 309,
+      "guest": 187,
+      "coverage": 67,
+      "custody": 10,
+      "preconditions": 9,
+      "note": "Separate scopes; do not add to total identities."
+    },
+    "previouslyFailedAssertionsNowPassing": 9,
+    "caseCounterMatched": true,
+    "identityCounterMatched": true,
+    "runExitCode": 0,
+    "sourceStable": true,
+    "sourceFreezeSha256": "685b9058a46068f6b99e7329acb365082e388e8577677f2bcd787d2e21533592",
+    "compilerExitCode": 0,
+    "lintExitCode": 0,
+    "privateOutputFiles": "empty, root confirmed"
+  },
+  "actualJ4RealChildRegressionAt975a": {
+    "scope": "Dedicated real-child J4 regressions; one file, three same-process identities; not the complete J4 journey.",
+    "counts": {
+      "fileCount": 1,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "totalIdentities": 3,
+      "collectedIdentityCount": 3,
+      "reportIdentityCount": 3,
+      "completedIdentityCount": 3,
+      "pendingIdentityCount": 0
+    },
+    "runExitCode": 0,
+    "identityCounterMatched": true,
+    "exactCaseCounterMatched": true,
+    "sourceStable": true,
+    "sourceFreezeSha256": "eeb202931cd4f91dd129ed63bde16f7cf1b660e2bfcbe1713809b97d20707e14",
+    "minimumFreeBytes": 400805175296,
+    "requiredDiskFloorBytes": 23622320128,
+    "ownedTemporaryData": "removed after child exit"
+  },
+  "buildAndTypecheckAt975a": {
+    "lintExitCode": 0,
+    "typecheck": "failed",
+    "cause": "New test environment omitted NODE_ENV under Next ProcessEnv augmentation; four cascading diagnostics.",
+    "compilerPassClaim": false,
+    "successorDisposition": "Reviewed one-line env:{NODE_ENV:\"test\"} repair integrated at273b93ee; successor full compiler and lint passed."
+  },
+  "ciSnapshotAt84a": {
+    "sourceSha": "84a672be47e36c01193baa4fcf0a1ed396b9a125",
+    "exact975aSnapshotAvailable": false,
+    "mainRunId": 38057465682,
+    "observedAt": "2026-10-10T14:40:28+00:00",
+    "conclusion": "failure",
+    "status": "completed",
+    "jobCounts": {
+      "success": 18,
+      "failure": 2,
+      "skipped": 8,
+      "inProgress": 0,
+      "total": 28
+    },
+    "verify": {
+      "exitCode": 1,
+      "status": "failure",
+      "testCounts": {
+        "passed": 24516,
+        "failed": 8,
+        "skipped": 1921,
+        "total": 26445
+      },
+      "fileCounts": {
+        "passed": 1135,
+        "failed": 2,
+        "skipped": 94,
+        "total": 1231
+      },
+      "failedFiles": [
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/platform-coverage.test.ts"
+      ],
+      "failure": "Eight assertions expected 112 workflow requirements but current manifest returned 113; focused f99 run passes the updated assertions. Smoke and Gimbal skipped after unit failure."
+    },
+    "go": {
+      "status": "failure",
+      "failedAt": "BuildKit builder setup",
+      "testEvents": 0,
+      "cleanup": "completed",
+      "systemdAcceptanceExecuted": false,
+      "interpretation": "Builder fixture/setup failure; not a systemd test failure."
+    },
+    "nativeWorkerRunId": 38057465717,
+    "nativeWorkerConclusion": "success",
+    "nativePlatformRunId": 38057465690,
+    "nativePlatformConclusion": "success",
+    "nativePlatformSelectedLinuxSystemctlJournalctlLeaf": "passed",
+    "scopeNote": "CI84 is terminal for 84a672be only; do not transfer conclusion to f99 or 975a."
+  },
+  "currentRootReportedFollowup": {
+    "source": "273b93ee1321900018a49366719eb2e3cc51909c",
+    "actualJ4RealChild": "3 passed / 0 failed / 0 skipped at predecessor975a",
+    "typecheck": "5120MiB non-incremental compiler exit0 on273b93ee",
+    "lint": "exit0 on273b93ee",
+    "fullSuiteAndprocess-custody successor": "pending"
+  },
+  "buildFacingBlockers": {
+    "fullNodeDomAndCanonicalGates": "pending on coherent current source; last full-core attempt at84a was NOT PASS and f99 focused run does not replace it.",
+    "compiler": "975a failed on missing NODE_ENV; the reviewed repair at273b93ee now passes5120MiB non-incremental typecheck and lint. Full Node/DOM and process-custody successor remain pending.",
+    "goLinux": "CI84 failed in BuildKit builder setup before test events; actual systemd acceptance did not run.",
+    "j4": "Dedicated real-child regressions3/0/0 passed at975a; complete acceptance still needs remaining J4 scenarios and prerequisites.",
+    "localJourney": "J1 -> UX-01 -> OBS-04 -> MACH-03 -> OBS-02 -> MACH-04.",
+    "mach04": "Genuine Linux PID1 lifecycle and separate default-stack delivery are still required.",
+    "drv3drv4": "PostgreSQL17 client tools resolved at /opt/homebrew/opt/libpq@17/bin; Temporal CLI1.9.1 available. Docker is available; DRV3/4 acceptance remains pending; DRV4 also needs reviewed ARM64 image digests.",
+    "airplay": "User explicitly directs AirPlay Receiver kept off while authorized tests need local port5000; do not repeat Settings changes.",
+    "goCi": "CI84 terminal failure was BuildKit builder setup before test events; systemd acceptance did not run.",
+    "postgresql17": "Official Homebrew libpq@17 17.11_1 installed; explicit pg_dump/pg_restore binaries available, without PATH or service changes. DRV3 acceptance remains pending."
+  },
+  "ledgerInvariant": {
+    "requirements": 78,
+    "stateCounts": {
+      "verified": 9,
+      "in_progress": 67,
+      "planned": 2
+    },
+    "acceptanceCriteriaDependenciesAndRequiredEvidenceUnchanged": true,
+    "protectedFieldsSha256Before": "bf4c89fd91b84b4462c70a75af4246e4e9dd9a8ae7d5c0241c3a042ddd16809d",
+    "protectedFieldsSha256After": "bf4c89fd91b84b4462c70a75af4246e4e9dd9a8ae7d5c0241c3a042ddd16809d",
+    "protectedFieldsMatch": true,
+    "releaseStatus": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    }
+  },
+  "ledgerProposal": {
+    "requirement": "PROD-CI-08",
+    "implementationStatus": "focused_582P0F2skip2J4_f99; actualJ4_realChild3P0F0S_975a; compiler5120_exit0_273b93ee; fullSuite_process-custody successor_and_exactCI_pending",
+    "appendedEvidence": [
+      {
+        "level": "contract",
+        "commit": "f99b6bba5909bb5f6bfd5f6293072458d3813fa1",
+        "result": "Focused R4 repair/preconditions:582 passed/0 failed/2 skipped-gated J4 from584 exact identities; pendingIdentityCount0; nine prior failures passed; source freeze and exact case/identity joins matched; run exit0. Compiler/lint on this source exited0. This is not full-suite or actual J4 acceptance.",
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json"
+      },
+      {
+        "level": "local_engine",
+        "commit": "975a27563f99ba4fdeb2d6172c1be0654f436b77",
+        "result": "Dedicated actual-child J4 regression scope:one file,3 exact same-process identities,3 passed/0 failed/0 skipped; wrapper0, source freeze equal, owned temp data removed, minimum free space400805175296 bytes above23622320128-byte floor. Not complete J4 acceptance.",
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json"
+      },
+      {
+        "level": "contract",
+        "commit": "273b93ee1321900018a49366719eb2e3cc51909c",
+        "result": "Reviewed NODE_ENV test-environment repair; full5120MiB non-incremental compiler exit0 and new-test ESLint exit0; private outputs empty. Full Node/DOM suite and process-custody successor remain pending.",
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json"
+      },
+      {
+        "level": "remote_ci",
+        "commit": "84a672be47e36c01193baa4fcf0a1ed396b9a125",
+        "result": "Terminal exact-SHA CI run38057465682 observed2026-10-10T14:40:28+00:00:18 success/2 failure/8 skipped. Verify failed24516P/8F/1921S; eight112-vs-113 assertions in two files. Go failed at BuildKit builder setup before tests; systemd acceptance did not execute. Separate native worker/platform runs succeeded. Applies only to predecessor84a.",
+        "artifact": "docs/build/production/verification/CI-2026-10-10-84a672be-terminal.json"
+      }
+    ],
+    "allowedEvidenceObjectKeys": [
+      "level",
+      "commit",
+      "result",
+      "artifact"
+    ],
+    "stateCriteriaDependenciesRequiredEvidenceChange": false
+  },
+  "historicalFullCoreAt84a": {
+    "counts": {
+      "passed": 24497,
+      "failed": 9,
+      "pending": 1939,
+      "total": 26445,
+      "collectedIdentities": 26445,
+      "reportIdentities": 26445,
+      "completedIdentities": 26445
+    },
+    "sourceFreezeEqual": true,
+    "accepted": false,
+    "wrapperExitCode": 2,
+    "reason": "Owned descendant changed sessions; wrapper refused acceptance pending process-cleanup acceptance. Actual Vitest exit and continuous disk minimum unknown; historical process custody and cleanup unaccepted; data retained.",
+    "disposition": "NOT PASS, preserved as historical full-suite attempt."
+  },
+  "privateAndPublicArtifactHashes": {
+    "f99SummaryPrivate": "5012dc8d351de0accc0469c77a0a1ca03aa668f4c14bf5526dc4a87693b84c0b",
+    "f99ReportPrivate": "ad7a45aaabccaa75d252461cd586a49cd0addfd295dfa026d11bb8268ccaec48",
+    "f99IdentityPrivate": "46f67801c6c85d81264ec49806ec4b2e5420fe523e9a9930979190436b6961df",
+    "f99RunLogPrivate": "ba01407fa7f4a995f8ed8a086347a048284226d0fbee384fccc0f488efc8b41d",
+    "f99SourceFreezeBeforeAfter": "07cc5c4e69d525fd17251ada3df95aaf0929d762a93f8a8f3db4b4e2c93995e9",
+    "975aSummaryPrivate": "2bd698f2255c584a063f531f710131c4b7b75891e567ec99c22d42b3322ddc94",
+    "975aReportPrivate": "416e60224b4c990a82029a063266274c46439b6e636eac256c58f2c199242ebc",
+    "975aIdentityPrivate": "6e8140556d5a5c30fb75a40a2bf4a9ed6862c5dabd41717531b86f851cf74f82",
+    "975aRunLogPrivate": "6f00fde9d77c761c25b47c2ad90a0303e2396f731a4107889b1aac6c18e4cbd7",
+    "975aSourceFreezeBeforeAfter": "7d69e3ae7d947a2cca07ff8785832d9a16387f47745d46ea88d8ddd0de75dded",
+    "ci84MainJson": "cfbc45d57b350aa08cda17287e428e318a9d7f7e054c30d99f4ee0fea3988f49",
+    "ci84MainMarkdown": "fba418ed8493461e59ad2c1128f1521663e974c13d1904f1ee60355820266cf6",
+    "ci84NativeJson": "347dbaca7b7373e85412ddc6616193067450663ec4ae796bb8caebf6d1dc7ab5",
+    "ci84NativeMarkdown": "748ce50b76490900afe4c24c2831ec4574a3b7acbf26899f9e027c06ad4cf51a",
+    "ledgerBaseline": "16199c8da0ab4654d38f5cd738c2cc84b7373dff455016c7c65346587d97f0d6",
+    "compilerLogEmpty": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "pg17ReceiptMarkdown": "ab7c91921f1fdddde7cfcb6f812928c744156df0f307bb1ac46493747e6432ce",
+    "pg17ReceiptJson": "5d9e53976cec12ac944ad8b760881210c0eb7a08d8a1f8e6110151092cf00a61",
+    "pg17FormulaMetadata": "737cfa5354ffab2900163ba9cc1c5311103a6c8fe2ef0969613298d7882bd56e",
+    "pg17InstalledReceipt": "7896b8a312709f8effd2ad55c671e22aaa847b3ff52fbe9f1f00dc76c224ca77",
+    "pg17PrivateInstallLog": "36bbe0275f2d3429f2804f1d22008e02503eb151cd28dbcba620bd2b6e208c64",
+    "pg17FormulaBottle": "8ea3e1fe77ce375c50b17f8cd5f7bf818033c2218ace56129dbb107e5e735072"
+  },
+  "historicalTypecheckAt975a": {
+    "status": "failed",
+    "diagnostics": 4,
+    "cause": "New test process environment omitted required NODE_ENV under Next ProcessEnv augmentation.",
+    "source": "975a27563f99ba4fdeb2d6172c1be0654f436b77",
+    "disposition": "Preserved; successor repair at273b93ee passed."
+  },
+  "compilerAndLintAt273b93ee": {
+    "source": "273b93ee1321900018a49366719eb2e3cc51909c",
+    "compilerExitCode": 0,
+    "memoryMiB": 5120,
+    "incremental": false,
+    "compilerPrivateLog": "empty",
+    "eslintExitCode": 0,
+    "eslintPrivateOutput": "empty",
+    "independentReview": "one-line NODE_ENV test-environment repair accepted"
+  },
+  "currentPending": {
+    "fullNodeDomSuite": "pending",
+    "process-custody successor": "pending",
+    "completeJ4Journey": "pending",
+    "freshExactSourceCI": "pending"
+  },
+  "postgresql17Clients": {
+    "observedAt": "2026-10-10T14:44:01Z",
+    "installedVersion": "17.11_1",
+    "kegOnly": true,
+    "pgDumpVersion": "pg_dump (PostgreSQL) 17.11",
+    "pgRestoreVersion": "pg_restore (PostgreSQL) 17.11",
+    "explicitBinDir": "/opt/homebrew/opt/libpq@17/bin",
+    "globalPathChanged": false,
+    "serviceStarted": false,
+    "acceptanceRun": false,
+    "DRV3StillPending": true
+  }
+}

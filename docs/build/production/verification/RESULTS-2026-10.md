@@ -1,3 +1,16 @@
+## Focused R4, J4 regression and compiler repair checkpoint, 10 October 2026
+
+On clean source `f99b6bba5909bb5f6bfd5f6293072458d3813fa1`, focused R4 repair/preconditions passed **582/0** with **2 skipped/gated J4** from584 exact identities; `pendingIdentityCount: 0`. All nine prior failed assertions passed. Counters and source freeze matched; run exit0 and owned temporary data removed. Gate309, guest187, coverage67, custody10, preconditions9 are separate scopes. Eight changed paths were independently reviewed by Sol. Compiler/lint at f99 exited0.
+
+At `975a27563f99ba4fdeb2d6172c1be0654f436b77`, dedicated real-child J4 regressions passed3/0/0 across one file/three same-process identities; wrapper0, source stable, cleanup complete, minimum free400805175296 bytes above23622320128-byte floor. Complete J4 remains open. Typecheck at975a failed due missing `NODE_ENV` in the test environment, causing four cascading diagnostics. Reviewed repair is integrated at `273b93ee1321900018a49366719eb2e3cc51909c`; full non-incremental5120MiB compiler and new-test ESLint both exited0, private outputs empty. Full Node/DOM and the process-custody successor remain pending.
+
+Latest terminal CI report is run38057465682 on predecessor84a, observedAt `2026-10-10T14:40:28+00:00`:18 success/2 failure/8 skipped. Verify exit1:24,516P/8F/1,921S; files1,135P/2F/94S. Eight stale expected112/actual113 assertions in two files (six gate-manifest, two platform-coverage); focused f99 run passed the updated assertions. Smoke/Gimbal skipped. Go failed in BuildKit builder setup before test events; systemd acceptance did not execute. This is not a systemd test failure. Separate native worker/platform runs on84a succeeded. No later exact-CI result is inferred.
+
+The full-core attempt at84a remains **NOT PASS**:24,497P/9F/1,939 pending (26,445 total), wrapper2 after owned descendant session/custody refusal; actual Vitest exit and continuous disk minimum unknown; cleanup unaccepted and data retained. Focused successors do not change that disposition.
+
+PROD-CI-08 stays in_progress. Append four-key evidence objects and update implementationStatus only; keep all criteria, dependencies and requiredEvidence. Totals stay9/67/2 over78; all four release flags remain false. [Focused evidence](../evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json) · [CI84 receipt](CI-2026-10-10-84a672be-terminal.json) · [blockers](../BUILD-BLOCKERS-2026-10-10.md).
+
+
 ## Integrated unit repairs and current CI, 10 October 2026
 
 The reviewed candidate based on `de8079cdf` passes **1,019/0/0 across24 targeted files**, with stable source, native Mac ARM64/Node22.23.3, continuous22GiB floor (minimum392753831936bytes), compiler5120MiB and changed-file lint. Minimal production repairs preserve central MFA refusal status/conditions while supplying the platform error code through the outer route boundary, and keep compiler-only build nodes outside Kubernetes namespace propagation. Synthetic identity fixtures leave shipping guards active; remaining fixture repairs correct asset copying, tool inventory, ordering, approval wording, budget isolation and per-scenario admission runtime. No genuine provider or full-suite pass is inferred.

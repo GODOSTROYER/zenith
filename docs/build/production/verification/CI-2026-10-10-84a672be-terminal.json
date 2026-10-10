@@ -1,0 +1,224 @@
+{
+  "schema": "zenith-exact-ci-snapshot/v1",
+  "repository": "GODOSTROYER/zenith",
+  "branch": "codex/production-2026-10-02",
+  "headSha": "84a672be47e36c01193baa4fcf0a1ed396b9a125",
+  "runId": 38057465682,
+  "workflow": "CI",
+  "event": "push",
+  "observedAt": "2026-10-10T14:40:28+00:00",
+  "status": "completed",
+  "conclusion": "failure",
+  "inventoryCount": 28,
+  "jobCounts": {
+    "success": 18,
+    "failure": 2,
+    "skipped": 8
+  },
+  "jobs": [
+    {
+      "id": 114228768870,
+      "name": "wave5-contract",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228768996,
+      "name": "operation-gates (reconciliation)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769067,
+      "name": "generated",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769073,
+      "name": "go",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 114228769077,
+      "name": "tofu",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769079,
+      "name": "policy",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769081,
+      "name": "supply-chain",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769093,
+      "name": "ledger",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769099,
+      "name": "adversarial",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769101,
+      "name": "docker",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769103,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769117,
+      "name": "workflow-history-replay",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769163,
+      "name": "platform-postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769172,
+      "name": "workflows",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769183,
+      "name": "recovery",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769216,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 114228769233,
+      "name": "hosted",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769247,
+      "name": "operation-gates (workflow-intents)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769266,
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769351,
+      "name": "agent",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 114228769496,
+      "name": "j15-operated-upgrade",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769559,
+      "name": "drv1-private-source",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769576,
+      "name": "j15-operated-restore",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769593,
+      "name": "drivers-d4-two-tenants",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769627,
+      "name": "drv2-crash-partition",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769632,
+      "name": "drv1-update-rollback",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769681,
+      "name": "drv2-drift-repair",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 114228769682,
+      "name": "drivers-d4-export",
+      "status": "completed",
+      "conclusion": "skipped"
+    }
+  ],
+  "verify": {
+    "status": "failure",
+    "exitCode": 1,
+    "failureStep": "Unit suites (Node and DOM projects)",
+    "files": {
+      "passed": 1135,
+      "failed": 2,
+      "skipped": 94,
+      "total": 1231
+    },
+    "tests": {
+      "passed": 24516,
+      "failed": 8,
+      "skipped": 1921,
+      "total": 26445
+    },
+    "failedFiles": [
+      "tests/ci/gate-manifest.test.ts",
+      "tests/ci/platform-coverage.test.ts"
+    ],
+    "assertion": "Eight stale assertions expected 112 workflow requirements and observed 113. Smoke and Gimbal skipped."
+  },
+  "go": {
+    "status": "failure",
+    "failedAt": "BuildKit builder setup",
+    "testEvents": 0,
+    "cleanup": "completed",
+    "systemdAcceptanceExecuted": false,
+    "interpretation": "Builder setup failure before systemd acceptance; this is not a systemd test failure."
+  },
+  "nativeWorkerRunId": 38057465717,
+  "nativeWorkerConclusion": "success",
+  "nativePlatformRunId": 38057465690,
+  "nativePlatformConclusion": "success",
+  "nativePlatformLinuxSelectedLeaf": "TestRealSystemctlAndJournalctl passed",
+  "scope": "Terminal result applies only to exact predecessor84a672be."
+}

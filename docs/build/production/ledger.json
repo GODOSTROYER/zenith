@@ -731,7 +731,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "reviewed_c7_repairs_integrated_5e5417b9; CI437P6LinuxS/nativePG162P/authority92P; complete_gate_pending",
+      "implementationStatus": "focused_582P0F2skip2J4_f99; actualJ4_realChild3P0F0S_975a; compiler5120_exit0_273b93ee; fullSuite_custodySuccessor_and_exactCI_pending",
       "evidence": [
         {
           "level": "local_engine",
@@ -1540,6 +1540,30 @@
           "commit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
           "result": "Exact de8079cdf CI terminal18success2failure8skip; verify24343passed166failed1921skipped; SYS1 fixture-build failure before tests. Separate native worker/platform workflows each2success.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-de8079cdf-ci.json"
+        },
+        {
+          "level": "contract",
+          "commit": "f99b6bba5909bb5f6bfd5f6293072458d3813fa1",
+          "result": "Focused R4 repair/preconditions:582 passed/0 failed/2 skipped-gated J4 from584 exact identities; pendingIdentityCount0; nine prior failures passed; source freeze and exact case/identity joins matched; run exit0. Compiler/lint on this source exited0. This is not full-suite or actual J4 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "975a27563f99ba4fdeb2d6172c1be0654f436b77",
+          "result": "Dedicated actual-child J4 regression scope:one file,3 exact same-process identities,3 passed/0 failed/0 skipped; wrapper0, source freeze equal, owned temp data removed, minimum free space400805175296 bytes above23622320128-byte floor. Not complete J4 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json"
+        },
+        {
+          "level": "contract",
+          "commit": "273b93ee1321900018a49366719eb2e3cc51909c",
+          "result": "Reviewed NODE_ENV test-environment repair; full5120MiB non-incremental compiler exit0 and new-test ESLint exit0; private outputs empty. Full Node/DOM suite and the process-custody successor remain pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-975a-f99-focused-j4.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "84a672be47e36c01193baa4fcf0a1ed396b9a125",
+          "result": "Terminal exact-SHA CI run38057465682 observed2026-10-10T14:40:28+00:00:18 success/2 failure/8 skipped. Verify failed24516P/8F/1921S; eight112-vs-113 assertions in two files. Go failed at BuildKit builder setup before tests; systemd acceptance did not execute. Separate native worker/platform runs succeeded. Applies only to predecessor84a.",
+          "artifact": "docs/build/production/verification/CI-2026-10-10-84a672be-terminal.json"
         }
       ],
       "requiredEvidence": [

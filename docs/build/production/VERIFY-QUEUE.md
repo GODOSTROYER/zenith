@@ -1,3 +1,16 @@
+## Current verifier status and builder blockers, 10 October 2026
+
+- f99 focused R4: **582P/0F/2 skipped-gated J4**,584 exact identities, `pendingIdentityCount: 0`; all nine prior failures passed. Compiler/lint f99 exit0; eight changed paths independently reviewed by Sol.
+- 975a real-child J4 regression: **3P/0F/0S**,one file/three identities, wrapper0, source freeze and cleanup passed. Full J4 remains open.
+- 273b93ee compiler repair: non-incremental5120MiB compiler exit0 and new-test ESLint exit0; private outputs empty. Full Node/DOM and the process-custody successor remain pending.
+- CI84 terminal only for predecessor84a: observedAt `2026-10-10T14:40:28+00:00`,18 success/2 failure/8 skipped. Verify failed24,516P/8F/1,921S; eight112-vs-113 assertions. Go failed in BuildKit builder setup before tests; systemd acceptance did not run. Separate native runs succeeded. No exact CI snapshot for f99/975a/273b93ee is available.
+- Next: complete full Node/DOM and canonical engine/native gates on coherent273b93ee source, then inspect every job on that exact push. Keep all earlier failed receipts intact.
+- Local journey order: J1 -> UX-01 -> OBS-04 -> MACH-03 -> OBS-02 -> MACH-04. Keep AirPlay Receiver off while approved tests need port5000; do not repeat Settings changes. MACH-04 requires genuine Linux PID1 lifecycle and separate default-stack delivery.
+- DRV3/4: PostgreSQL17 `pg_dump`/`pg_restore` 17.11 are installed at `/opt/homebrew/opt/libpq@17/bin`; no PATH/service changes and no acceptance run. Temporal CLI1.9.1 is available. Docker is available; reviewed ARM64 digests for PostgreSQL17/MySQL8.4/MinIO remain prerequisites. Cloud spend, DNS/private-app access, retention and release sign-off remain separately authorized decisions.
+
+Ledger CI-08 gets evidence and implementationStatus updates only. All78 states/criteria/dependencies/requiredEvidence remain unchanged (9/67/2); all four release flags false. [Builder-facing dependency list](BUILD-BLOCKERS-2026-10-10.md).
+
+
 ## Browser verification and Linux diagnostics, 10 October 2026
 
 Reviewed source `e8970f2510d617da825b6861e2c3b1023456e152` integrates two browser fixture repairs and bounded reconciliation/SYS1 failure diagnostics. Agent browser **44/44** and hosted browser **24/24** passed on native Mac ARM64 with Node22.23.3 and Chromium141.0.7390.37, with retained case identities, continuous22GiB floor and owned cleanup. Both use synthetic identity and preserve shipping guards; real default Supabase MFA remains pending. Root integrated typecheck5120MiB/lint passed; SYS1 contracts186/0/0 and classifier1/0 passed. No privileged SYS1 execution is inferred.

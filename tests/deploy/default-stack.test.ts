@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { joinedConfiguration, validateInput, planFor, installationEnvironment, environmentsFor } from '../../scripts/deploy/installation.mjs';
 import { apiProbeRequest } from '../../scripts/acceptance/default-stack/readiness.mjs';
 import { issuerBindings, issuer } from '../../scripts/acceptance/default-stack/issuer.mjs';
-import { cleanupPlan, supabaseConfig, stackComposition, topology, ports, root, installationLabel, projectLabel, digestImage, assertHeadroom, minimumFreeBytes } from '../../scripts/acceptance/default-stack/config.mjs';
+import { cleanupPlan, supabaseConfig, mailpitEnvironment, stackComposition, topology, ports, root, installationLabel, projectLabel, digestImage, assertHeadroom, minimumFreeBytes, excludedSupabaseServices } from '../../scripts/acceptance/default-stack/config.mjs';
 
 const secret = () => randomBytes(32).toString('hex');
 const id = () => randomBytes(12).toString('hex');
@@ -65,9 +65,33 @@ describe('default stack pure configuration contracts', () => {
     expect(text).toContain('pool_mode = "transaction"'); expect(text).toContain('schemas = ["public", "graphql_public"]');
     expect(text).toContain('enabled = false\n[db.seed]'); expect(text).toContain('enable_confirmations = true');
     expect(text).toContain('[auth.email.smtp]\nenabled = true\nhost = "mailpit"\nport = 1025');
+    expect(text).toMatch(/\[auth\.email\.smtp\][\s\S]*?user = "zenith-local-[a-f0-9]{24}"\npass = "env\(ZENITH_MAILPIT_SMTP_PASS\)"/);
     expect(text).toContain('[auth.mfa.totp]\nenroll_enabled = true\nverify_enabled = true');
     expect(text).not.toContain('schemas = ["platform"'); expect(text).not.toContain('password =');
     expect(() => supabaseConfig('zenith')).toThrow('project-identity');
+  });
+  it('renders SMTP auth only for a valid disposable installation identity and generated password', () => {
+    const password = secret();
+    expect(mailpitEnvironment('zenith-local-0123456789abcdef01234567', password)).toBe(
+      `MP_DATABASE=/tmp/mailpit.db\nMP_SMTP_AUTH=zenith-local-0123456789abcdef01234567:${password}\nMP_SMTP_AUTH_ALLOW_INSECURE=true\n`,
+    );
+    expect(() => mailpitEnvironment('foreign-project', password)).toThrow('mailpit-smtp-identity');
+    expect(() => mailpitEnvironment('zenith-local-0123456789abcdef01234567', 'short')).toThrow('mailpit-smtp-identity');
+  });
+  it('excludes the pinned CLI service names and keeps Mailpit credentials private and installation-scoped', () => {
+    expect(excludedSupabaseServices.split(',')).toEqual([
+      'mailpit', 'storage-api', 'imgproxy', 'realtime', 'studio', 'postgres-meta', 'logflare', 'vector', 'edge-runtime',
+    ]);
+    expect(excludedSupabaseServices).not.toContain('inbucket');
+    expect(excludedSupabaseServices).not.toContain('pg-meta');
+    const up = fs.readFileSync('scripts/acceptance/default-stack/up.mjs', 'utf8');
+    expect(up).toContain('const smtpPassword = randomBytes(32).toString(\'hex\')');
+    expect(up).toContain('const smtpEnv = Object.freeze({ ZENITH_MAILPIT_SMTP_PASS: smtpPassword })');
+    expect(up).toContain('mailpitEnvironment(state.projectId, smtpPassword)');
+    expect(up).toContain("'--env-file', mailpitEnvFile");
+    expect(up.match(/env: smtpEnv/g)).toHaveLength(2);
+    expect(up).not.toContain('smtp-auth-accept-any');
+    expect(up).not.toContain("'-p', `127.0.0.1:${ports.mail}:1025`");
   });
   it.each(['default', 'lean'])('renders the %s topology with private CA mounts and independent scratch', profile => {
     const peer = joinedConfiguration(fixture, id());

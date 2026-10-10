@@ -4,7 +4,7 @@ import os from 'node:os';
 import { randomBytes, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { prepareJoin, privateLocation, assertPrivate, writeJson, readPrepared, sourceBinding } from '../../deploy/installation.mjs';
-import { root, cliVersion, ports, topology, supabaseConfig, digestImage, installationLabel, projectLabel, stackComposition, fail, assertHeadroom } from './config.mjs';
+import { root, cliVersion, ports, topology, supabaseConfig, mailpitEnvironment, digestImage, excludedSupabaseServices, installationLabel, projectLabel, stackComposition, fail, assertHeadroom } from './config.mjs';
 import { cli, run, docker, compose, requireEngineGate, save, cleanup, setResourceGuard } from './runtime.mjs';
 import { readiness } from './readiness.mjs';
 import { deferredJ4Composition, initializeJ4Namespace, j4PrestartReadiness, prepareJ4Ownership } from './j4.mjs';
@@ -138,17 +138,23 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
     const cliDir = path.join(dir, 'supabase-project'); fs.mkdirSync(path.join(cliDir, 'supabase'), { recursive: true, mode: 0o700 });
     privateFile(path.join(cliDir, 'supabase/config.toml'), supabaseConfig(state.projectId, profile));
     await docker(['network', 'create', '--label', `${installationLabel}=${installationId}`, '--opt', 'com.docker.network.bridge.host_binding_ipv4=127.0.0.1', state.supabaseNetwork]);
+    const smtpPassword = randomBytes(32).toString('hex');
+    const smtpEnv = Object.freeze({ ZENITH_MAILPIT_SMTP_PASS: smtpPassword });
+    const mailpitEnvFile = path.join(dir, 'mailpit.env');
+    privateFile(mailpitEnvFile, mailpitEnvironment(state.projectId, smtpPassword));
     const mailpitImage = digestImage(envValues(fs.readFileSync(path.join(root, 'deploy/observability/images.env'), 'utf8')).ZENITH_MAILPIT_IMAGE);
     await docker(['pull', mailpitImage]);
     const [mailImage] = JSON.parse(await docker(['image', 'inspect', mailpitImage])); nativeArch(mailImage.Architecture);
     await docker(['run', '-d', '--name', `zenith-local-${installationId}-mailpit`, '--network', state.supabaseNetwork, '--network-alias', 'mailpit',
       '--label', `${installationLabel}=${installationId}`, '--memory', '64m', '--cpus', '0.25', '--pids-limit', '64', '--user', '1000:1000',
       '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true', '--tmpfs', '/tmp:rw,noexec,nosuid,size=32m,uid=1000,gid=1000,mode=1770',
-      '-e', 'MP_DATABASE=/tmp/mailpit.db', '-p', `127.0.0.1:${ports.mail}:8025`, mailpitImage]);
+      '--env-file', mailpitEnvFile, '-p', `127.0.0.1:${ports.mail}:8025`, mailpitImage]);
     state.mailpitUrl = `http://127.0.0.1:${ports.mail}`;
     state.mailpitImage = { reference: mailpitImage, imageId: mailImage.Id, architecture: mailImage.Architecture };
-    await run('supabase', ['start', '--workdir', cliDir, '--network-id', state.supabaseNetwork, '--exclude', 'inbucket,storage-api,imgproxy,realtime,studio,pg-meta,logflare,vector,edge-runtime'], { timeout: 600_000, id: 'supabase-start' });
-    const status = JSON.parse(await run('supabase', ['status', '--workdir', cliDir, '--output', 'json']));
+    await run('supabase', ['start', '--workdir', cliDir, '--network-id', state.supabaseNetwork, '--exclude', excludedSupabaseServices], {
+      timeout: 600_000, id: 'supabase-start', env: smtpEnv,
+    });
+    const status = JSON.parse(await run('supabase', ['status', '--workdir', cliDir, '--output', 'json'], { id: 'supabase-status', env: smtpEnv }));
     // Never assume or print the CLI's credentials; use its actual status output.
     if (!status.ANON_KEY || !status.SERVICE_ROLE_KEY || !status.DB_URL) fail('supabase-status');
     state.supabaseImages = [];

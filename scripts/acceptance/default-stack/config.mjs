@@ -8,8 +8,13 @@ export const cliVersion = '2.75.0';
 export const installationLabel = 'io.zenith.installation';
 export const projectLabel = 'com.supabase.cli.project';
 export const ports = Object.freeze({ api: 36400, peerApi: 36401, supabase: 54321, cliApi: 54326, db: 54322, shadow: 54320, mail: 8025, pooler: 6543, cliPooler: 54329, registry: 5000, j4Temporal: 17233 });
+export const excludedSupabaseServices = 'mailpit,storage-api,imgproxy,realtime,studio,postgres-meta,logflare,vector,edge-runtime';
 export const fail = id => { throw new Error(`default-stack:${id}`); };
 export const minimumFreeBytes = 22 * 1024 ** 3;
+export function mailpitEnvironment(projectId, password) {
+  if (!/^zenith-local-[a-f0-9]{24}$/.test(projectId) || !/^[a-f0-9]{64}$/.test(password)) fail('mailpit-smtp-identity');
+  return `MP_DATABASE=/tmp/mailpit.db\nMP_SMTP_AUTH=${projectId}:${password}\nMP_SMTP_AUTH_ALLOW_INSECURE=true\n`;
+}
 export function assertHeadroom(availableBytes) {
   if (!Number.isSafeInteger(availableBytes) || availableBytes < minimumFreeBytes) fail('disk-headroom');
 }
@@ -82,8 +87,8 @@ max_frequency = "1s"
 enabled = true
 host = "mailpit"
 port = 1025
-user = ""
-pass = ""
+user = "${projectId}"
+pass = "env(ZENITH_MAILPIT_SMTP_PASS)"
 admin_email = "auth@journey.local"
 sender_name = "Zenith local acceptance"
 [auth.mfa]

@@ -26,6 +26,17 @@ DIAGNOSTIC_CLEANUP_FAILURE_CLASS=None
 DIAGNOSTIC_CLEANUP_OPERATION=None
 DIAGNOSTIC_CHILD_EXIT_CODE=None
 DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=None
+DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=None
+APT_BUILD_STDERR_TAIL_BYTES=65_536
+# Labels describe recognized private-output markers, not asserted build causes.
+APT_BUILD_FAILURE_CLASSES={'apt-network-marker','apt-package-marker','apt-signature-marker','base-image-pull-marker','oom-marker','multiple-signatures','unknown'}
+APT_BUILD_FAILURE_SIGNATURES=(
+ ('oom-marker',rb'out of memory|oomkilled'),
+ ('apt-network-marker',rb'temporary failure resolving|could not resolve|connection timed out|could not connect|network is unreachable'),
+ ('apt-package-marker',rb'unable to locate package|no installation candidate'),
+ ('apt-signature-marker',rb'no_pubkey|expkeysig|not signed by|signatures? (?:couldn.t|could not) be verified'),
+ ('base-image-pull-marker',rb'failed to resolve source metadata|pull access denied|manifest unknown|no matching manifest')
+)
 DIAGNOSTIC_OPERATIONS={
  'prepare','bind','disk-admission','docker-admission','resolve-build-tools','build-original-fixtures',
  'validate-build-output','binary-build-metadata','prepare-build-context','create-context','verify-context','create-builder',
@@ -80,6 +91,14 @@ def classify_failure(error):
  if isinstance(error,subprocess.SubprocessError):return 'subprocess'
  if isinstance(error,json.JSONDecodeError):return 'json'
  return 'other'
+def classify_apt_build_failure(stderr_path):
+ path=pathlib.Path(stderr_path)
+ with path.open('rb') as stderr:
+  stderr.seek(0,os.SEEK_END);size=stderr.tell();stderr.seek(max(0,size-APT_BUILD_STDERR_TAIL_BYTES));sample=stderr.read(APT_BUILD_STDERR_TAIL_BYTES)
+ matches={failure_class for failure_class,signature in APT_BUILD_FAILURE_SIGNATURES if re.search(signature,sample,re.I)}
+ if not matches:return 'unknown'
+ if len(matches)>1:return 'multiple-signatures'
+ return matches.pop()
 def initialize_diagnostic(root,attempt):
  global DIAGNOSTIC_DIRECTORY
  if not re.fullmatch('[a-f0-9]{32}',attempt) or root.resolve()!=root:raise RuntimeError('diagnostic_scope')
@@ -91,7 +110,7 @@ def initialize_diagnostic(root,attempt):
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
- row={'schemaVersion':3,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED}
+ row={'schemaVersion':4,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS}
  assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
  assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['failureOperation'] is None and row['cleanupState']=='completed')
  assert row['failureClass'] is None or row['failureOperation'] in DIAGNOSTIC_OPERATIONS
@@ -100,6 +119,8 @@ def write_diagnostic():
  assert row['childExitCode'] is None or type(row['childExitCode']) is int and -255<=row['childExitCode']<=255 and row['childExitCode']!=0
  assert row['childExitCode'] is None or row['failureClass']=='subprocess'
  assert row['aptBuildOOMObserved'] is None or type(row['aptBuildOOMObserved']) is bool
+ assert row['aptBuildFailureClass'] is None or row['aptBuildFailureClass'] in APT_BUILD_FAILURE_CLASSES and row['failureClass']=='subprocess' and row['failureOperation']=='build-apt-image' and row['childExitCode'] is not None
+ assert (row['aptBuildFailureClass'] is not None)==(row['failureClass']=='subprocess' and row['failureOperation']=='build-apt-image' and row['childExitCode'] is not None)
  target=DIAGNOSTIC_DIRECTORY/'pid1-diagnostic.private.json';tmp=DIAGNOSTIC_DIRECTORY/('.pid1-diagnostic-'+secrets.token_hex(8)+'.tmp')
  fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
  try:
@@ -181,7 +202,7 @@ def main():
  def interrupt(signum,frame):raise InterruptedError('owned interrupt')
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
  def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None):
-  global DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED
+  global DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS
   if cleaning:set_diagnostic_stage('cleanup')
   else:
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
@@ -201,6 +222,8 @@ def main():
   if phase=='apt-image-build':
    DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=bool(re.search(rb'(?i)out of memory|oomkilled', (out/(phase+'.stderr.private')).read_bytes()));receipt['aptBuildOOMObserved']=DIAGNOSTIC_APT_BUILD_OOM_OBSERVED;save()
   if child.returncode!=0:
+   if phase=='apt-image-build' and DIAGNOSTIC_FAILURE is None:
+    DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=classify_apt_build_failure(out/(phase+'.stderr.private'))
    if DIAGNOSTIC_FAILURE is None and DIAGNOSTIC_CHILD_EXIT_CODE is None:DIAGNOSTIC_CHILD_EXIT_CODE=child.returncode
    raise subprocess.CalledProcessError(child.returncode,'owned-child')
   return (out/(phase+'.stdout.private')).read_bytes()

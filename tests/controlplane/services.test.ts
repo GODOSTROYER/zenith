@@ -19,7 +19,7 @@ import {
   reconcileOperations,
   recordPolicyOutcome,
 } from "@/lib/controlplane/operations";
-import { LANES, backdate, expectCode, newWorkspace, openLane, proposalFor, seedApprovedOperation, seedAwaitingApproval, sleep, uid, user } from "./_support/harness";
+import { LANES, backdate, expectCode, newWorkspace, openLane, proposalFor, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
 
 describe.each(LANES)("services [$name]", (lane) => {
   let ctx: Awaited<ReturnType<typeof openLane>>;
@@ -70,19 +70,15 @@ describe.each(LANES)("services [$name]", (lane) => {
           while (performance.now() < deadline) {
             const remainingMs = deadline - performance.now();
             await new Promise<void>((resolve, reject) => {
-              let timer: ReturnType<typeof setTimeout>;
-              const cleanup = (): void => {
-                clearTimeout(timer);
+              const timer = setTimeout(() => {
                 signal.removeEventListener("abort", onAbort);
-              };
-              const onAbort = (): void => {
-                cleanup();
-                reject(signal.reason ?? new Error("Lease lost before renewal milestone"));
-              };
-              timer = setTimeout(() => {
-                cleanup();
                 resolve();
               }, remainingMs);
+              const onAbort = (): void => {
+                clearTimeout(timer);
+                signal.removeEventListener("abort", onAbort);
+                reject(signal.reason ?? new Error("Lease lost before renewal milestone"));
+              };
               signal.addEventListener("abort", onAbort, { once: true });
               if (signal.aborted) onAbort();
             });

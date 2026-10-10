@@ -792,6 +792,9 @@ jobs:
       - run: npm ci --ignore-scripts
 
       - name: Build
+        # next build type-checks the complete source graph, which exceeds Node's default heap.
+        env:
+          NODE_OPTIONS: --max-old-space-size=5120
         run: npm run build
 
   # Proves the image still assembles: `output: "standalone"` is easy to break

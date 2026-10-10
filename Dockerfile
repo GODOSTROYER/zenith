@@ -47,6 +47,9 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_TELEMETRY_DISABLED=1
 
+# next build type-checks the complete source graph, which exceeds Node's default heap.
+# Build stage only: the runner stage does not inherit this.
+ENV NODE_OPTIONS=--max-old-space-size=5120
 # Compile with the public brand/font assets included in the build context.
 RUN mkdir -p public && npm run build
 

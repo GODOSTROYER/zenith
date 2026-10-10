@@ -1516,6 +1516,12 @@
           "commit": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
           "result": "Recovery client custody root120/0/0, compiler0 in12.19s, lint/actionlint0; independent review accepted. Actual recovery lane remains pending.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-recovery-client-custody.json"
+        },
+        {
+          "level": "contract",
+          "commit": "e8970f2510d617da825b6861e2c3b1023456e152",
+          "result": "Reviewed synthetic agent browser44/0/0 and hosted24/0/0; retainedcaseidentities/diskguard/cleanup. Integratedcompiler5120MiB/lint0; SYS1contracts186/0/0. Actuale854reconciliation38/0/0; remote15success4failure8skip1active. Completecoherentgates/nativeSYS1/defaultAuth/CIpending; no promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-newmac-browser-checkpoint.json"
         }
       ],
       "requiredEvidence": [

@@ -1,3 +1,11 @@
+## Browser verification and Linux diagnostics, 10 October 2026
+
+Reviewed source `e8970f2510d617da825b6861e2c3b1023456e152` integrates two browser fixture repairs and bounded reconciliation/SYS1 failure diagnostics. Agent browser **44/44** and hosted browser **24/24** passed on native Mac ARM64 with Node22.23.3 and Chromium141.0.7390.37, with retained case identities, continuous22GiB floor and owned cleanup. Both use synthetic identity and preserve shipping guards; real default Supabase MFA remains pending. Root integrated typecheck5120MiB/lint passed; SYS1 contracts186/0/0 and classifier1/0 passed. No privileged SYS1 execution is inferred.
+
+Actual e854 reconciliation passed **38/0/0** with owned PostgreSQL16.15/TemporalCLI1.9.1, minimum398889807872bytes; container and credentials removed. Exact e854 main CI snapshot:15 success/4 failure/8 skipped/1 active verify; native worker/platform workflows each2 success. Each native worker architecture passed22 checks. Linux reconciliation and SYS1 failure causes remain unknown; successor diagnostics preserve strict admission. Full coherent gates, publication CI and real default-stack acceptance remain pending.
+
+User explicitly selected existing-profile browser acceptance after canceling separate-account setup; no account was created. Temporary user-level SSL trust is planned only for the owned default-stack CA, with exact removal afterward; no trust has been changed at this checkpoint. Live cloud remains unauthorized. Ledger **9 verified /67 in progress /2 planned**,78 criteria and four false release flags remain. [Evidence](../evidence/PROD-CI-08/2026-10-10-newmac-browser-checkpoint.json), [every inspected CI job](CI-2026-10-10-e8540c59.md).
+
 ## Mac mini repair verification, 10 October 2026
 
 Integrated repair source `460874751776b8d8bfd648cfb31264b96a266c96`. Evidence retains earlier executed candidate hashes; full coherent gates and publication CI remain pending.

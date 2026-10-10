@@ -1274,7 +1274,7 @@ write_diagnostic = next(node for node in tree.body if isinstance(node, ast.Funct
 constant_names = {"APT_BUILD_STDERR_TAIL_BYTES", "APT_BUILD_FAILURE_CLASSES", "APT_BUILD_FAILURE_SIGNATURES"}
 constants = [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in constant_names for target in node.targets)]
 namespace = {"json": json, "os": os, "pathlib": pathlib, "re": re, "secrets": secrets,
-    "DIAGNOSTIC_STAGES": {"buildkit-builder", "complete"}, "DIAGNOSTIC_FAILURES": {"subprocess"}, "DIAGNOSTIC_CLEANUP": {"not-started"},
+    "DIAGNOSTIC_STAGES": {"buildkit-builder", "complete"}, "DIAGNOSTIC_FAILURES": {"subprocess"}, "DIAGNOSTIC_CLEANUP": {"not-started", "completed"},
     "DIAGNOSTIC_OPERATIONS": {"build-apt-image"}, "DIAGNOSTIC_DIRECTORY": None,
     "DIAGNOSTIC_FAILURE": None, "DIAGNOSTIC_FAILURE_STAGE": None, "DIAGNOSTIC_FAILURE_OPERATION": None,
     "DIAGNOSTIC_STAGE": "buildkit-builder", "DIAGNOSTIC_OPERATION": "build-apt-image",

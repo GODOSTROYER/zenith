@@ -1197,12 +1197,13 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("publishes only fixed SYS1 failure stage and cleanup classes without affecting case admission", () => {
     const manifest = linuxGuestManifest();
-    const diagnostic = { schemaVersion: 6, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null };
-    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null });
+    const diagnostic = { schemaVersion: 7, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null, pid1BaselineDiagnostic: null };
+    expect(validatePid1Diagnostic(diagnostic)).toEqual({ failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null, pid1BaselineDiagnostic: null });
     for (const failureOperation of ["guest-baseline-pid1", "guest-baseline-architecture", "guest-baseline-cgroup", "guest-baseline-no-owned-paths", "guest-baseline-container-identity", "guest-baseline-container-id", "guest-baseline-container-created", "guest-baseline-container-name", "guest-baseline-container-image", "guest-baseline-container-config", "guest-baseline-container-host-config", "guest-baseline-container-host-config-oom-kill-disable", "guest-baseline-container-mounts", "guest-baseline-container-mount-order", "guest-baseline-running-idle", "guest-baseline-exec-settlement"]) {
       expect(validatePid1Diagnostic({ ...diagnostic, failureOperation }).failureOperation).toBe(failureOperation);
     }
-    expect(validatePid1Diagnostic({ schemaVersion: 6, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null }).failureOperation).toBeNull();
+    expect(validatePid1Diagnostic({ schemaVersion: 7, failureStage: "complete", failureClass: null, failureOperation: null, cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: null, aptBuildOOMObserved: null, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null, pid1BaselineDiagnostic: null }))
+      .toMatchObject({ failureOperation: null, pid1BaselineDiagnostic: null });
     expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: -9, aptBuildOOMObserved: true }).childExitCode).toBe(-9);
     expect(validatePid1Diagnostic({ ...diagnostic, failureClass: "subprocess", childExitCode: 17 }).childExitCode).toBe(17);
     const aptFailure = { ...diagnostic, failureStage: "buildkit-builder", failureClass: "subprocess", failureOperation: "build-apt-image", cleanupState: "completed", cleanupFailureClass: null, cleanupOperation: null, childExitCode: 1, aptBuildFailureClass: "unknown" as const };
@@ -1253,11 +1254,107 @@ describe("mandatory direct native package phase admission", () => {
       { ...diagnostic, schemaVersion: 2 },
       { ...diagnostic, schemaVersion: 3 },
       { ...diagnostic, schemaVersion: 4 },
+      { ...diagnostic, schemaVersion: 6 },
+      { ...diagnostic, schemaVersion: 8 },
       { ...diagnostic, environment: { TOKEN: "secret" } },
       { ...diagnostic, failureClass: null },
     ]) expect(() => validatePid1Diagnostic(invalid)).toThrow("pid1-diagnostic");
     expect(validateGoEvents("", goodExit, manifest.pid1Phase).verdict).toBe("failed");
     expect(fs.readFileSync("scripts/ci/run-guest-file-write-gate.mjs", "utf8")).toContain('step.id === "pid1-native" && (validation.verdict !== "passed" || result.observation.status !== 0)');
+    expect(fs.readFileSync("scripts/ci/guest-pid1-fixtures.py", "utf8")).toContain('comm="$(cat /proc/1/comm)" || exit 125; printf "%s\\\\n" "$comm"; test "$comm" = systemd');
+  });
+  it("accepts only bounded PID1 baseline diagnostics on the exact guest-baseline subprocess failure", () => {
+    const ordinary = { schemaVersion: 7, failureStage: "fixture-build", failureClass: "assertion", failureOperation: "validate-build-output", cleanupState: "failed", cleanupFailureClass: "assertion", cleanupOperation: "cleanup-verify-baseline", childExitCode: null, aptBuildOOMObserved: false, aptBuildFailureClass: null, hostFailureOperation: null, hostFailureErrno: null, aptBuildDiagnostic: null, pid1BaselineDiagnostic: null };
+    const baseline = { ...ordinary, failureStage: "guest-baseline", failureClass: "subprocess", failureOperation: "guest-baseline-pid1", childExitCode: 1 };
+    const emptyEvidence = { comm: null, containerState: null };
+    expect(validatePid1Diagnostic({ ...baseline, pid1BaselineDiagnostic: emptyEvidence })).toMatchObject({
+      failureStage: "guest-baseline", failureClass: "subprocess", failureOperation: "guest-baseline-pid1", childExitCode: 1,
+      pid1BaselineDiagnostic: emptyEvidence,
+    });
+    const state = { running: false, paused: false, restarting: false, oomKilled: false, status: "exited", exitCode: 1 };
+    expect(validatePid1Diagnostic({ ...baseline, pid1BaselineDiagnostic: { comm: "systemd", containerState: state } }).pid1BaselineDiagnostic)
+      .toEqual({ comm: "systemd", containerState: state });
+    for (const status of ["created", "restarting", "running", "removing", "paused", "exited", "dead"] as const) {
+      const containerState = { ...state, status };
+      expect(validatePid1Diagnostic({ ...baseline, pid1BaselineDiagnostic: { comm: "init", containerState } }).pid1BaselineDiagnostic)
+        .toEqual({ comm: "init", containerState });
+    }
+    for (const exitCode of [null, 0, 255] as const) {
+      const containerState = { ...state, exitCode };
+      expect(validatePid1Diagnostic({ ...baseline, pid1BaselineDiagnostic: { comm: "A".repeat(15), containerState } }).pid1BaselineDiagnostic)
+        .toEqual({ comm: "A".repeat(15), containerState });
+    }
+    for (const invalid of [
+      { ...baseline, failureStage: "fixture-build", pid1BaselineDiagnostic: emptyEvidence },
+      { ...baseline, failureOperation: "guest-baseline-architecture", pid1BaselineDiagnostic: emptyEvidence },
+      { ...baseline, failureClass: "assertion", childExitCode: null, pid1BaselineDiagnostic: emptyEvidence },
+      Object.fromEntries(Object.entries(ordinary).filter(([key]) => key !== "pid1BaselineDiagnostic")),
+      { ...baseline, pid1BaselineDiagnostic: { ...emptyEvidence, extra: "raw" } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: "systemd" } },
+      { ...baseline, pid1BaselineDiagnostic: { containerState: null } },
+      { ...baseline, pid1BaselineDiagnostic: "systemd" },
+      { ...baseline, pid1BaselineDiagnostic: { comm: "/sbin/init", containerState: null } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: "systemd\n", containerState: null } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: "A".repeat(16), containerState: null } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: "", containerState: null } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: "bad comm", containerState: null } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, extra: true } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { running: false, restarting: false, oomKilled: false, status: "exited", exitCode: 1 } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, exitCode: undefined } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, running: 1 } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, paused: "false" } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, restarting: null } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, oomKilled: 0 } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, status: "created;secret" } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, exitCode: -1 } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, exitCode: 256 } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, exitCode: 1.5 } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: { ...state, exitCode: true } } },
+      { ...baseline, pid1BaselineDiagnostic: { comm: null, containerState: [state] } },
+      { ...baseline, pid1BaselineDiagnostic: [emptyEvidence] },
+      { ...ordinary, pid1BaselineDiagnostic: emptyEvidence },
+    ]) expect(() => validatePid1Diagnostic(invalid)).toThrow("pid1-diagnostic");
+  });
+  it("reads PID1 baseline comm only from a stable private file and projects typed container state", () => {
+    const model = String.raw`
+import ast, os, pathlib, re, stat, sys, tempfile
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+names = {'PID1_COMM_DIAGNOSTIC_MAX_BYTES', 'PID1_CONTAINER_STATUSES'}
+constants = [node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id in names for target in node.targets)]
+helpers = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {'pid1_comm_diagnostic', 'pid1_container_state_diagnostic'}]
+namespace = {'os': os, 'pathlib': pathlib, 're': re, 'stat': stat}
+exec(compile(ast.Module(body=constants + helpers, type_ignores=[]), 'actual-pid1-baseline-diagnostic-helpers', 'exec'), namespace)
+read_comm = namespace['pid1_comm_diagnostic']; project_state = namespace['pid1_container_state_diagnostic']
+with tempfile.TemporaryDirectory() as temp:
+    root = pathlib.Path(temp); source = root / 'guest-baseline-pid1.stdout.private'
+    os.umask(0o077)
+    source.write_bytes(b'systemd\n'); source.chmod(0o600)
+    assert read_comm(root) == 'systemd'
+    source.write_bytes(b'bad comm\n'); assert read_comm(root) is None
+    source.write_bytes(b'systemd\nextra\n'); assert read_comm(root) is None
+    source.write_bytes(b'A' * 4097); assert read_comm(root) is None
+    source.write_bytes(b'systemd\n'); source.chmod(0o644); assert read_comm(root) is None
+    source.chmod(0o600); target = root / 'outside'; target.write_bytes(b'systemd\n'); target.chmod(0o600)
+    source.unlink(); source.symlink_to(target); assert read_comm(root) is None
+    source.unlink(); assert read_comm(root) is None
+base = {'Running': False, 'Paused': False, 'Restarting': False, 'OOMKilled': False, 'Status': 'exited', 'ExitCode': 255}
+expected = {'running': False, 'paused': False, 'restarting': False, 'oomKilled': False, 'status': 'exited', 'exitCode': 255}
+assert project_state({'State': base}) == expected
+for status in ('created', 'restarting', 'running', 'removing', 'paused', 'exited', 'dead'):
+    row = dict(base, Status=status, ExitCode=None)
+    assert project_state({'State': row}) == dict(expected, status=status, exitCode=None)
+for key in ('Running', 'Paused', 'Restarting', 'OOMKilled'):
+    row = dict(base); row[key] = 1
+    assert project_state({'State': row}) is None
+for value in (-1, 256, 1.5, True):
+    row = dict(base, ExitCode=value)
+    assert project_state({'State': row}) is None
+for state in (None, [], {}, dict(base, Status='unknown'), dict(base, Status='running;secret')):
+    assert project_state({'State': state}) is None
+assert project_state(None) is None
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
   });
   it("keeps the read-only native-info bootstrap admission through delayed child polling", () => {
     const model = String.raw`

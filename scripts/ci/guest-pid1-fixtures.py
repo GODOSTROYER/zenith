@@ -32,6 +32,7 @@ DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=None
 DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=None
 DIAGNOSTIC_HOST_FAILURE_OPERATION=None
 DIAGNOSTIC_HOST_FAILURE_ERRNO=None
+DIAGNOSTIC_PID1_BASELINE=None
 DIAGNOSTIC_HOST_FAILURE_OPERATIONS={'pre-run-guard','phase-stream-open','child-spawn','child-register','child-poll','run-guard-check','output-cap-scan','child-drain','phase-stream-close','phase-receipt-save','phase-stdout-read','apt-stderr-read','apt-receipt-save','apt-classifier-read','unknown'}
 APT_BUILD_STDERR_TAIL_BYTES=65_536
 
@@ -253,6 +254,39 @@ def initialize_diagnostic(root,attempt):
   st=path.lstat()
   assert stat.S_ISDIR(st.st_mode) and st.st_uid==os.getuid() and stat.S_IMODE(st.st_mode)==0o700
  DIAGNOSTIC_DIRECTORY=directory;DIAGNOSTIC_ROOT=root
+PID1_COMM_DIAGNOSTIC_MAX_BYTES=4096
+PID1_CONTAINER_STATUSES={'created','restarting','running','removing','paused','exited','dead'}
+def pid1_comm_diagnostic(out):
+ """Read the comm emitted by the failed baseline exec from its private stream."""
+ source=pathlib.Path(out)/'guest-baseline-pid1.stdout.private'
+ flags=os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)
+ try:fd=os.open(source,flags)
+ except OSError:return None
+ try:
+  before=os.fstat(fd)
+  if not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid() or before.st_nlink!=1 or stat.S_IMODE(before.st_mode)!=0o600 or before.st_size>PID1_COMM_DIAGNOSTIC_MAX_BYTES:return None
+  data=bytearray()
+  while len(data)<before.st_size:
+   chunk=os.read(fd,min(1024,before.st_size-len(data)))
+   if not chunk:return None
+   data.extend(chunk)
+  after=os.fstat(fd)
+  if (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns):return None
+ finally:os.close(fd)
+ line=bytes(data).split(b'\n',1)[0]
+ if bytes(data)!=line+b'\n':return None
+ try:value=line.decode('ascii')
+ except UnicodeDecodeError:return None
+ return value if re.fullmatch(r'[A-Za-z0-9_-]{1,15}',value) else None
+def pid1_container_state_diagnostic(container):
+ state=container.get('State') if isinstance(container,dict) else None
+ if not isinstance(state,dict):return None
+ running=state.get('Running');paused=state.get('Paused');restarting=state.get('Restarting');oom_killed=state.get('OOMKilled')
+ status=state.get('Status');exit_code=state.get('ExitCode')
+ if any(type(value) is not bool for value in (running,paused,restarting,oom_killed)):return None
+ if status not in PID1_CONTAINER_STATUSES:return None
+ if exit_code is not None and (type(exit_code) is not int or not 0<=exit_code<=255):return None
+ return {'running':running,'paused':paused,'restarting':restarting,'oomKilled':oom_killed,'status':status,'exitCode':exit_code}
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
@@ -260,7 +294,13 @@ def write_diagnostic():
  if DIAGNOSTIC_FAILURE=='subprocess' and DIAGNOSTIC_FAILURE_OPERATION=='build-apt-image' and DIAGNOSTIC_CHILD_EXIT_CODE is not None:
   try:apt_detail=apt_build_diagnostic(DIAGNOSTIC_RUNTIME_DIRECTORY,DIAGNOSTIC_ROOT,DIAGNOSTIC_DIRECTORY)
   except Exception:apt_detail=None
- row={'schemaVersion':6,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS,'hostFailureOperation':DIAGNOSTIC_HOST_FAILURE_OPERATION,'hostFailureErrno':DIAGNOSTIC_HOST_FAILURE_ERRNO,'aptBuildDiagnostic':apt_detail}
+ pid1_detail=DIAGNOSTIC_PID1_BASELINE if failure_stage=='guest-baseline' and DIAGNOSTIC_FAILURE_OPERATION=='guest-baseline-pid1' and DIAGNOSTIC_FAILURE=='subprocess' else None
+ row={'schemaVersion':7,'failureStage':failure_stage,'failureClass':DIAGNOSTIC_FAILURE,'failureOperation':DIAGNOSTIC_FAILURE_OPERATION,'cleanupState':DIAGNOSTIC_CLEANUP_STATE,'cleanupFailureClass':DIAGNOSTIC_CLEANUP_FAILURE_CLASS,'cleanupOperation':DIAGNOSTIC_CLEANUP_OPERATION,'childExitCode':DIAGNOSTIC_CHILD_EXIT_CODE,'aptBuildOOMObserved':DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,'aptBuildFailureClass':DIAGNOSTIC_APT_BUILD_FAILURE_CLASS,'hostFailureOperation':DIAGNOSTIC_HOST_FAILURE_OPERATION,'hostFailureErrno':DIAGNOSTIC_HOST_FAILURE_ERRNO,'aptBuildDiagnostic':apt_detail,'pid1BaselineDiagnostic':pid1_detail}
+ assert pid1_detail is None or failure_stage=='guest-baseline' and DIAGNOSTIC_FAILURE_OPERATION=='guest-baseline-pid1' and DIAGNOSTIC_FAILURE=='subprocess'
+ if pid1_detail is not None:
+  assert set(pid1_detail)=={'comm','containerState'} and (pid1_detail['comm'] is None or re.fullmatch(r'[A-Za-z0-9_-]{1,15}',pid1_detail['comm']))
+  state=pid1_detail['containerState']
+  assert state is None or set(state)=={'running','paused','restarting','oomKilled','status','exitCode'} and all(type(state[k]) is bool for k in ('running','paused','restarting','oomKilled')) and state['status'] in PID1_CONTAINER_STATUSES and (state['exitCode'] is None or type(state['exitCode']) is int and 0<=state['exitCode']<=255)
  assert row['failureStage'] in DIAGNOSTIC_STAGES and (row['failureClass'] is None or row['failureClass'] in DIAGNOSTIC_FAILURES) and row['cleanupState'] in DIAGNOSTIC_CLEANUP
  assert (row['failureClass'] is None) == (row['failureStage']=='complete' and row['failureOperation'] is None and row['cleanupState']=='completed')
  assert row['failureClass'] is None or row['failureOperation'] in DIAGNOSTIC_OPERATIONS
@@ -332,7 +372,7 @@ def prepare(root,attempt,arch):
  return private,f
 
 def main():
- global P,DIAGNOSTIC_RUNTIME_DIRECTORY,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE,DIAGNOSTIC_CLEANUP_OPERATION
+ global P,DIAGNOSTIC_RUNTIME_DIRECTORY,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CLEANUP_FAILURE_CLASS,DIAGNOSTIC_CLEANUP_STATE,DIAGNOSTIC_CLEANUP_OPERATION,DIAGNOSTIC_PID1_BASELINE
  assert __debug__
  a=argparse.ArgumentParser();a.add_argument('--root',required=True);a.add_argument('--attempt',required=True);a.add_argument('--arch',required=True);args=a.parse_args()
  os.umask(0o077);root=pathlib.Path(args.root).resolve(strict=True);initialize_diagnostic(root,args.attempt);set_diagnostic_stage('prepare');set_diagnostic_operation('prepare')
@@ -514,6 +554,17 @@ def main():
   if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-exec-settlement')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert not c.get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
+ def capture_pid1_baseline_diagnostic():
+  global DIAGNOSTIC_STAGE,DIAGNOSTIC_OPERATION,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS
+  saved=(DIAGNOSTIC_STAGE,DIAGNOSTIC_OPERATION,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS)
+  try:
+   comm=pid1_comm_diagnostic(out)
+   state=None
+   try:state=pid1_container_state_diagnostic(owned_container('guest-baseline-pid1-after',guest_baseline_deadline))
+   except BaseException:pass
+   return {'comm':comm,'containerState':state} if comm is not None or state is not None else None
+  finally:
+   (DIAGNOSTIC_STAGE,DIAGNOSTIC_OPERATION,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS)=saved
  try:
   info=obj(['info','--format','{{json .}}'],'native-info');assert info['OSType']=='linux' and info['Architecture'] in (['aarch64','arm64'] if f['arch']=='arm64' else ['x86_64','amd64'])
   guard.add_docker_root(info['DockerRootDir'],headroom=f['setupHeadroomBytes'])
@@ -553,7 +604,7 @@ def main():
   container_snapshot={k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}
   expected_guest_arch='aarch64' if f['arch']=='arm64' else 'x86_64'
   guest_baseline_deadline=time.monotonic()+60
-  execute(['/bin/sh','-ec','test "$(cat /proc/1/comm)" = systemd'],'guest-baseline-pid1',budget_deadline=guest_baseline_deadline)
+  execute(['/bin/sh','-ec','comm="$(cat /proc/1/comm)" || exit 125; printf "%s\\n" "$comm"; test "$comm" = systemd'],'guest-baseline-pid1',budget_deadline=guest_baseline_deadline)
   execute(['/bin/sh','-ec','test "$(uname -m)" = '+expected_guest_arch],'guest-baseline-architecture',budget_deadline=guest_baseline_deadline)
   execute(['/bin/sh','-ec','test -f /sys/fs/cgroup/cgroup.controllers'],'guest-baseline-cgroup',budget_deadline=guest_baseline_deadline)
   execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"'],'guest-baseline-no-owned-paths',budget_deadline=guest_baseline_deadline)
@@ -563,7 +614,11 @@ def main():
   execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"; test -z "$(systemctl list-units --all --no-legend "zenith-mach04-*" )"'],'independent-guest-fixture-absence')
   for n,b in receipt['binaries'].items():assert sha(binaries/n)==b['sha256']
   bind(f);receipt['passed']=1;receipt['failed']=receipt['skipped']=0;receipt['status']='passed_pending_cleanup';save()
- except BaseException as e:DIAGNOSTIC_FAILURE=classify_failure(e);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE;DIAGNOSTIC_FAILURE_OPERATION=DIAGNOSTIC_OPERATION;receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
+ except BaseException as e:
+  DIAGNOSTIC_FAILURE=classify_failure(e);DIAGNOSTIC_FAILURE_STAGE=DIAGNOSTIC_STAGE;DIAGNOSTIC_FAILURE_OPERATION=DIAGNOSTIC_OPERATION;receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
+  if DIAGNOSTIC_FAILURE_STAGE=='guest-baseline' and DIAGNOSTIC_FAILURE_OPERATION=='guest-baseline-pid1' and DIAGNOSTIC_FAILURE=='subprocess':
+   try:DIAGNOSTIC_PID1_BASELINE=capture_pid1_baseline_diagnostic()
+   except BaseException:DIAGNOSTIC_PID1_BASELINE=None
  finally:
   set_diagnostic_stage('cleanup');set_diagnostic_operation('cleanup-unknown');set_cleanup_operation('cleanup-reconcile');DIAGNOSTIC_CLEANUP_STATE='in-progress';cleaning=True;guard.cleaning=True
   try:

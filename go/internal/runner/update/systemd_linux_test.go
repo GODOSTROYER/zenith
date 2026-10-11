@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -177,14 +178,47 @@ func runSystemdAcceptance(t *testing.T) {
 		return string(b)
 	}
 	defer func() {
-		stopErr := exec.Command("systemctl", "stop", name+".service").Run()
-		statusErr := exec.Command("systemctl", "is-active", "--quiet", name+".service").Run()
-		if statusErr == nil {
-			t.Errorf("owned service still active; preserving fixture instead of deleting it")
+		unit := name + ".service"
+		stopOutput, stopErr := exec.Command("systemctl", "stop", unit).CombinedOutput()
+		loadOutput, loadErr := exec.Command("systemctl", "show", "--property=LoadState", "--value", unit).CombinedOutput()
+		if loadErr != nil {
+			t.Errorf("owned cleanup could not determine unit load state: %v %s", loadErr, loadOutput)
 			return
 		}
-		// stop may report failure when the unit never started; settled inactive is checked above.
-		_ = stopErr
+		loadState := strings.TrimSpace(string(loadOutput))
+		if loadState == "not-found" {
+			// A never-loaded fixture has nothing for reset-failed to clear. Only accept
+			// systemctl's typed nonzero exit here; other command failures stay visible.
+			if stopErr != nil {
+				var exitErr *exec.ExitError
+				if !errors.As(stopErr, &exitErr) {
+					t.Errorf("owned cleanup stop failed before unit was loaded: %v %s", stopErr, stopOutput)
+					return
+				}
+			}
+		} else if loadState == "loaded" {
+			activeOutput, activeErr := exec.Command("systemctl", "show", "--property=ActiveState", "--value", unit).CombinedOutput()
+			if activeErr != nil {
+				t.Errorf("owned cleanup could not determine unit active state: %v %s", activeErr, activeOutput)
+				return
+			}
+			activeState := strings.TrimSpace(string(activeOutput))
+			if activeState != "inactive" && activeState != "failed" {
+				t.Errorf("owned service state %q is not safely stopped; preserving fixture", activeState)
+				return
+			}
+			if stopErr != nil && activeState != "failed" {
+				t.Errorf("owned cleanup stop failed despite inactive state: %v %s", stopErr, stopOutput)
+				return
+			}
+			if err := exec.Command("systemctl", "reset-failed", unit).Run(); err != nil {
+				t.Errorf("owned cleanup reset-failed: %v", err)
+				return
+			}
+		} else {
+			t.Errorf("owned cleanup encountered unexpected unit load state %q; preserving fixture", loadState)
+			return
+		}
 		for _, path := range []string{unitPath, stateDir, configDir, binDir} {
 			if err := os.RemoveAll(path); err != nil {
 				t.Errorf("owned cleanup: %v", err)

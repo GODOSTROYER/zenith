@@ -1,3 +1,29 @@
+## Read-only Temporal probe and retained R5 cleanup refusal, 11 October 2026
+
+A read-only Temporal probe on the retained local stack connected successfully, found the expected namespace, confirmed its namespace identity, and listed search attributes successfully. The ZenithScheduleOwner attribute was absent. Receipt `2f1a7645c3f77e70bc7a3ef420bb8004321cbf33c2584d4c4263f45fc0045f1c` records this as observation only; it did not mutate Temporal state or establish J4 acceptance.
+
+The R5 cleanup-only wrapper refusal (`08492e029bef926df63d82cfa245499a7f51b82229fc20dd288e15d4bd0a9b0e`) remains historical. The canonical cleanup receipt records **16 removed / 0 remaining / 2 forced stops** (SHA-256 `1a15d8728196df99d21f7a1496ee4e89c2c10da75dfbae62cea792c6398f6982`); no outer-wrapper exit is claimed for that receipt. Follow-up R4 exited 0 and confirmed owned-resource absence and both recorded historical process identities absent twice (report SHA-256 `f396bafa8d1dcd1f3c7137204ff7119d3063187d4da09de3e1c030d4bf20f83a`). The follow-up observed a clean host floor; no VM floor probe is claimed. Cleanup is not J1/J4/J2 acceptance. [Sanitized reconciliation](../evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
+
+## Additional 94d60798 terminal CI and bounded local evidence, 11 October 2026
+
+Exact-source CI for `94d60798` is terminal: **19 jobs passed / 1 Go job failed / 8 skipped**; all four native jobs passed. Verify passed **24,552/0/1,921**, and Smoke and Gimbal passed. The Go systemd case passed inside its helper, but the guest postcondition failed and no case events were published, so this does not establish Go postcondition acceptance. CI status does not make the local default-stack or release milestone complete.
+
+The Auth race retained actual proof of `ECONNREFUSED` approximately 400 ms before database readiness. This supports the race-path refusal timing only; it does not establish a database-ready or end-to-end Auth acceptance.
+
+The bounded local CI-07 clean-install and locked complete audit returned 0 with zero required findings and zero expected exceptions. Its private held report is `b64d6c5fde2b01ee0ef7ada5ef3e63c42f1a93edbf6a1ddde3333fa584c195b0`; it records ignored install scripts, unchanged lock integrity, no live-cloud calls, and no ledger promotion. The runtime remains retained, cleanup was not performed, and the report does not claim an accepted run receipt; treat this as bounded local dependency-gate evidence only.
+
+Actual J2 R4 syntax and lint commands returned 0, and the receipt contracts passed **17/0/0**. The wrapper’s expected-six-identity check correctly refused its result (`vitest-not-exact-6-pass-0-fail-0-skip`); preserve that refusal and the separate privately retained correction artifact. These checks do not complete J2 or establish a full milestone or production acceptance.
+
+## Fresh 94d60798 local and CI checkpoint, 11 October 2026
+
+The fresh full root-accepted R16 Node/DOM core on exact source `94d60798a376c49beaa5c1bc60f14d2e6aa5e430` passed **24,534 passed / 0 failed / 1,939 skipped across 26,473 exact identities** (4,871 suites); the wrapper exited 0. Collection, report and completion identity counters matched, and the source freeze remained stable at `7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a`. This closes core-suite scope only. The private runtime summary is `6804197f5695ac2cd7ec73954159619c13cc2094a4c872b8a99b08e163ade612` in runtime `8rdm7jf7`.
+
+The source-bound witness `g_v5mkl7` passed. The fresh R9 `zest3sdf` attempt failed at deferred J1-up (`exit 1`) after all three images built; the failed state and receipts remain retained. No J4 acceptance or CA trust change is established. This failure does not replace or erase the earlier 8e `ECONNRESET` refusal or the R2 lint failure; both remain historical failed evidence.
+
+The offline run `hd1d0aoa59` and workflow run `69jj6ykg34` passed. D4 `roj8t6tm28` passed **0 failures / 0 skips** with lint 0; its scope was unit-only. The fresh Go CI systemd case passed inside its helper, but the guest postcondition failed and no case events were published. The case therefore ran; acceptance remains unproven because the required postcondition receipt was absent.
+
+The ledger remains **9 verified / 67 in progress / 2 planned** across 78 criteria, with all four release flags false. None of these results promotes J1/J4, CA trust, default-stack, or release acceptance.
+
 ## Integrated 8e467 checkpoint, 11 October 2026
 
 The separately reviewed export rehearsal correction `fd9067d9` hashes the original private composition bytes, retaining the strict J1 composition check. Changed-file lint passed; its fresh full-suite and operated export validation remain pending.
@@ -1067,3 +1093,28 @@ Integrated `c8c874027dd687d4a133e5de5d971a323eeed40b` after two complete files55
 ## Recovery client custody repair, 8 October 2026
 
 Fix `1d99b5e217c4ea3150fcecd3976f3f7380c05a0f` creates private0700 temp files under the existing same-path runner mount, preserving file ownership and argument quoting. PostgreSQL password/TLS-mode forwarding uses environment names only. Original host/tmp container mismatch is documented; no product/migration or permission-widening changes. Root full120/0/0, compiler0 in12.19s, lint/actionlint/diff0 and independent review passed. Actual recovery lane, complete final CI and remaining default journeys are pending.
+
+## Resume and cleanup delta, 11 October 2026
+
+Runtime **40 Lunas** is supported. The canonical cleanup receipt (SHA-256 `1a15d8728196df99d21f7a1496ee4e89c2c10da75dfbae62cea792c6398f6982`) records **16 removed / 0 remaining / 2 forced stops**. This does not resolve the unchanged R7 wrapper refusal caused by capture exhaustion; fresh custody is still pending. Native validator **14 finite fake cases passed**; no actual compile or native execution is established. Ledger remains **9 verified / 67 in progress / 2 planned** across 78 criteria; no promotion or source-gap closure is claimed pending root review.
+
+## MACH04 Go compile-only delta, 11 October 2026
+
+R7 remains a preserved wrapper refusal (exit 2): the Docker process-inspection request omitted the required PID column after compile. Gofmt/compile/version returned 0; baseline, cleanup, custody, source, and disk-floor checks were clean. Receipt SHA-256: `380b977accc2dfb6ec1bf4d147f3d48f289ff56bc901c867548b8c0e3d60c68e`. R8 source `691f50a3bb2beac3c773f411d323afe4b55119284c09c604661e9116bf4e81bf` returned 0 with all 39 held commands successful and strict validation clean. This is compile-only proof: the ARM64 ELF (11,281,832 bytes, SHA-256 `cf9ef053baba85f538a3369fd5b51077e1bee426514531afd5fce1bd4587b8f2`) was not invoked and had 0 cases. This is separate from the 14 finite fake validator cases recorded above and establishes no native execution. Native R7 on its recorded source terminated with wrapper exit 2 before any case executed; the refusal remains preserved. MACH04 and release state remain unchanged. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-go-compile-only-r8.json).
+
+## MACH04 native R7 terminal disposition, 11 October 2026
+
+The native R7 wrapper terminated with exit 2 before any guest or test case ran (**0 cases executed**). This is not a failed test assertion and does not establish that the guest started. Receipt SHA-256: `bc39d3b460d51015c01b6b33755c0c92330783a002c0190ef69c15b9643fa577`. The wrapper detected owned-container drift after the Go process started. The daemon's `OomKillDisable` observation changed from `false` to `null`, likely from fixture-guard normalization; diagnosis remains ongoing. Cleanup is incomplete and start-Go status is unconfirmed. Host and VM disk floors were clean, the watcher joined, and custody was clean. One owned Go compile container remains and blocks new heavy work until exact cleanup. Native R7 source `7ced6aa9d2bdbe23a24b049320fdf84e670b9003f220fc6067131fd37a9d7c76` therefore remains unaccepted. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-go-native-r7-r2.json).
+
+
+## Cleanup reconciliation and native R8 status, 11 October 2026
+
+The old 94 witness tag `localhost:5000/zenith-j2-witness:rc` was removed; its receipt SHA-256 is `3767d7f0fdc92c2ae538b47005cee54d71bf8f46408a2e4620a2d89f527c6eb5` and summary SHA-256 `c9702505effe348f057a9e177e9c455739457b0d93aeb409f04ccf2a7291ef4e`. The wrapper returned 0, exact-tag absence and strict command closure were confirmed, and the receipt explicitly makes no acceptance claim. The retained Go compile container cleanup R3 completed with root-observed exit 0 (report SHA-256 `e16a0a20cfb9d9fdba84be804f928afc76d7d38cc29de3cdc82d208580331f82`), all 17 held commands closed, and exact-ID absence/custody were confirmed. Its natural container exit was 1 with `OOMKilled: false`; this is cleanup evidence, not a native test result. Native R8 has terminated with wrapper exit 2 before any case executed; see the terminal record below. The prior native R7 wrapper refusal and zero-case result remain historical. [Sanitized evidence](../evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
+
+## Native R8 terminal disposition, 11 October 2026
+
+The native R8 wrapper exited 2 (`daemon-build-exit`) before any case executed (0 cases). No assertion failed, and no native acceptance is established. Cleanup completed with baseline parity, clean command custody, and stable source; 36 main plus four VM held commands all returned 0 and were strictly closed. The owned compiler exited naturally with code 1 and `OOMKilled: false`; exact-ID removal without force and absence were confirmed. Diagnosis remains ongoing. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).
+
+## MinIO R5 runtime refusal, 11 October 2026
+
+Two local R5 attempts on frozen source `94d60798a376c49beaa5c1bc60f14d2e6aa5e430` ended at wrapper exit 2 (`unexpectedRuntimeError`): `tx1_u3qr` and `5tej5r6w`. Both exhausted custody after an unattributed PID appeared beside the owned worker; each worker ended by SIGTERM (−15), and final registries were absent. Fresh R17 identity-capture plus signal-zero checks prove both recorded PIDs absent twice for each attempt; the historical refusals remain unchanged. Builder inspection matched all 12 identity/cap rows, and neither attempt reached image-build or push mutation. No business error or test case pass was observed. Builder-collector R3 receipts (`f960a9…`, `74412f…`) are separate diagnostic passes. Preserve prior failures; no third retry or ledger promotion. Transport repair design is being mapped. [Sanitized evidence](../evidence/PROD-LIFE-11/2026-10-11-minio-r5-runtime-refusals.json).

@@ -548,7 +548,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "builder_client_core_2.2.0_integrated_e2f27ca8; fresh_audit_zero_findings; complete_gate_pending",
+      "implementationStatus": "builder_client_core_2.2.0_integrated_e2f27ca8; fresh_local_complete_gate_passed_94d60798; historical_reconciliation_pending",
       "evidence": [
         {
           "level": "contract",
@@ -701,6 +701,15 @@
           "commit": "e2f27ca8391290f3b18215fd2a9ee4c710bac941",
           "result": "Fresh supported Node22.23.3/npm10.9.9 script-free install and complete canonical security audit passed, zero known findings after builder MCP client2.2.0 fix; no exception. Full coherent local/remote acceptance remains incomplete.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-10-newmac-repair-checkpoint.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "command": "Fresh private-copy install with pinned Node22.23.3/npm10.9.9 (`npm ci --ignore-scripts`), lock-integrity before and after, then `node scripts/ci/security-audit.mjs`.",
+          "environment": "Root-held local macOS arm64; empty private npm configs and initially empty private caches; registry https://registry.npmjs.org; no live-cloud calls.",
+          "artifact": "docs/build/production/evidence/PROD-CI-07/2026-10-11-local-clean-install-94d60798.json",
+          "result": "Exact-source clean install and complete locked dependency audit passed: 18/18 held command receipts closed successfully; both lock-integrity checks passed with lock unchanged; audit returned 0 with zero known findings and zero exceptions. Time-bound local gate evidence only. Historical eight-versus-seven advisory reconciliation remains open; this evidence does not close PROD-CI-07.",
+          "actualReportSha256": "b64d6c5fde2b01ee0ef7ada5ef3e63c42f1a93edbf6a1ddde3333fa584c195b0"
         }
       ],
       "requiredEvidence": [
@@ -1655,6 +1664,18 @@
           "result": "Cleanup-only R3 for the retained failed default-stack attempt: wrapper/canonical down exited0;12 owned resources removed,0 remaining,0 forced stops. Source, custody, floor and watcher closeout passed. Receipt-path metadata discrepancy is retained. This does not accept the failed J1 run or establish J1/J4/J2/default-stack acceptance.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-j1-failed-stack-cleanup-r3.json",
           "executionReceiptComplete": true
+        },
+        {
+          "level": "contract",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "result": "Exact-source offline DNS/planner/readback/teardown contracts passed59/0/0 with source freeze, command closeout and custody checks. This is offline no-live-call contract evidence only; it does not prove real DNS/cloud calls or whole CI08 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-94-bounded-local-gates.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "result": "Exact-source canonical workflow-history-replay and versioning audit passed34/0/0 (29 history-replay assertions,5 versioning assertions), all34 required identities. SDK replay is local and needs no server; source-bound gate scope only, not whole CI08 or live-server acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-94-bounded-local-gates.json"
         }
       ],
       "requiredEvidence": [
@@ -3163,6 +3184,12 @@
           "commit": "c32d116745c75048a21b6e42a09ee313ce8230e6",
           "result": "DNS ownership guards and198 focused controls passed, including68 new modeled identities and6 actual local OpenTofu controls. Provider readbacks modeled; point-in-time guard does not prove later quiescence or live deletion.",
           "artifact": "docs/build/production/verification/2026-10-04-integrated-source.json"
+        },
+        {
+          "level": "contract",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "result": "Offline DNS teardown/readback contracts passed within the59/0/0 offline suite, including tagged child-inventory/endpoint binding and incomplete-inventory refusal controls. No provider calls, real DNS reads/deletes, or live acceptance are established.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-94-bounded-local-gates.json"
         }
       ],
       "requiredEvidence": [
@@ -3862,6 +3889,20 @@
           "environment": "This8GiB Mac; Docker configured6144MiB memory4096MiB swap,VirtioFS,ResourceSaveroff; intended native API768MiB/worker1024MiB not started",
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-07-reduced-resource-local.json",
           "result": "Resource blocked before service startup:24.68GiB initial free fell to21.77GiB during required image pulls; exit130,zero tests/containers. Owned downloaded images/network removed; baseline resources preserved. No signed-in/default scheduling/runbook/telemetry/installed-agent acceptance. NOT_READY maintenance draft unrun; builder wiring and Linux delegation admission remain explicit."
+        },
+        {
+          "level": "contract",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "environment": "Apple M6 Mac mini; native Linux ARM64 Docker; exact Go 1.27.1; compile-only validation.",
+          "logs": "docs/build/production/evidence/PROD-MACH-04/2026-10-11-go-compile-only-r8.json",
+          "result": "R8 compile-only validation passed with all 39 held commands successful and strict validation clean; the 11,281,832-byte ARM64 ELF was not invoked (0 cases). R7 wrapper refusal is preserved. Native Linux execution remains pending."
+        },
+        {
+          "level": "contract",
+          "environment": "Native R7 wrapper disposition; zero cases executed.",
+          "logs": "docs/build/production/evidence/PROD-MACH-04/2026-10-11-go-native-r7-r2.json",
+          "result": "Terminal wrapper refusal, exit 2, before native guest or case execution. At refusal cleanup was unconfirmed and one owned Go compile container remained. Later exact owned cleanup completed; see PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json. Host/VM floors, joined watcher, and custody checks are clean. No case assertion failed and no native acceptance is claimed.",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430"
         }
       ],
       "requiredEvidence": [
@@ -4481,6 +4522,12 @@
             "architecture": "native Darwin ARM64"
           },
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-integrated-native-successors.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "result": "Current-source committed workflow histories replayed deterministically with versioning audit34/0/0; all34 required identities passed. Local SDK replay only; previous-release compatibility, in-flight rolling upgrade/schema-protocol compatibility and rollback acceptance remain open. No whole-requirement promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-94-bounded-local-gates.json"
         }
       ],
       "requiredEvidence": [

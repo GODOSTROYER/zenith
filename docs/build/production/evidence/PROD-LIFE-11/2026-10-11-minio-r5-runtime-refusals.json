@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-11",
+  "criterion": "PROD-LIFE-11",
+  "source": {
+    "gitSha": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430"
+  },
+  "scope": "Two local MinIO R5 runtime attempts; refusal and custody evidence only, no acceptance or ledger promotion.",
+  "attempts": [
+    {
+      "label": "tx1_u3qr",
+      "wrapperExitCode": 2,
+      "outcome": "unexpectedRuntimeError",
+      "custodyExhausted": true,
+      "unattributedPid": 16613,
+      "ownedWorkerPid": 16612,
+      "ownedWorkerSignal": "SIGTERM",
+      "ownedWorkerExitCode": -15,
+      "finalRegistriesAbsent": true,
+      "businessErrorObserved": false,
+      "testcasePassClaimed": false,
+      "imageBuildOrPushMutationReached": false,
+      "freshPidAbsenceProofSha256": "23f323afe9f0dc2c736aaa708aafc3df63219399f84ec0efae1644a8e475c19f"
+    },
+    {
+      "label": "5tej5r6w",
+      "wrapperExitCode": 2,
+      "outcome": "unexpectedRuntimeError",
+      "custodyExhausted": true,
+      "unattributedPid": 17365,
+      "ownedWorkerPid": 17364,
+      "ownedWorkerSignal": "SIGTERM",
+      "ownedWorkerExitCode": -15,
+      "finalRegistriesAbsent": true,
+      "businessErrorObserved": false,
+      "testcasePassClaimed": false,
+      "imageBuildOrPushMutationReached": false,
+      "freshPidAbsenceProofSha256": "8bf519e1ce75e0170090c5ddf478f71385cdd59c7aa74236eed925e0fa7e2832",
+      "currentCustodyAbsentTwice": true
+    }
+  ],
+  "builderInspection": {
+    "identityAndCapsRowsMatched": 12,
+    "imageBuildOrPushMutationReached": false
+  },
+  "builderCollectorR3": {
+    "disposition": "two separate diagnostic passes; not MinIO runtime acceptance",
+    "receiptSha256": [
+      "f960a9f67d67bc535463fdcc4dd7a938ce6c03a60592d40bdee73f3d6d3bdb58",
+      "74412f43cab1fc91b0081f80b138cf8726bd8dbd8a0eb18007a8b5ab541ec7ef"
+    ]
+  },
+  "disposition": {
+    "historicalFailuresPreserved": true,
+    "thirdRetryAuthorizedOrPlanned": false,
+    "transportRepairDesign": "being mapped",
+    "ledgerPromotion": false,
+    "acceptance": false
+  }
+}

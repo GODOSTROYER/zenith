@@ -1,3 +1,35 @@
+## Fresh 94d60798 verification queue, 11 October 2026 — R3
+
+This section supersedes older open-queue ordering below. Source remains `94d60798a376c49beaa5c1bc60f14d2e6aa5e430`; ledger remains 9 verified / 67 in progress / 2 planned. Preserve the fresh exact-94 full core (**24,534 passed / 0 failed / 1,939 skipped**) and completed local-gate receipts as scoped passes. Do not requeue an unchanged completed gate; repeat only when its bound source or required inputs change. No ledger promotion or future pass is implied here.
+
+### Current J1 retained-state disposition
+
+The read-only Temporal R4 receipt (`2f1a7645c3f77e70bc7a3ef420bb8004321cbf33c2584d4c4263f45fc0045f1c`) observed the namespace present and the target search attribute absent. It did not mutate Temporal. This answers current namespace/attribute state only; it does not convert the failed J1 journey into acceptance.
+
+R5 and the old R7 wrapper refusal remain historical. The canonical cleanup receipt records 16 removed, zero remaining, and two forced stops (SHA-256 `1a15d8728196df99d21f7a1496ee4e89c2c10da75dfbae62cea792c6398f6982`); no outer-wrapper exit is claimed. Follow-up R4 exited 0 and confirmed current owned-resource absence and both historical process identities absent twice (report SHA-256 `f396bafa8d1dcd1f3c7137204ff7119d3063187d4da09de3e1c030d4bf20f83a`). Host floor was observed clean; no VM floor probe is claimed. This is cleanup-only evidence, not J1/J4/J2 acceptance. [Sanitized reconciliation](evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
+
+The Go compile-only adapter R3 completed, and its retained container was cleaned in a separate successful cleanup-only lane. Native R8 has terminated with wrapper exit 2 before any case executed; diagnosis is ongoing. The prior native R7 wrapper refusal remains terminal at zero cases and is not a test-assertion failure.
+
+### Other current evidence boundaries
+
+- The Auth restart fault is proven: lean restart started Auth before PostgreSQL became ready, and Auth exited on connection refused. The database-first fix R2 and its six fake-Docker cases remain staged, not integrated or validated. Preserve the existing failed J1 receipt.
+- PROD-CI-07’s fresh exact-94 local dependency gate passed with zero findings. The requirement remains open because historical raw reports still disagree on eight versus seven advisories; full historical ID/version/platform and reachability reconciliation is not established.
+- J2 fixture R3 has source-only Node syntax and ESLint passes and all 17 receipt-contract identities passed. The held wrapper incorrectly expected six receipt tests and refused while retaining artifacts. Its post-hoc corrected validator expects 17 but has not been run; do not repeat the unchanged wrapper or state that the correction passed. Actual J2/browser acceptance is pending.
+- DRV4 tenant R3 focused candidate evidence remains 28 passed / 0 failed / 0 skipped, with lint passing on two candidate files. This is not an operated tenant/export result. MinIO R11 remains source/build evidence; actual export still needs a fresh owned J1 registry, current-run ARM64 runtime image and observed digest, and a separate fresh J1/J2 export fixture. Resolve the reviewed exact-byte composition-hash readiness defect before launching export.
+
+### Ordered next work
+
+1. Preserve the R5 and old R7 wrapper refusals. The canonical cleanup receipt records 16 removed / 0 remaining / 2 forced stops; follow-up R4 confirms owned-resource/process absence. No J1 acceptance is established; continue with remaining source-bound J1/J4 acceptance gates.
+2. Native R8 terminated with wrapper exit 2 (`daemon-build-exit`) before any case executed. Preserve the compile-only R3 result separately; this zero-case wrapper refusal is not a failed assertion.
+3. Integrate the approved Auth restart fix, DRV4 candidate, J2 fixture R3 and corrected source-validation pins, Go cleanup adapter, and remaining reviewed local-gate preparation into one coherent source. Preserve their original candidate receipts and resolve source conflicts before acceptance.
+4. On that exact integrated source, run a fresh full suite and native witness, then the fresh J1/J4 journey with the readiness barriers and current local image/source pins. Keep all previous exact-94 receipts scoped to 94.
+5. After J1/J4 readiness, complete the human-approved invocation-scoped SSL CA trust and Auth/login step. Then run actual J2 on a separate fresh owned fixture; real UX/browser acceptance follows only after its required J2 result and cleanup pass.
+6. MinIO R5 has two terminal local wrapper refusals on exact source 94d60798; preserve both, await the second PID-absence proof, and continue mapping transport repair. Do not launch a third retry. Builder collector R3 remains diagnostic only; no image build/push mutation or MinIO testcase pass occurred. [Evidence](evidence/PROD-LIFE-11/2026-10-11-minio-r5-runtime-refusals.json). Continue other local tiers independently; no cloud/live-service use or spend is implied.
+
+Existing external blockers remain separate: resource floors, cached/pinned local engines and images, current source binding, human trust/authentication, independent browser/tenant readbacks, owner approvals, and release evidence. Historical R10, source-only checks, unit/lint, compile-only, image-build, and cleanup-only receipts cannot be relabelled as the new operated journey.
+
+---
+
 ## Integrated 8e467 checkpoint, 11 October 2026
 
 The exact frozen source `8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e` passed the root-accepted R16 full Node/DOM core: **24,533 passed / 0 failed / 1,939 skipped across 26,472 exact identities** (25,407 Node, 1,065 DOM, 4,871 suites). The source freeze matched and the wrapper exited 0. Custody recorded 44 events, no drops or quarantines, and all 12 pending births resolved absent with two terminal absence confirmations each. No active processes remained; three cleanup attempts completed and owned data was removed. Minimum free space was 375,583,862,784 bytes, above the 22 GiB floor. This closes core-suite scope only.
@@ -802,3 +834,14 @@ Results PROD-CI-08, 10 October: de8079cd integrates reviewed browser shutdown/SY
 ## Results: unit repair candidate, 10 October 2026
 
 Current reviewed candidate1019/0/0 across24 targeted files; compiler/lint pass. Exact de807 CI18success2fail8skip; full verify and actual SYS1 remain failed. Complete clean-SHA full/native/default/operated gates pending; no milestone promotion. [Evidence](evidence/PROD-CI-08/2026-10-10-newmac-unit-repairs.json).
+
+Resume delta, 11 October 2026: runtime **40 Lunas** is supported. Canonical cleanup receipt SHA-256 `1a15d8728196df99d21f7a1496ee4e89c2c10da75dfbae62cea792c6398f6982` records 16 removed, zero remaining, and two forced stops. The R7 wrapper refusal for capture exhaustion is unchanged; fresh custody remains pending. Native validator passed 14 finite fake cases only, with no actual compile or native execution. Ledger remains 9 verified / 67 in progress / 2 planned; source-gap closure awaits root review.
+
+MACH04 Go delta, 11 October: R7 wrapper remains refused (exit 2) because the Docker process-inspection request omitted the required PID column after compile; gofmt/compile/version and baseline/cleanup/custody/source/floor checks were clean. R8 source `691f50a3bb2beac3c773f411d323afe4b55119284c09c604661e9116bf4e81bf` passed compile-only validation (39/39 held commands exit 0, strict validation clean). The 11,281,832-byte ARM64 ELF was not invoked (0 cases). Native R7 on its recorded source terminated with wrapper exit 2 before any case executed; the refusal remains preserved. No MACH04 completion or promotion. [Evidence](evidence/PROD-MACH-04/2026-10-11-go-compile-only-r8.json).
+
+MACH04 native R7 terminal update, 11 October: wrapper exit 2, zero cases executed, before guest/test execution; this is not a failed assertion. Receipt SHA-256 `bc39d3b460d51015c01b6b33755c0c92330783a002c0190ef69c15b9643fa577`. Owned-container drift followed Go process start; the daemon `OomKillDisable` observation changed false to null, likely fixture-guard normalization, diagnosis ongoing. Cleanup incomplete and start-Go unconfirmed; host/VM floors clean, watcher joined, custody clean. One owned Go compile container remains and blocks new heavy work pending exact cleanup. Native source `7ced6aa9d2bdbe23a24b049320fdf84e670b9003f220fc6067131fd37a9d7c76` is unaccepted. [Evidence](evidence/PROD-MACH-04/2026-10-11-go-native-r7-r2.json).
+
+
+The old 94 witness tag `localhost:5000/zenith-j2-witness:rc` was removed and exact-tag absence was confirmed; its receipt makes no J2 acceptance claim. Go cleanup R3 is complete; native R8 terminated with wrapper exit 2 before any case executed. [Cleanup evidence](evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
+
+Native R8 is terminal at wrapper exit 2 (`daemon-build-exit`) with zero executed cases. Cleanup and custody are complete; preserve this as a wrapper refusal rather than a test failure. Diagnosis remains ongoing, and no acceptance or release state changes. [Evidence](evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).

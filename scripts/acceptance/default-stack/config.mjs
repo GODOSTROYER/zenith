@@ -107,14 +107,23 @@ export function owns(labels, state) {
 export function cleanupPlan(resources, state) {
   if (!/^[a-f0-9]{24}$/.test(state.installationId) || state.projectId !== `zenith-local-${state.installationId}`) fail('identity');
   if (state.applicationInstallationId && !/^[a-f0-9]{24}$/.test(state.applicationInstallationId)) fail('identity');
-  return ['container', 'volume', 'network', 'image'].flatMap(kind => resources
-    .filter(resource => resource.kind === kind && owns(resource.labels, state))
-    .map(resource => {
+  return ['container', 'volume', 'network', 'image'].flatMap(kind => {
+    const selected = resources.filter(resource => resource.kind === kind && owns(resource.labels, state)).map(resource => {
       if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(resource.id)
         || resource.labels?.[installationLabel] && ![state.installationId, state.applicationInstallationId].includes(resource.labels[installationLabel])
         || resource.labels?.[projectLabel] && resource.labels[projectLabel] !== state.projectId) fail('resource-identity');
-      return { kind, id: resource.id };
-    }).sort((a, b) => a.id.localeCompare(b.id)));
+      return resource;
+    });
+    selected.sort((a, b) => {
+      if (kind === 'container') {
+        const aDatabase = a.item?.Name === `/supabase_db_${state.projectId}`;
+        const bDatabase = b.item?.Name === `/supabase_db_${state.projectId}`;
+        if (aDatabase !== bDatabase) return aDatabase ? 1 : -1;
+      }
+      return a.id.localeCompare(b.id);
+    });
+    return selected.map(resource => ({ kind, id: resource.id }));
+  });
 }
 
 /** Reuse the shipped composition's restrictions and engine pins. Each process has its own scratch. */
@@ -152,7 +161,7 @@ export function stackComposition(config, directory, profile, gatewayImage, peer)
       env_file: [{ path: path.join(directory, '../worker-peer/worker.env'), format: 'raw' }],
       labels: { ...labels, 'io.zenith.worker': peer.workerId }, volumes: [`worker-${peer.workerId}:/var/lib/zenith`, `${path.join(directory, '../tls/ca.crt')}:/run/zenith-ca.crt:ro`] };
   }
-  document.services['supabase-edge'] = { image: digestImage(gatewayImage), user: '1001:1001', read_only: true,
+  document.services['supabase-edge'] = { image: digestImage(gatewayImage), init: true, user: '1001:1001', read_only: true,
     cap_drop: ['ALL'], security_opt: ['no-new-privileges:true'], labels,
     command: ['node', '/gateway.mjs'], mem_limit: '64m', cpus: 0.25, pids_limit: 64,
     environment: { ZENITH_SUPABASE_UPSTREAM: config.supabaseKong },

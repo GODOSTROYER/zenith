@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-11",
+  "scope": "Native R8 terminal wrapper disposition and cleanup evidence; zero cases and no acceptance claim.",
+  "source": {
+    "label": "frozen primary 94",
+    "stable": true,
+    "gitSha": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430"
+  },
+  "nativeR8": {
+    "status": "terminal-wrapper-refusal",
+    "wrapperExitCode": 2,
+    "failureCode": "daemon-build-exit",
+    "executedCases": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "testAssertionFailure": false,
+    "nativeAcceptance": false,
+    "receiptSha256": "096d18fbace318ee58f910b044bd8d7c63d78ba5c553d7904c5654691f19daea",
+    "diagnosis": "ongoing; delegated for review"
+  },
+  "cleanup": {
+    "cleanupComplete": true,
+    "baselineParity": true,
+    "commandCustodyClean": true,
+    "sourceStable": true,
+    "mainHeldCommands": 36,
+    "vmHeldCommands": 4,
+    "allHeldCommandsExitCode0": true,
+    "allHeldCommandsStrictlyClosed": true,
+    "ownedCompilerNaturalExitCode": 1,
+    "ownedCompilerOOMKilled": false,
+    "removedWithoutForce": true,
+    "exactAbsenceConfirmed": true,
+    "remainingOldNativeContainer": false
+  },
+  "historicalContext": {
+    "priorNativeR7RefusalPreserved": true,
+    "r7ExecutedCases": 0,
+    "cleanupIsNotAcceptance": true
+  },
+  "releaseStateChanged": false
+}

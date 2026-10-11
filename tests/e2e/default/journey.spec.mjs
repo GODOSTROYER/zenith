@@ -1,18 +1,32 @@
 import { test } from '@playwright/test';
 import { receipt, writeReceipt } from './receipt.mjs';
 import {
-  Config, ensure, nonce, pause, privateFile, prerequisites, operator, login,
+  Config, ensure, nonce, pause, privateFile, prerequisites, operator,
   jsonRequest, browserRequest, ok, action, until, kubeconfig, linkedAgent, mcp,
   kindReadback, adminHeaders, command,
 } from './support.mjs';
 import { Machine } from './engines.mjs';
 import { enrollOperator } from './mfa.mjs';
 
+async function authenticateBeforeWorkspace(page, stack, user) {
+  await page.goto(stack.apiUrl + '/login?next=/overview');
+  await page.getByLabel('Email', { exact: true }).fill(user.email);
+  await page.getByLabel('Password', { exact: true }).fill(user.password);
+  const signedIn = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.origin === stack.supabaseUrl && url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password';
+  });
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  const verified = await signedIn;
+  ensure(verified.ok() && (await verified.json()).user?.id === user.id, 'real-auth-identity');
+  await page.waitForURL(url => url.origin === stack.apiUrl && url.pathname !== '/login');
+}
+
 // Collection (--list) never reads a credential/config or starts an engine.
 test.skip(process.env.ZENITH_DEFAULT_JOURNEY !== '1', 'needs ZENITH_DEFAULT_JOURNEY=1, J1 stack, Mailpit, kind and Chromium');
 
 test('default operated browser, REST, MCP and customer machine journey', async ({ browser }) => {
-  let source = {}, stack, config, a, b, machine, linked, workspaceId, project, environmentId;
+  let source = {}, stack, config, a, b, machine, linked, machineRevoked = false, workspaceId, project, environmentId;
   const users = [], facts = [], readbacks = {};
   const runId = nonce(), witnessNonce = nonce(), serviceId = 'witness';
   const step = async (id, work) => {
@@ -84,15 +98,18 @@ test('default operated browser, REST, MCP and customer machine journey', async (
       const operatorA = await operator(stack, config.mailpitUrl, 'a', users);
       const operatorB = await operator(stack, config.mailpitUrl, 'b', users);
       ensure(operatorA.id !== operatorB.id, 'independent-identities');
-      await login(a, stack, operatorA); await login(b, stack, operatorB);
+      await authenticateBeforeWorkspace(a, stack, operatorA);
+      await authenticateBeforeWorkspace(b, stack, operatorB);
       await enrollOperator(a, stack); await enrollOperator(b, stack);
     });
     await step('two-operator-workspace', async () => {
       const workspace = ok(await browserRequest(a, '/api/workspace', { name: 'Zenith J2 ' + runId })).workspace;
       workspaceId = workspace.id;
+      ok(await browserRequest(a, '/api/bootstrap'));
       const userB = ok(await jsonRequest(stack.supabaseUrl + '/auth/v1/admin/users/' + users[1], { headers: adminHeaders(stack) }));
       const invite = ok(await browserRequest(a, '/api/workspace/invites', { email: userB.email, role: 'admin', workspaceId })).invite;
       const accepted = ok(await browserRequest(b, '/api/workspace/invites/' + invite.id + '/accept', {}));
+      ok(await browserRequest(b, '/api/bootstrap'));
       ensure(accepted.member?.id === users[1] && accepted.member?.role === 'admin', 'operator-b-membership');
       const created = await action(a, 'project.create', { name: 'J2 witness ' + runId, withEnvironment: false });
       project = { id: created.projectId, slug: created.slug, name: 'J2 witness ' + runId };
@@ -269,7 +286,9 @@ test('default operated browser, REST, MCP and customer machine journey', async (
       await kindReadback(config, 2, witnessNonce);
       const verify = await browserRequest(a, '/api/platform/v1/connections/' + project.connectionId + '/verify', {}, 'POST', workspaceId);
       ensure(verify.status < 500 && verify.data.ok === false && /revoked/i.test(verify.data.error ?? ''), 'revoked-verification');
-      ok(await browserRequest(b, '/api/platform/v1/machines/' + machine.id + '/revoke', {}, 'POST', workspaceId));
+      const machineRevocationResponse = ok(await browserRequest(b, '/api/platform/v1/machines/' + machine.id + '/revoke', {}, 'POST', workspaceId));
+      ensure(machineRevocationResponse.id === machine.id && machineRevocationResponse.status === 'revoked', 'machine-revocation');
+      machineRevoked = true;
       await until(async () => JSON.parse(await command('docker', ['inspect', machine.container])),
         value => value[0].State.Running === false);
     });
@@ -277,10 +296,24 @@ test('default operated browser, REST, MCP and customer machine journey', async (
   finally {
     try {
       await step('cleanup', async () => {
-        if (machine) await machine.cleanup();
-        if (linked && a) ok(await browserRequest(a, '/api/integrations/agent/link/revoke', { credentialId: linked.credentialId }));
-        for (const id of users) ok(await jsonRequest(stack.supabaseUrl + '/auth/v1/admin/users/' + id, { method: 'DELETE', headers: adminHeaders(stack) }));
-        if (a) await a.context().close(); if (b) await b.context().close();
+        const cleanupFailures = [];
+        const attempt = async (id, work) => {
+          try { await work(); } catch { cleanupFailures.push(id); }
+        };
+        if (machine?.id && a && workspaceId && !machineRevoked) await attempt('machine-revoke', async () => {
+          const revoked = ok(await browserRequest(a, '/api/platform/v1/machines/' + machine.id + '/revoke', {}, 'POST', workspaceId));
+          ensure(revoked.id === machine.id && revoked.status === 'revoked', 'machine-revocation');
+        });
+        if (machine) await attempt('machine-resources', () => machine.cleanup());
+        if (linked && a) await attempt('linked-agent-revoke', async () => {
+          ok(await browserRequest(a, '/api/integrations/agent/link/revoke', { credentialId: linked.credentialId }));
+        });
+        for (const id of users) await attempt('auth-user-delete', async () => {
+          ok(await jsonRequest(stack.supabaseUrl + '/auth/v1/admin/users/' + id, { method: 'DELETE', headers: adminHeaders(stack) }));
+        });
+        if (a) await attempt('browser-context-a-close', () => a.context().close());
+        if (b) await attempt('browser-context-b-close', () => b.context().close());
+        ensure(cleanupFailures.length === 0, 'cleanup-incomplete');
       });
     } catch { failed = true; }
     const result = { ...source, checks: facts, readbacks };

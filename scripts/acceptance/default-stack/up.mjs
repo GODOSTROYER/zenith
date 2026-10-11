@@ -9,6 +9,7 @@ import { cli, run, docker, compose, requireEngineGate, save, cleanup, setResourc
 import { readiness } from './readiness.mjs';
 import { deferredJ4Composition, initializeJ4Namespace, j4PrestartReadiness, prepareJ4Ownership } from './j4.mjs';
 import { envValues } from '../../deploy/pin-digests.mjs';
+import { startLeanCliServices } from './start-cli-services.mjs';
 
 const nodeImage = 'node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402';
 const privateFile = (file, text) => fs.writeFileSync(file, text, { mode: 0o600, flag: 'wx' });
@@ -133,10 +134,12 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
     state.minimumObservedFreeBytes = Math.min(state.minimumObservedFreeBytes ?? available, available);
     assertHeadroom(available);
   });
+  let operationStage = 'certificates';
   try {
     await certificates(path.join(dir, 'tls'));
     const cliDir = path.join(dir, 'supabase-project'); fs.mkdirSync(path.join(cliDir, 'supabase'), { recursive: true, mode: 0o700 });
     privateFile(path.join(cliDir, 'supabase/config.toml'), supabaseConfig(state.projectId, profile));
+    operationStage = 'supabase-network-create';
     await docker(['network', 'create', '--label', `${installationLabel}=${installationId}`, '--opt', 'com.docker.network.bridge.host_binding_ipv4=127.0.0.1', state.supabaseNetwork]);
     const smtpPassword = randomBytes(32).toString('hex');
     const smtpEnv = Object.freeze({ ZENITH_MAILPIT_SMTP_PASS: smtpPassword });
@@ -151,9 +154,11 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
       '--env-file', mailpitEnvFile, '-p', `127.0.0.1:${ports.mail}:8025`, mailpitImage]);
     state.mailpitUrl = `http://127.0.0.1:${ports.mail}`;
     state.mailpitImage = { reference: mailpitImage, imageId: mailImage.Id, architecture: mailImage.Architecture };
+    operationStage = 'supabase-start';
     await run('supabase', ['start', '--workdir', cliDir, '--network-id', state.supabaseNetwork, '--exclude', excludedSupabaseServices], {
       timeout: 600_000, id: 'supabase-start', env: smtpEnv,
     });
+    operationStage = 'supabase-status';
     const status = JSON.parse(await run('supabase', ['status', '--workdir', cliDir, '--output', 'json'], { id: 'supabase-status', env: smtpEnv }));
     // Never assume or print the CLI's credentials; use its actual status output.
     if (!status.ANON_KEY || !status.SERVICE_ROLE_KEY || !status.DB_URL) fail('supabase-status');
@@ -162,6 +167,7 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
     save(path.join(dir, 'supabase.images.json'), state.supabaseImages);
     // Apply every immutable committed snapshot, in order, with actual Supabase roles.
     const dbContainer = `supabase_db_${state.projectId}`;
+    operationStage = 'supabase-migrations';
     for (const file of fs.readdirSync(path.join(root, 'supabase/migrations')).filter(file => /^\d+.*\.sql$/.test(file)).sort()) {
       await docker(['exec', '-i', dbContainer, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'], { input: fs.readFileSync(path.join(root, 'supabase/migrations', file)), id: 'supabase-migrations' });
     }
@@ -173,19 +179,24 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
     const publicEnv = { NEXT_PUBLIC_SUPABASE_URL: `https://supabase.localhost:${ports.supabase}`, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.ANON_KEY, NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${ports.api}` };
     const images = {};
     const buildSource = sourceBinding();
+    operationStage = 'application-image-build';
     // Image compilation is serialized. Free the CLI engines' memory during a
     // lean build, rather than fitting a compiler beside the running stack.
     const cliContainers = Object.keys(topology(profile).supabaseMiB).map(role => `supabase_${role}_${state.projectId}`);
     if (profile === 'lean') await docker(['stop', ...cliContainers]);
     for (const [kind, file] of [['api', 'Dockerfile'], ['worker', 'docker/worker.Dockerfile'], ['migration', 'deploy/self-hosted/migrations.Dockerfile']]) images[kind] = await build(state, kind, file, publicEnv);
     if (JSON.stringify(sourceBinding()) !== JSON.stringify(buildSource)) fail('source-changed-during-build');
-    if (profile === 'lean') await docker(['start', ...cliContainers]);
+    if (profile === 'lean') {
+      operationStage = 'supabase-restart';
+      await startLeanCliServices({ projectId: state.projectId, serviceNames: cliContainers, docker });
+    }
     const db = new URL(status.DB_URL);
     const input = { mode: 'disposable', apiPort: ports.api, images, environment: { ...publicEnv,
       SUPABASE_URL: publicEnv.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY,
       SUPABASE_DB_URL: `postgresql://postgres.pooler-dev:${db.password}@supabase-pooler:6543/postgres?sslmode=verify-full` } };
     const inputFile = path.join(dir, 'input.json'); writeJson(inputFile, input);
     // Invoke the real prepare CLI; its original authority and binding guards stay intact.
+    operationStage = 'application-prepare';
     await run(process.execPath, [path.join(root, 'scripts/deploy/installation.mjs'), 'prepare', path.join(dir, 'installation'), inputFile], { id: 'installation-prepare' });
     const config = readPrepared(path.join(dir, 'installation'));
     if (JSON.stringify(config.source) !== JSON.stringify(buildSource)) fail('source-changed-during-prepare');
@@ -199,6 +210,7 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
     document.services['supabase-edge'].user = `${process.getuid()}:${process.getgid()}`;
     document.networks.installation.driver_opts = { 'com.docker.network.bridge.host_binding_ipv4': '127.0.0.1' };
     const canonicalComposition = `${JSON.stringify(document, null, 2)}\n`;
+    operationStage = 'composition-write';
     if (j4Options) {
       const deferred = deferredJ4Composition(document, path.join(dir, 'j4/api.env'), j4Options.namespace, j4Options.temporalPort);
       const deferredComposition = `${JSON.stringify(deferred, null, 2)}\n`;
@@ -209,20 +221,28 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
     } else writeJson(path.join(dir, 'installation/stack.compose.json'), document);
     state.compositionSha256 = createHash('sha256').update(fs.readFileSync(path.join(dir, 'installation/stack.compose.json'))).digest('hex');
     save(path.join(dir, 'state.json'), state);
+    operationStage = 'composition-validate';
     await compose(state, ['config', '--quiet']);
+    operationStage = 'temporal-start';
     await compose(state, ['up', '-d', '--wait', '--wait-timeout', '180', 'temporal']);
+    operationStage = 'network-attach';
     const network = `${config.projectName}_installation`;
     await docker(['network', 'connect', network, `supabase_kong_${state.projectId}`]);
     await docker(['network', 'connect', '--alias', 'supabase-pooler', network, `supabase_pooler_${state.projectId}`]);
     await docker(['network', 'connect', '--alias', 'supabase-db', network, dbContainer]);
     // Committed Supabase snapshots already install platform. Refuse a stale
     // ledger instead of silently installing missing platform migrations here.
+    operationStage = 'platform-migration-status';
     await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate', '--status']);
+    operationStage = 'platform-migration';
     const migration = await compose(state, ['run', '--rm', '--no-deps', 'platform-migrate']);
     if (!migration.endsWith('Already up to date.')) fail('platform-migration-not-noop');
     if (j4Options) {
+      operationStage = 'j4-edge-start';
       await compose(state, ['up', '-d', '--wait', '--wait-timeout', '180', 'supabase-edge']);
+      operationStage = 'j4-namespace-admission';
       await initializeJ4Namespace(state);
+      operationStage = 'j4-pre-api-readiness';
       const preApiDatabase = await j4PrestartReadiness(state, { includeApiProbe: false });
       const preApiFile = path.join(dir, 'j4-preapi.receipt.json'); writeJson(preApiFile, preApiDatabase);
       const ownershipFile = path.join(dir, 'j4/ownership.json');
@@ -230,9 +250,11 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
       ownership.preApiReceiptSha256 = createHash('sha256').update(fs.readFileSync(preApiFile)).digest('hex');
       save(ownershipFile, ownership);
       save(path.join(dir, 'state.json'), state);
+      operationStage = 'j4-application-start';
       await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300', 'supabase-edge', 'api']);
-    } else await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300']);
+    } else { operationStage = 'application-start'; await compose(state, ['up', '-d', '--wait', '--wait-timeout', '300']); }
     save(path.join(dir, 'state.json'), state);
+    operationStage = 'stack-readiness';
     const receipt = j4Options ? await j4PrestartReadiness(state) : await readiness(state);
     save(path.join(dir, 'state.json'), state);
     setResourceGuard(undefined);
@@ -241,7 +263,8 @@ export async function up(directory, profile = 'default', imageLockFile, j4Option
   } catch (error) {
     save(path.join(dir, 'state.json'), state);
     const reason = error instanceof Error && /^(default-stack|installation):[A-Za-z0-9._-]+$/.test(error.message) ? error.message : 'default-stack:failed';
-    save(path.join(dir, 'failure.receipt.json'), { schemaVersion: 1, kind: 'harness_operation', status: 'failed', reason, productionReady: false });
+    const grpcCode = Number.isInteger(error?.code) && error.code >= 0 && error.code <= 16 ? error.code : undefined;
+    save(path.join(dir, 'failure.receipt.json'), { schemaVersion: 1, kind: 'harness_operation', status: 'failed', reason, stage: operationStage, ...(grpcCode === undefined ? {} : { grpcCode }), productionReady: false });
     if (j4Options) save(path.join(dir, 'j4-retain.receipt.json'), { schemaVersion: 1, kind: 'j4_owned_stack', status: 'retained_after_failure', j1Ready: false, productionReady: false });
     else try { await cleanup(state); } catch { save(path.join(dir, 'cleanup.pending.json'), { reason: 'owned-cleanup-requires-retry' }); }
     throw error;

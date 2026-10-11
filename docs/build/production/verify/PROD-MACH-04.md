@@ -380,3 +380,24 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-MACH-04 --print > /tmp/zenith
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Go R7/R8 compile evidence, 11 October 2026
+
+R7's compile completed, but the wrapper refused with exit 2 because the Docker process-inspection request omitted the required PID column. Gofmt, compile, and version checks returned 0; baseline, cleanup, custody, source, and disk-floor checks were clean. Preserve receipt SHA-256 `380b977accc2dfb6ec1bf4d147f3d48f289ff56bc901c867548b8c0e3d60c68e`; the refusal remains part of the record.
+
+R8 source `691f50a3bb2beac3c773f411d323afe4b55119284c09c604661e9116bf4e81bf` returned 0 for compile-only validation, with all 39 held commands returning 0 and strict validation clean. Receipt SHA-256: `d2c1a0b35e998602de00877a1fdd6a4be3a77b9c716cbae7660a2cb09cc77039`. The resulting ARM64 ELF is 11,281,832 bytes, SHA-256 `cf9ef053baba85f538a3369fd5b51077e1bee426514531afd5fce1bd4587b8f2`; it was not invoked and produced 0 cases. This does not satisfy native execution or installed-agent lifecycle acceptance.
+
+At the time of this R1 note, native R7 was still running; the terminal zero-case wrapper refusal recorded below supersedes that interim status. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-go-compile-only-r8.json). Ledger state remains `in_progress`; no release flag changes.
+
+## MACH04 native R7 terminal disposition, 11 October 2026
+
+The native R7 wrapper terminated with exit 2 before any guest or test case ran (**0 cases executed**). This is not a failed test assertion and does not establish that the guest started. Receipt SHA-256: `bc39d3b460d51015c01b6b33755c0c92330783a002c0190ef69c15b9643fa577`. The wrapper detected owned-container drift after the Go process started. The daemon's `OomKillDisable` observation changed from `false` to `null`, likely from fixture-guard normalization; diagnosis remains ongoing. At this R2 checkpoint cleanup was incomplete and start-Go status was unconfirmed. Host and VM disk floors were clean, the watcher joined, and custody was clean. Cleanup R3 later removed the naturally exited owned container and confirmed exact-ID absence. Native R7 source `7ced6aa9d2bdbe23a24b049320fdf84e670b9003f220fc6067131fd37a9d7c76` therefore remains unaccepted. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-go-native-r7-r2.json).
+
+
+## Current cleanup and native R8 status, 11 October 2026
+
+The retained Go compile container from the R7 refusal was cleaned in R3: wrapper exit 0, 17/17 held commands returned 0 with strict closure, no survivors or registry entry remained, and custody was clean. It exited naturally with code 1 and `OOMKilled: false`; cleanup does not convert the zero-case R7 refusal into a native test result. Native R8 terminated with wrapper exit 2 before any case executed; this is a wrapper refusal, not a failed test assertion. [Sanitized reconciliation](../evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
+
+## Native R8 terminal disposition, 11 October 2026
+
+Native R8 ended with wrapper exit 2 (`daemon-build-exit`) before any case executed (0 cases). This is not a failed assertion and does not establish native acceptance. Cleanup completed; baseline parity, command custody, and source stability were confirmed. All 36 main and four VM held commands returned 0 and were strictly closed. The owned compiler exited naturally with code 1 and `OOMKilled: false`; exact-ID removal without force and absence were confirmed. Diagnosis remains ongoing. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).

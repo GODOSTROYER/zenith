@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-11",
+  "requirement": "PROD-MACH-04",
+  "scope": "Go compile-only evidence; native installed-agent acceptance remains pending",
+  "R7": {
+    "status": "wrapper_refused",
+    "wrapperExitCode": 2,
+    "reason": "Docker top process had no PID after compile",
+    "gofmtCompileVersionExitCode": 0,
+    "baselineCleanupCustodySourceAndDiskFloors": "clean",
+    "receiptSha256": "380b977accc2dfb6ec1bf4d147f3d48f289ff56bc901c867548b8c0e3d60c68e"
+  },
+  "R8": {
+    "sourceSha256": "691f50a3bb2beac3c773f411d323afe4b55119284c09c604661e9116bf4e81bf",
+    "status": "pass_compile_only",
+    "exitCode": 0,
+    "heldCommands": 39,
+    "heldCommandsAllExitCode0": true,
+    "strictValidation": "clean",
+    "receiptSha256": "d2c1a0b35e998602de00877a1fdd6a4be3a77b9c716cbae7660a2cb09cc77039",
+    "artifact": {
+      "format": "ELF",
+      "architecture": "ARM64",
+      "sizeBytes": 11281832,
+      "sha256": "cf9ef053baba85f538a3369fd5b51077e1bee426514531afd5fce1bd4587b8f2",
+      "invoked": false,
+      "testCases": 0
+    }
+  },
+  "nativeRun": {
+    "sourceSha256": "7ced6aa9d2bdbe23a24b049320fdf84e670b9003f220fc6067131fd37a9d7c76",
+    "status": "running",
+    "result": "pending"
+  }
+}

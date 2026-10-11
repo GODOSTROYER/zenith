@@ -923,6 +923,20 @@ async function runTenantExportOperated(input: TenantExportInput, work: (context:
   return receiptExit(receipt);
 }
 
+async function authenticateBeforeWorkspace(page: Page, stack: Stack, user: { id: string; email: string; password: string }): Promise<void> {
+  await page.goto(stack.apiUrl + '/login?next=/overview');
+  await page.getByLabel('Email', { exact: true }).fill(user.email);
+  await page.getByLabel('Password', { exact: true }).fill(user.password);
+  const signedIn = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.origin === stack.supabaseUrl && url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password';
+  });
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  const verified = await signedIn;
+  ensure(verified.ok() && (await verified.json()).user?.id === user.id, 'real-auth-identity');
+  await page.waitForURL(url => url.origin === stack.apiUrl && url.pathname !== '/login');
+}
+
 export async function createTenant(ctx: OperatedContext, letter: string): Promise<Tenant> {
   const { stack, browser, config, cleanup, input } = ctx;
   const users: string[] = [];
@@ -937,12 +951,16 @@ export async function createTenant(ctx: OperatedContext, letter: string): Promis
   const owner = await (await browser.newContext()).newPage(), approver = await (await browser.newContext()).newPage();
   const a = await operator(stack, config.mailpitUrl, `drv4-${letter}-owner`, users);
   const b = await operator(stack, config.mailpitUrl, `drv4-${letter}-approver`, users);
-  await login(owner, stack, a); await login(approver, stack, b);
+  await authenticateBeforeWorkspace(owner, stack, a);
   const workspace = ok(await browserRequest(owner, "/api/workspace", { name: `DRV4 ${input.runId} ${letter}` })).workspace;
+  ok(await browserRequest(owner, "/api/bootstrap"));
+  await enrollOperator(owner, stack);
   const invite = ok(await browserRequest(owner, "/api/workspace/invites", { workspaceId: workspace.id, email: b.email, role: "admin" })).invite;
+  await authenticateBeforeWorkspace(approver, stack, b);
+  await enrollOperator(approver, stack);
   const accepted = ok(await browserRequest(approver, "/api/workspace/invites/" + invite.id + "/accept", {}));
+  ok(await browserRequest(approver, "/api/bootstrap"));
   ensure(accepted.member?.id === b.id && accepted.member?.role === "admin", "approver-member");
-  await enrollOperator(owner, stack); await enrollOperator(approver, stack);
   const name = `DRV4 ${input.runId} ${letter}`;
   const created = await action(owner, "project.create", { name, withEnvironment: false });
   return { owner, approver, ownerId: a.id, approverId: b.id, workspaceId: workspace.id,

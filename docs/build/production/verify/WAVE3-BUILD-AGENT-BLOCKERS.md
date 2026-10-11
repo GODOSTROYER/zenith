@@ -425,3 +425,23 @@ The c45 full Node/DOM core is already passed; ARM64 witness image build is passe
 ## 12 October cleanup attempt status
 
 R5's corrected synthetic preflight passed 12/12 and received independent terminal review. Actual cleanup then admitted the lock and created owned work, but failed before owned-down/removal at `protectedImagesBefore` because a held command had not strictly settled. No resource deletion is claimed; the marker remains retained without a new exact-byte readback claim. Full core and ARM64 witness image build are already passed; witness image acceptance invocation remains pending. No acceptance or promotion. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r5-attempt-r2.json).
+
+
+## 12 October current blockers
+
+Full c45 Node/DOM core and ARM64 witness image build are already passed; invoking the built image for acceptance remains pending. The newer 34764541 three-workflow CI snapshot is nonterminal (22 success, 8 conditional skips, 2 running, 0 failed); c45 terminal CI remains unchanged. Cleanup R5 stopped before deletion on absent optional image references with clean custody; R6 is HOLD and R7 focused proof is pending after source corrections. OBS04 R2's raw 10 passes are unaccepted due wrapper ancestor mismatch and missing final freeze/floor evidence; source-reviewed R3 awaits rerun. Ledger and flags unchanged. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-r5-r7-obs04-and-ci-r3.json).
+
+
+## 12 October OBS04 focused result
+
+OBS04 R3 has a terminal PASS for the focused actual-owned Temporal proof (10/10, 5/5 suites) with exact identities, nine settled commands, stable source, and successful cleanup/floor gates. It does not close broad OBS04, default maintenance, J4 natural-timer, or production acceptance. Preserve R2's wrong-ancestor wrapper failure; its four exact owned cache artifacts were later removed separately. Cleanup R7 remains pending. No promotion. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-obs04-focused-r3.json).
+
+
+## 12 October cleanup helper checkpoint
+
+Protected-image helper R6 reports 18/18 and custody guards on source R8 report 8/8, but independent terminal reviews are pending. Earlier helper R2 and custody R7 failures remain preserved. R8's source changes are conditionally reviewed; actual cleanup has not started. The new 34764541 CI snapshot remains nonterminal (23 success, 8 conditional skips, 1 running, 0 failures); c45 terminal CI is unchanged. Full core and ARM64 witness image build are already passed; invoking the witness image for acceptance remains pending. Ledger and release flags unchanged. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-helper-r8-preterminal.json).
+
+
+## Cleanup R8 failure and R9 helper review, 12 October 2026
+
+Focused terminal helper/guard proofs pass (18/18 and 8/8), but do not establish actual cleanup acceptance. Cleanup R8 failed after lock admission and owned-work creation: successful list/inspect output contained valid digest-qualified `RepoTags`, which the tag-only validator rejected. It stopped before predelete/down/delete; no resource deletion is claimed. R9 source review conditionally approves strict existing `RepoDigests` authority and raw projection. Its 21-capture regression over the 50-identity context remains pending. CI347R6 is nonterminal. No milestone or release flags change. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r8-terminal-and-failure-r9-review.json).

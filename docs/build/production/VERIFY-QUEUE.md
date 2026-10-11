@@ -1034,3 +1034,23 @@ The full c45 Node/DOM core is already green at 24,575 passed /1,943 skipped /0 f
 ## 12 October cleanup R5 attempt
 
 The corrected R5 parser/lock-guard preflight passed all 12 synthetic cases and independent terminal review; this supported a cleanup attempt subject to fresh runtime gates. That actual attempt admitted the lock, created owned work, and completed initial census, source freeze, and owned inventory, then failed exit 1 at `protectedImagesBefore` (`held-command-not-strictly-settled`) before owned-down/removal began. No resource deletion is claimed. The marker remains retained; no new exact-byte readback is asserted. Keep both prior R5 preflight history and actual cleanup failure. Full core is already passed; the ARM64 witness image build passed and invocation for acceptance remains pending. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r5-attempt-r2.json).
+
+
+## 12 October CI and focused-run status
+
+The c45 Node/DOM full core is already passed (24,575 /1,943 skipped /0 failed); the ARM64 witness image build passed, with image acceptance invocation pending. c45's prior terminal CI inventory remains unchanged. The newer exact-source 34764541 inventory is nonterminal: 22 success, 8 skipped, 2 running, 0 failed across three workflows. Cleanup R5 stopped before deletion after two optional build references were absent and custody settled cleanly; R6 remains HOLD, R7's corrected source review is conditional PASS, focused proof pending. OBS04 R2 raw 10/10 assertions are unaccepted because wrapper ancestor validation failed and final freeze/floor evidence is absent; source-reviewed R3 rerun remains pending. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-r5-r7-obs04-and-ci-r3.json).
+
+
+## 12 October OBS04 focused R3 result
+
+OBS04 R3 passed terminal review for the focused actual-owned Temporal run: 10/10 tests, 5/5 suites, exact identities, nine settled commands, stable c45 source, and final floor/cleanup checks. Scope remains narrow; it does not establish broad OBS04, default maintenance effects, J4 natural-timer acceptance, or production acceptance. Keep the R2 wrong-ancestor wrapper failure unaccepted and preserved; its four owned cache artifacts were later removed by a separate cleanup receipt. Cleanup R7 remains pending. Ledger and flags unchanged. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-obs04-focused-r3.json).
+
+
+## 12 October cleanup-helper and CI checkpoint
+
+Protected-image helper R6 reports 18/18 and custody-guard R8 reports 8/8 on stable c45 source; each used nine strictly settled held commands and remained above the 12 GB floor. Independent terminal reviews are pending, so neither is acceptance yet. Preserve failed helper R2 (17/18, unused joined command) and custody R7 (2/8, plural-key/snapshot-count defects). R8's minimal source fixes have conditional review approval; actual cleanup R8 has not started. Latest 34764541 CI snapshot is 23 success /8 conditional skips /1 running /0 failures across three exact-SHA workflows; c45's terminal CI is unchanged. Full core remains passed, witness image build passed with image invocation pending. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-helper-r8-preterminal.json).
+
+
+## 12 October cleanup R8 and helper-review update
+
+Terminal reviews pass the focused R6 protected-image helper (18/18) and R8 custody guards (8/8); both are scoped unit/guard proofs, not cleanup acceptance. Actual cleanup R8 failed after successful list and inspect at a validator that rejected digest-qualified `RepoTags`; it stopped before predelete/down/delete. Lock admission and owned work occurred, so this is not a preflight refusal. No resource deletion is claimed. R9's helper source review is conditional-positive; its 21-capture regression and 50-identity context remain pending. CI347R6 remains nonterminal. Preserve the R2/R7 helper failures and prior core/witness scope; no ledger or flag changes. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r8-terminal-and-failure-r9-review.json).

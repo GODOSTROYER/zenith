@@ -163,20 +163,63 @@ export function prepareJ4Ownership(state, config, compositionBytes, j4 = {}, def
   return { manifest, canonicalComposition, apiEnvironment: api, workerEnvironment: worker };
 }
 
+const namespaceReadinessTimeoutMs = 30_000;
+const namespaceReadinessRetryMs = 100;
+const temporalGrpcCode = error => Number.isInteger(error?.code) && error.code >= 0 && error.code <= 16 ? error.code : undefined;
+
+async function temporalRpc(label, operation) {
+  try { return await operation(); }
+  catch (error) {
+    const safe = new Error(`default-stack:${label}`);
+    const code = temporalGrpcCode(error);
+    if (code !== undefined) safe.code = code;
+    throw safe;
+  }
+}
+
+async function temporalReadinessRpc(connection, label, operation, deadline, grpcDeadline) {
+  const remaining = deadline - performance.now();
+  if (remaining <= 0) fail('j4-namespace-readiness-timeout');
+  try {
+    return await connection.withDeadline(grpcDeadline, () => temporalRpc(label, operation));
+  } catch (error) {
+    if (error.code === 4 && performance.now() >= deadline) fail('j4-namespace-readiness-timeout');
+    throw error;
+  }
+}
+
 async function temporalAdmission(state, namespace, port) {
   const connection = await Connection.connect({ address: `127.0.0.1:${port}` });
   try {
-    let exists = true;
-    try { await connection.workflowService.describeNamespace({ namespace }); }
-    catch (error) { if (error?.code === 5) exists = false; else throw error; }
-    if (exists) fail('j4-namespace-already-exists');
-    await connection.workflowService.registerNamespace({ namespace, workflowExecutionRetentionPeriod: { seconds: 86400 }, description: `Owned local J4 ${state.installationId}` });
-    const confirmed = await connection.workflowService.describeNamespace({ namespace });
-    if (confirmed.namespaceInfo?.name !== namespace) fail('j4-namespace-registration');
-    const before = await connection.operatorService.listSearchAttributes({ namespace });
-    if (before.customAttributes?.ZenithScheduleOwner !== undefined) fail('j4-search-attribute-already-exists');
-    await connection.operatorService.addSearchAttributes({ namespace, searchAttributes: { ZenithScheduleOwner: temporalKeywordSearchAttributeValue } });
-    const after = await connection.operatorService.listSearchAttributes({ namespace });
+    // A NOT_FOUND before registration is the only admissible absence signal.
+    // Do not retry registration: it is the one permitted namespace mutation.
+    let initialAbsent = false;
+    try { await temporalRpc('j4-namespace-describe-before', () => connection.workflowService.describeNamespace({ namespace })); }
+    catch (error) { if (error.code === 5) initialAbsent = true; else throw error; }
+    if (!initialAbsent) fail('j4-namespace-already-exists');
+    await temporalRpc('j4-namespace-register', () => connection.workflowService.registerNamespace({ namespace, workflowExecutionRetentionPeriod: { seconds: 86400 }, description: `Owned local J4 ${state.installationId}` }));
+
+    const deadline = performance.now() + namespaceReadinessTimeoutMs;
+    const grpcDeadline = Date.now() + namespaceReadinessTimeoutMs;
+    let before;
+    while (before === undefined) {
+      try {
+        const confirmed = await temporalReadinessRpc(connection, 'j4-namespace-describe-after', () => connection.workflowService.describeNamespace({ namespace }), deadline, grpcDeadline);
+        if (confirmed.namespaceInfo?.name !== namespace) fail('j4-namespace-registration');
+        const attributes = await temporalReadinessRpc(connection, 'j4-search-attributes-before', () => connection.operatorService.listSearchAttributes({ namespace }), deadline, grpcDeadline);
+        if (!attributes || typeof attributes !== 'object' || !attributes.customAttributes || typeof attributes.customAttributes !== 'object') fail('j4-search-attributes-response');
+        before = attributes;
+      } catch (error) {
+        if (error.code !== 5) throw error;
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) fail('j4-namespace-readiness-timeout');
+        await new Promise(resolve => setTimeout(resolve, Math.min(namespaceReadinessRetryMs, remaining)));
+      }
+    }
+    if (before.customAttributes.ZenithScheduleOwner !== undefined) fail('j4-search-attribute-already-exists');
+    await temporalRpc('j4-search-attribute-add', () => connection.operatorService.addSearchAttributes({ namespace, searchAttributes: { ZenithScheduleOwner: temporalKeywordSearchAttributeValue } }));
+    const after = await temporalRpc('j4-search-attributes-after', () => connection.operatorService.listSearchAttributes({ namespace }));
+    if (!after || typeof after !== 'object' || !after.customAttributes || typeof after.customAttributes !== 'object') fail('j4-search-attributes-response');
     if (!hasNumericScheduleOwnerKeyword(after.customAttributes)) fail('j4-search-attribute-registration');
     return { namespaceCreated: true, scheduleOwnerKeywordCreated: true };
   } finally { await connection.close(); }

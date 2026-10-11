@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "sourceHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+  "recordedAt": "2026-10-11T03:52:04.539791+00:00",
+  "scope": "Failed J1 stack cleanup and exact owned witness-tag cleanup; no J1/J4/J2 acceptance",
+  "failedJ1Cleanup": {
+    "outerExitCode": 0,
+    "receiptSha256": "7bd0a19545af623351ef9f12bbdff76e74faed3c0fed1c310effe3f6bffa069c",
+    "removed": 17,
+    "ownedResourcesRemaining": 0,
+    "forcedStops": 2,
+    "heldCommands": 193,
+    "strictCloseoutPassed": true,
+    "sourceFreezeStable": true,
+    "hostFloorMinimumBytes": 336022933504,
+    "vmFloorMinimumBytes": 419691646976,
+    "floorBytes": 23622320128,
+    "observersJoined": true,
+    "j4PrivateMaterialsAbsent": true,
+    "historicalReceiptsRetained": true,
+    "acceptedRunReceipt": false
+  },
+  "witnessTagCleanup": {
+    "outerExitCode": 0,
+    "receiptSha256": "6eb40fb83748d78a1af608a282f85ae5e6a3a11c5a8979b30d4fc098b3392a38",
+    "exactTagAbsent": true,
+    "strictCloseoutPassed": true,
+    "sourceFreezeStable": true,
+    "ownedChildAndRegistryAbsent": true,
+    "acceptanceClaim": false
+  },
+  "originalFailuresPreserved": true,
+  "milestonesPromoted": 0,
+  "remaining": "Integrate reviewed repairs, then fresh coherent full core, witness and J1/J4/browser acceptance. Forced stops are not graceful-shutdown evidence."
+}

@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "kind": "source-69-current-progress-delta",
+  "observedAtUtc": "2026-10-11",
+  "sourceHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+  "ledger": {
+    "verified": 9,
+    "inProgress": 67,
+    "planned": 2,
+    "total": 78,
+    "requiredEvidenceChanged": false,
+    "releaseFlags": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "milestonePromotion": false
+  },
+  "r16": {
+    "sessionId": 99290,
+    "wrapperExitCode": 0,
+    "status": "passed_full_core_execution",
+    "counts": {
+      "passed": 24543,
+      "failed": 0,
+      "skipped": 1939,
+      "total": 26482
+    },
+    "elapsedSeconds": 458.032,
+    "sourceStable": true,
+    "custodyFloorAndOwnedDataCleanup": "passed per joined receipt",
+    "executionReceiptSha256": "f215759d23a793cd9fac4b3f1539471dc109402ac1d2610ff07c16033ab19968",
+    "summarySha256": "0adb31db5de1e2c0144dc809d7f0e44f7b59fe701921da2582d79c6e6b879f0d",
+    "scope": "full-core execution only; does not establish broader J1/J4 or release acceptance"
+  },
+  "r10J2Witness": {
+    "buildExitCode": 0,
+    "pushPerformed": false,
+    "summarySha256": "c1b031342545a4a4e2e2ffa1204d846cdedcaadf224c2e623bc3b7246357f750",
+    "bindsToR16ExecutionReceiptSha256": "f215759d23a793cd9fac4b3f1539471dc109402ac1d2610ff07c16033ab19968",
+    "scope": "ARM64 build-witness only; no runtime/acceptance claim",
+    "sessionId": 31470,
+    "builtImageDigest": "sha256:0025e08ab7ebb965c51ec70120f921141d1d1a1bb1e81f17908d59ce600d40c2"
+  },
+  "r9J4": {
+    "wrapperExitCode": 2,
+    "childExitCode": 1,
+    "stage": "J4 namespace admission",
+    "grpcCode": 5,
+    "j4BodyRan": false,
+    "failureReceiptSha256": "af9b09167f4b7f888ea02d27ca0916b0a3414ce4d64e0f7c3ddcb4730f1706ab",
+    "retainedOwnedRuntime": true,
+    "custodyAuditSha256": "4d77739fa3b58bea366b22d0dcd8e00fc29889ba8b717377e86f304506bfe46a",
+    "readonlyProbe": {
+      "registeredNamespace": true,
+      "state": 1,
+      "scheduleOwner": "absent",
+      "receiptSha256": "4508a794129bbb68dc496c6ef1b6b727a8cbd3997618bcc52b58959c477b128a",
+      "acceptedRunReceipt": false
+    },
+    "repairAccepted": false,
+    "runtimeOutcome": "pending"
+  },
+  "historical": {
+    "r7CaptureExhaustionRefusal": "preserved",
+    "canonicalCleanup": {
+      "removed": 16,
+      "remaining": 0,
+      "forcedStops": 2,
+      "receiptSha256": "1a15d8728196df99d21f7a1496ee4e89c2c10da75dfbae62cea792c6398f6982"
+    },
+    "nativeR14": "historical single-case result unchanged"
+  },
+  "ci": {
+    "workflowRunId": 38105216483,
+    "snapshotSha256": null,
+    "snapshotCounts": {
+      "success": 22,
+      "failure": 1,
+      "cancelled": 1,
+      "skipped": 8,
+      "total": 32,
+      "view": "terminal three-workflow aggregate"
+    },
+    "active": null,
+    "failure": "Go",
+    "components": [
+      {
+        "name": "kind coverage audit",
+        "auditSha256": "929f53bc75a014176fc0cdd4bea8836b5bdf396c1fc0973723f81524e807674a",
+        "artifactDigest": null,
+        "scope": "read-only CI wiring; no CI kind-specific evidence, blocked pending separate local kind evidence"
+      },
+      {
+        "name": "PostgreSQL",
+        "auditSha256": "696cb8c86fe6f11611aceb85395bd01a0a1cbfbe5ee5273e828523738d639e32",
+        "artifactDigest": "5de20b50b18a2aec15bd86eaf0ae82034717021ba99b2111b3119717daeed463",
+        "scope": "terminal canonical postgres job/artifact; source binding matched",
+        "strictScopeCounts": {
+          "requiredIdentities": 93,
+          "assertionsPassed": 379,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "name": "recovery",
+        "auditSha256": "4f4bb1bfab9dd4480d83b22293fac0f55807e58ed5a9723c21879de634d8e056",
+        "artifactDigest": "97742a1844d8e5e7da50c14dd303f2664a3e8fd4fc83d6cfb26df6f2148160e2",
+        "scope": "10 strict disposable PostgreSQL/local Temporal backup, clean-host restore, temporal cases; separate scope",
+        "strictScopeCounts": {
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        }
+      },
+      {
+        "name": "workflows and history replay",
+        "auditSha256": "5a365e7721bafc00ed5df1fa1b9a3fb8bf66767189ad69603da5279ec7fd66d9",
+        "artifactDigests": [
+          "14a108b70dcc2c38ea08222717732a68d755ab3aa5903fdc9330b7216d18b550",
+          "6bb055dc70911171c820d7f8cb134f3578f9b637eed45c6bc58e084be9b3eb09"
+        ],
+        "scope": "two terminal artifact-backed lane jobs; run-level CI still active at snapshot",
+        "strictScopeCounts": {
+          "workflowsPassed": 1559,
+          "workflowsFailed": 0,
+          "workflowsSkipped": 0,
+          "historyReplayPassed": 34,
+          "historyReplayFailed": 0,
+          "historyReplaySkipped": 0,
+          "overlapIdentities": 29
+        }
+      },
+      {
+        "name": "ToFu and OPA",
+        "auditSha256": "d5123b37ca3d1f6a3d4b1c42671c977c227b39486b3aa7e3a46803f0df85eccd",
+        "artifactDigests": [
+          "87d7cb572adb116605a0444b91a1028428107bfb72be75bcc4391b6b88ac28cd",
+          "22e3584fe95fb8f1ea8660a994a9b5a9ab15630e0da3d8d21667dcee5c284cb4"
+        ],
+        "scope": "terminal lane artifacts validated separately; counts not added to workflow totals",
+        "strictScopeCounts": {
+          "tofuPassed": 4329,
+          "tofuFailed": 0,
+          "tofuSkipped": 19,
+          "tofuRequiredIdentities": 29,
+          "policyPassed": 242,
+          "policyFailed": 0,
+          "policySkipped": 0,
+          "policyRequiredIdentities": 8
+        }
+      },
+      {
+        "name": "native packaged workers",
+        "auditSha256": "1a07292868914616fbfbe2a8d42963c31992d90550019fad5a135ae955030d2c",
+        "artifactDigests": [
+          "f3b0c2fbc2f088599a7ccad0c46cbce923843bc9b1c715bc0697db7f3e6d350a",
+          "a722837566144ca9d2af471302f8388f0cf99a359f100be1f07456a276a6e14c"
+        ],
+        "scope": "AMD64 and ARM64 packaged worker jobs; does not close browser/API/MCP acceptance",
+        "strictScopeCounts": {
+          "amd64ChecksPassed": 22,
+          "arm64ChecksPassed": 22,
+          "failed": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "componentsAreSeparateScopes": true,
+    "doNotSumComponentCounts": true,
+    "mainWorkflowCounts": {
+      "total": 28,
+      "success": 18,
+      "failure": 1,
+      "cancelled": 1,
+      "skipped": 8
+    },
+    "threeWorkflowAggregateCounts": {
+      "total": 32,
+      "success": 22,
+      "failure": 1,
+      "cancelled": 1,
+      "skipped": 8
+    },
+    "componentEvidenceNotes": [
+      "PostgreSQL covers 0 of 19 Wave 6 local-engine case IDs; platform-PostgreSQL is separate.",
+      "Workflow-history replay overlaps 29 identities with workflows; component totals must not be summed.",
+      "Recovery artifact does not export independent resource-absence or cleanupComplete fields.",
+      "ToFu/OPA are sanitized artifact envelopes; raw report/sidecars and separate cleanup receipts are unavailable; no cloud apply.",
+      "Kind has no exact-source-69 execution artifact and remains blocked pending local kind evidence.",
+      "Packaged-worker evidence is bounded to its recorded signed-read/missing-target-refusal scope and does not close browser/API/MCP acceptance."
+    ],
+    "r5Snapshot": {
+      "observedAtUtc": "2026-10-11T03:04:29Z",
+      "sha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
+      "unchangedSinceR4": true,
+      "mainRunCounts": {
+        "jobs": 28,
+        "success": 18,
+        "failure": 1,
+        "skipped": 8,
+        "active": 1
+      },
+      "threeWorkflowAggregateCounts": {
+        "jobs": 32,
+        "success": 22,
+        "failure": 1,
+        "skipped": 8,
+        "active": 1
+      },
+      "active": "Verify",
+      "failed": "Go",
+      "historicalAfterTerminalRefresh": true
+    },
+    "previousNonterminalSnapshot": {
+      "observedAtUtc": "2026-10-11T03:04:29Z",
+      "sha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
+      "mainCounts": {
+        "total": 28,
+        "success": 18,
+        "failure": 1,
+        "skipped": 8,
+        "inProgress": 1
+      },
+      "aggregateCounts": {
+        "total": 32,
+        "success": 22,
+        "failure": 1,
+        "skipped": 8,
+        "inProgress": 1
+      },
+      "historical": true
+    },
+    "status": "completed_failure",
+    "snapshotAtUtc": "2026-10-11T03:14:43Z",
+    "cancelled": "Verify",
+    "terminalObservation": {
+      "sourceSha": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+      "observedAtUtc": "2026-10-11T03:14:43Z",
+      "workflowRunStatus": "completed",
+      "workflowRunConclusion": "failure",
+      "verifyJobId": 114369225607,
+      "verifyConclusion": "cancelled",
+      "verifyCompletedAtUtc": "2026-10-11T03:13:08Z",
+      "goJobId": 114369225591,
+      "goConclusion": "failure",
+      "nativeWorkerRunId": 38105216447,
+      "nativeWorkerConclusion": "success",
+      "nativePlatformRunId": 38105216487,
+      "nativePlatformConclusion": "success",
+      "nativeJobsEach": 2,
+      "cancellationCause": "check-run annotation confirms maximum execution time of 45m0s",
+      "snapshotReportSha256": "28232ce9c8398322919790990e0e882ed3dbee209bb93326ba21efc3315dc9d3",
+      "snapshotJsonSha256": "cfaff3889af5072d107296c781e9786d7e2991943959f3fee0e6952816c700ae",
+      "verifyTimeoutAnnotation": "The job has exceeded the maximum execution time of 45m0s",
+      "verifyUnitStepCancelledAtUtc": "2026-10-11T03:13:07Z",
+      "verifySmokeAndGimbal": "skipped"
+    },
+    "priorNonterminalSnapshotSha256": "440c40e43efbade76b6f8fc3079397fc12a84f944f8dd608b96dbbd79f68b73b",
+    "terminalEvidencePath": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-terminal-ci-observation.json",
+    "terminalEvidenceSha256": "2b03295e530eeb58b8b7d45d86aa60fde34f57c21bf3cc1f21ff3e19fbadcdfa",
+    "timeoutProofReportSha256": "6521d1a44f22abd1682fac8d61b6ceba19be65dba4018b343016ca8097a4eb8f",
+    "timeoutProofJsonSha256": "3b739bf5d5dfdbe9d892426f4b10e2355b9c4ab6ae98b6661322672bdfde75c7"
+  },
+  "outputCapFocusedRepair": {
+    "receiptSha256": "d7bcd516197c10ada3c017630d4ebe152613fc162282afda5e8e67dda22abf80",
+    "counts": {
+      "passed": 195,
+      "failed": 0,
+      "skipped": 0
+    },
+    "elapsedSeconds": 26.34,
+    "lintExitCode": 0,
+    "scope": "focused overlay only; no full-suite acceptance"
+  },
+  "priorOutputCapAttempt": {
+    "attempt": "47768",
+    "counts": {
+      "passed": 194,
+      "failed": 1
+    },
+    "reason": "missing AST helper",
+    "disposition": "historical refusal preserved"
+  },
+  "minio": {
+    "blocker": "secure marker-writer attribution",
+    "ledgerAppend": false,
+    "baseAcquired": false,
+    "engineProbe": false,
+    "markersPreserved": true
+  },
+  "publicSanitization": {
+    "privatePathsOmitted": true,
+    "credentialsOmitted": true,
+    "runtimeIdentifiersOmitted": true,
+    "onlyPublicSourceAndRunIdsAndEvidenceHashesIncluded": true
+  },
+  "milestoneEligibility": {
+    "newlyEligibleRequirementCount": 0,
+    "ledgerRowsChanged": false,
+    "assessmentSha256": "59bbc3ed6c280c8ba4d6bc89ce54b879e00e1a8ab9509c399b75e482c2fa6824",
+    "conclusion": "no additional milestone fully eligible; existing nine verified rows unchanged",
+    "assessmentJsonSha256": "b0f3c4873374d1ff4482abd4dc5beee3532fdd22d301e35f78122eca757dbabd"
+  },
+  "j4FocusedCandidateDiagnostic": {
+    "evidencePath": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-j4-focused-r2-diagnostic.json",
+    "evidenceJsonSha256": "184662f95d6a01ad45da22e2e1544d6d28fb0558ce508aadcf9bedd9b6e2187f",
+    "receiptSha256": "2dff41ffa2d26e6107fe9977dc43cc266a74fea319415bae979fc6f0ccb5d227",
+    "candidateFreezeEqualsPrimary": false,
+    "result": "18/0/0 plus ESLint0; diagnostics-only; no runtime acceptance",
+    "historicalR1R2FailuresPreserved": true
+  }
+}

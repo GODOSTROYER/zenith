@@ -1,4 +1,17 @@
-## Fresh 94d60798 verification queue, 11 October 2026 — R3
+## Current source 69 queue status, 11 October 2026
+
+**Current handoff:** Source 69 full R16 passed 24,543/0/1,939; the ARM64 witness build passed without push. Reviewed output-cap and namespace-readiness repairs are integrated in this working tree; focused diagnostics passed 195/0/0 and 18/0/0 respectively, with lint. The outer Verify job budget is now 60 minutes; inner gates are unchanged. Failed-stack cleanup completed: 17 removed, zero remaining, two forced stops; all 193 held commands, stable source and host/VM floors passed. Exact witness-tag cleanup also completed with strict closeout and tag absence. These are cleanup/diagnostic results, not graceful-shutdown or J1/J4/J2 acceptance. Original failures remain preserved. Exact source-69 CI remains terminal 22 success / 1 failure / 1 cancelled / 8 skipped across all 32 jobs. Next: commit/pull/push the coherent repairs, then fresh R16 → R10 → R9 and remaining authorized acceptance. Ledger remains 9 verified / 67 in progress / 2 planned, all four release flags false. [Cleanup evidence](evidence/PROD-CI-08/2026-10-11-69-owned-cleanup-r10.json).
+
+
+- **R16 full core:** completed 24,543/0/1,939 in 458.032 seconds with wrapper exit 0 on source 69; execution receipt confirms source/custody/floor/owned-data checks. Broader acceptance remains open.
+- **J2 witness:** R10 ARM64 build exited 0 without push and binds to the R16 receipt. This is build-witness evidence, not runtime or release acceptance.
+- **J1/J4:** R9 wrapper exit 2 / child exit 1 at namespace admission (`gRPC 5`) before the J4 body. Retained state remains. Read-only probe observed namespace state 1 and absent schedule owner; no acceptance claim. A separate candidate-focused J4 diagnostic passed 18/0/0 plus ESLint0 after the reviewed one-line expected `withDeadline` count correction from4 to5; the prior R1/R2 focused failures, including the 17/18 result and R1 typecheck receipt remain preserved, and typecheck was not rerun after the test-only line. Primary/candidate source-freeze hashes differ despite matching HEAD, so this does not validate the clean primary or establish J4 runtime acceptance. The R9 admission refusal remains current.
+- **Exact-source CI:** Main run 38105216483 is terminal failure: 28 jobs (18 success / 1 failure / 1 cancelled / 8 skipped; Go failed, Verify cancelled). The three-workflow aggregate is terminal: 32 jobs (22 success / 1 failure / 1 cancelled / 8 skipped). The prior r5 active snapshot is historical; Verify’s check-run annotation confirms the 45-minute maximum execution time, while its GitHub conclusion remains cancelled. Artifact-backed lanes are audited separately; their counts are not combined. The output-cap focused overlay passed 195/0/0 plus lint, while prior 47768 remains a refusal at 194/1 due to missing AST helper.
+- **MinIO:** secure marker-writer attribution is a hard blocker. No ledger append, base acquisition, or engine probe; preserve markers.
+
+The prior R7 capture-exhaustion refusal and canonical cleanup counts (16 removed / 0 remaining / 2 forced stops) remain in history. Native R14 is an unchanged historical single-case result. Ledger remains **9/67/2**, required evidence is unchanged, and all four release flags remain false. [Current evidence](evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json).
+
+## Historical source-94 verification queue, 11 October 2026 — R3
 
 This section supersedes older open-queue ordering below. Source remains `94d60798a376c49beaa5c1bc60f14d2e6aa5e430`; ledger remains 9 verified / 67 in progress / 2 planned. Preserve the fresh exact-94 full core (**24,534 passed / 0 failed / 1,939 skipped**) and completed local-gate receipts as scoped passes. Do not requeue an unchanged completed gate; repeat only when its bound source or required inputs change. No ledger promotion or future pass is implied here.
 
@@ -30,7 +43,7 @@ Existing external blockers remain separate: resource floors, cached/pinned local
 
 ---
 
-## Integrated 8e467 checkpoint, 11 October 2026
+## Historical source-8e467 checkpoint, 11 October 2026
 
 The exact frozen source `8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e` passed the root-accepted R16 full Node/DOM core: **24,533 passed / 0 failed / 1,939 skipped across 26,472 exact identities** (25,407 Node, 1,065 DOM, 4,871 suites). The source freeze matched and the wrapper exited 0. Custody recorded 44 events, no drops or quarantines, and all 12 pending births resolved absent with two terminal absence confirmations each. No active processes remained; three cleanup attempts completed and owned data was removed. Minimum free space was 375,583,862,784 bytes, above the 22 GiB floor. This closes core-suite scope only.
 
@@ -60,7 +73,7 @@ Keep one heavy local workload at a time and all host/VM floors. AirPlay stays of
 3. Pull the reviewed candidate into a clean primary source tree, then run a fresh coherent R16 full-core verification bound to that exact new source. The accepted 8e467 result remains scoped to 8e467.
 4. After the fresh core run, repeat the R10 witness on the new source, then retry R9 with cached inputs and the actual new source head. Never relabel prior evidence.
 5. Keep exact CI, full default-stack, J4/J2 operated acceptance, browser journey, trust and release approval open until separately evidenced. Continue independent authorized preparation; the terminal CI run is failed, not green.
-## Current integrated CI-08 checkpoint, 10 October 2026
+## Historical integrated CI-08 checkpoint, 10 October 2026
 
 Published source `9543936c8cb1c40a1345cbe92fafeb5382e05c29` passed the reviewed two-worker full R15 Node/DOM run: **24,527 passed / 0 failed / 1,939 skipped across 26,466 exact identities**, wrapper 0 in 481.38 seconds. Source and identity/case counters matched; custody recorded no quarantines; owned temporary data was removed. Minimum free space was 394,202,906,624 bytes, above the 23,622,320,128-byte floor. This establishes core-suite scope only. Skip accounting joins same-process collection/completion identities and checks suite-counter arithmetic; it has no independent suite inventory.
 
@@ -845,15 +858,3 @@ MACH04 native R7 terminal update, 11 October: wrapper exit 2, zero cases execute
 The old 94 witness tag `localhost:5000/zenith-j2-witness:rc` was removed and exact-tag absence was confirmed; its receipt makes no J2 acceptance claim. Go cleanup R3 is complete; native R8 terminated with wrapper exit 2 before any case executed. [Cleanup evidence](evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
 
 Native R8 is terminal at wrapper exit 2 (`daemon-build-exit`) with zero executed cases. Cleanup and custody are complete; preserve this as a wrapper refusal rather than a test failure. Diagnosis remains ongoing, and no acceptance or release state changes. [Evidence](evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).
-
-
-
-
-## Current source 664 queue status, 11 October 2026
-
-- **R16:** full-core failed on one PGlite ordering assertion (24,542/1/1,939); source, custody, floor, and owned-data cleanup passed. Keep the full run unaccepted.
-- **Focused overlay diagnostics:** the assertion-preserving fixture repair passed independent review; store-contract actual `tsc` and 44/0/0 passed in one scoped receipt. A separate guest-file-write diagnostic passed 194/0/0 and ESLint on three changed paths. Do not combine these into full-suite acceptance.
-- **Exact-664 CI R3:** 20 success / 1 failure / 1 cancelled / 8 skipped / 2 active. AMD64 race/package-native passed, but PID1 stopped at `guest-baseline-container-identity` before the guest body; Verify and platform-postgres remain active and build cancellation cause is unknown. Nine field IDs are diagnostic only.
-- **MinIO:** append-static R3 refused before fresh PID probes, ledger operation, or engine action on `r11-marker-time-outside-first-r5-attempt`. This is bounded diagnostic evidence while exact writer attribution is independently audited; no append ledger exists and no base was acquired.
-
-See [current evidence](evidence/PROD-CI-08/2026-10-11-664-current-delta.json). Ledger 9/67/2, required evidence unchanged, all four release flags false.

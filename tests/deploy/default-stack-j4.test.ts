@@ -71,6 +71,7 @@ import { ports } from "../../scripts/acceptance/default-stack/config.mjs";
 const hash = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
 const envNames = ["api.env", "worker.env", "migration.env", "compose.env", "installation.json", "keyring.json"];
 const namespace = "j4-test-resume";
+const passTemporalDeadline = (_deadline: Date | number, operation: () => Promise<unknown>) => operation();
 
 function makeFixture() {
   const directory = mkdtempSync(path.join(os.tmpdir(), "zenith-j4-prestart-"));
@@ -244,6 +245,7 @@ describe("J4 deferred default-stack admission", () => {
     try {
       const notFound = Object.assign(new Error("namespace missing"), { code: 5 });
       const connection = {
+        withDeadline: vi.fn(passTemporalDeadline),
         workflowService: {
           describeNamespace: vi.fn().mockRejectedValueOnce(notFound).mockResolvedValue({ namespaceInfo: { name: namespace } }),
           registerNamespace: vi.fn().mockResolvedValue(undefined),
@@ -261,10 +263,176 @@ describe("J4 deferred default-stack admission", () => {
         searchAttributes: { ZenithScheduleOwner: 2 },
       });
       expect(connection.operatorService.listSearchAttributes).toHaveBeenCalledTimes(2);
+      expect(connection.withDeadline).toHaveBeenCalledTimes(2);
+      expect(new Set(connection.withDeadline.mock.calls.map(([deadline]) => deadline)).size).toBe(1);
       expect(connection.close).toHaveBeenCalledOnce();
     } finally {
       rmSync(fixture.directory, { recursive: true, force: true });
     }
+  });
+
+  it("waits for post-registration namespace and search-attribute reads on NOT_FOUND only", async () => {
+    const fixture = makeFixture();
+    try {
+      const notFound = Object.assign(new Error("private namespace detail"), { code: 5 });
+      const connection = {
+        withDeadline: vi.fn(passTemporalDeadline),
+        workflowService: {
+          describeNamespace: vi.fn().mockRejectedValueOnce(notFound).mockRejectedValueOnce(notFound)
+            .mockResolvedValue({ namespaceInfo: { name: namespace } }),
+          registerNamespace: vi.fn().mockResolvedValue(undefined),
+        },
+        operatorService: {
+          listSearchAttributes: vi.fn().mockRejectedValueOnce(notFound).mockResolvedValueOnce({ customAttributes: {} })
+            .mockResolvedValueOnce({ customAttributes: { ZenithScheduleOwner: 2 } }),
+          addSearchAttributes: vi.fn().mockResolvedValue(undefined),
+        },
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      j4Mocks.temporalConnect.mockResolvedValue(connection);
+      await expect(initializeJ4Namespace(fixture.state)).resolves.toMatchObject({ namespaceCreated: true, scheduleOwnerKeywordCreated: true });
+      expect(connection.workflowService.describeNamespace).toHaveBeenCalledTimes(4);
+      expect(connection.workflowService.registerNamespace).toHaveBeenCalledOnce();
+      expect(connection.operatorService.listSearchAttributes).toHaveBeenCalledTimes(3);
+      expect(connection.operatorService.addSearchAttributes).toHaveBeenCalledOnce();
+      expect(connection.withDeadline).toHaveBeenCalledTimes(5);
+      expect(new Set(connection.withDeadline.mock.calls.map(([deadline]) => deadline)).size).toBe(1);
+      expect(connection.close).toHaveBeenCalledOnce();
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
+  it("stops readiness polling at its bounded deadline and closes without repeating registration", async () => {
+    vi.useFakeTimers();
+    const fixture = makeFixture();
+    try {
+      const notFound = Object.assign(new Error("private namespace detail"), { code: 5 });
+      const connection = {
+        withDeadline: vi.fn(passTemporalDeadline),
+        workflowService: {
+          describeNamespace: vi.fn().mockRejectedValueOnce(notFound).mockRejectedValue(notFound),
+          registerNamespace: vi.fn().mockResolvedValue(undefined),
+        },
+        operatorService: {
+          listSearchAttributes: vi.fn().mockResolvedValue({ customAttributes: {} }),
+          addSearchAttributes: vi.fn().mockResolvedValue(undefined),
+        },
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      j4Mocks.temporalConnect.mockResolvedValue(connection);
+      const admission = initializeJ4Namespace(fixture.state);
+      const rejection = expect(admission).rejects.toThrow("default-stack:j4-namespace-readiness-timeout");
+      await vi.advanceTimersByTimeAsync(30_000);
+      await rejection;
+      expect(connection.workflowService.registerNamespace).toHaveBeenCalledOnce();
+      expect(connection.withDeadline).toHaveBeenCalled();
+      expect(new Set(connection.withDeadline.mock.calls.map(([deadline]) => deadline)).size).toBe(1);
+      expect(connection.operatorService.addSearchAttributes).not.toHaveBeenCalled();
+      expect(connection.close).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
+  it("passes the shared deadline to Temporal so a pending readiness RPC expires", async () => {
+    vi.useFakeTimers();
+    const fixture = makeFixture();
+    try {
+      const connection = {
+        withDeadline: vi.fn((deadline: Date | number, operation: () => Promise<unknown>) => new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(Object.assign(new Error("deadline exceeded"), { code: 4 })), Number(deadline) - Date.now());
+          Promise.resolve(operation()).then(resolve, reject).finally(() => clearTimeout(timer));
+        })),
+        workflowService: {
+          describeNamespace: vi.fn().mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 5 }))
+            .mockImplementationOnce(() => new Promise(() => {})),
+          registerNamespace: vi.fn().mockResolvedValue(undefined),
+        },
+        operatorService: { listSearchAttributes: vi.fn(), addSearchAttributes: vi.fn() },
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      j4Mocks.temporalConnect.mockResolvedValue(connection);
+      const admission = initializeJ4Namespace(fixture.state);
+      const rejection = expect(admission).rejects.toThrow("default-stack:j4-namespace-readiness-timeout");
+      await vi.advanceTimersByTimeAsync(30_000);
+      await rejection;
+      expect(connection.withDeadline).toHaveBeenCalledOnce();
+      expect(typeof connection.withDeadline.mock.calls[0][0]).toBe("number");
+      expect(connection.workflowService.describeNamespace).toHaveBeenCalledTimes(2);
+      expect(connection.workflowService.registerNamespace).toHaveBeenCalledOnce();
+      expect(connection.close).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed on non-NOT_FOUND RPC errors without exposing their messages", async () => {
+    const fixture = makeFixture();
+    try {
+      const internal = Object.assign(new Error("secret server detail"), { code: 13 });
+      const connection = {
+        withDeadline: vi.fn(passTemporalDeadline),
+        workflowService: {
+          describeNamespace: vi.fn().mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 5 }))
+            .mockRejectedValue(internal),
+          registerNamespace: vi.fn().mockResolvedValue(undefined),
+        },
+        operatorService: { listSearchAttributes: vi.fn(), addSearchAttributes: vi.fn() },
+        close: vi.fn().mockResolvedValue(undefined),
+      };
+      j4Mocks.temporalConnect.mockResolvedValue(connection);
+      await expect(initializeJ4Namespace(fixture.state)).rejects.toMatchObject({ message: "default-stack:j4-namespace-describe-after", code: 13 });
+      expect(connection.workflowService.describeNamespace).toHaveBeenCalledTimes(2);
+      expect(connection.workflowService.registerNamespace).toHaveBeenCalledOnce();
+      expect(connection.close).toHaveBeenCalledOnce();
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses an existing namespace, a mismatched namespace response, and a preexisting attribute", async () => {
+    const existingFixture = makeFixture();
+    try {
+      const existing = { withDeadline: vi.fn(passTemporalDeadline), workflowService: { describeNamespace: vi.fn().mockResolvedValue({ namespaceInfo: { name: namespace } }), registerNamespace: vi.fn() },
+        operatorService: { listSearchAttributes: vi.fn(), addSearchAttributes: vi.fn() }, close: vi.fn().mockResolvedValue(undefined) };
+      j4Mocks.temporalConnect.mockResolvedValue(existing);
+      await expect(initializeJ4Namespace(existingFixture.state)).rejects.toThrow("default-stack:j4-namespace-already-exists");
+      expect(existing.workflowService.registerNamespace).not.toHaveBeenCalled();
+      expect(existing.close).toHaveBeenCalledOnce();
+    } finally { rmSync(existingFixture.directory, { recursive: true, force: true }); }
+
+    const mismatchFixture = makeFixture();
+    try {
+      const mismatch = { withDeadline: vi.fn(passTemporalDeadline), workflowService: {
+        describeNamespace: vi.fn().mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 5 })).mockResolvedValue({ namespaceInfo: { name: "other" } }),
+        registerNamespace: vi.fn().mockResolvedValue(undefined),
+      }, operatorService: { listSearchAttributes: vi.fn(), addSearchAttributes: vi.fn() }, close: vi.fn().mockResolvedValue(undefined) };
+      j4Mocks.temporalConnect.mockResolvedValue(mismatch);
+      await expect(initializeJ4Namespace(mismatchFixture.state)).rejects.toThrow("default-stack:j4-namespace-registration");
+      expect(mismatch.workflowService.describeNamespace).toHaveBeenCalledTimes(2);
+      expect(mismatch.operatorService.listSearchAttributes).not.toHaveBeenCalled();
+      expect(mismatch.workflowService.registerNamespace).toHaveBeenCalledOnce();
+      expect(mismatch.close).toHaveBeenCalledOnce();
+    } finally { rmSync(mismatchFixture.directory, { recursive: true, force: true }); }
+
+    const attributeFixture = makeFixture();
+    try {
+      const attribute = { withDeadline: vi.fn(passTemporalDeadline), workflowService: {
+        describeNamespace: vi.fn().mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 5 })).mockResolvedValue({ namespaceInfo: { name: namespace } }),
+        registerNamespace: vi.fn().mockResolvedValue(undefined),
+      }, operatorService: {
+        listSearchAttributes: vi.fn().mockResolvedValue({ customAttributes: { ZenithScheduleOwner: 2 } }), addSearchAttributes: vi.fn(),
+      }, close: vi.fn().mockResolvedValue(undefined) };
+      j4Mocks.temporalConnect.mockResolvedValue(attribute);
+      await expect(initializeJ4Namespace(attributeFixture.state)).rejects.toThrow("default-stack:j4-search-attribute-already-exists");
+      expect(attribute.workflowService.registerNamespace).toHaveBeenCalledOnce();
+      expect(attribute.operatorService.listSearchAttributes).toHaveBeenCalledOnce();
+      expect(attribute.operatorService.addSearchAttributes).not.toHaveBeenCalled();
+      expect(attribute.close).toHaveBeenCalledOnce();
+    } finally { rmSync(attributeFixture.directory, { recursive: true, force: true }); }
   });
 
   it("requires the explicit lean namespace and loopback Temporal CLI contract", () => {

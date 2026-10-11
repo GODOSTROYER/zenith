@@ -1228,15 +1228,17 @@ describe("mandatory direct native package phase admission", () => {
   });
   it("keeps the read-only native-info bootstrap admission through delayed child polling", () => {
     const model = String.raw`
-import ast, json, pathlib, sys, tempfile, types
+import ast, errno, json, os, pathlib, stat, sys, tempfile, types
 source = pathlib.Path(sys.argv[1]).read_text()
 tree = ast.parse(source)
 main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
 run = next(node for node in main.body if isinstance(node, ast.FunctionDef) and node.name == 'run')
 host_call = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'host_call')
 host_operations = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'DIAGNOSTIC_HOST_FAILURE_OPERATIONS' for target in node.targets))
-namespace = {}
-exec(compile(ast.Module(body=[host_operations, host_call, run], type_ignores=[]), 'actual-pid1-run', 'exec'), namespace)
+scan_attempts = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'OUTPUT_SCAN_ATTEMPTS' for target in node.targets))
+scan_helpers = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {'_output_tree_size_once', 'output_tree_size'}]
+namespace = {'errno': errno, 'os': os, 'pathlib': pathlib, 'stat': stat}
+exec(compile(ast.Module(body=[scan_attempts, *scan_helpers, host_operations, host_call, run], type_ignores=[]), 'actual-pid1-run', 'exec'), namespace)
 work = next(node.body for node in main.body if isinstance(node, ast.Try))
 root_admission = next(node for node in work if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute) and node.value.func.attr == 'add_docker_root')
 native_info = next(node for node in work if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) and node.value.func.id == 'obj' and any(isinstance(target, ast.Name) and target.id == 'info' for target in node.targets))
@@ -1299,6 +1301,114 @@ print(json.dumps([module.classify_failure(error) for error in [TimeoutError(), I
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, maxBuffer: 1024 * 1024 });
     expect(child.error).toBeUndefined(); expect(child.status).toBe(0); expect(child.stderr).toBe("");
     expect(JSON.parse(child.stdout)).toEqual(["timeout", "interrupt", "filesystem", "timeout"]);
+  });
+  it("retries only bounded ENOENT output scans and never follows entry symlinks", () => {
+    const model = String.raw`
+import ast, errno, json, os, pathlib, stat, sys, tempfile
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+attempts = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "OUTPUT_SCAN_ATTEMPTS" for target in node.targets))
+helpers = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_output_tree_size_once", "output_tree_size"}]
+namespace = {"errno": errno, "os": os, "pathlib": pathlib, "stat": stat}
+exec(compile(ast.Module(body=[attempts, *helpers], type_ignores=[]), "actual-output-cap-scan", "exec"), namespace)
+scan = namespace["output_tree_size"]; retry_limit = namespace["OUTPUT_SCAN_ATTEMPTS"]
+with tempfile.TemporaryDirectory() as temp:
+    base = pathlib.Path(temp); root = base / "out"; root.mkdir()
+    nested = root / "nested"; nested.mkdir()
+    (root / "kept").write_bytes(b"keep")
+    (nested / "inside").write_bytes(b"abc")
+    outside = base / "outside-large"; outside.write_bytes(b"x" * (1024 * 1024))
+    (root / "external-link").symlink_to(outside)
+    swap = root / "swap"; swap.write_bytes(b"old")
+    real_stat, real_lstat, real_open = os.stat, os.lstat, os.open
+    stat_calls, open_flags = [], []
+    def checked_lstat(name, *args, **kwargs):
+        parent = os.fstat(kwargs["dir_fd"]).st_ino
+        stat_calls.append((parent, name))
+        observed = real_lstat(name, *args, **kwargs)
+        if name == "swap" and not any(item[1] == "swap-replaced" for item in stat_calls):
+            os.unlink(name, dir_fd=kwargs["dir_fd"])
+            os.symlink(outside, name, dir_fd=kwargs["dir_fd"])
+            stat_calls.append((parent, "swap-replaced"))
+        return observed
+    def checked_open(name, flags, *args, **kwargs):
+        open_flags.append(flags)
+        return real_open(name, flags, *args, **kwargs)
+    os.lstat, os.open = checked_lstat, checked_open
+    try: stable_total = scan(root)
+    finally: os.lstat, os.open = real_lstat, real_open
+    assert stable_total == 10, stable_total  # old swap lstat size counts; the external target does not
+    assert len(stat_calls) == len(set(stat_calls))
+    assert open_flags and all(flags & getattr(os, "O_DIRECTORY", 0) for flags in open_flags)
+    if getattr(os, "O_NOFOLLOW", 0): assert all(flags & os.O_NOFOLLOW for flags in open_flags)
+
+    # A file disappears at lstat; the incomplete pass is discarded, then a complete pass succeeds.
+    with tempfile.TemporaryDirectory() as transient_dir:
+        transient_root = pathlib.Path(transient_dir) / "out"; transient_root.mkdir()
+        (transient_root / "kept").write_bytes(b"1234"); (transient_root / "vanish").write_bytes(b"gone")
+        real_lstat = os.lstat; missing_file = {"count": 0}
+        def vanish_once(name, *args, **kwargs):
+            if name == "vanish" and missing_file["count"] == 0:
+                missing_file["count"] += 1
+                os.unlink(name, dir_fd=kwargs["dir_fd"])
+                raise FileNotFoundError(errno.ENOENT, "transient entry disappearance")
+            return real_lstat(name, *args, **kwargs)
+        os.lstat = vanish_once
+        try: transient_total = scan(transient_root)
+        finally: os.lstat = real_lstat
+        assert transient_total == 4 and missing_file["count"] == 1
+
+    # A nested directory vanishes after no-follow classification but before traversal; restart from root.
+    with tempfile.TemporaryDirectory() as traversal_dir:
+        traversal_root = pathlib.Path(traversal_dir) / "out"; traversal_root.mkdir()
+        (traversal_root / "kept").write_bytes(b"1234")
+        moving = traversal_root / "moving"; moving.mkdir(); (moving / "child").write_bytes(b"removed")
+        moving_inode = real_stat(moving).st_ino; real_scandir = os.scandir; traversal = {"count": 0}
+        def vanish_directory(directory):
+            if os.fstat(directory).st_ino == moving_inode and traversal["count"] == 0:
+                traversal["count"] += 1
+                (moving / "child").unlink(); moving.rmdir()
+                raise FileNotFoundError(errno.ENOENT, "transient directory disappearance")
+            return real_scandir(directory)
+        os.scandir = vanish_directory
+        try: traversal_total = scan(traversal_root)
+        finally: os.scandir = real_scandir
+        assert traversal_total == 4 and traversal["count"] == 1
+
+    # Sustained ENOENT exhausts the fixed attempts and fails closed; EACCES is never retried.
+    with tempfile.TemporaryDirectory() as error_dir:
+        error_root = pathlib.Path(error_dir) / "out"; error_root.mkdir(); (error_root / "entry").write_bytes(b"x")
+        real_lstat = os.lstat; repeated = {"count": 0}
+        def always_missing(name, *args, **kwargs):
+            if name == "entry":
+                repeated["count"] += 1
+                raise FileNotFoundError(errno.ENOENT, "sustained entry disappearance")
+            return real_lstat(name, *args, **kwargs)
+        os.lstat = always_missing
+        try:
+            try: scan(error_root)
+            except FileNotFoundError as error: assert error.errno == errno.ENOENT and "output-cap-scan-race" in str(error)
+            else: raise AssertionError("sustained scan churn was admitted")
+        finally: os.lstat = real_lstat
+        assert repeated["count"] == retry_limit
+        denied = {"count": 0}
+        def permission_denied(name, *args, **kwargs):
+            if name == "entry":
+                denied["count"] += 1
+                raise PermissionError(errno.EACCES, "permission denied")
+            return real_lstat(name, *args, **kwargs)
+        os.lstat = permission_denied
+        try:
+            try: scan(error_root)
+            except PermissionError as error: assert error.errno == errno.EACCES
+            else: raise AssertionError("non-ENOENT scan error was admitted")
+        finally: os.lstat = real_lstat
+        assert denied["count"] == 1
+print(json.dumps({"stableTotal": stable_total, "transientFileRetry": True, "transientDirectoryRetry": True,
+    "boundedEnoentAttempts": repeated["count"], "nonEnoentAttempts": denied["count"], "nofollow": True}))
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toEqual({ stableTotal: 10, transientFileRetry: true, transientDirectoryRetry: true, boundedEnoentAttempts: 3, nonEnoentAttempts: 1, nofollow: true });
   });
   it("captures only bounded current-attempt apt tails after redaction and rejects unsafe phase files", () => {
     const model = String.raw`

@@ -1,4 +1,15 @@
-## Current 94d60798 builder-facing update, 11 October 2026
+## Current source 69 blockers, 11 October 2026
+
+**Current handoff:** Source 69 full R16 passed 24,543/0/1,939; the ARM64 witness build passed without push. Reviewed output-cap and namespace-readiness repairs are integrated in this working tree; focused diagnostics passed 195/0/0 and 18/0/0 respectively, with lint. The outer Verify job budget is now 60 minutes; inner gates are unchanged. Failed-stack cleanup completed: 17 removed, zero remaining, two forced stops; all 193 held commands, stable source and host/VM floors passed. Exact witness-tag cleanup also completed with strict closeout and tag absence. These are cleanup/diagnostic results, not graceful-shutdown or J1/J4/J2 acceptance. Original failures remain preserved. Exact source-69 CI remains terminal 22 success / 1 failure / 1 cancelled / 8 skipped across all 32 jobs. Next: commit/pull/push the coherent repairs, then fresh R16 → R10 → R9 and remaining authorized acceptance. Ledger remains 9 verified / 67 in progress / 2 planned, all four release flags false. [Cleanup evidence](../evidence/PROD-CI-08/2026-10-11-69-owned-cleanup-r10.json).
+
+
+R16 full-core completed 24,543/0/1,939 on frozen source 69 with wrapper exit 0; R10 built the ARM64 J2 witness with exit 0 and no push. These are bounded execution/build evidence, not broader J1/J4 or release acceptance. R9 ended at J4 namespace admission (`gRPC 5`) before the body (wrapper 2, child 1) and retained owned runtime state. The separate read-only namespace probe observed state 1 and absent schedule owner; the J4 repair/runtime remains pending and unaccepted.
+
+The terminal exact-source CI snapshot supersedes the earlier r5 active observation: main run 38105216483 is terminal failure: 28 jobs (18 success / 1 failure / 1 cancelled / 8 skipped; Go failed, Verify cancelled). The three-workflow aggregate is terminal: 32 jobs (22 success / 1 failure / 1 cancelled / 8 skipped). The earlier r5 active snapshot is historical; Verify’s check-run annotation confirms the 45-minute maximum execution time, while its GitHub conclusion remains cancelled. Independently audited lane artifacts remain source-bound but scope-separated. The output-cap focused overlay passed 195/0/0 plus lint; prior 47768 refusal remains preserved. A separate candidate-focused J4 diagnostic passed 18/0/0 plus ESLint0 after a reviewed test-only expected-call-count correction from4 to5; its tracked-source freeze differs from primary, earlier R1/R2 focused failure receipts (including 17/18) and the prior typecheck pass remain historical, and J4 runtime acceptance remains pending. MinIO secure marker-writer attribution is a hard blocker; no ledger append, base acquisition, or engine probe occurred, and markers are preserved. Keep the R7 capture-exhaustion refusal, canonical cleanup counts (16/0/2), and historical source-94 native R14 single-case result intact.
+
+Ledger remains 9/67/2, required evidence unchanged, all four release flags false. No source-gap closure or milestone promotion is claimed. [Current evidence](../evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json).
+
+## Historical source-94 builder-facing update, 11 October 2026
 
 The frozen `94d60798a376c49beaa5c1bc60f14d2e6aa5e430` R16 full Node/DOM run is accepted at **24,534 passed / 0 failed / 1,939 skipped across 26,473 exact identities**. Nine identified assertions are repaired in the accepted current source. This is core-suite evidence only; it does not establish operated or default-stack acceptance. The earlier 8e467 checkpoint below remains historical and source-bound to that commit.
 
@@ -16,7 +27,7 @@ The frozen `94d60798a376c49beaa5c1bc60f14d2e6aa5e430` R16 full Node/DOM run is a
 
 Keep every assertion, environment gate, timeout, and acceptance clause intact. Preserve all ledger and release states until their exact required evidence and authority are present.
 
-## Integrated 8e467 checkpoint, 11 October 2026
+## Historical source-8e467 checkpoint, 11 October 2026
 
 The exact frozen source `8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e` passed the root-accepted R16 full Node/DOM core: **24,533 passed / 0 failed / 1,939 skipped across 26,472 exact identities** (25,407 Node, 1,065 DOM, 4,871 suites). The source freeze matched and the wrapper exited 0. Custody recorded 44 events, no drops or quarantines, and all 12 pending births resolved absent with two terminal absence confirmations each. No active processes remained; three cleanup attempts completed and owned data was removed. Minimum free space was 375,583,862,784 bytes, above the 22 GiB floor. This closes core-suite scope only.
 
@@ -255,10 +266,3 @@ Native R8 terminated at wrapper exit 2 (`daemon-build-exit`) before executing an
 ## MinIO R5 runtime refusal, 11 October 2026
 
 Two local R5 attempts on frozen source `94d60798a376c49beaa5c1bc60f14d2e6aa5e430` ended at wrapper exit 2 (`unexpectedRuntimeError`): `tx1_u3qr` and `5tej5r6w`. Both exhausted custody after an unattributed PID appeared beside the owned worker; each worker ended by SIGTERM (−15), and final registries were absent. Fresh R17 identity-capture plus signal-zero checks prove both recorded PIDs absent twice for each attempt; the historical refusals remain unchanged. Builder inspection matched all 12 identity/cap rows, and neither attempt reached image-build or push mutation. No business error or test case pass was observed. Builder-collector R3 receipts (`f960a9…`, `74412f…`) are separate diagnostic passes. Preserve prior failures; no third retry or ledger promotion. Transport repair design is being mapped. [Sanitized evidence](../evidence/PROD-LIFE-11/2026-10-11-minio-r5-runtime-refusals.json).
-
-
-
-
-## Current source 664 builder blockers, 11 October 2026
-
-R16 full-core remains failed on one PGlite ordering assertion (24,542/1/1,939) despite clean source, custody, floor, and owned-data cleanup. The independently reviewed assertion-preserving fixture repair passed scoped checks: store-contract actual `tsc` plus 44/0/0, and a separate guest-file-write 194/0/0 plus ESLint on three changed paths. Neither is full acceptance. Exact-664 CI R3 remains active (20/1/1 cancelled/8/2); AMD64 race/package-native passed, while PID1 stopped at `guest-baseline-container-identity` before its body. Verify and platform-postgres remain active; cancellation cause is unknown. Nine new field IDs are read-only diagnostics. MinIO append-static R3 refused before fresh PID probes, ledger operation, or engine action on marker `r11-marker-time-outside-first-r5-attempt`; exact writer attribution is independently audited. No append ledger exists or base acquisition occurred. [Current evidence](evidence/PROD-CI-08/2026-10-11-664-current-delta.json). Ledger 9/67/2, required evidence unchanged, all release flags false; no milestone promotion.

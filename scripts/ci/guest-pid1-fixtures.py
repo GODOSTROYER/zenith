@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Mandatory fresh native SYS1 phase. Outputs are private until owned cleanup succeeds."""
-import argparse,hashlib,json,os,pathlib,re,resource,secrets,shutil,signal,stat,subprocess,sys,time
+import argparse,errno,hashlib,json,os,pathlib,re,resource,secrets,shutil,signal,stat,subprocess,sys,time
 import importlib.util
 _guard_spec=importlib.util.spec_from_file_location('guest_pid1_guard',pathlib.Path(__file__).with_name('guest-pid1-owned-guard.py'))
 _guard_module=importlib.util.module_from_spec(_guard_spec);_guard_spec.loader.exec_module(_guard_module)
 OwnedGuard=_guard_module.OwnedGuard
 P=pathlib.Path(__file__).resolve().parent
 FLOOR=12_000_000_000
+OUTPUT_SCAN_ATTEMPTS=3
 ENDPOINT='unix:///var/run/docker.sock'
 CASE='TestSystemdSignedUpdateAndRollback'
 PACKAGE='github.com/GODOSTROYER/zenith/go/internal/runner/update'
@@ -95,6 +96,34 @@ RUN_STAGES={
  'independent-guest-fixture-absence':'guest-postcondition'
 }
 def sha(p):return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+def _output_tree_size_once(root):
+ flags=os.O_RDONLY|getattr(os,'O_DIRECTORY',0)|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_CLOEXEC',0)
+ pending=[os.open(os.fspath(root),flags)];total=0
+ try:
+  while pending:
+   directory=pending.pop()
+   try:
+    with os.scandir(directory) as entries:
+     for entry in entries:
+      # One fd-relative lstat per entry: classification and size share this no-follow result.
+      metadata=os.lstat(entry.name,dir_fd=directory)
+      if stat.S_ISDIR(metadata.st_mode):pending.append(os.open(entry.name,flags,dir_fd=directory))
+      elif stat.S_ISREG(metadata.st_mode):total+=metadata.st_size
+   finally:os.close(directory)
+  return total
+ except BaseException:
+  for descriptor in pending:
+   try:os.close(descriptor)
+   except OSError:pass
+  raise
+def output_tree_size(root):
+ missing=None
+ for _attempt in range(OUTPUT_SCAN_ATTEMPTS):
+  try:return _output_tree_size_once(root)
+  except OSError as error:
+   if error.errno!=errno.ENOENT:raise
+   missing=error
+ raise FileNotFoundError(errno.ENOENT,'output-cap-scan-race') from missing
 def write(p,v):
  t=p.with_suffix('.new');t.write_text(json.dumps(v,indent=2)+'\n');t.chmod(0o600);os.replace(t,p)
 def set_diagnostic_stage(stage):
@@ -346,7 +375,7 @@ def main():
     while host_call('child-poll',child.poll) is None:
      host_call('run-guard-check',lambda:guard.check(cleanup=cleaning,bootstrap=phase=='native-info'))
      if time.monotonic()>=deadline:raise TimeoutError()
-     total=host_call('output-cap-scan',lambda:sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink()))
+     total=host_call('output-cap-scan',lambda:output_tree_size(out))
      assert total<=f['attemptByteCap'];time.sleep(.25)
    finally:host_call('child-drain',lambda:guard.drain(child))
   finally:

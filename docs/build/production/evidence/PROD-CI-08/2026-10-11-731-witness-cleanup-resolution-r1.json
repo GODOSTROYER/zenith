@@ -1,0 +1,39 @@
+{
+  "schema": "zenith.witness-image-cleanup-resolution-review.v1",
+  "source_head_observed_clean": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+  "historical_source_commit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+  "original_attempt": {
+    "status": "refused-retain-artifacts",
+    "complete": false,
+    "inventory_parity_passed": false,
+    "receipt_sha256": "ed480708740e8b0839ff52c113f99bb578195f405c6ffbf1260529151a8f9a4e"
+  },
+  "cleanup_resolution": {
+    "exact_owned_image_absent": true,
+    "unrelated_image_entries_before": 13,
+    "unrelated_image_entries_after": 13,
+    "unrelated_entries_unchanged": true,
+    "held_commands": 19,
+    "strict_closeouts_passed": true,
+    "owned_child_absent": true,
+    "owned_registry_absent": true,
+    "source_stable": true,
+    "host_floor_passed": true,
+    "floor_watcher_joined": true,
+    "disposition": "resolved_cleanup_only",
+    "before_image_ids": 14,
+    "after_image_ids": 13,
+    "before_image_references": 23,
+    "after_image_references": 21,
+    "exact_owned_tag_absent": true,
+    "exact_owned_digest_alias_absent": true,
+    "unrelated_image_rows_before": 13,
+    "unrelated_image_rows_after": 13
+  },
+  "independent_review_json_sha256": "e2aeda9cccd056cd279c74fad7456e5688d150303fc48ac1b4f6b019e1df67b4",
+  "claim_limit": "Cleanup-only resolution. Does not establish original pre-build global-baseline restoration, continuous Docker VM floor, acceptance, or successful R4 receipt.",
+  "acceptance_claim": false,
+  "separate_cleanup_resolution_json_sha256": "9314934f7ce30a7dd07d01c6d93880ec32265b2626a6dbd3e904325b93cddf50",
+  "separate_cleanup_resolution_report_sha256": "dc7415642eca5738f274774a7da82850de640e1c1245747b522d87741773edc0",
+  "independent_review_markdown_sha256": "e890a55b6d24587c24dab7741548342402d3716ad20360f42b20ea2617f78590"
+}

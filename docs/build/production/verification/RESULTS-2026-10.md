@@ -1,4 +1,20 @@
-## Current source 7313824e verification update, 11 October 2026
+## CI timeout trial integrated, 11 October 2026
+
+The reviewed canonical core-unit trial now uses two workers and preserves both unfiltered projects, all test and skip gates, and the 45-minute Verify timeout. A focused working-overlay check passed **67 / 0 failed / 0 skipped**, plus ESLint exit 0; all 14 held commands closed strictly, the 5,925-entry source stayed stable, and minimum host free disk was 326,511,194,112 bytes above the 22-GiB floor. This is diagnostic-only evidence. Before/after hosted runner resource snapshots were added without changing gate outcomes; they do not measure peak usage. Fresh committed-source R16 and exact-source CI remain pending; the Ubuntu timeout repair is not yet proven. [Focused evidence](../evidence/PROD-CI-08/2026-10-11-daa21596-ci-workers-focused-r1.json).
+
+Ledger remains **10 verified / 66 in progress / 2 planned (12.82%)**; all release flags remain false. The immediate sequence is publish this reviewed trial, run fresh full-core verification, rebuild the native witness, and continue J1/J2/UX/J4 acceptance with the reviewed custody helpers.
+
+## Historical source daa21596 verification update, 11 October 2026
+
+Fresh full R16 on exact source `daa21596ee546cd5498afb8fcd29f94e1fb20b2a` passed **24,566 / 0 failed / 1,943 skipped** across 26,509 unique identities and 4,886 suites in 477.253 seconds. Node reported 23,501 passed and 1,943 skipped; DOM reported 1,065 passed. Collection, completion, and reported identity sets matched. The source freeze `35ec00fa5eef253e86efdf15705fc96b504bc7d9a4b7d9680ff9fc6c2769b454` was stable across 5,922 entries. The wrapper exited 0, and minimum free space was 326,374,715,392 bytes against the 23,622,320,128-byte floor. Skips remain skips. This is full-core execution evidence only, not broader acceptance. [R16 evidence](../evidence/PROD-CI-08/2026-10-11-daa21596-r16-full-core-r1.json).
+
+Predecessor source 731 exact-source CI is terminal: main run `38123549396` has 19 successful required jobs, one cancelled Verify job, and eight conditional jobs skipped (28 jobs). The Verify annotation states the 45-minute maximum execution time was exceeded; the run conclusion remains cancelled. Across the three workflows, 23 jobs succeeded, one was cancelled, and eight were skipped (32 jobs total). These results belong to source 731, not `daa21596ee546cd5498afb8fcd29f94e1fb20b2a`. The candidate worker-two trial remains pending review, testing, and new exact-source CI; no fix or acceptance claim is made. [predecessor CI evidence](../evidence/PROD-CI-09/2026-10-11-7313824e-terminal-ci-r1.json).
+
+The historical source-731 witness R4 receipt remains refused and incomplete. A separately reviewed cleanup-only resolution records that the exact owned image, tag, and digest alias are absent and the 13 unrelated image rows remain unchanged. It resolves owned-image cleanup only; it does not establish the full pre-build baseline, continuous Docker VM floor status, or acceptance. [cleanup-resolution evidence](../evidence/PROD-CI-08/2026-10-11-731-witness-cleanup-resolution-r1.json).
+
+The ledger remains **10 verified / 66 in progress / 2 planned (12.82%)**. All four release flags remain false; required evidence and acceptance status are unchanged. No milestone promotion or source-gap closure is claimed.
+
+## Historical source 7313824e verification update, 11 October 2026
 
 Fresh full R16 on exact source `7313824e3f34615c63ca88cd904c4f3551c34236` passed **24,566 / 0 failed / 1,943 skipped** across 26,509 collected identities and 4,886 suites in 464.313 seconds. Node reported 25,444 identities: 23,501 passed and 1,943 skipped; DOM reported 1,065 passed. The collected, completed, and reported identity sets matched. Skips remain skips. Source freeze `b99d337dd01296b555fd04831ae0faf5f6f3ea0a03e03d39e0872e58fd1f5892` was stable across 5,918 source entries; the minimum free space was above the recorded 22-GiB floor. This is full-core execution evidence, not broader acceptance. [R16 evidence](../evidence/PROD-CI-08/2026-10-11-7313824e-r16-full-core-r1.json).
 

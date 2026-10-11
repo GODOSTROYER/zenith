@@ -73,7 +73,7 @@ export const EXTERNAL_ACCEPTANCE = [
 export const CORE_CHECKS = [
   { id: "typecheck", command: ["npm", "run", "typecheck"] },
   { id: "lint", command: ["npm", "run", "lint"] },
-  { id: "unit", command: ["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=1"] },
+  { id: "unit", command: ["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=2"] },
   { id: "smoke", command: ["npm", "run", "smoke"] },
   { id: "gimbal", command: ["npm", "run", "gimbal:verify"] },
 ];

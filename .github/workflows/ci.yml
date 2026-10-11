@@ -530,10 +530,31 @@ jobs:
       - name: Lint
         run: node scripts/ci/run-gate.mjs core --run --step lint
 
+      - name: Verify runner resources before unit suites
+        shell: bash
+        run: |
+          set +e
+          printf 'resource-snapshot=before-unit\n'
+          printf 'timestamp_utc='; date -u +%Y-%m-%dT%H:%M:%SZ
+          printf 'logical_cpus='; getconf _NPROCESSORS_ONLN 2>/dev/null || printf 'unavailable\n'
+          if command -v free >/dev/null 2>&1; then free -b || printf 'memory_snapshot=free-command-failed\n'; else printf 'memory_snapshot=free-unavailable\n'; fi
+          df -Pk "${GITHUB_WORKSPACE:-.}" || printf 'disk_snapshot=df-command-failed\n'
+
       - name: Unit suites (Node and DOM projects)
         # No path filter: this includes agent-v3, cli, placement, platform-ui,
         # security and every other suite in both committed Vitest projects.
         run: node scripts/ci/run-gate.mjs core --run --step unit
+
+      - name: Verify runner resources after unit suites
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          printf 'resource-snapshot=after-unit\n'
+          printf 'timestamp_utc='; date -u +%Y-%m-%dT%H:%M:%SZ
+          printf 'logical_cpus='; getconf _NPROCESSORS_ONLN 2>/dev/null || printf 'unavailable\n'
+          if command -v free >/dev/null 2>&1; then free -b || printf 'memory_snapshot=free-command-failed\n'; else printf 'memory_snapshot=free-unavailable\n'; fi
+          df -Pk "${GITHUB_WORKSPACE:-.}" || printf 'disk_snapshot=df-command-failed\n'
 
       - name: Smoke
         # scripts/smoke.ts sets its own ZENITH_DATA (.data-smoke) and clears it

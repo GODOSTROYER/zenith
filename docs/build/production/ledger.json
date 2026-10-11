@@ -740,7 +740,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "Frozen source 69: R16 full-core execution passed 24543P/0F/1939S across26482 in458.032s, wrapper0; source/custody/floor/owned-data checks recorded. R10 ARM64 J2 witness build exited0 without push and binds to R16; build-only. R9 failed before J4 body (wrapper2/child1, namespace admission gRPC5) and retained owned runtime; J4 repair/runtime pending. Terminal exact-source CI run38105216483 is failure: main28=18 success/1 failure/1 cancelled/8 skipped (Go failed, Verify cancelled after the 45-minute maximum-execution annotation); three-workflow aggregate32=22/1/1/8. The earlier r5 active snapshot is historical. Component audits remain separate scoped evidence. No full requirement acceptance. Candidate-focused J4 diagnostic passed18/0/0 plus ESLint0 after reviewed test-only expected-count correction4→5; candidate freeze differs from primary. Earlier17/18 failure preserved, prior typecheck passed but was not rerun. This does not supersede R9 runtime refusal or establish J4 acceptance. Failed-source69 cleanup subsequently passed:17 removed/0 remaining/2 forced,193 strict held commands; exact witness-tag removed with absence proof. Reviewed code repairs and outer Verify timeout60 integrated; fresh coherent acceptance remains pending.",
+      "implementationStatus": "DAA full-core R16 passed24566/0/1943 across26509 exact identities in477.253s with stable5922-source inventory and strict custody/cleanup/floors; core-only. Predecessor731 mainCI terminal19P/1Verifycancelled45m/8conditionalS; aggregate23P1cancel8S. Reviewed core-unit workers1 to2 and bounded before/after hosted resource snapshots integrated; focused overlay67/0/0+ESLint0 with14 strict commands and stable5925-source inventory. Diagnostic-only, not timeout repair proof. Fresh committed-source full R16/current CI/native image/J1/J2/UX/J4 acceptance remain pending. Historical731 owned-image cleanup resolved separately; originalR4 refusal preserved.",
       "evidence": [
         {
           "level": "local_engine",
@@ -1805,6 +1805,27 @@
           "minimumFreeBytes": 336276959232,
           "diskFloorBytes": 23622320128,
           "requirementScope": "PROD-CI-08 contract evidence only; full core does not establish local engine, remote CI, wider operated or release acceptance."
+        },
+        {
+          "level": "contract",
+          "commit": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+          "result": "Clean DAA full Node/DOM core24566P0F1943S26509 identities; core-only, not full acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-daa21596-r16-full-core-r1.json",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "contract",
+          "commit": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+          "result": "Reviewed CI worker trial focused overlay67P0F0S+lint0,14 strict commands; diagnostic-only.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-daa21596-ci-workers-focused-r1.json",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+          "result": "Separate owned-image cleanup resolution only; originalR4 refused/incomplete;13 unrelated image entries unchanged.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-731-witness-cleanup-resolution-r1.json",
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [
@@ -6253,13 +6274,13 @@
     }
   ],
   "sessionState": {
-    "status": "reviewed_repairs_integrated_fresh_acceptance_pending",
-    "sourceCheckpoint": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+    "status": "reviewed_ci_worker_trial_integrated_fresh_acceptance_pending",
+    "sourceCheckpoint": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "69a03354b7d3343645967af2d37511c4f01b9d3f",
-    "lastPushedRun": 38105216483,
-    "lastPushedRunStatus": "Source-69 run 38105216483 terminal failure: main 28 jobs (18 success, 1 failure, 1 cancelled, 8 skipped; Go failed, Verify cancelled); three-workflow aggregate 32 (22 success, 1 failure, 1 cancelled, 8 skipped). Verify annotation confirms the 45-minute maximum execution time; conclusion remains cancelled.",
-    "currentVerification": "R16 source-69 full-core passed 24543P/0F/1939S across26482 in458.032s (wrapper0), with source/custody/floor/owned-data checks. R10 ARM64 J2 build witness exited0 without push, build-only. R9 failed pre-J4-body at namespace admission (wrapper2/child1, gRPC5) and retained runtime; J4 remains pending. Main CI is terminal: 18/1/1/8 across28 (Go failed, Verify cancelled); aggregate22/1/1/8 across32. Verify check-run annotation confirms the maximum-execution-time limit; conclusion remains cancelled. Output-cap focused overlay195/0/0+lint0; earlier47768 194/1 missing AST helper preserved. MinIO secure marker-writer attribution remains a hard block; no ledger append/base/probe; markers preserved. Candidate-focused J4 R2 passed18/0/0 plus ESLint0 after reviewed R3 test-only count4→5 correction; independent audit confirms custody. Candidate/primary source-freeze hashes differ despite same HEAD. Preserve prior17/18 failure and R1 typecheck pass (not rerun after test-only change); J4 runtime acceptance remains pending. Earlier r5 active snapshot is historical; terminal observation is recorded separately.",
+    "lastPushedCommit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+    "lastPushedRun": 38123549396,
+    "lastPushedRunStatus": "Source731 main terminal19 success/1 Verify cancelled/8 conditional skips; Verify exceeded45m. Three-workflow aggregate23 success/1 cancelled/8 skips. No current-source CI pass is claimed.",
+    "currentVerification": "Clean DAA R16 passed24566/0/1943 across26509 exact identities in477.253s, stable5922-source freeze and strict custody/cleanup/22GiB floor. Historical731 witness-owned image cleanup resolved separately; originalR4 refusal remains. Reviewed core-unit worker2 trial plus before/after hosted resource snapshots integrated; focused working overlay67/0/0 plus ESLint0 with14 strict commands and stable5925-source freeze. Diagnostic-only; fresh committed-source R16/CI/native witness and operated acceptance pending. J2 root-window issuer and corrected VM observer passed source review only; no runtime evidence yet.",
     "remainingLocalPackets": {
       "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
       "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
@@ -6275,8 +6296,8 @@
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Saivedant Hava <saivedant169@gmail.com>.",
       "pending": "Livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff. MCP client repair already integrated; historical CI07 eight-versus-seven advisory report reconciliation remains open."
     },
-    "releaseVerdict": "9 verified /67 in_progress /2 planned; no additional milestone fully eligible on source69 (0 promotions). Required evidence unchanged; all four release flags false.",
-    "next": "Commit/pull/push reviewed output-cap and namespace-readiness repairs plus outer Verify timeout60; execute fresh coherent R16/R10/R9 and remaining local gates. Failed source69 runtime cleanup and exact witness-tag cleanup are complete; historical refusals remain unchanged.",
+    "releaseVerdict": "10 verified /66 in_progress /2 planned (12.82%); no promotion from DAA core or focused CI trial. Required evidence unchanged; all four release flags false.",
+    "next": "Commit this reviewed CI worker trial and truthful evidence; pull --no-rebase and push same branch. Run fresh coherent full R16, inspect exact-source CI, rebuild native ARM64 J2 witness, then execute authorized J1/J2/UX/J4 with independently reviewed helpers and restore owned trust/AirPlay after testing.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",

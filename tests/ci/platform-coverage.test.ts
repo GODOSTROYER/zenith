@@ -264,7 +264,7 @@ function gate(jobName: string, command: string, condition?: string): Step {
 describe("platform suite coverage", () => {
   it("runs both Vitest projects with every Node and DOM suite included", () => {
     gate("verify", "node scripts/ci/run-gate.mjs core --run --step unit");
-    expect(CORE_CHECKS.find((check) => check.id === "unit")?.command).toEqual(["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=1"]);
+    expect(CORE_CHECKS.find((check) => check.id === "unit")?.command).toEqual(["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=2"]);
     const config = vitestConfig as { test?: { include?: string[]; exclude?: string[]; projects?: { test?: { name?: string; include?: string[]; exclude?: string[] } }[] } };
     expect(config.test?.include).toBeUndefined();
     expect(config.test?.exclude).toBeUndefined();
@@ -279,7 +279,7 @@ describe("platform suite coverage", () => {
   it.each(["agent-v3", "cli", "placement", "platform-ui", "security", "ci"])("keeps tests/%s behind the unfiltered unit gate", (directory) => {
     expect(testsUnder(`tests/${directory}`).length).toBeGreaterThan(0);
     gate("verify", "node scripts/ci/run-gate.mjs core --run --step unit");
-    expect(CORE_CHECKS.find((check) => check.id === "unit")?.command).toEqual(["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=1"]);
+    expect(CORE_CHECKS.find((check) => check.id === "unit")?.command).toEqual(["node", "node_modules/vitest/vitest.mjs", "run", "--project=node", "--project=dom", "--maxWorkers=2"]);
   });
 
   it.each([

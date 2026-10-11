@@ -2010,6 +2010,40 @@
           "currentResourceInventoryQueried": false,
           "ownedResourceAbsenceClaim": false,
           "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0",
+          "runId": 38144120018,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38144120018",
+          "result": "Exact-source Verify job failed during typecheck: `tsc --noEmit` exited 2 on missing NODE_ENV in ProcessEnv fixtures in tests/release/local-target-module-compatibility.test.ts (TS2741, TS2769). Lint, resource precheck, unit suites, Smoke and Gimbal were skipped. This is a single-job failure observation; the enclosing main CI run was still in progress at audit time. No acceptance or promotion.",
+          "command": "Inspect exact-source main CI Verify job and typecheck failure log.",
+          "environment": "GitHub push run 38144120018, branch codex/production-2026-10-02; Ubuntu 24.04.5, Node 22.23.3, npm 10.9.9.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-a58bb8ff-verify-typecheck-failure-r1.json",
+          "rawJobLogSha256": "830130894b3ad47fe0294286f88261eb3e8fa935871428afdddb691901b7e804",
+          "jobId": 114483794271,
+          "acceptanceClaim": false
+        },
+        {
+          "level": "contract",
+          "commit": "a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0",
+          "result": "Focused NODE_ENV fixture correction on an uncommitted one-file candidate: CI-heap typecheck passed, focused test passed 2/0/0, ESLint passed, and independent source review passed (review only; checks not rerun). Default-heap typecheck separately exited 134 from Node heap OOM without TypeScript diagnostics. No fresh CI, full-suite validation, J1/J4 acceptance, or production acceptance.",
+          "command": "On the isolated tests/release/local-target-module-compatibility.test.ts overlay, run NODE_OPTIONS=--max-old-space-size=5120 npm run typecheck, the focused Vitest file, and scoped ESLint; independently review the source patch.",
+          "environment": "Base source a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0; one-file candidate overlay is uncommitted; pinned Node/npm workflow environment.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-a58bb8ff-node-env-focused-repair-r1.json",
+          "candidatePatchSha256": "89719ad20d2900db95560825f445e96459d7b154a6016d991743c5c13094bbd7",
+          "candidatePostimageSha256": "d9d3515b59f038bea181b797906c125bd8a0c318d485f0bef309daa33ef238d8",
+          "typecheckLogSha256": "67bfbc2a439139104f888754cfda372370c2dcbeddb1689431dd3df637150145",
+          "focusedTestCount": {
+            "passed": 2,
+            "failed": 0,
+            "skipped": 0
+          },
+          "focusedTestLogSha256": "720efb8e11006fe36339e2212eda6bf41e4a09064d6534bff5008520ad5cbb22",
+          "focusedEslintExitCode": 0,
+          "independentReviewSha256": "cf1dceabff459c15e929d706f56a8eddd1b44e619158ebaebcc8bc65f2c1ea97",
+          "candidateCommitted": false,
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [

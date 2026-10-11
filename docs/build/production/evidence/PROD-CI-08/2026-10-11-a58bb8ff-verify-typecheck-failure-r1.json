@@ -1,0 +1,55 @@
+{
+  "schema": "zenith.public.ci-verify-typecheck-failure.v1",
+  "source": {
+    "commit": "a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0",
+    "branch": "codex/production-2026-10-02",
+    "event": "push"
+  },
+  "workflow": {
+    "runId": "38144120018",
+    "attempt": 1,
+    "jobId": "114483794271",
+    "job": "verify",
+    "conclusion": "failure"
+  },
+  "environment": {
+    "runner": "Ubuntu 24.04.5",
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "yarn": "1.22.22"
+  },
+  "stages": {
+    "npmCiIgnoreScripts": "success",
+    "typecheck": {
+      "command": "tsc --noEmit",
+      "exitCode": 2,
+      "result": "failure"
+    },
+    "lint": "skipped",
+    "resourcePrecheck": "skipped",
+    "unitSuites": "skipped",
+    "smoke": "skipped",
+    "gimbal": "skipped",
+    "afterUnitResourceSnapshot": "always-run diagnostic only; not test evidence"
+  },
+  "diagnostics": [
+    {
+      "file": "tests/release/local-target-module-compatibility.test.ts",
+      "line": 14,
+      "column": 11,
+      "code": "TS2741",
+      "summary": "Required NODE_ENV is missing from a ProcessEnv fixture value."
+    },
+    {
+      "file": "tests/release/local-target-module-compatibility.test.ts",
+      "line": 59,
+      "column": 17,
+      "code": "TS2769",
+      "summary": "Overload mismatch; the final overload diagnostic also identifies missing NODE_ENV from a SystemRoot-only ProcessEnv fixture value."
+    }
+  ],
+  "rawJobLogSha256": "830130894b3ad47fe0294286f88261eb3e8fa935871428afdddb691901b7e804",
+  "fixStatus": "NODE_ENV fixture correction pending; not included or validated in this run",
+  "acceptanceClaim": false,
+  "milestonePromoted": false
+}

@@ -11,7 +11,7 @@ const j4 = path.join(root, "scripts/acceptance/default-stack/j4.mjs");
 
 function run(argv: string[], timeoutMs = 15_000): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const childEnv: NodeJS.ProcessEnv = { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", NO_COLOR: "1" };
+    const childEnv: NodeJS.ProcessEnv = { NODE_ENV: "test", PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: "/tmp", TMPDIR: "/tmp", NO_COLOR: "1" };
     if (process.platform === "win32" && process.env.SystemRoot) childEnv.SystemRoot = process.env.SystemRoot;
     const child = spawn(node, argv, {
       cwd: root,
@@ -56,7 +56,7 @@ function run(argv: string[], timeoutMs = 15_000): Promise<{ code: number | null;
             let taskkill: ChildProcess | undefined;
             try {
               taskkill = spawn(path.join(systemRoot, "System32", "taskkill.exe"), ["/PID", String(pid), "/T", "/F"], {
-                env: { SystemRoot: systemRoot }, stdio: "ignore", windowsHide: true,
+                env: { NODE_ENV: "test", SystemRoot: systemRoot }, stdio: "ignore", windowsHide: true,
               });
             } catch (error) { errors.push(`taskkill-spawn:${error instanceof Error ? error.message : String(error)}`); }
             if (taskkill) {

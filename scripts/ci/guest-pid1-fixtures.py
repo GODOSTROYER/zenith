@@ -53,10 +53,13 @@ DIAGNOSTIC_OPERATIONS={
  'prepare','bind','disk-admission','docker-admission','resolve-build-tools','build-original-fixtures',
  'validate-build-output','binary-build-metadata','prepare-build-context','create-context','verify-context','create-builder',
  'verify-builder','build-apt-image','load-apt-image','release-builder','create-pid1','verify-pid1','guest-baseline',
+ 'guest-baseline-pid1','guest-baseline-architecture','guest-baseline-cgroup','guest-baseline-no-owned-paths',
+ 'guest-baseline-container-identity','guest-baseline-running-idle','guest-baseline-exec-settlement',
  'guest-prerequisite','actual-systemd-case','guest-postcondition','cleanup-reconcile','cleanup-stop-pid1',
  'cleanup-remove-pid1','cleanup-release-builder','cleanup-remove-image','cleanup-remove-context',
  'cleanup-verify-baseline','cleanup-close-guard','cleanup-unknown','unknown'
 }
+GUEST_BASELINE_PHASES=('guest-baseline-pid1','guest-baseline-architecture','guest-baseline-cgroup','guest-baseline-no-owned-paths')
 RUN_OPERATIONS={
  'resolved-build-tools':'resolve-build-tools','build-original-fixtures':'build-original-fixtures',
  'binary-build-info-zenithd-1.0.0':'binary-build-metadata','binary-build-info-zenithd-1.1.0':'binary-build-metadata',
@@ -68,9 +71,14 @@ RUN_OPERATIONS={
  'builder-before-release-buildkit-image':'verify-builder',
  'apt-image-build':'build-apt-image','loaded-image':'load-apt-image','release-builder':'release-builder',
  'create-disposable-pid1':'create-pid1','container-created':'verify-pid1',
- 'pid1-cgroup-and-clean-baseline':'guest-baseline','installed-apt-package-versions':'guest-prerequisite',
+ 'guest-baseline-pid1':'guest-baseline-pid1','guest-baseline-architecture':'guest-baseline-architecture',
+ 'guest-baseline-cgroup':'guest-baseline-cgroup','guest-baseline-no-owned-paths':'guest-baseline-no-owned-paths',
+ 'installed-apt-package-versions':'guest-prerequisite',
  'actual-one-systemd-scenario':'actual-systemd-case','independent-guest-fixture-absence':'guest-postcondition'
 }
+for _phase in GUEST_BASELINE_PHASES:
+ RUN_OPERATIONS[_phase+'-before']=RUN_OPERATIONS[_phase+'-after']='guest-baseline-container-identity'
+GUEST_BASELINE_CONTAINER_PHASES={_phase+'-'+suffix for _phase in GUEST_BASELINE_PHASES for suffix in ('before','after')}
 RUN_STAGES={
  'native-info':'docker-admission','baseline-containers':'docker-admission','baseline-images':'docker-admission','baseline-volumes':'docker-admission',
  'test-absent':'docker-admission','builder-absent-before':'docker-admission','cache-absent-before':'docker-admission','baseline-contexts':'docker-admission','baseline-builders':'docker-admission','image-absent':'docker-admission',
@@ -78,7 +86,9 @@ RUN_STAGES={
  'create-owned-context':'buildkit-builder','context-identity':'buildkit-builder','create-owned-builder':'buildkit-builder','builder-captured':'buildkit-builder',
  'apt-image-build':'buildkit-builder','loaded-image':'buildkit-builder','release-builder':'buildkit-builder',
  'create-disposable-pid1':'pid1-container','container-created':'pid1-container',
- 'pid1-cgroup-and-clean-baseline':'guest-baseline','installed-apt-package-versions':'guest-prerequisite','actual-one-systemd-scenario':'actual-systemd-case',
+ 'guest-baseline-pid1':'guest-baseline','guest-baseline-architecture':'guest-baseline',
+ 'guest-baseline-cgroup':'guest-baseline','guest-baseline-no-owned-paths':'guest-baseline',
+ 'installed-apt-package-versions':'guest-prerequisite','actual-one-systemd-scenario':'actual-systemd-case',
  'independent-guest-fixture-absence':'guest-postcondition'
 }
 def sha(p):return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
@@ -290,12 +300,15 @@ def main():
  def save():write(out/'receipt.private.json',receipt)
  def interrupt(signum,frame):raise InterruptedError('owned interrupt')
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
- def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None):
+ def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None,budget_deadline=None):
   global DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS
   if cleaning:set_diagnostic_stage('cleanup')
   else:
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
    set_diagnostic_operation(operation_for_phase(phase))
+  if budget_deadline is not None:
+   timeout=min(timeout,budget_deadline-time.monotonic())
+   if timeout<=0:raise TimeoutError()
   host_call('pre-run-guard',lambda:guard.check(cleanup=cleaning,bootstrap=phase=='native-info'))
   childenv={**env,**(extra or {})}
   def limits():resource.setrlimit(resource.RLIMIT_FSIZE,(32*1024**2,32*1024**2))
@@ -306,6 +319,7 @@ def main():
   try:
    child=host_call('child-spawn',lambda:subprocess.Popen((command+argv) if docker else argv,cwd=cwd,env=childenv,stdout=stdout,stderr=stderr,start_new_session=True,preexec_fn=limits))
    child=host_call('child-register',lambda:guard.register(child));deadline=time.monotonic()+timeout
+   if budget_deadline is not None:deadline=min(deadline,budget_deadline)
    try:
     while host_call('child-poll',child.poll) is None:
      host_call('run-guard-check',lambda:guard.check(cleanup=cleaning,bootstrap=phase=='native-info'))
@@ -316,6 +330,7 @@ def main():
   finally:
    try:host_call('phase-stream-close',stdout.close)
    finally:host_call('phase-stream-close',stderr.close)
+  if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   host_call('phase-receipt-save',lambda:(receipt['phases'].append({'phase':phase,'exitCode':child.returncode}),save()))
   if phase=='apt-image-build':
    DIAGNOSTIC_APT_BUILD_OOM_OBSERVED=bool(re.search(rb'(?i)out of memory|oomkilled',host_call('apt-stderr-read',lambda:(out/(phase+'.stderr.private')).read_bytes())));receipt['aptBuildOOMObserved']=DIAGNOSTIC_APT_BUILD_OOM_OBSERVED;host_call('apt-receipt-save',save)
@@ -332,7 +347,7 @@ def main():
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
    set_diagnostic_operation(operation_for_phase(phase))
   assert pin is None and exec_pin is None;pin=phase;receipt['unconfirmedDelivery']=phase;save();result=run(argv,phase,timeout);pin=None;receipt['unconfirmedDelivery']=None;save();return result
- def obj(argv,phase):return json.loads(run(argv,phase))
+ def obj(argv,phase,budget_deadline=None):return json.loads(run(argv,phase,budget_deadline=budget_deadline))
  def absent(kind,value,phase):
   if kind=='volume':args=['volume','ls','-q','--filter','name=^'+value+'$']
   else:args=['container','ls','-aq','--filter','name=^/'+value+'$']
@@ -351,8 +366,10 @@ def main():
   nonlocal builder_snapshot
   assert capture_builder('builder-before-release')==builder_snapshot
   mutate(['buildx','rm',builder],'release-builder',120);absent('container',builder_name,'builder-absent');absent('volume',cache,'cache-absent');builder_snapshot=None
- def owned_container(phase):
-  c=obj(['container','inspect',name],phase)[0]
+ def owned_container(phase,budget_deadline=None):
+  c=obj(['container','inspect',name],phase,budget_deadline)[0]
+  if phase in GUEST_BASELINE_CONTAINER_PHASES:set_diagnostic_operation('guest-baseline-container-identity')
+  if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert {k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}==container_snapshot
   return c
  def verify_pid1_container(c):
@@ -418,15 +435,24 @@ def main():
    else:context_snapshot=None
   else:raise AssertionError('unknown delivery retained: '+phase)
   pin=None;receipt['unconfirmedDelivery']=None;save()
- def execute(argv,phase,timeout=60):
+ def execute(argv,phase,timeout=60,budget_deadline=None):
   nonlocal exec_pin
   if cleaning:set_diagnostic_stage('cleanup')
   else:
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
    set_diagnostic_operation(operation_for_phase(phase))
-  assert pin is None and exec_pin is None;c=owned_container(phase+'-before');assert c['State']['Running'] and not c.get('ExecIDs')
-  exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario')
-  assert not owned_container(phase+'-after').get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
+  if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-running-idle')
+  if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
+  assert pin is None and exec_pin is None
+  c=owned_container(phase+'-before',budget_deadline)
+  if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-running-idle')
+  if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
+  assert c['State']['Running'] and not c.get('ExecIDs')
+  exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario',budget_deadline=budget_deadline)
+  c=owned_container(phase+'-after',budget_deadline)
+  if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-exec-settlement')
+  if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
+  assert not c.get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
  try:
   info=obj(['info','--format','{{json .}}'],'native-info');assert info['OSType']=='linux' and info['Architecture'] in (['aarch64','arm64'] if f['arch']=='arm64' else ['x86_64','amd64'])
   guard.add_docker_root(info['DockerRootDir'],headroom=f['setupHeadroomBytes'])
@@ -464,7 +490,12 @@ def main():
   c=obj(['container','inspect',name],'container-created')[0];assert c['Id']==cid and c['Image']==image and c['Name']=='/'+name and c['Config']['Labels']['zenith.mach04.owner']==token
   verify_pid1_container(c)
   container_snapshot={k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}
-  execute(['/bin/sh','-ec','test "$(cat /proc/1/comm)" = systemd; test "$(uname -m)" = '+('aarch64' if f['arch']=='arm64' else 'x86_64')+'; test -f /sys/fs/cgroup/cgroup.controllers; test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"'],'pid1-cgroup-and-clean-baseline')
+  expected_guest_arch='aarch64' if f['arch']=='arm64' else 'x86_64'
+  guest_baseline_deadline=time.monotonic()+60
+  execute(['/bin/sh','-ec','test "$(cat /proc/1/comm)" = systemd'],'guest-baseline-pid1',budget_deadline=guest_baseline_deadline)
+  execute(['/bin/sh','-ec','test "$(uname -m)" = '+expected_guest_arch],'guest-baseline-architecture',budget_deadline=guest_baseline_deadline)
+  execute(['/bin/sh','-ec','test -f /sys/fs/cgroup/cgroup.controllers'],'guest-baseline-cgroup',budget_deadline=guest_baseline_deadline)
+  execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"'],'guest-baseline-no-owned-paths',budget_deadline=guest_baseline_deadline)
   receipt['installedAptPackageVersionsSha256']=hashlib.sha256(execute(['dpkg-query','-W','-f=${binary:Package}=${Version}\n'],'installed-apt-package-versions')).hexdigest();save()
   actual=execute(['env','-i','PATH=/usr/sbin:/usr/bin:/sbin:/bin','HOME=/root','ZENITH_TEST_AGENT_UPDATE_SYSTEMD=1','ZENITH_AGENT_UPDATE_DISPOSABLE_SYSTEMD=1','ZENITH_AGENT_UPDATE_REPO=/src','ZENITH_UPDATE_FIXTURE_OUT=/fixtures','ZENITH_AGENT_UPDATE_ARCH='+f['arch'],'/fixtures/update-systemd.test','-test.run','^TestSystemdSignedUpdateAndRollback$','-test.v','-test.timeout=8m'],'actual-one-systemd-scenario',510)
   events=[json.loads(line) for line in actual.splitlines()];assert [e['Test'] for e in events if e.get('Action')=='run']==[CASE] and [e['Test'] for e in events if e.get('Action')=='pass' and 'Test' in e]==[CASE] and not any(e.get('Action') in ['skip','fail'] for e in events) and events[-1]['Action']=='pass' and 'Test' not in events[-1]

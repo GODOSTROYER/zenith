@@ -740,7 +740,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "R16_fullCore_24533P0F1939S_8e467; R10_nativeARM64_witnessBuild_pass; SYS1_architecture_candidate32f951_focused194P0F0S_tested_on_8e467_plus_reviewed_patch_unpushed; retainedDefaultStackFailed_migration_cleanupOnlyComplete_noAcceptance; freshCoreAfterPull_pending",
+      "implementationStatus": "Historical 8e467 R16 core/R10 witness and SYS1 focused scopes remain source-bound; retained J1 failure and cleanup-only evidence remain no acceptance. Current e84 exact CI terminal: main18P2F8S; native worker and platform workflows each2 jobs passed. Focused fixture R4 actual tsc plus195P0F0S across2 files/25.71s on e84 with four explicit file postimages; scoped only, no new commit SHA and no whole acceptance. Frozen-94 overlay221ddb Native R14 passed one actual case only; full Go gate and accepted run receipt false. Fresh current-source full R16, witness, J1/J4 and browser acceptance remain pending.",
       "evidence": [
         {
           "level": "local_engine",
@@ -1676,6 +1676,26 @@
           "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
           "result": "Exact-source canonical workflow-history-replay and versioning audit passed34/0/0 (29 history-replay assertions,5 versioning assertions), all34 required identities. SDK replay is local and needs no server; source-bound gate scope only, not whole CI08 or live-server acceptance.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-94-bounded-local-gates.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+          "result": "Terminal exact-e84 CI: main18 success / 2 failure / 8 skipped. Native packaged-worker and native-platform workflows each report 2 successful jobs; lanes are separate and not combined. Full CI remains red; this receipt does not satisfy whole PROD-CI-08 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/e84-post-push-delta-final.json"
+        },
+        {
+          "level": "contract",
+          "commit": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+          "result": "Focused fixture R4 validation: actual TypeScript check passed; focused four-path regression passed195/0/0 across2 files in25.71s. Test input was e84 plus four explicit postimages recorded in the artifact; no new commit SHA exists for that overlay. Focused evidence only; it does not establish full typecheck or PROD-CI-08 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/e84-post-push-delta-final.json",
+          "receiptSha256": "d6cb819668856261fd597e46c7fe0962e75578aa71ccaf22e43432ad6df0784a"
+        },
+        {
+          "level": "local_engine",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "result": "Native R14 on frozen source94 with overlay221ddb completed wrapper rc0: one actual native case passed, guest postcondition passed, and109 strict held commands completed with cleanup, source parity, floors and output hashes checked. This is one-case evidence only; acceptedRunReceipt=false and fullGoGate=false. It does not establish a full Go gate or complete PROD-CI-08 acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/e84-post-push-delta-final.json",
+          "receiptSha256": "63356b21eda49c6264e3c965d6c930b1adb335576750be42217e5eba09cd8252"
         }
       ],
       "requiredEvidence": [
@@ -2129,6 +2149,12 @@
           "result": "Terminal cancelled predecessor run:18 success,1 Go failure,8 skipped,1 Verify cancellation. Verify was cancelled by a higher-priority queue annotation; unit suites were cancelled and Smoke/Gimbal skipped. Go fixture failed before PID1 events. This run is not green.",
           "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-ci-8e467-and-2f55-disposition.json",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+          "result": "Terminal exact-e84 CI observation: main18 success / 2 failure / 8 skipped; native packaged-worker and native-platform workflows each report2 successful jobs. Main remains failed, so this records terminal observation only and does not establish all-green CI or release approval.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/e84-post-push-delta-final.json"
         }
       ],
       "requiredEvidence": [
@@ -3903,6 +3929,13 @@
           "logs": "docs/build/production/evidence/PROD-MACH-04/2026-10-11-go-native-r7-r2.json",
           "result": "Terminal wrapper refusal, exit 2, before native guest or case execution. At refusal cleanup was unconfirmed and one owned Go compile container remained. Later exact owned cleanup completed; see PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json. Host/VM floors, joined watcher, and custody checks are clean. No case assertion failed and no native acceptance is claimed.",
           "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430"
+        },
+        {
+          "level": "local_engine",
+          "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+          "result": "Native R14 on frozen source94 with overlay221ddb completed wrapper rc0: one actual native case passed, guest postcondition passed, and109 strict held commands completed with cleanup, source parity, floors and output hashes checked. Scoped single-case evidence only; fullGoGate=false and acceptedRunReceipt=false. Registration/revocation, durability, reconnect/offline recovery, key rotation and update/rollback acceptance remain open.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/e84-post-push-delta-final.json",
+          "receiptSha256": "63356b21eda49c6264e3c965d6c930b1adb335576750be42217e5eba09cd8252"
         }
       ],
       "requiredEvidence": [
@@ -5789,13 +5822,13 @@
     }
   ],
   "sessionState": {
-    "status": "current_verifier_test_repairs_active_full_ci_failed",
-    "sourceCheckpoint": "1d99b5e217c4ea3150fcecd3976f3f7380c05a0f",
+    "status": "current_e84_terminal_ci_partial_local_verification_active",
+    "sourceCheckpoint": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "1f7a87e5da914742decb47db55704adfc3245c92",
-    "lastPushedRun": 37798097245,
-    "lastPushedRunStatus": "Exact1f main37798097245 and nativeworkers37798097211 running; nativeplatforms37798097373 two successes. Final repair publication needs own complete CI.",
-    "currentVerification": "Freshd90 CI37796491420 running; nativeworkers37796491251 failed prebuild strictCOPYinventory. SLO binding58c4 sourceverified, freshimage/runtime pending.",
+    "lastPushedCommit": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+    "lastPushedRun": 38101588244,
+    "lastPushedRunStatus": "Exact e84 main38101588244 terminal18success/2failure/8skipped; worker38101588465 andplatform38101588286 each2success. WholeCIremainsfailed.",
+    "currentVerification": "Published e84 main CI is terminal red (18P/2F/8S; companion worker/platform workflows each2P). Focused fixture R4 actual tsc and195/0/0 two-file suite passed on e84 plus four explicit postimages; no new commit SHA. Frozen-94 overlay221ddb R14 passed one native case with wrapper0 and109 strict commands; fullGoGate and acceptedRunReceipt remain false. Candidate repair and new exact CI are pending.",
     "remainingLocalPackets": {
       "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
       "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
@@ -5808,11 +5841,11 @@
       "ownership": "Integratedc8c87402 after actual55/0/0/36PG, independent155groups/sourcebindingcleanup,368/0/0contracts, compiler0. Exacttwo truthful titleIDs changed, counts preserved."
     },
     "permissions": {
-      "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Arnav Bule.",
-      "pending": "Narrow MCPclient/core2.2.0 upgrade authorization; livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff."
+      "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Saivedant Hava <saivedant169@gmail.com>.",
+      "pending": "Livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff. MCP client repair already integrated; historical CI07 eight-versus-seven advisory report reconciliation remains open."
     },
-    "releaseVerdict": "9 verified /67 in_progress /2 planned; all four release flags false; CI07 reopened for current high MCP advisory, CI08/09 pending current complete candidate",
-    "next": "Freeze Linux supervisor142/6 and runner PID1 against final clean source; root preflight and serial actual execution. Inspect complete final CI, recover actual recovery/default journeys, build memory and Go counterpart accounting.",
+    "releaseVerdict": "9 verified /67 in_progress /2 planned; all four release flags false. e84 main CI remains red; focused R4 and frozen-94 R14 are bounded partial evidence only. No acceptance or release promotion.",
+    "next": "Diagnose the two failed e84 main jobs and reconcile fixture postimages into a committed source before a new exact-source CI. Keep R14 as one-case evidence only. Then complete clean source integration and current-source R16/witness/J1/J4/browser gates; keep all four release flags false.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
@@ -5826,7 +5859,7 @@
     "cleanup": "Failed105/2 and corrected107/0/0 native historical attempts both retained; corrected receipt128 observed groups absent, runtime/socket removed, listener refused, end source binding true. Earlier162 native and owned Supabase cleanup retain original source scope. Unrelated Docker baseline preserved.",
     "nativeSkippedPlatformsRun": "current37786123826_two_success;historical37578066934",
     "lastPushedUnitResult": {
-      "status": "not_executed_on_0cc",
+      "status": "historical_not_executed_on_0cc",
       "reason": "verify113341210148 failed Typecheck with heap OOM before unit/smoke/Gimbal",
       "historical9d": {
         "passed": 21828,
@@ -5834,7 +5867,45 @@
         "skipped": 1647
       }
     },
-    "currentWork": "Reviewed historical, worker asset, Go inventory, workflow routes, compiler heap and release fixture repairs integrated. Root107/0/0 actualPG58 mandatory,671/0/0 gate contracts,82/0/0 authority,135/0/6 packaging,120/0/0 heap guards,5/0/0 release and compiler0 are separate scopes. Full source gates/new CI and ownership/Linux/default journey/security clearance remain open."
+    "currentWork": "Current e84 CI is terminal red (main18P/2F/8S; native worker and platform workflows each2 successful jobs). Focused fixture R4 actual tsc and195/0/0 two-file run passed on e84 plus four explicit postimages. Frozen-94 overlay221ddb R14 passed one native case with wrapper rc0 and109 strict commands; not a full Go gate. Historical packet summaries below remain historical: Reviewed historical, worker asset, Go inventory, workflow routes, compiler heap and release fixture repairs integrated. Root107/0/0 actualPG58 mandatory,671/0/0 gate contracts,82/0/0 authority,135/0/6 packaging,120/0/0 heap guards,5/0/0 release and compiler0 are separate scopes. Full source gates/new CI and ownership/Linux/default journey/security clearance remain open.",
+    "currentCandidateCi": {
+      "sourceCommit": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+      "main": {
+        "success": 18,
+        "failure": 2,
+        "skipped": 8,
+        "conclusion": "failure"
+      },
+      "nativePackagedWorkers": {
+        "successfulJobs": 2
+      },
+      "nativePlatforms": {
+        "successfulJobs": 2
+      },
+      "laneCountsCombined": false,
+      "focusedFixtureR4": {
+        "typescriptExitCode": 0,
+        "passed": 195,
+        "failed": 0,
+        "skipped": 0,
+        "files": 2,
+        "durationSeconds": 25.71,
+        "receiptSha256": "d6cb819668856261fd597e46c7fe0962e75578aa71ccaf22e43432ad6df0784a",
+        "testedInput": "e84 plus four explicit file postimages; no new commit SHA"
+      },
+      "nativeR14": {
+        "sourceCommit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+        "overlay": "221ddb",
+        "wrapperExitCode": 0,
+        "actualCasesPassed": 1,
+        "actualCasesFailed": 0,
+        "strictCommands": 109,
+        "receiptSha256": "63356b21eda49c6264e3c965d6c930b1adb335576750be42217e5eba09cd8252",
+        "acceptedRunReceipt": false,
+        "fullGoGate": false
+      },
+      "artifact": "docs/build/production/evidence/PROD-CI-08/e84-post-push-delta-final.json"
+    }
   },
   "sessionHistory": [
     {

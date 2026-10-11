@@ -62,6 +62,7 @@ vi.mock("../../../tests/e2e/default/mfa.mjs", () => ({
 }));
 
 import { createTenant, type OperatedContext } from "../../../scripts/release/drivers/operated";
+import { OwnedCleanup as TenantExportCleanup } from "../../../scripts/release/drivers/protocol";
 
 function fakePage(): FakePage {
   const route = (page: Pick<FakePage, "email">, endpoint: string, body?: FixtureBody): FixtureReply => {
@@ -131,14 +132,61 @@ beforeEach(() => {
 describe("DRV-4 tenant bootstrap sequencing", () => {
   it("requires owner membership and AAL2 before invite, then accepts before approver bootstrap", async () => {
     const owner = fakePage(), approver = fakePage();
-    const cleanup = { add: vi.fn(() => { fixture.events.push("cleanup-registered"); }) };
+    const cleanup = new TenantExportCleanup();
+    const registerCleanup = cleanup.add.bind(cleanup);
+    vi.spyOn(cleanup, "add").mockImplementation((work) => {
+      fixture.events.push("cleanup-registered");
+      registerCleanup(work);
+    });
     let pageIndex = 0;
     const pages = [owner, approver];
+    const apiUrl = "http://127.0.0.1:36400";
+    const supabaseUrl = "https://supabase.localhost:54321";
+    const config = {
+      schemaVersion: 1 as const,
+      stackDirectory: "/fixture/zenith-stack",
+      mailpitUrl: "http://127.0.0.1:8025",
+      kind: {
+        context: "kind-zenith-j2" as const,
+        namespace: "zenith-j2" as const,
+        server: "https://zenith-j2-control-plane:6443" as const,
+        kubeconfigFile: "/fixture/kubeconfig.yaml",
+        rotationKubeconfigFile: "/fixture/rotation-kubeconfig.yaml",
+        observerKubeconfigFile: "/fixture/observer-kubeconfig.yaml",
+        image: `fixture.invalid/zenith@sha256:${"0".repeat(64)}`,
+      },
+      machine: { image: `fixture.invalid/machine@sha256:${"0".repeat(64)}` },
+    } satisfies OperatedContext["config"];
+    const stack = {
+      state: {},
+      modules: {},
+      api: "a".repeat(64),
+      worker: "b".repeat(64),
+      apiUrl,
+      supabaseUrl,
+      adminKey: "",
+      dockerArch: "aarch64",
+      docker: "fixture",
+    } satisfies OperatedContext["stack"];
+    const input = {
+      scenarioId: "two-tenants" as const,
+      runId: "drv4-test",
+      sourceCommit: "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+      receiptFile: "/fixture/receipt.json",
+      env: { NODE_ENV: "test" },
+    } satisfies OperatedContext["input"];
+    const browser: Pick<OperatedContext["browser"], "newContext"> = {
+      newContext: vi.fn().mockImplementation(async () => ({ newPage: async () => pages[pageIndex++] })),
+    };
     const ctx = {
-      stack: { apiUrl: "http://127.0.0.1:36400", supabaseUrl: "https://supabase.localhost:54321", adminKey: "test-only" },
-      browser: { newContext: async () => ({ newPage: async () => pages[pageIndex++] }) },
-      config: { mailpitUrl: "http://127.0.0.1:8025" }, cleanup,
-      input: { runId: "drv4-test" },
+      stack,
+      // createTenant only uses newContext().newPage(); keep this narrow fixture at the Browser boundary.
+      browser: browser as OperatedContext["browser"],
+      config, cleanup, input,
+      scratch: "fixture-scratch",
+      readbacks: {},
+      step: async (_id: string, work: () => Promise<void>) => { await work(); },
+      dataRoundtrips: {},
     } as OperatedContext;
 
     const tenant = await createTenant(ctx, "a");

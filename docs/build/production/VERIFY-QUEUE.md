@@ -845,3 +845,12 @@ MACH04 native R7 terminal update, 11 October: wrapper exit 2, zero cases execute
 The old 94 witness tag `localhost:5000/zenith-j2-witness:rc` was removed and exact-tag absence was confirmed; its receipt makes no J2 acceptance claim. Go cleanup R3 is complete; native R8 terminated with wrapper exit 2 before any case executed. [Cleanup evidence](evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
 
 Native R8 is terminal at wrapper exit 2 (`daemon-build-exit`) with zero executed cases. Cleanup and custody are complete; preserve this as a wrapper refusal rather than a test failure. Diagnosis remains ongoing, and no acceptance or release state changes. [Evidence](evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).
+
+
+## Current verification queue update, 11 October 2026
+
+- **Published e84:** CI terminal 18/2/8; both native workflows 2/2. Typecheck fixture R4 passed targeted `tsc`; focused four-path validation passed 195/0/0 over two files. AMD64 Go PID1 remains failed before test events with unknown guest-baseline operation.
+- **Prior-source native evidence (94d60798a376c49beaa5c1bc60f14d2e6aa5e430):** R9/R10/R11/R13 refusals remain historical; R10 and R13 cleanup receipts later confirmed cleanup. R14 passed one native case only and does not satisfy full Go-gate acceptance.
+- **MinIO:** R6 base-absent refusal and later base R2 held-child-marker preflight refusal remain distinct. Python 3.9 collector refused before launch; Python 3.14 diagnostic proof passed six commands; no base downloaded.
+
+See [current evidence](evidence/PROD-CI-08/e84-post-push-delta-final.json). Ledger stays 9/67/2; all four release flags false.

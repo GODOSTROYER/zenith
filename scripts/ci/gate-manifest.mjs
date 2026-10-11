@@ -6323,7 +6323,7 @@ export function packagedWorkerManifest(platform = null) {
     command: ["node", "scripts/ci/packaged-worker-native.mjs", "--run", "--platform", platform ?? "{linux/amd64|linux/arm64}", "--evidence", "{outside-source-evidence}/sanitized.json"],
     prerequisites: [
       "Native Linux Node 22.23.3 and local unix-socket Docker server matching the requested platform; emulated:false",
-      "Measured free disk >=12 GiB on source, temporary and Docker-root filesystems; total host/Docker RAM >=12 GiB and available host RAM >=8 GiB",
+      "Measured free disk >=18 GiB on source, temporary and Docker-root filesystems; total host/Docker RAM >=12 GiB and available host RAM >=8 GiB",
       "Explicit ZENITH_PACKAGED_WORKER_ACCEPTANCE=1; clean exact committed source; Docker/buildx, Git and OpenSSL 3 tools",
       "New named owned local Docker context on the verified Unix socket, scoped DOCKER_CONTEXT and exact native context cleanup; original selection preserved",
       "New uniquely owned docker-container BuildKit builder with pinned image and memory=4g; original baseline remains intact",

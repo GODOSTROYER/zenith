@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_source_ci_terminal_and_platform_postgres_regression",
+  "source": {
+    "commit": "62d8da913b523b09ee6d4fa5bd599d524e634e37",
+    "branch": "codex/production-2026-10-02",
+    "event": "push"
+  },
+  "inventory": {
+    "observedAt": "2026-10-11T14:57:03Z",
+    "exactSha": "62d8da913b523b09ee6d4fa5bd599d524e634e37",
+    "workflows": [
+      {
+        "label": "main-ci",
+        "runId": 38147230244,
+        "status": "completed",
+        "conclusion": "success",
+        "jobCounts": {
+          "success": 20,
+          "failure": 0,
+          "cancelled": 0,
+          "skipped": 8
+        },
+        "jobsTotal": 28
+      },
+      {
+        "label": "native-packaged-workers",
+        "runId": 38147230227,
+        "status": "completed",
+        "conclusion": "success",
+        "jobCounts": {
+          "success": 2,
+          "failure": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "jobsTotal": 2
+      },
+      {
+        "label": "native-skipped-platforms",
+        "runId": 38147230267,
+        "status": "completed",
+        "conclusion": "success",
+        "jobCounts": {
+          "success": 2,
+          "failure": 0,
+          "cancelled": 0,
+          "skipped": 0
+        },
+        "jobsTotal": 2
+      }
+    ],
+    "aggregate": {
+      "workflows": 3,
+      "jobsTotal": 32,
+      "success": 24,
+      "failure": 0,
+      "cancelled": 0,
+      "conditionalSkipped": 8,
+      "active": 0
+    },
+    "inventorySha256": "5f9358da8121a1570f7e2a326fba20e42134a56d2dc7ef329775f1aa2955b054"
+  },
+  "verify": {
+    "runId": 38147230244,
+    "jobId": 114493082834,
+    "conclusion": "success",
+    "counts": {
+      "passed": 24587,
+      "failed": 0,
+      "skipped": 1925,
+      "total": 26512
+    },
+    "fileCounts": {
+      "passed": 1144,
+      "skipped": 97,
+      "total": 1241
+    },
+    "reportSha256": "5e3a8f85fcc11f634ec0a9eadf6ae37edb2a434924a1907a7a3ee3594de13f97",
+    "scope": "remote Verify counts; separate from local-core counts"
+  },
+  "platformPostgres": {
+    "runId": 38147230244,
+    "jobId": 114493082826,
+    "conclusion": "success",
+    "requiredIdentityInventory": {
+      "count": 1160,
+      "added": 0,
+      "removed": 0
+    },
+    "counts": {
+      "passed": 4105,
+      "failed": 0,
+      "skipped": 15,
+      "total": 4120
+    },
+    "changedMigrationConcurrencyCase": {
+      "identity": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+      "counts": {
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      "observedDurationMilliseconds": 1620,
+      "assertion": "numeric sort of flattened applied migration IDs before exact comparison"
+    },
+    "executionReceiptSha256": "f19582ff6d8513051f579678b6d711c609f011f4b687c4372f058c53f8c3a458",
+    "platformSummarySha256": "c82898825dd50de97f23d3dc75ec4bb3e9bcb32aa818aeb542e92f573848484c",
+    "postCleanupAbsenceIndependentlyEstablished": false,
+    "scope": "single exact-source PostgreSQL regression run; not production acceptance"
+  },
+  "relationToWorkerAdmissionCandidate": {
+    "candidatePatchSha256": "b60c4d95b0a46774df6d14e3e040188d0ac7ff8bd4af446adbac79488153b6f1",
+    "includedInSourceCommit": false,
+    "workerAcceptanceValidated": false
+  },
+  "limits": {
+    "conditionalJobsRemainUnverified": true,
+    "noMilestonePromotion": true,
+    "ledgerStateUnchanged": true
+  }
+}

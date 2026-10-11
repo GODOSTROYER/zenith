@@ -12,7 +12,7 @@ import { assertOwnedPackagedBuilder, command as acceptanceCommand, createPrivate
 
 const BUILDKIT_IMAGE = "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea";
 const REFUSALS = ["missing-schema", "invalid-secret", "invalid-signer", "plaintext-temporal", "missing-namespace", "wrong-queue"];
-const MIN_DISK = 12, MIN_TOTAL_RAM = 12, MIN_AVAILABLE_RAM = 8;
+const MIN_DISK = 18, MIN_TOTAL_RAM = 12, MIN_AVAILABLE_RAM = 8;
 const digest = value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 const record = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const sha256 = value => createHash("sha256").update(value).digest("hex");

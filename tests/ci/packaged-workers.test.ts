@@ -155,7 +155,7 @@ describe("native packaged worker canonical source contract", () => {
     expect(instructions.indexOf("COPY package.json package-lock.json ./")).toBeLessThan(instructions.indexOf(install));
     expect(instructions.indexOf(install)).toBeLessThan(instructions.indexOf("COPY src/lib ./src/lib"));
     expect(instructions.filter(line => line.includes("cache clean"))).toEqual([install]);
-    expect(read("scripts/ci/packaged-worker-native.mjs")).toContain("const MIN_DISK = 12, MIN_TOTAL_RAM = 12, MIN_AVAILABLE_RAM = 8;");
+    expect(read("scripts/ci/packaged-worker-native.mjs")).toContain("const MIN_DISK = 18, MIN_TOTAL_RAM = 12, MIN_AVAILABLE_RAM = 8;");
     expect(boundBuild(build(), { scope, platform, commit, sourceInputSha256: hex }).image).toBe(`${runId}:acceptance`);
   });
 });
@@ -168,6 +168,10 @@ describe("native packaged worker fixed evidence models", () => {
   it.each(["os", "processArch", "dockerOS", "dockerArch", "endpoint", "node", "totalRamGiB", "availableRamGiB", "dockerRamGiB", "sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"])("refuses missing, foreign or insufficient %s before IO", key => {
     expect(() => assertNativePrerequisites(platform, { ...prerequisites(), [key]: key.endsWith("GiB") ? 1 : "unsupported" }, github)).toThrow();
     expect(() => assertNativePrerequisites(platform, Object.fromEntries(Object.entries(prerequisites()).filter(([name]) => name !== key)), github)).toThrow();
+  });
+  it.each(["sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"])("requires 18 GiB on the %s filesystem", key => {
+    expect(() => assertNativePrerequisites(platform, { ...prerequisites(), [key]: 17.99 }, github)).toThrow();
+    expect(assertNativePrerequisites(platform, { ...prerequisites(), [key]: 18 }, github)[key]).toBe(18);
   });
   it.each(["ZENITH_PACKAGED_REPOSITORY_VISIBILITY", "RUNNER_ENVIRONMENT", "RUNNER_OS", "RUNNER_ARCH", "GITHUB_SHA", "ZENITH_PACKAGED_RUNNER_LABEL"])("refuses private, paid, emulated or unrecognized hosted %s", key => {
     expect(() => assertNativePrerequisites(platform, prerequisites(), { ...github, [key]: "unsupported" })).toThrow();

@@ -2080,6 +2080,86 @@
           "focusedEslint": "passed",
           "candidateIntegrated": false,
           "acceptanceClaim": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "cf299647df8551f246e04021a8784a7742b06749",
+          "result": "Historical R3 preparation cleanup failed: wrapper exit 2 with ObserverRefusal; checkpoint remains cleanup_incomplete and settlement uncertain, with sticky marker retained. The down command reported 15 resources removed and 0 owned resources remaining, but the independent review refused cleanup acceptance because observer closeout was incomplete and no current absence probe was recorded. No acceptance or promotion.",
+          "command": "Review the retained cleanup R3 execution, terminal checkpoint, observer closeout, cleanup receipt, and sticky-marker evidence.",
+          "environment": "Exact frozen source cf299647df8551f246e04021a8784a7742b06749; retained preparation state; cleanup acceptance explicitly refused.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-cf299647-cleanup-recovery-r3-failure-r1.json",
+          "cleanupReceiptSha256": "02457944bd5f95eeefddca88399c104503d6498f761ba77b77df9656f55cbf20",
+          "terminalReviewSha256": "50d8b91a3fc4e129831f7fbcd694b1a688c925bd8d9c5fc1f288be81dde141fa",
+          "observerDiagnosisSha256": "935fce6dd42ae8bd3c0f1bac30ca01e91e07ff6e5eec8e3bc2602272e7be8578",
+          "checkpointSha256": "fc9d0be14cdc2ba57fedac20a87eb7b1028b5fd0f6f1860f664e431293037554",
+          "stickyMarkerSha256": "49975ec59d11c085be88e941541658b597a0e0d5edc2bba64131bcfb28ae7c9a",
+          "reportedRemoved": 15,
+          "reportedOwnedResourcesRemaining": 0,
+          "forcedStops": 1,
+          "currentAbsenceProbeRecorded": false,
+          "observerCloseoutComplete": false,
+          "settlementUncertain": true,
+          "acceptanceClaim": false
+        },
+        {
+          "level": "contract",
+          "commit": "62d8da913b523b09ee6d4fa5bd599d524e634e37",
+          "result": "Prepublication source-only packaged-worker disk-admission candidate: 18 GiB admission across source, temporary, and Docker-root filesystems, with stated RAM thresholds; one focused test file reported 139 passed / 0 failed / 6 skipped, ESLint passed, and independent review passed. The candidate remains unintegrated; no native packaged-worker execution or engine/network invocation occurred. No continuous 18 GiB monitor was added. No worker acceptance.",
+          "command": "Run the focused packaged-worker test file and ESLint on the source-only admission candidate; independently review the bounded patch.",
+          "environment": "Base source 62d8da913b523b09ee6d4fa5bd599d524e634e37; source-only candidate patch; worker image not invoked.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-62d8da91-worker-disk-admission-repair-r1.json",
+          "candidatePatchSha256": "b60c4d95b0a46774df6d14e3e040188d0ac7ff8bd4af446adbac79488153b6f1",
+          "candidateManifestSha256": "3588039e92bd77267d87e63e3f3ffd0c09bd405e3cb4f6a25b5271f92729c3ba",
+          "independentReviewSha256": "cdc514ab5764d3a9fe1f648db336c002dcfbf144135461615de04eb699069ca4",
+          "focusedTestFileCount": 1,
+          "focusedTestCounts": {
+            "passed": 139,
+            "failed": 0,
+            "skipped": 6
+          },
+          "focusedEslint": "passed",
+          "candidateIntegrated": false,
+          "actualPackagedWorkerRun": false,
+          "engineOrNetworkInvoked": false,
+          "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "62d8da913b523b09ee6d4fa5bd599d524e634e37",
+          "runId": 38147230244,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38147230244",
+          "result": "Terminal exact-source CI across three workflows: 24 required jobs succeeded and 8 conditional jobs were skipped (32 total; 0 failed, 0 cancelled, 0 active). Verify passed 24,587 / 0 / 1,925 skipped. Platform-Postgres passed 4,105 / 0 / 15 skipped across 4,120 identities, including 1,160 required identities and the corrected migration-concurrency assertion 11/0/0. The disk-admission candidate was not included in source 62d8da9, so this run does not validate that candidate. Post-cleanup resource absence was not independently established. No PROD-CI-08 acceptance or promotion.",
+          "command": "Inspect terminal exact-SHA main CI, native packaged-worker and native skipped-platform workflow inventories, Verify report, and platform-Postgres result.",
+          "environment": "GitHub push runs on codex/production-2026-10-02; exact source 62d8da913b523b09ee6d4fa5bd599d524e634e37; attempt 1.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-62d8da91-terminal-ci-and-pg-regression-r1.json",
+          "inventorySha256": "5f9358da8121a1570f7e2a326fba20e42134a56d2dc7ef329775f1aa2955b054",
+          "verifyReportSha256": "5e3a8f85fcc11f634ec0a9eadf6ae37edb2a434924a1907a7a3ee3594de13f97",
+          "platformSummarySha256": "c82898825dd50de97f23d3dc75ec4bb3e9bcb32aa818aeb542e92f573848484c",
+          "platformPostgresExecutionReceiptSha256": "f19582ff6d8513051f579678b6d711c609f011f4b687c4372f058c53f8c3a458",
+          "nativePackagedWorkersRunId": 38147230227,
+          "nativeSkippedPlatformsRunId": 38147230267,
+          "verifyCounts": {
+            "passed": 24587,
+            "failed": 0,
+            "skipped": 1925,
+            "total": 26512
+          },
+          "platformPostgresCounts": {
+            "passed": 4105,
+            "failed": 0,
+            "skipped": 15,
+            "total": 4120,
+            "requiredIdentities": 1160
+          },
+          "migrationConcurrencyCase": {
+            "identity": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+            "passed": 11,
+            "failed": 0,
+            "skipped": 0
+          },
+          "workerDiskAdmissionCandidateIncluded": false,
+          "postCleanupAbsenceIndependentlyEstablished": false,
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [

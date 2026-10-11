@@ -1,0 +1,22 @@
+{
+  "acceptance": false,
+  "evidence_type": "ux03-preflight-refusals",
+  "next_state": "Preserve both preflight refusals; UX03 acceptance remains pending.",
+  "r7": {
+    "checks": [
+      "runner-path alias binding",
+      "pinned R17 mode-0400 module sent to executable X_OK checker"
+    ],
+    "diagnosis_correction": "OpenSSL symlink was not causal: R7 check_pin resolves executable paths before hashing; load_driver incorrectly applies X_OK to the mode-0400 R17 module.",
+    "engine_invoked": false,
+    "outcome": "refused-before-engine",
+    "owned_resources_created": false
+  },
+  "r8": {
+    "engine_invoked": false,
+    "outcome": "refused-before-engine",
+    "owned_resources_created": false,
+    "reason": "Pinned R17 module mode 0400 failed the executable-integrity checker, which applies an X_OK check."
+  },
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f"
+}

@@ -140,6 +140,13 @@ CONTAINER_IDENTITY_FIELDS=(
  ('Config','guest-baseline-container-config'),('HostConfig','guest-baseline-container-host-config'),
  ('Mounts','guest-baseline-container-mounts')
 )
+def container_identity_equal(field,expected,observed):
+ if field=='Mounts':
+  if type(expected) is not list or type(observed) is not list:return False
+  expected_rows=sorted(json.dumps(row,sort_keys=True,separators=(',',':')) for row in expected)
+  observed_rows=sorted(json.dumps(row,sort_keys=True,separators=(',',':')) for row in observed)
+  return expected_rows==observed_rows
+ return expected==observed
 def container_identity_failure_operation(field,expected,observed):
  if field=='HostConfig' and isinstance(expected,dict) and isinstance(observed,dict):
   if 'OomKillDisable' in expected and 'OomKillDisable' in observed:
@@ -148,10 +155,6 @@ def container_identity_failure_operation(field,expected,observed):
    observed_rest={k:v for k,v in observed.items() if k!='OomKillDisable'}
    false_none=(expected_oom is None and type(observed_oom) is bool and observed_oom is False) or (observed_oom is None and type(expected_oom) is bool and expected_oom is False)
    if expected_rest==observed_rest and false_none:return 'guest-baseline-container-host-config-oom-kill-disable'
- if field=='Mounts' and type(expected) is list and type(observed) is list and expected!=observed:
-  expected_rows=sorted(json.dumps(row,sort_keys=True,separators=(',',':')) for row in expected)
-  observed_rows=sorted(json.dumps(row,sort_keys=True,separators=(',',':')) for row in observed)
-  if expected_rows==observed_rows:return 'guest-baseline-container-mount-order'
  return dict(CONTAINER_IDENTITY_FIELDS)[field]
 def set_cleanup_operation(operation):
  global DIAGNOSTIC_CLEANUP_OPERATION
@@ -426,9 +429,9 @@ def main():
     try:observed=c[field]
     except KeyError:
      set_diagnostic_operation(dict(CONTAINER_IDENTITY_FIELDS)[field]);raise
-    if observed!=container_snapshot[field]:
+    if not container_identity_equal(field,container_snapshot[field],observed):
      set_diagnostic_operation(container_identity_failure_operation(field,container_snapshot[field],observed));break
-  assert {k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}==container_snapshot
+  assert all(container_identity_equal(field,container_snapshot[field],c[field]) for field,_ in CONTAINER_IDENTITY_FIELDS)
   return c
  def verify_pid1_container(c):
   host=c['HostConfig']

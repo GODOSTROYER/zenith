@@ -1324,6 +1324,31 @@ print(json.dumps({'nativeInfoPollChecks':native_info_poll_checks,'laterCommandRe
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
     expect(JSON.parse(child.stdout)).toEqual({ nativeInfoPollChecks: 3, laterCommandRefused: true, mutationBeforeAdmission: false });
   });
+  it("compares Docker Mounts as an exact unordered multiset", () => {
+    const model = String.raw`
+import ast, json, pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text(); tree = ast.parse(source)
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "container_identity_equal")
+namespace = {"json": json}
+exec(compile(ast.Module(body=[helper], type_ignores=[]), "actual-container-identity", "exec"), namespace)
+equal = namespace["container_identity_equal"]
+a = {"Type":"bind", "Source":"/private/src", "Destination":"/src", "Mode":"ro", "RW":False, "Propagation":"rprivate"}
+b = {"Type":"bind", "Source":"/private/fixtures", "Destination":"/fixtures", "Mode":"ro", "RW":False, "Propagation":"rprivate"}
+expected = [a, b]
+assert equal("Mounts", expected, [b, a])
+assert not equal("Mounts", expected, [{**a, "Source":"/attacker"}, b])
+assert not equal("Mounts", expected, [b])
+assert not equal("Mounts", expected, [a, b, {**b}])
+assert not equal("Mounts", [a, a, b], [a, b, b])
+assert not equal("Mounts", expected, None)
+assert equal("Id", "container-id", "container-id")
+assert not equal("Id", "container-id", "other-container")
+print(json.dumps({"permutation":True,"changedRowRejected":True,"missingRejected":True,"extraRejected":True,"multiplicityPreserved":True,"nonListRejected":True,"otherFieldsRemainExact":True}))
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toEqual({ permutation: true, changedRowRejected: true, missingRejected: true, extraRejected: true, multiplicityPreserved: true, nonListRejected: true, otherFieldsRemainExact: true });
+  });
   it("classifies timeout and interruption before their shared OSError base class", () => {
     const model = String.raw`
 import importlib.util, json, pathlib, subprocess, sys

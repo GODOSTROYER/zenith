@@ -1,0 +1,50 @@
+{
+  "active_required_job": "verify",
+  "aggregate_counts": {
+    "active": 1,
+    "failure": 1,
+    "jobs": 32,
+    "skipped": 8,
+    "success": 22
+  },
+  "evidence_type": "exact-source-ci-progress-snapshot",
+  "failed_required_job": "go",
+  "go_failure": {
+    "diagnostic": "guest-baseline-container-mount-order",
+    "pid1_test_ran": false,
+    "source_report_sha256": "77f32fb341829856e7e034e8542873e3fffde39b07c831feaf53f386d15d9b8e"
+  },
+  "interpretation": "Nonterminal and not green; optional skips are not passes.",
+  "main_counts": {
+    "active": 1,
+    "failure": 1,
+    "jobs": 28,
+    "skipped": 8,
+    "success": 18
+  },
+  "native_workflows": {
+    "packaged_workers": "2/2 success",
+    "skipped_platforms": "2/2 success"
+  },
+  "observed_at_utc": "2026-10-11T05:41:36Z",
+  "optional_jobs": {
+    "skipped": 8,
+    "status": "unverified",
+    "total": 8
+  },
+  "required_jobs": {
+    "active": 1,
+    "failure": 1,
+    "success": 22,
+    "total": 24
+  },
+  "snapshot_json_sha256": "d85a0feac90c5313cf8dff6cda780bd0366ee63e8449c63ec42aa605e1a2c8e7",
+  "snapshot_kind": "single bounded, nonterminal progress refresh",
+  "snapshot_markdown_sha256": "fea84b074999c0ecd46d6f9ff5c1982ec521acec4ea3cf8660316a6d74af21f1",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "workflow_runs": {
+    "main": 38114379591,
+    "native_packaged_workers": 38114379579,
+    "native_skipped_platforms": 38114379699
+  }
+}

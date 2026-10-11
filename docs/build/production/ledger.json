@@ -1779,6 +1779,32 @@
             "minimumDockerVmCpuCount": 12
           },
           "requirementScope": "PROD-CI-08 local-engine lane support only; not whole fresh verification. The plugin assertions additionally support PROD-UX-03 local_engine."
+        },
+        {
+          "level": "contract",
+          "commit": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+          "result": "R16 full Node/DOM core passed 24,552 / 0 failed / 1,939 skipped (26,491 total; Node 25,426, DOM 1,065). Wrapper exit 0; source remained stable; owned temporary data cleanup completed; 336,276,959,232-byte observed free space exceeded the 23,622,320,128-byte floor. Skips remain skips. Full-core only; this is not broader operated or release acceptance.",
+          "command": "R16 full core execution; invocation/result bindings are recorded by the linked source-bound summary and execution receipt.",
+          "environment": "Native macOS ARM64; full Node/DOM core session. Exact runtime versions are not asserted by the public summary.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-760113-r16-full-core.json",
+          "executionReceiptComplete": true,
+          "summarySha256": "9b0bf1b0de8b5277c67a88d4689c18407cf74de29236e6928c068fbfaf3c6d18",
+          "executionReceiptSha256": "2a3690466d290d16b5650eeef75eeac512a3bd65db6445403b683ccc5c043825",
+          "sourceFreezeSha256": "f6a65a481df07826f409970a41f79aee9e04d95538b7e7769fb04256a0032650",
+          "sourceStable": true,
+          "counts": {
+            "passed": 24552,
+            "failed": 0,
+            "skipped": 1939,
+            "total": 26491,
+            "node": 25426,
+            "dom": 1065
+          },
+          "wrapperExitCode": 0,
+          "cleanupComplete": true,
+          "minimumFreeBytes": 336276959232,
+          "diskFloorBytes": 23622320128,
+          "requirementScope": "PROD-CI-08 contract evidence only; full core does not establish local engine, remote CI, wider operated or release acceptance."
         }
       ],
       "requiredEvidence": [
@@ -2312,6 +2338,73 @@
             "go"
           ],
           "skippedReleaseGatedJobsRemainUnverified": true
+        },
+        {
+          "level": "remote_ci",
+          "commit": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+          "runId": 38114379591,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38114379591",
+          "result": "Terminal exact-source CI observation, not a pass: 24 required jobs yielded 23 success / 1 failure / 0 active; Go failed. Eight distinct optional jobs were skipped and remain unverified. Aggregate across all three workflows: 32 jobs, 23 success / 1 failure / 8 skipped / 0 active; native packaged-worker and native-platform workflows each succeeded 2/2. CI-09 remains open.",
+          "command": "Read-only inspect terminal status and job results for all three exact-source workflows.",
+          "environment": "GitHub-hosted CI; exact source SHA recorded in the sanitized terminal report.",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-11-760113-ci-terminal-r4.json",
+          "executionReceiptComplete": true,
+          "sourceReportSha256": "cda714c54ef239b05e0a3a34bc93aa4e1d05e75a894cda101904047d0e1d196c",
+          "requiredJobs": {
+            "total": 24,
+            "success": 23,
+            "failure": 1,
+            "active": 0
+          },
+          "optionalJobs": {
+            "total": 8,
+            "skipped": 8,
+            "verified": 0
+          },
+          "aggregateJobs": {
+            "total": 32,
+            "success": 23,
+            "failure": 1,
+            "skipped": 8,
+            "active": 0
+          },
+          "workflowRuns": [
+            {
+              "name": "CI",
+              "runId": 38114379591,
+              "jobs": 28,
+              "success": 19,
+              "failure": 1,
+              "skipped": 8,
+              "active": 0
+            },
+            {
+              "name": "Native packaged workers",
+              "runId": 38114379579,
+              "jobs": 2,
+              "success": 2
+            },
+            {
+              "name": "Native skipped platforms",
+              "runId": 38114379699,
+              "jobs": 2,
+              "success": 2
+            }
+          ],
+          "failingJobs": [
+            "go"
+          ],
+          "skippedOptionalJobs": [
+            "drv2-drift-repair",
+            "drivers-d4-two-tenants",
+            "j15-operated-upgrade",
+            "j15-operated-restore",
+            "drivers-d4-export",
+            "drv2-crash-partition",
+            "drv1-update-rollback",
+            "drv1-private-source"
+          ],
+          "requirementScope": "Terminal remote_ci observation only. Failed Go job and eight skips remain visible; this does not satisfy CI-09 acceptance."
         }
       ],
       "requiredEvidence": [
@@ -5029,6 +5122,53 @@
             "resourceFloorComplete": true
           },
           "requirementScope": "Only local_engine evidence for these two plugin test files. Contract evidence and full plugin provenance/isolation/revocation/default-app acceptance remain separate."
+        },
+        {
+          "level": "local_engine",
+          "commit": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+          "result": "PROD-UX-03 Docker-local component proof: 3/0/0 across the exact revoke, outage and cancel validators. Root verified 51 strict held-command closeouts, source/freeze binding, image/plugin baseline parity, image cleanup, joined floor watcher and host/VM floors. The component report has accepted_run_receipt=false; scoped component evidence only, not full UX-03 acceptance.",
+          "command": "UX-03 Docker-local gated component run; exact case IDs, runner/manifest digests and execution-report binding are in the sanitized component report.",
+          "environment": "Local Docker component run; host/VM floor and watcher checks passed. No host/runtime version is added beyond the evidence report.",
+          "logs": "docs/build/production/evidence/PROD-UX-03/2026-10-11-760113-ux03-r10-component-r1.json",
+          "acceptedRunReceipt": false,
+          "executionReportSha256": "58b3fdb52cc9953c43dbe9ea9c6a292f200a09892839f3842e539a201f37e35a",
+          "vitestReportSha256": "de06e7f685d6566694b5dfb22d35fa86b3aee0906f05f4ecdec986e14d04a0d1",
+          "sourceFreezeSha256": "f6a65a481df07826f409970a41f79aee9e04d95538b7e7769fb04256a0032650",
+          "cases": {
+            "passed": 3,
+            "failed": 0,
+            "skipped": 0,
+            "caseIds": [
+              "wave6-804f49145d9c6b23",
+              "wave6-4de28b8c5378d1de",
+              "wave6-a5f94528790619de"
+            ],
+            "scope": [
+              "revoke",
+              "outage",
+              "cancel"
+            ]
+          },
+          "strictHeldCommands": {
+            "count": 51,
+            "allCustodyAndCloseoutsPassed": true
+          },
+          "cleanupComplete": true,
+          "baselineRestoration": {
+            "fullImageReferenceBaselineRestored": true,
+            "pluginContainerAndVolumeBaselineRestored": true,
+            "newlyAcquiredImageRemovedWithoutForceOrPrune": true
+          },
+          "floors": {
+            "hostPassed": true,
+            "dockerVmPassed": true,
+            "dockerVmMinimumFreeBytes": 424277221376,
+            "dockerVmSamples": 6,
+            "hostFloorWatcherJoined": true
+          },
+          "hostFloorPassed": true,
+          "dockerVmFloorPassed": true,
+          "requirementScope": "PROD-UX-03 local_engine component evidence only; does not complete required contract level or overall acceptance."
         }
       ],
       "requiredEvidence": [

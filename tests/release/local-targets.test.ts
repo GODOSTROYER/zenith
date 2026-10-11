@@ -1,5 +1,5 @@
 /** Contract-only planner/runner tests. Faked exec never establishes engine or live evidence. */
-import { mkdtempSync, writeFileSync, readFileSync, unlinkSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, unlinkSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -228,6 +228,39 @@ describe("J4 owned maintenance environment join", () => {
     expect(env.SUPABASE_DB_URL).toBe(env.ZENITH_PLATFORM_DB_URL);
     expect(env.ZENITH_PLATFORM_MIGRATION_URL).toBe(env.ZENITH_PLATFORM_DB_URL);
     expect(env.ZENITH_TEMPORAL_NAMESPACE).toBe("j4-owned");
+  });
+  it("does not downgrade NODE_ENV outside explicit owned local J4 gates", () => {
+    const env = maintenanceEnvironment({ ...base, NODE_ENV: "production" }, overlay);
+    expect(env.NODE_ENV).toBe("production");
+    expect(env.ZENITH_TOFU_BIN).toBeUndefined();
+    expect(env.ZENITH_TOFU_IDENTITY_FILE).toBeUndefined();
+  });
+  it("uses test mode and explicit native OpenTofu paths only for owned local J4", () => {
+    const root = temp(), bin = path.join(root, "tofu"), identity = path.join(root, "identity.json");
+    writeFileSync(bin, "path-only test fixture; never executed", { mode: 0o700 });
+    writeFileSync(identity, "path-only test fixture; runtime identity checks remain mandatory", { mode: 0o600 });
+    const stack = path.join(root, "stack");
+    const ownedBase = { ...base, NODE_ENV: "production" as const, ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1",
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: stack, ZENITH_LOCAL_STACK_DIRECTORY: stack, ZENITH_TEST_MAINTENANCE: "1",
+      ZENITH_TEMPORAL_ADDRESS: "127.0.0.1:17233", ZENITH_LOCAL_TOFU_BIN: bin, ZENITH_LOCAL_TOFU_IDENTITY_FILE: identity };
+    const env = maintenanceEnvironment(ownedBase, overlay);
+    expect(env.NODE_ENV).toBe("test");
+    expect(env.ZENITH_TOFU_BIN).toBe(bin);
+    expect(env.ZENITH_TOFU_IDENTITY_FILE).toBe(identity);
+    expect(env.ZENITH_LOCAL_TOFU_BIN).toBe(bin);
+  });
+  it("refuses missing, relative, or symlinked OpenTofu paths for owned local J4", () => {
+    const root = temp(), bin = path.join(root, "tofu"), identity = path.join(root, "identity.json");
+    writeFileSync(bin, "path-only test fixture; never executed", { mode: 0o700 });
+    writeFileSync(identity, "path-only test fixture; runtime identity checks remain mandatory", { mode: 0o600 });
+    const symlink = path.join(root, "tofu-link"); symlinkSync(bin, symlink);
+    const stack = path.join(root, "stack");
+    const ownedBase = { ...base, NODE_ENV: "production" as const, ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1",
+      ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: stack, ZENITH_LOCAL_STACK_DIRECTORY: stack, ZENITH_TEST_MAINTENANCE: "1",
+      ZENITH_TEMPORAL_ADDRESS: "127.0.0.1:17233", ZENITH_LOCAL_TOFU_BIN: bin, ZENITH_LOCAL_TOFU_IDENTITY_FILE: identity };
+    expect(() => maintenanceEnvironment({ ...ownedBase, ZENITH_LOCAL_TOFU_BIN: undefined }, overlay)).toThrow(/Explicit owned J4 OpenTofu paths/);
+    expect(() => maintenanceEnvironment({ ...ownedBase, ZENITH_LOCAL_TOFU_BIN: "tofu" }, overlay)).toThrow(/Explicit owned J4 OpenTofu paths/);
+    expect(() => maintenanceEnvironment({ ...ownedBase, ZENITH_LOCAL_TOFU_BIN: symlink }, overlay)).toThrow(/owned regular non-symlink/);
   });
   it.each(["http://127.0.0.1:6543/j4_fresh", `postgresql://postgres:${credential}@example.test:6543/j4_fresh`, `postgresql://postgres:${credential}@localhost:6544/j4_fresh`, `postgresql://foreign:${credential}@localhost:6543/j4_fresh`])("refuses a re-pointed database %s", url => {
     expect(() => maintenanceEnvironment(base, { ...overlay, ZENITH_PLATFORM_DB_URL: url })).toThrow(/exact local server/);

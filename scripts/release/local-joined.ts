@@ -1,5 +1,5 @@
 /** Adapt owned J1/J2/J4 evidence without inventing a pass for an uncovered scenario. */
-import { readFileSync, writeFileSync, existsSync, lstatSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, lstatSync, accessSync, constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { defaultExec } from "./acceptance-orchestrator";
 import { requiredChecks, validateLocalReceipt, type LocalReceipt } from "./local-targets";
@@ -33,6 +33,30 @@ export function maintenanceEnvironment(base: NodeJS.ProcessEnv, overlay: Record<
     || environment.ZENITH_BILLING_STRIPE_SECRET_KEY || environment.ZENITH_CONTROL_KMS_KEY_ID
     || !path.isAbsolute(environment.ZENITH_J4_CRON_SECRET_FILE ?? "") || !path.isAbsolute(environment.ZENITH_DATA ?? "")) throw new Error("Fresh isolated J4 maintenance configuration required");
   environment.SUPABASE_DB_URL = environment.ZENITH_PLATFORM_MIGRATION_URL = database.href;
+  const stackDirectory = base.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR;
+  const explicitOwnedJ4Local = base.ZENITH_LOCAL_JOINED_DRIVERS === "1"
+    && base.ZENITH_ACCEPTANCE_DEFAULT_STACK === "1" && base.ZENITH_TEST_MAINTENANCE === "1"
+    && !!stackDirectory && path.isAbsolute(stackDirectory)
+    && !!base.ZENITH_LOCAL_STACK_DIRECTORY && path.resolve(base.ZENITH_LOCAL_STACK_DIRECTORY) === path.resolve(stackDirectory)
+    && /^j4-[a-z0-9-]{1,50}$/.test(environment.ZENITH_TEMPORAL_NAMESPACE ?? "")
+    && /^(127\.0\.0\.1|localhost):\d+$/.test(environment.ZENITH_TEMPORAL_ADDRESS ?? "");
+  if (explicitOwnedJ4Local) {
+    // Select only explicit host-local inputs; the runner still verifies version and binary/archive identity.
+    const tofuBin = base.ZENITH_LOCAL_TOFU_BIN, identityFile = base.ZENITH_LOCAL_TOFU_IDENTITY_FILE;
+    const ownedRegularFile = (file: string | undefined, executable: boolean): string => {
+      if (!file || !path.isAbsolute(file)) throw new Error("Explicit owned J4 OpenTofu paths are required");
+      try {
+        const stat = lstatSync(file);
+        const uid = process.getuid?.();
+        if (uid === undefined || !stat.isFile() || stat.isSymbolicLink() || stat.uid !== uid) throw new Error();
+        accessSync(file, executable ? fsConstants.X_OK : fsConstants.R_OK);
+      } catch { throw new Error("Explicit owned J4 OpenTofu paths must be owned regular non-symlink files with required access"); }
+      return file;
+    };
+    environment.NODE_ENV = "test";
+    environment.ZENITH_TOFU_BIN = ownedRegularFile(tofuBin, true);
+    environment.ZENITH_TOFU_IDENTITY_FILE = ownedRegularFile(identityFile, false);
+  }
   return environment;
 }
 /** Deferred J4 admission is a machine-schedules-only readiness route. */

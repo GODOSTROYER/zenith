@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_owned_marker_completion_review",
+  "sourceContext": {
+    "relatedPriorCleanupSource": "cf299647df8551f246e04021a8784a7742b06749",
+    "artifact": "postdown marker completion R3"
+  },
+  "completion": {
+    "producerExitCode": 0,
+    "executionReceiptSha256": "86ff88dbe5eae99923c3f547296087774a78d6076a884ca50030b47e740573b5",
+    "terminalSha256": "ecf7f612fab107a4910653d7c5a3bcadda21d7d83131ae4c54fd909630889751",
+    "independentTerminalReview": "PASS actual exact marker completion only",
+    "reviewSha256": "2d523687a41f0f69f9589efde7271dabf57eb2c1202505644a73fd514beb3757",
+    "markerState": "empty content; same owned inode retained",
+    "markerHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "originalR3Failure": "preserved; cleanup_incomplete/settlementUncertain/exit2"
+  },
+  "limits": {
+    "markerTransitionOnly": true,
+    "accepted": false,
+    "milestonePromoted": false,
+    "ordinaryAcceptanceGatesChanged": false,
+    "lockProbePerformed": false
+  }
+}

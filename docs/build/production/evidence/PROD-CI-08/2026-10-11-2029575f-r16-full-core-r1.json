@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "kind": "full_core_execution",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "scope": [
+    "node",
+    "dom"
+  ],
+  "result": "passed",
+  "passed": 24566,
+  "failed": 0,
+  "skipped": 1943,
+  "collectedIdentities": 26509,
+  "passedSuites": 4886,
+  "sourceEntries": 5926,
+  "sourceFreezeSha256": "ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0",
+  "sourceStable": true,
+  "identityCounterMatched": true,
+  "exactCaseCounterMatched": true,
+  "wrapperExitCode": 0,
+  "minimumFreeBytes": 324630163456,
+  "diskFloorBytes": 23622320128,
+  "summarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+  "executionReceiptSha256": "81f3aaef3dc788d2e32a278fbad9c5bc74a340d4de042138843f23f0d14d19ed",
+  "scopeLimit": "Full-core execution only; reported skipped identities remain skipped. Does not establish broader product acceptance."
+}

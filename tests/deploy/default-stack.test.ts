@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
 import { joinedConfiguration, validateInput, planFor, installationEnvironment, environmentsFor } from '../../scripts/deploy/installation.mjs';
-import { apiProbeRequest } from '../../scripts/acceptance/default-stack/readiness.mjs';
+import { apiProbeRequest, poolerProbeArguments } from '../../scripts/acceptance/default-stack/readiness.mjs';
 import { issuerBindings, issuer } from '../../scripts/acceptance/default-stack/issuer.mjs';
 import { cleanupPlan, supabaseConfig, mailpitEnvironment, stackComposition, topology, ports, root, installationLabel, projectLabel, digestImage, assertHeadroom, minimumFreeBytes, excludedSupabaseServices } from '../../scripts/acceptance/default-stack/config.mjs';
 
@@ -186,5 +186,26 @@ describe('canonical API origin on declared peer transport', () => {
     expect(request.options.redirect).toBe('error');
     expect(() => apiProbeRequest('http://127.0.0.1:36400', 35000, 'http://127.0.0.1:36400/api/me', {})).toThrow('api-probe-origin');
     expect(() => apiProbeRequest('http://127.0.0.1:36400', ports.peerApi, 'http://foreign.localhost/api/me', {})).toThrow('api-probe-origin');
+  });
+});
+
+describe('isolated pooler readiness command', () => {
+  it('provides bounded UID-owned temporary space without relaxing read-only TLS/authority probing', () => {
+    const state = { applicationProjectName: 'zenith-owned', installationId: 'owned-installation', directory: '/private/owned' };
+    const base = poolerProbeArguments(state, 'tls', 'localhost/migration@sha256:' + 'a'.repeat(64));
+    const authority = poolerProbeArguments(state, 'authority', 'localhost/migration@sha256:' + 'a'.repeat(64));
+    expect(base).toContain('--read-only');
+    expect(base.slice(base.indexOf('--user') + 1, base.indexOf('--user') + 2)).toEqual(['1001:1001']);
+    expect(base.slice(base.indexOf('--cap-drop') + 1, base.indexOf('--cap-drop') + 2)).toEqual(['ALL']);
+    expect(base.slice(base.indexOf('--security-opt') + 1, base.indexOf('--security-opt') + 2)).toEqual(['no-new-privileges:true']);
+    expect(base.slice(base.indexOf('--memory') + 1, base.indexOf('--memory') + 2)).toEqual(['192m']);
+    expect(base.slice(base.indexOf('--tmpfs') + 1, base.indexOf('--tmpfs') + 2)).toEqual([
+      '/tmp:rw,noexec,nosuid,nodev,size=16m,uid=1001,gid=1001,mode=1777',
+    ]);
+    expect(base).toContain('NODE_EXTRA_CA_CERTS=/run/zenith-ca.crt');
+    expect(base.some(value => value.includes('target=/run/zenith-ca.crt,readonly'))).toBe(true);
+    expect(base.slice(-1)).toEqual(['tls']);
+    expect(authority.slice(-1)).toEqual(['authority']);
+    expect(authority).toContain('/app/pooler-probe.mjs');
   });
 });

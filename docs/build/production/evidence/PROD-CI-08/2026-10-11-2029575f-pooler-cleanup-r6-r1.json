@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "kind": "failed_prepare_cleanup_only_checkpoint",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "sourceFreezeSha256": "ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0",
+  "sourceStable": true,
+  "cleanupStatus": "owned_cleanup_completed_terminal_audit_passed",
+  "command": {
+    "returnCode": 0,
+    "receiptSha256": "4ee710234b7f8acf18f549bad18407da826443e1c311745536ef6542b6eb7297"
+  },
+  "cleanupReceipt": {
+    "sha256": "193e3c380c685ddff8002d80b1f72166a08ea6ac9c0b288c9f86f7b0a0abe586",
+    "removed": 17,
+    "ownedResourcesRemaining": 0,
+    "forcedStops": 2
+  },
+  "checkpointSha256": "fc5211601ebc9a4fee86ae9d90c88cdd4e08c81dc821db36d6917b176f3e1bd8",
+  "originalFailureReceiptSha256": "4f1adf9790dada35b522bdd314307b99cad2e22de419649386a81953494ffb90",
+  "retainReceiptPreserved": true,
+  "observers": {
+    "hostJoined": true,
+    "hostSamples": 65335,
+    "minimumHostFreeBytes": 316911886336,
+    "hostWatcherFailure": false,
+    "vmJoined": true,
+    "vmSamples": 268,
+    "minimumVmFreeBytes": 416994865152,
+    "vmObserverFailure": false
+  },
+  "custody": {
+    "allCommandsClosed": true,
+    "custodyUncertain": false,
+    "survivors": false,
+    "rootCommandExitCode": 0
+  },
+  "mutations": {
+    "trustMutationPerformed": false,
+    "airplayMutationPerformed": false
+  },
+  "accepted": false,
+  "milestonePromoted": false,
+  "gracefulStopEstablished": false,
+  "auditStatus": "independent terminal audit passed",
+  "scopeLimit": "Independent terminal audit passed for cleanup-only evidence. Two forced stops are reported, so graceful shutdown is not established. No test acceptance, TLS/pooler readiness, or milestone promotion is claimed.",
+  "terminalAudit": {
+    "reviewStatus": "pass",
+    "reviewJsonSha256": "dc1761f9dce3e1b1e1f20487362ee0aafbc265fa05993c46904963cc869d0578",
+    "reviewMarkdownSha256": "89e025cc70c3ff5f9566b8bd6f336db78238e6939a173759a875d89fe0522b75",
+    "checkpointSha256": "fc5211601ebc9a4fee86ae9d90c88cdd4e08c81dc821db36d6917b176f3e1bd8",
+    "lockEmptyAndUnheld": true,
+    "custody": {
+      "events": 61,
+      "pendingResolvedAbsent": 18,
+      "pendingStillLive": 0,
+      "quarantined": 0,
+      "active": 0
+    },
+    "capture": {
+      "boundedChecks": 24,
+      "allEsrch": true,
+      "captureExhaustion": false
+    },
+    "vmObserver": {
+      "samples": 268,
+      "settledCommands": 536,
+      "passed": true
+    }
+  }
+}

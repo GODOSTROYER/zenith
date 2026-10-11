@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "reviewed_pooler_tmpfs_source_candidate",
+  "sourceBaseSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "candidatePatchSha256": "aba6fb2b8bbdb904ded04c556d435b72f71a7c7106401b358339283dbe9a7caa",
+  "candidateFiles": {
+    "scripts/acceptance/default-stack/readiness.mjs": "fce4a42e200d69a684be6dc5d11a1416cf0fb4c52b563648d89d365631296d56",
+    "tests/deploy/default-stack.test.ts": "cda6dbc4f484e55515f0c7fd0a31395dbac9b9c0e85b05f7a3bafb8add43c935"
+  },
+  "changeSummary": "Factors the actual pooler probe argv builder and adds a bounded 16 MiB UID/GID 1001 tmpfs at /tmp with noexec,nosuid,nodev,mode1777; retains read-only root, all capabilities dropped, no-new-privileges, 192 MiB memory cap, private CA and TLS/authority probes.",
+  "focusedVerification": {
+    "result": "passed isolated focused verification",
+    "testsPassed": 19,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "testFilesPassed": 1,
+    "eslintExitCode": 0,
+    "focusedVerificationSha256": "440599d1b0f57db37ca1c3ed2e28eeceaaa30410f15e14126f749bd1d9fd27fd",
+    "patchIndependentReviewSha256": "abbad9a4e008dbb18267f34fc8d5e618dcdfc1801fb90843701950833010eba8",
+    "reviewVerdict": "PASS_SOURCE_ONLY"
+  },
+  "runtimeAcceptance": false,
+  "canonicalSourceAcceptance": false,
+  "engineStarted": false,
+  "candidateIntegrated": false,
+  "actualFreshPoolerProbeAfterFix": false,
+  "cleanupR6": {
+    "status": "running",
+    "perContainerGraceSeconds": 660,
+    "terminalReceiptAvailable": false,
+    "cleanupComplete": false,
+    "originalFailurePreserved": true
+  },
+  "scopeLimit": "The focused result validates the generated command contract only on the isolated two-file overlay. It does not prove an actual container run, database connection, TLS/authority success, or pooler readiness. Cleanup is still running; no cleanup completion is claimed."
+}

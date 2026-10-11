@@ -740,7 +740,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "DAA full-core R16 passed24566/0/1943 across26509 exact identities in477.253s with stable5922-source inventory and strict custody/cleanup/floors; core-only. Predecessor731 mainCI terminal19P/1Verifycancelled45m/8conditionalS; aggregate23P1cancel8S. Reviewed core-unit workers1 to2 and bounded before/after hosted resource snapshots integrated; focused overlay67/0/0+ESLint0 with14 strict commands and stable5925-source inventory. Diagnostic-only, not timeout repair proof. Fresh committed-source full R16/current CI/native image/J1/J2/UX/J4 acceptance remain pending. Historical731 owned-image cleanup resolved separately; originalR4 refusal preserved.",
+      "implementationStatus": "Current source2029575f: fresh local full-core R16 and exact-source CI passed in scoped lanes; native ARM64 J2 image build passed without push and was not invoked. Original R13 pooler prepare remains a failed retained-state attempt. Diagnostic R4 probe failed before DB connection on temporary tsx-cache ENOENT; strict closeout passed. Reviewed tmpfs candidate passed19 focused contracts and ESLint0 on isolated overlay, not integrated or runtime accepted. Cleanup-only R6 reports17 removed/0 owned remaining/2 forced stops with joined observers and source/floors passing; independent terminal audit pending. Original failure is preserved; no graceful-stop, pooler readiness, or acceptance claim.",
       "evidence": [
         {
           "level": "local_engine",
@@ -1826,6 +1826,88 @@
           "result": "Separate owned-image cleanup resolution only; originalR4 refused/incomplete;13 unrelated image entries unchanged.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-731-witness-cleanup-resolution-r1.json",
           "acceptanceClaim": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "result": "Fresh full-core R16 passed24566/0/1943 across26509 identities and4886 suites; stable5926-entry source freeze ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0; identity/case counters matched; wrapper0; disk floors passed. Full-core scope only; skipped cases remain skipped.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-r16-full-core-r1.json",
+          "executionReceiptSha256": "81f3aaef3dc788d2e32a278fbad9c5bc74a340d4de042138843f23f0d14d19ed",
+          "summarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "local_linux_arm64",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "result": "Native ARM64 J2 witness image build exited0 with pinned inputs, runtime user65532:65532, and push=false. Image was not invoked; build-only evidence.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-j2-native-build-r1.json",
+          "summarySha256": "da3fe73579c3307d0bae7ab55ce839936e67a9a3bdc06d5b9170a1b799344005",
+          "independentReviewSha256": "e75d9ce81bf1747a78294fb823e79193390452f171497347992d9bcfba4b9d13",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "runId": 38127637038,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38127637038",
+          "result": "Exact-source main CI terminal success:20/28 jobs succeeded and8 conditional jobs skipped; Verify passed24584/0/1925 across26509 identities in1606.94s. maxWorkers=2 configured, actual simultaneous occupancy unmeasured.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "sourceReportSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+          "executionReceiptComplete": true,
+          "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "runId": 38127637059,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38127637059",
+          "result": "Exact-source Native packaged workers workflow terminal success:both selected AMD64 and ARM64 packaged-worker jobs passed2/2. Remote CI job evidence only; not a substitute for local native runtime or composed-worker acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "sourceReportSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+          "executionReceiptComplete": true,
+          "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "runId": 38127637055,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38127637055",
+          "result": "Exact-source Native skipped platforms workflow terminal success:Linux systemd and Windows ACL jobs passed2/2. Selected workflow leaves only; not a complete platform-suite claim.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "sourceReportSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+          "executionReceiptComplete": true,
+          "acceptanceClaim": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "result": "R4 bounded read-only authority diagnostic launched but probe exited1 before DB connection because temporary tsx cache creation returned ENOENT; zero SQL writes. Wrapper exited0 only after capturing probe failure. All17 outer commands closed strictly (16 exit0, probe exit1), source/floors passed, lock released and not quarantined, retained stack unmodified. Diagnostic only; no pooler readiness or acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-diagnostic-r4-r1.json",
+          "sourceFreezeSha256": "8e71fd92522a2310cb5a0b0d13f4f4476518ccbc864dd6edfd61c0fec773da14",
+          "diagnosticReceiptSha256": "2ca4e2c214aa0b0e63d10dc7701e9ca44a21f412e6f0370645b90a40ee8b575b",
+          "rootExecutionSidecarSha256": "5eb0070c63b7c8d9895eb1d043e1a6d8707c2bc67748b4f5d7b50e1f3430c45c",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "contract",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "result": "Reviewed isolated two-file tmpfs candidate passed focused default-stack contract tests19/0/0 and ESLint0; independent source review passed. Candidate is not integrated, no engine or actual pooler probe was run, and canonical-source/runtime acceptance remains false.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-tmpfs-candidate-r1.json",
+          "candidatePatchSha256": "aba6fb2b8bbdb904ded04c556d435b72f71a7c7106401b358339283dbe9a7caa",
+          "focusedVerificationSha256": "440599d1b0f57db37ca1c3ed2e28eeceaaa30410f15e14126f749bd1d9fd27fd",
+          "independentReviewSha256": "abbad9a4e008dbb18267f34fc8d5e618dcdfc1801fb90843701950833010eba8",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "result": "Cleanup-only R6 command exited 0; 17 owned resources removed, 0 remaining, 2 forced stops. Independent terminal audit passed: 18 pending identities resolved absent, zero live/quarantined/active identities, 24 bounded ESRCH checks without capture exhaustion, 61 complete custody events, joined host/VM observers, source/freeze and floors passed, and lock empty/unheld. Original R13 failure and retain receipts remain preserved. Cleanup-only; no graceful-stop, TLS/pooler readiness, acceptance, or milestone promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-cleanup-r6-r1.json",
+          "cleanupReceiptSha256": "193e3c380c685ddff8002d80b1f72166a08ea6ac9c0b288c9f86f7b0a0abe586",
+          "commandReceiptSha256": "4ee710234b7f8acf18f549bad18407da826443e1c311745536ef6542b6eb7297",
+          "checkpointSha256": "fc5211601ebc9a4fee86ae9d90c88cdd4e08c81dc821db36d6917b176f3e1bd8",
+          "acceptanceClaim": false,
+          "terminalAuditReviewSha256": "dc1761f9dce3e1b1e1f20487362ee0aafbc265fa05993c46904963cc869d0578"
         }
       ],
       "requiredEvidence": [
@@ -1852,7 +1934,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "verified_f6d18a7",
+      "implementationStatus": "current_exact_source_2029575f_main_and_native_ci_terminal_success_with_8_conditional_skips",
       "evidence": [
         {
           "level": "remote_ci",
@@ -2516,6 +2598,59 @@
             "legacyProtectionEndpointHttp": 404
           },
           "requirementScope": "PROD-CI-09 remote_ci only. Eight conditional jobs remain unverified; this evidence does not verify the later dirty R6 overlay or any subsequent code/CI-input changes."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "runId": 38127637038,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38127637038",
+          "result": "Exact pushed source main CI completed success:20/28 jobs succeeded, eight conditional jobs explicitly skipped. Both separate native workflows completed success2/2 each. Aggregate three workflows:32 jobs,24 success/8 skipped/0 failure/0 active. Exact Verify counts24584 passed/0 failed/1925 skipped on26509 identities; configured maximum workers2, simultaneous occupancy unmeasured.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "sourceReportSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+          "executionReceiptComplete": true,
+          "requiredJobs": {
+            "total": 20,
+            "success": 20,
+            "failure": 0,
+            "active": 0
+          },
+          "conditionalOptionalJobs": {
+            "total": 8,
+            "skipped": 8,
+            "verified": 0
+          },
+          "aggregateJobs": {
+            "total": 32,
+            "success": 24,
+            "failure": 0,
+            "skipped": 8,
+            "active": 0
+          },
+          "workflowRuns": [
+            {
+              "name": "CI",
+              "runId": 38127637038,
+              "jobs": 28,
+              "success": 20,
+              "skipped": 8,
+              "headSha": "2029575ffa8e365871b9c85f7da741d95f89a773"
+            },
+            {
+              "name": "Native packaged workers",
+              "runId": 38127637059,
+              "jobs": 2,
+              "success": 2,
+              "headSha": "2029575ffa8e365871b9c85f7da741d95f89a773"
+            },
+            {
+              "name": "Native skipped platforms",
+              "runId": 38127637055,
+              "jobs": 2,
+              "success": 2,
+              "headSha": "2029575ffa8e365871b9c85f7da741d95f89a773"
+            }
+          ],
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [
@@ -2633,6 +2768,20 @@
           "commit": "07728546bcc3489bdf8a382c646d57218b87e147",
           "result": "Exact077 real AMD64 image startup under emulation passed277.66s with corresponding readiness/outage/idle-shutdown checks and complete owned cleanup. Emulation does not establish native AMD64 acceptance.",
           "artifact": "docs/build/production/verification/2026-10-03-g1-integration.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "runId": 38127637059,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38127637059",
+          "result": "Exact-source remote CI packaged-worker jobs passed2/2 for AMD64 and ARM64. This scoped CI evidence does not establish local native image execution or a complete worker startup gate.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "sourceReportSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+          "passedArchitectures": [
+            "amd64",
+            "arm64"
+          ],
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [
@@ -2740,6 +2889,20 @@
           "commit": "07728546bcc3489bdf8a382c646d57218b87e147",
           "result": "Exact077 real AMD64 image startup under emulation passed277.66s with corresponding readiness/outage/idle-shutdown checks and complete owned cleanup. Emulation does not establish native AMD64 acceptance.",
           "artifact": "docs/build/production/verification/2026-10-03-g1-integration.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "runId": 38127637059,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38127637059",
+          "result": "Exact-source remote CI packaged-worker jobs passed2/2 for AMD64 and ARM64. The remote CI result does not show composed local worker operation, Temporal polling, or graceful shutdown.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "sourceReportSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+          "passedArchitectures": [
+            "amd64",
+            "arm64"
+          ],
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [
@@ -2884,7 +3047,18 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "result": "Fresh exact-source R16 contract identities passed104/0/0 across the four scoped files; 70 separately gated PKG-06 local-engine identities remained skipped in the same collection. Source freeze and identity/case counters matched. This records contract scope only; local_engine remains required and unmet.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pkg06-contract-r1.json",
+          "sourceFreezeSha256": "ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0",
+          "coreSummarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+          "executionReceiptSha256": "81f3aaef3dc788d2e32a278fbad9c5bc74a340d4de042138843f23f0d14d19ed",
+          "acceptanceClaim": false
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine"
@@ -6274,13 +6448,13 @@
     }
   ],
   "sessionState": {
-    "status": "reviewed_ci_worker_trial_integrated_fresh_acceptance_pending",
-    "sourceCheckpoint": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+    "status": "fresh_r16_native_build_and_exact_ci_passed_operated_acceptance_pending",
+    "sourceCheckpoint": "2029575ffa8e365871b9c85f7da741d95f89a773",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "7313824e3f34615c63ca88cd904c4f3551c34236",
-    "lastPushedRun": 38123549396,
-    "lastPushedRunStatus": "Source731 main terminal19 success/1 Verify cancelled/8 conditional skips; Verify exceeded45m. Three-workflow aggregate23 success/1 cancelled/8 skips. No current-source CI pass is claimed.",
-    "currentVerification": "Clean DAA R16 passed24566/0/1943 across26509 exact identities in477.253s, stable5922-source freeze and strict custody/cleanup/22GiB floor. Historical731 witness-owned image cleanup resolved separately; originalR4 refusal remains. Reviewed core-unit worker2 trial plus before/after hosted resource snapshots integrated; focused working overlay67/0/0 plus ESLint0 with14 strict commands and stable5925-source freeze. Diagnostic-only; fresh committed-source R16/CI/native witness and operated acceptance pending. J2 root-window issuer and corrected VM observer passed source review only; no runtime evidence yet.",
+    "lastPushedCommit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+    "lastPushedRun": 38127637038,
+    "lastPushedRunStatus": "Exact source 2029575f: main CI success20/28 with8 conditional skips; native workflows2/2 each. Verify24584/0/1925 across26509 identities, maxWorkers2 configured and occupancy unmeasured. Fresh local R16 passed24566/0/1943 across26509 identities on stable5926-entry freeze. Native ARM64 J2 witness build passed without push; image not invoked. R13 prepare exited2 failed-retain-owned-state before API pooler probe; cleanup incomplete and R17 diagnostic pending.",
+    "currentVerification": "Fresh full R16 and native ARM64 image build passed on exact source2029575f within their scopes; exact-source CI terminal success20/28 with8 conditional skips plus native workflows2/2 each. Local R16 and CI counts are separately bound. J2 image not invoked. R13 pooler preflight refused before API probe and retained owned state; R17 diagnostic pending. No release acceptance or promotion.",
     "remainingLocalPackets": {
       "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
       "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
@@ -6319,8 +6493,137 @@
         "skipped": 1647
       }
     },
-    "currentWork": "Current source-69 work: R16 full-core completed 24,543 passed / 0 failed / 1,939 skipped across 26,482 in 458.032 seconds; R10 ARM64 J2 witness build exited 0 without push. R9 stopped before the J4 body at namespace admission (wrapper 2 / child 1, gRPC 5); retained runtime and J4 acceptance remain pending. Main CI run 38105216483 is terminal failure: 28 jobs (18 success / 1 failure / 1 cancelled / 8 skipped; Go failed, Verify cancelled); aggregate32 (22/1/1/8). Verify check-run annotation confirms the 45-minute maximum execution time; conclusion remains cancelled. Prior r5 active observation is historical. Candidate-focused J4 diagnostics passed 18/0/0 plus ESLint 0, but candidate and primary tracked-source freeze hashes differ, so this is not clean-primary validation or J4 runtime acceptance. Preserve the earlier 17/18 focused failure, the R1/R2 failures, and the prior typecheck scope. MinIO secure marker-writer attribution remains blocked; no ledger append, base acquisition, or engine probe occurred. Ledger remains 9 verified / 67 in progress / 2 planned; required evidence and release flags remain unchanged.",
+    "currentWork": "Current source 2029575ffa8e365871b9c85f7da741d95f89a773: exact-source R16 passed24566/0/1943 across26509 identities and4886 suites; stable5926-entry freeze ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0, counters matched, wrapper0, floor passed. Native ARM64 J2 witness build passed without push; image not invoked. Exact CI main20 success/8 conditional skip; native workflows2/2 each; unit24584/0/1925, maxWorkers2 configured, occupancy unmeasured. R13 failed-retain-owned-state before API authority pooler probe (exit2); custody held, cleanup incomplete, ten pending R16 births absent. R17 diagnostic pending, no retry. Other R14/R7-fixed-R1/R15/R6 records are source-review only. Ledger10/66/2 and all four flags false; no promotion.",
     "currentCandidateCi": {
+      "sourceCommit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+      "main": {
+        "runId": 38127637038,
+        "total": 28,
+        "success": 20,
+        "failure": 0,
+        "skipped": 8,
+        "active": 0,
+        "cancelled": 0,
+        "status": "completed_success"
+      },
+      "nativePackagedWorkers": {
+        "runId": 38127637059,
+        "total": 2,
+        "success": 2,
+        "failure": 0,
+        "status": "completed_success"
+      },
+      "nativeSkippedPlatforms": {
+        "runId": 38127637055,
+        "total": 2,
+        "success": 2,
+        "failure": 0,
+        "status": "completed_success"
+      },
+      "threeWorkflowAggregate": {
+        "total": 32,
+        "success": 24,
+        "failure": 0,
+        "skipped": 8,
+        "active": 0,
+        "cancelled": 0,
+        "status": "completed_success",
+        "laneCountsCombined": false
+      },
+      "unitStep": {
+        "jobId": 114435213228,
+        "passed": 24584,
+        "failed": 0,
+        "skipped": 1925,
+        "identities": 26509,
+        "durationSeconds": 1606.94,
+        "maxWorkersConfigured": 2,
+        "actualWorkerOccupancyMeasured": false
+      },
+      "localR16": {
+        "passed": 24566,
+        "failed": 0,
+        "skipped": 1943,
+        "identities": 26509,
+        "suites": 4886,
+        "sourceFreezeSha256": "ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0",
+        "sourceEntries": 5926,
+        "summarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+        "executionReceiptSha256": "81f3aaef3dc788d2e32a278fbad9c5bc74a340d4de042138843f23f0d14d19ed",
+        "combinedWithCi": false
+      },
+      "nativeBuild": {
+        "status": "passed",
+        "architecture": "arm64",
+        "exitCode": 0,
+        "push": false,
+        "runtimeInvoked": false,
+        "summarySha256": "da3fe73579c3307d0bae7ab55ce839936e67a9a3bdc06d5b9170a1b799344005",
+        "reviewSha256": "e75d9ce81bf1747a78294fb823e79193390452f171497347992d9bcfba4b9d13"
+      },
+      "terminalSnapshotSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+      "workerCountClarificationSha256": "95cc4f7dc5234a2b9161479483456b00e01879d20c8bdeb639ba8a0c3eed2108",
+      "ciArtifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+      "r16Artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-r16-full-core-r1.json",
+      "nativeArtifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-j2-native-build-r1.json"
+    },
+    "source69EvidenceRefs": {
+      "currentDelta": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json",
+      "r16ExecutionReceiptSha256": "f215759d23a793cd9fac4b3f1539471dc109402ac1d2610ff07c16033ab19968",
+      "r16SummarySha256": "0adb31db5de1e2c0144dc809d7f0e44f7b59fe701921da2582d79c6e6b879f0d",
+      "r10WitnessSummarySha256": "c1b031342545a4a4e2e2ffa1204d846cdedcaadf224c2e623bc3b7246357f750",
+      "milestoneEligibility": "0 additional requirement IDs fully eligible; all four flags false",
+      "milestoneEligibilityAssessmentJsonSha256": "b0f3c4873374d1ff4482abd4dc5beee3532fdd22d301e35f78122eca757dbabd",
+      "j4FocusedCandidateDiagnostic": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-j4-focused-r2-diagnostic.json",
+      "j4FocusedReceiptSha256": "2dff41ffa2d26e6107fe9977dc43cc266a74fea319415bae979fc6f0ccb5d227",
+      "j4TypecheckPriorReceiptSha256": "9732950177bbf51009e7ad515e40accf2bcd3eb1df68d4c15808aa8eef7b9635",
+      "ciR5SnapshotSha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
+      "j4FocusedEvidenceJsonSha256": "184662f95d6a01ad45da22e2e1544d6d28fb0558ce508aadcf9bedd9b6e2187f",
+      "terminalCiSnapshotReportSha256": "28232ce9c8398322919790990e0e882ed3dbee209bb93326ba21efc3315dc9d3",
+      "terminalCiSnapshotJsonSha256": "cfaff3889af5072d107296c781e9786d7e2991943959f3fee0e6952816c700ae",
+      "priorNonterminalCiSnapshotSha256": "440c40e43efbade76b6f8fc3079397fc12a84f944f8dd608b96dbbd79f68b73b",
+      "terminalCiEvidencePath": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-terminal-ci-observation.json",
+      "terminalCiTimeoutProofReportSha256": "6521d1a44f22abd1682fac8d61b6ceba19be65dba4018b343016ca8097a4eb8f",
+      "terminalCiTimeoutProofJsonSha256": "3b739bf5d5dfdbe9d892426f4b10e2355b9c4ab6ae98b6661322672bdfde75c7",
+      "terminalCiEvidenceJsonSha256": "2b03295e530eeb58b8b7d45d86aa60fde34f57c21bf3cc1f21ff3e19fbadcdfa"
+    },
+    "historicalE84CandidateWork": "Historical e84 CI snapshot (not current) was terminal red (main18P/2F/8S; native worker and platform workflows each2 successful jobs). Focused fixture R4 actual tsc and195/0/0 two-file run passed on e84 plus four explicit postimages. Frozen-94 overlay221ddb R14 passed one native case with wrapper rc0 and109 strict commands; not a full Go gate. Historical packet summaries below remain historical: Reviewed historical, worker asset, Go inventory, workflow routes, compiler heap and release fixture repairs integrated. Root107/0/0 actualPG58 mandatory,671/0/0 gate contracts,82/0/0 authority,135/0/6 packaging,120/0/0 heap guards,5/0/0 release and compiler0 are separate scopes. Full source gates/new CI and ownership/Linux/default journey/security clearance remain open.",
+    "ownedCleanup69": {
+      "schemaVersion": 1,
+      "sourceHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+      "recordedAt": "2026-10-11T03:52:04.539791+00:00",
+      "scope": "Failed J1 stack cleanup and exact owned witness-tag cleanup; no J1/J4/J2 acceptance",
+      "failedJ1Cleanup": {
+        "outerExitCode": 0,
+        "receiptSha256": "7bd0a19545af623351ef9f12bbdff76e74faed3c0fed1c310effe3f6bffa069c",
+        "removed": 17,
+        "ownedResourcesRemaining": 0,
+        "forcedStops": 2,
+        "heldCommands": 193,
+        "strictCloseoutPassed": true,
+        "sourceFreezeStable": true,
+        "hostFloorMinimumBytes": 336022933504,
+        "vmFloorMinimumBytes": 419691646976,
+        "floorBytes": 23622320128,
+        "observersJoined": true,
+        "j4PrivateMaterialsAbsent": true,
+        "historicalReceiptsRetained": true,
+        "acceptedRunReceipt": false
+      },
+      "witnessTagCleanup": {
+        "outerExitCode": 0,
+        "receiptSha256": "6eb40fb83748d78a1af608a282f85ae5e6a3a11c5a8979b30d4fc098b3392a38",
+        "exactTagAbsent": true,
+        "strictCloseoutPassed": true,
+        "sourceFreezeStable": true,
+        "ownedChildAndRegistryAbsent": true,
+        "acceptanceClaim": false
+      },
+      "originalFailuresPreserved": true,
+      "milestonesPromoted": 0,
+      "remaining": "Integrate reviewed repairs, then fresh coherent full core, witness and J1/J4/browser acceptance. Forced stops are not graceful-shutdown evidence."
+    },
+    "previousCandidateCiBefore2029575fR3": {
       "sourceCommit": "69a03354b7d3343645967af2d37511c4f01b9d3f",
       "main": {
         "runId": 38105216483,
@@ -6391,61 +6694,100 @@
       },
       "previousNonterminalSnapshotSha256": "440c40e43efbade76b6f8fc3079397fc12a84f944f8dd608b96dbbd79f68b73b"
     },
-    "source69EvidenceRefs": {
-      "currentDelta": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json",
-      "r16ExecutionReceiptSha256": "f215759d23a793cd9fac4b3f1539471dc109402ac1d2610ff07c16033ab19968",
-      "r16SummarySha256": "0adb31db5de1e2c0144dc809d7f0e44f7b59fe701921da2582d79c6e6b879f0d",
-      "r10WitnessSummarySha256": "c1b031342545a4a4e2e2ffa1204d846cdedcaadf224c2e623bc3b7246357f750",
-      "milestoneEligibility": "0 additional requirement IDs fully eligible; all four flags false",
-      "milestoneEligibilityAssessmentJsonSha256": "b0f3c4873374d1ff4482abd4dc5beee3532fdd22d301e35f78122eca757dbabd",
-      "j4FocusedCandidateDiagnostic": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-j4-focused-r2-diagnostic.json",
-      "j4FocusedReceiptSha256": "2dff41ffa2d26e6107fe9977dc43cc266a74fea319415bae979fc6f0ccb5d227",
-      "j4TypecheckPriorReceiptSha256": "9732950177bbf51009e7ad515e40accf2bcd3eb1df68d4c15808aa8eef7b9635",
-      "ciR5SnapshotSha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
-      "j4FocusedEvidenceJsonSha256": "184662f95d6a01ad45da22e2e1544d6d28fb0558ce508aadcf9bedd9b6e2187f",
-      "terminalCiSnapshotReportSha256": "28232ce9c8398322919790990e0e882ed3dbee209bb93326ba21efc3315dc9d3",
-      "terminalCiSnapshotJsonSha256": "cfaff3889af5072d107296c781e9786d7e2991943959f3fee0e6952816c700ae",
-      "priorNonterminalCiSnapshotSha256": "440c40e43efbade76b6f8fc3079397fc12a84f944f8dd608b96dbbd79f68b73b",
-      "terminalCiEvidencePath": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-terminal-ci-observation.json",
-      "terminalCiTimeoutProofReportSha256": "6521d1a44f22abd1682fac8d61b6ceba19be65dba4018b343016ca8097a4eb8f",
-      "terminalCiTimeoutProofJsonSha256": "3b739bf5d5dfdbe9d892426f4b10e2355b9c4ab6ae98b6661322672bdfde75c7",
-      "terminalCiEvidenceJsonSha256": "2b03295e530eeb58b8b7d45d86aa60fde34f57c21bf3cc1f21ff3e19fbadcdfa"
-    },
-    "historicalE84CandidateWork": "Historical e84 CI snapshot (not current) was terminal red (main18P/2F/8S; native worker and platform workflows each2 successful jobs). Focused fixture R4 actual tsc and195/0/0 two-file run passed on e84 plus four explicit postimages. Frozen-94 overlay221ddb R14 passed one native case with wrapper rc0 and109 strict commands; not a full Go gate. Historical packet summaries below remain historical: Reviewed historical, worker asset, Go inventory, workflow routes, compiler heap and release fixture repairs integrated. Root107/0/0 actualPG58 mandatory,671/0/0 gate contracts,82/0/0 authority,135/0/6 packaging,120/0/0 heap guards,5/0/0 release and compiler0 are separate scopes. Full source gates/new CI and ownership/Linux/default journey/security clearance remain open.",
-    "ownedCleanup69": {
-      "schemaVersion": 1,
-      "sourceHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
-      "recordedAt": "2026-10-11T03:52:04.539791+00:00",
-      "scope": "Failed J1 stack cleanup and exact owned witness-tag cleanup; no J1/J4/J2 acceptance",
-      "failedJ1Cleanup": {
-        "outerExitCode": 0,
-        "receiptSha256": "7bd0a19545af623351ef9f12bbdff76e74faed3c0fed1c310effe3f6bffa069c",
+    "currentPoolerPreparation": {
+      "attempt": "R13",
+      "exitCode": 2,
+      "outcome": "failed-retain-owned-state",
+      "stage": "before API-authority pooler probe",
+      "custody": "held",
+      "cleanupComplete": false,
+      "pendingR16Births": 10,
+      "pendingBirthResolution": "all absent",
+      "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-r13-refusal-r1.json",
+      "diagnosticR4": {
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-diagnostic-r4-r1.json",
+        "probeReturnCode": 1,
+        "cause": "ENOENT creating temporary tsx cache before DB connection",
+        "strictCloseout": true,
+        "lockReleased": true,
+        "lockQuarantined": false,
+        "retainedStackModified": false,
+        "cleanupComplete": false,
+        "next": "No probe after the reviewed tmpfs candidate has run; wait for cleanup/source boundary before any retry."
+      },
+      "tmpfsCandidateR1": {
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-tmpfs-candidate-r1.json",
+        "candidatePatchSha256": "aba6fb2b8bbdb904ded04c556d435b72f71a7c7106401b358339283dbe9a7caa",
+        "focusedTests": "19/0/0",
+        "eslintExitCode": 0,
+        "integrated": false,
+        "runtimeAcceptance": false
+      },
+      "cleanupR6": {
+        "status": "owned_cleanup_completed_terminal_audit_passed",
+        "commandExitCode": 0,
+        "cleanupReceiptSha256": "193e3c380c685ddff8002d80b1f72166a08ea6ac9c0b288c9f86f7b0a0abe586",
         "removed": 17,
         "ownedResourcesRemaining": 0,
         "forcedStops": 2,
-        "heldCommands": 193,
-        "strictCloseoutPassed": true,
-        "sourceFreezeStable": true,
-        "hostFloorMinimumBytes": 336022933504,
-        "vmFloorMinimumBytes": 419691646976,
-        "floorBytes": 23622320128,
-        "observersJoined": true,
-        "j4PrivateMaterialsAbsent": true,
-        "historicalReceiptsRetained": true,
-        "acceptedRunReceipt": false
+        "hostWatcherJoined": true,
+        "vmObserverJoined": true,
+        "terminalAuditPending": false,
+        "accepted": false,
+        "milestonePromoted": false,
+        "trustMutationPerformed": false,
+        "airplayMutationPerformed": false,
+        "terminalAuditReviewSha256": "dc1761f9dce3e1b1e1f20487362ee0aafbc265fa05993c46904963cc869d0578",
+        "custodyEvents": 61,
+        "pendingResolvedAbsent": 18,
+        "pendingStillLive": 0,
+        "quarantined": 0,
+        "activeIdentityCount": 0,
+        "captureRows": 24,
+        "captureExhaustionAbsent": true,
+        "vmSamples": 268,
+        "vmCommands": 536,
+        "lockEmptyAndUnheld": true
+      }
+    },
+    "currentRequirementEvidence": {
+      "PROD-CI-08": {
+        "levels": [
+          "local_engine",
+          "local_linux_arm64",
+          "remote_ci"
+        ],
+        "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+        "r16Artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-r16-full-core-r1.json",
+        "nativeBuildArtifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-j2-native-build-r1.json",
+        "ciRunIds": [
+          38127637038,
+          38127637059,
+          38127637055
+        ]
       },
-      "witnessTagCleanup": {
-        "outerExitCode": 0,
-        "receiptSha256": "6eb40fb83748d78a1af608a282f85ae5e6a3a11c5a8979b30d4fc098b3392a38",
-        "exactTagAbsent": true,
-        "strictCloseoutPassed": true,
-        "sourceFreezeStable": true,
-        "ownedChildAndRegistryAbsent": true,
-        "acceptanceClaim": false
+      "PROD-CI-09": {
+        "level": "remote_ci",
+        "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+        "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+        "runIds": [
+          38127637038,
+          38127637059,
+          38127637055
+        ]
       },
-      "originalFailuresPreserved": true,
-      "milestonesPromoted": 0,
-      "remaining": "Integrate reviewed repairs, then fresh coherent full core, witness and J1/J4/browser acceptance. Forced stops are not graceful-shutdown evidence."
+      "PROD-PKG-01": {
+        "level": "remote_ci",
+        "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+        "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+        "runId": 38127637059
+      },
+      "PROD-PKG-02": {
+        "level": "remote_ci",
+        "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+        "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+        "runId": 38127637059
+      }
     }
   },
   "sessionHistory": [

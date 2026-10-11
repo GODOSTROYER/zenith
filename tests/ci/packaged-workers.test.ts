@@ -169,7 +169,7 @@ describe("native packaged worker fixed evidence models", () => {
     expect(() => assertNativePrerequisites(platform, { ...prerequisites(), [key]: key.endsWith("GiB") ? 1 : "unsupported" }, github)).toThrow();
     expect(() => assertNativePrerequisites(platform, Object.fromEntries(Object.entries(prerequisites()).filter(([name]) => name !== key)), github)).toThrow();
   });
-  it.each(["sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"])("requires 18 GiB on the %s filesystem", key => {
+  it.each(["sourceFreeGiB", "temporaryFreeGiB", "dockerFreeGiB"] as const)("requires 18 GiB on the %s filesystem", key => {
     expect(() => assertNativePrerequisites(platform, { ...prerequisites(), [key]: 17.99 }, github)).toThrow();
     expect(assertNativePrerequisites(platform, { ...prerequisites(), [key]: 18 }, github)[key]).toBe(18);
   });

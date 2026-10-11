@@ -2160,6 +2160,40 @@
           "workerDiskAdmissionCandidateIncluded": false,
           "postCleanupAbsenceIndependentlyEstablished": false,
           "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "3608084bff2059bbcd44c4a56bc384a96ed44b8c",
+          "runId": 38150310414,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38150310414",
+          "result": "Exact-source Verify Typecheck failed: `tsc --noEmit` exited 2 on TS7053 in tests/ci/packaged-workers.test.ts:174. The terminal three-workflow aggregate was 23 success, 1 failure, 8 conditional skips; no acceptance or promotion.",
+          "command": "Inspect exact-source Verify Typecheck log and terminal CI inventory.",
+          "environment": "GitHub push run 38150310414, branch codex/production-2026-10-02; Ubuntu 24.04, Node 22.23.3.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-3608084b-verify-ts7053-failure-r1.json",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "3608084bff2059bbcd44c4a56bc384a96ed44b8c",
+          "runId": "38150310411",
+          "result": "Both exact-source native packaged-worker jobs passed 22/22 checks with zero failures on Linux AMD64 and ARM64; emulation was false and each job reported cleanup. This is component evidence only: local Mac-stack, browser, and PROD-PKG-05 journey acceptance are not established. The main CI Verify failure remains separately recorded.",
+          "command": "Inspect both exact-source native packaged-worker job receipts.",
+          "environment": "GitHub native workers run 38150310411; ubuntu-24.04 AMD64 and ubuntu-24.04-arm ARM64.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-3608084b-native-worker-gates-r1.json",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "cf299647df8551f246e04021a8784a7742b06749",
+          "result": "Cleanup-only outer execution R6 exited 0. Independent review passed for the exact owned settlement, process/resource absence, and continuous floors for that observation window. The historical marker remains retained and marker completion is pending; no local-stack/browser acceptance or milestone promotion.",
+          "command": "Review cleanup-only outer execution, execution receipt, terminal seal, and independent exact-scope settlement review.",
+          "environment": "Local cleanup-only R6 observation bound to candidate digest 0f68b166803399ef2a28f0d0353b0079f3afd28ae05f3d77705499ba196dbfb7; this is not a stack or browser run. Source checkout frozen at cf299647df8551f246e04021a8784a7742b06749.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-cleanup-postdown-r6-observation-r1.json",
+          "candidateSha256": "0f68b166803399ef2a28f0d0353b0079f3afd28ae05f3d77705499ba196dbfb7",
+          "executionReceiptSha256": "c326f68e17ffbb2256549e5e48365a131c05fe32eb2d23b289f52353b3eaae5f",
+          "terminalSealSha256": "bf9f3b47f295d561050a39f94dcd4febca80c13eb13eb5c0e448fb89a9ced80c",
+          "terminalReviewSha256": "4cc5bbeddf59d88ae84c9ef26f8f14950e62a1b8296ba81815c22d58c3e738ed",
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [

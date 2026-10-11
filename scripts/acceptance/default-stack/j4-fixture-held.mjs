@@ -24,7 +24,7 @@ const FIXED_ENV = Object.freeze({
 });
 const SCHEMA_SHA256 = '4456d3ba2b158008b1fa62b30e7822f30515a386395e7d7d10f8743317ea7d9c';
 const AUTH_SHA256 = 'cab426e712ecff14038142b11b6db9e09e8b6925d8fc5298ea6efe433fa52a76';
-const TARGET_SHA256 = '28bc67e29b213bcb36c2c26fa7bd489f87d6d533152c489a2d4a8ba97557040a';
+const TARGET_SHA256 = '424726256c3ec9bf53664c227a8645ed51cd3054d6c92afda349d15131c9e73f';
 const AGENT_SHA256 = '8cb7737f5025e798b72b99dff8e7b6171732dd6411c186cf7fc55311e6882007';
 const CASE_ID = 'wave6-55718f085353604a';
 const TEST_NAME = 'joins real signed registered delivery, broker semantics, evidence and cancellation audit';

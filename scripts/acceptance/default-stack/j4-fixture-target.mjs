@@ -185,8 +185,13 @@ function safeR9Binding(binding) {
   const joinedBytes = readPinnedPrivate(binding.r9.joined.path, binding.r9.joined.sha256, binding.r9.privateRuntime,
     { maxBytes: 4 * 1024 * 1024, modes: [0o600, 0o400] });
   const joined = JSON.parse(joinedBytes.toString("utf8"));
-  if (joined.status !== "j1-j4-ready-awaiting-manual-j2-trust" || joined.j1Ready !== true || joined.j4Complete !== true
-    || joined.j2Ready !== false || joined.wrapperTrustMutationPerformed !== false || joined.j2RunId !== binding.runId
+  const expectedJ2Counts = { failed: 0, not_run: 0, passed: 18, skipped: 0 };
+  if (!hasExactKeys(joined.j2Counts, Object.keys(expectedJ2Counts))
+    || !Object.values(joined.j2Counts).every(Number.isSafeInteger)
+    || Object.keys(expectedJ2Counts).some(key => joined.j2Counts[key] !== expectedJ2Counts[key]))
+    throw new Error("j4-target:j2-joined-counts");
+  if (joined.status !== "j1-j4-j2-passed-trust-restore-required" || joined.j1Ready !== true || joined.j4Complete !== true
+    || joined.j2Ready !== true || joined.wrapperTrustMutationPerformed !== false || joined.j2RunId !== binding.runId
     || joined.source?.head !== source.head || joined.source?.contentSha256 !== source.contentSha256 || joined.source?.dirty !== false)
     throw new Error("j4-target:r9-joined-binding");
   const api = new URL(binding.apiOrigin);

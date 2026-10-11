@@ -1,0 +1,39 @@
+{
+  "schema": "zenith.r16-full-core-evidence.v1",
+  "source_commit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+  "source_freeze_sha256": "b99d337dd01296b555fd04831ae0faf5f6f3ea0a03e03d39e0872e58fd1f5892",
+  "source_freeze_after_sha256": "b99d337dd01296b555fd04831ae0faf5f6f3ea0a03e03d39e0872e58fd1f5892",
+  "source_count": 5918,
+  "result": {
+    "passed": 24566,
+    "failed": 0,
+    "skipped": 1943,
+    "collected_identities": 26509,
+    "completed_identities": 26509,
+    "reported_identities": 26509,
+    "suites": 4886,
+    "duration_seconds": 464.313,
+    "wrapper_exit_code": 0
+  },
+  "project_counts": {
+    "node_passed": 23501,
+    "node_skipped": 1943,
+    "node_total": 25444,
+    "dom_passed": 1065
+  },
+  "identity_checks": {
+    "collection_matched": true,
+    "completion_matched": true,
+    "report_matched": true,
+    "exact_case_counter_matched": true,
+    "identity_counter_matched": true
+  },
+  "skip_accounting": "Skips remain explicit and are not passed cases. Collection/completion identities are joined in-process; suite counters are checked arithmetically, not against an independent suite inventory.",
+  "source_stable": true,
+  "minimum_free_bytes": 327247646720,
+  "disk_floor_bytes": 23622320128,
+  "owned_cleanup": "removed only this run owned ignored data after child exit",
+  "scope": "Full Node/DOM core execution only; broader acceptance remains open.",
+  "private_summary_sha256": "b997037204db880a2aa898d7fbbf1af92993d6b02d44a6d157749a9f71746f41",
+  "execution_receipt_sha256": "d9b76c236b806edd76639efafc04f484d85d0eff6812e2c6fa998bf31fac1adf"
+}

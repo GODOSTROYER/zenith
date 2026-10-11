@@ -481,8 +481,8 @@ jobs:
 
   verify:
     runs-on: ubuntu-latest
-    # Bound the full canonical core sequence while leaving time for every step.
-    timeout-minutes: 60
+    # Preserve the repository maximum while running every canonical core step.
+    timeout-minutes: 45
 
     env:
       # Use an ignored directory in the disposable CI checkout. github.workspace

@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, linuxGuestManifest, linuxSystemdManifest } from "../../scripts/ci/gate-manifest.mjs";
-import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, validatePid1Diagnostic, validatePid1Fixture, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
+import { attemptEvidencePath, createAttemptDirectory, publishAttemptEvidence, runNativeGate, selectCurrentAttempt, validateGoEvents, validatePid1Diagnostic, validatePid1Fixture, systemdEvidencePath, createSystemdAttemptDirectory, selectCurrentSystemdAttempt, validateSystemdGoEvents, sourceBindingDelta, sourceBindingSnapshotErrorDiagnostic } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
 const pkg = "github.com/GODOSTROYER/zenith/go/internal/machine/ops";
 
@@ -92,6 +92,30 @@ function fullRequiredStream() {
   return items;
 }
 
+describe("guest source-binding delta diagnostics", () => {
+  it("classifies content, mode, symlink, add and removal changes without exposing paths", () => {
+    const row = (name: string, extra: Record<string, unknown> = {}) => ({ path: name, pathSha256: createHash("sha256").update(name).digest("hex"), kind: "file", mode: "644", contentSha256: "a".repeat(64), targetSha256: null, ...extra });
+    const before = [row("private/source.txt"), row("mode.txt"), { ...row("link"), kind: "symlink", mode: null, targetSha256: "b".repeat(64) }, row("removed.txt")];
+    const after = [row("private/source.txt", { contentSha256: "c".repeat(64) }), row("mode.txt", { mode: "600" }), { ...row("link"), kind: "symlink", mode: null, targetSha256: "d".repeat(64) }, row("added.txt")];
+    const delta = sourceBindingDelta(before, after);
+    expect(delta.counts).toEqual({ added: 1, removed: 1, content: 1, mode: 1, symlink: 1, type: 0, total: 5 });
+    expect(delta.paths).toHaveLength(5);
+    expect(JSON.stringify(delta)).not.toContain("private/source.txt");
+    expect(delta.paths.every((item: { pathSha256: string }) => /^[a-f0-9]{64}$/.test(item.pathSha256))).toBe(true);
+  });
+  it("serializes snapshot errors with fixed fields and never includes an exception message", () => {
+    const diagnostic = sourceBindingSnapshotErrorDiagnostic({ commit: "a".repeat(40), sourceSha256: "b".repeat(64), lockSha256: "c".repeat(64) });
+    expect(diagnostic).toEqual({ phase: "post-run", outcome: "snapshot-error", before: { commit: "a".repeat(40), sourceSha256: "b".repeat(64), lockSha256: "c".repeat(64) }, after: null, commitChanged: null, counts: null, paths: [], truncated: false });
+    expect(JSON.stringify(diagnostic)).not.toContain("private/path");
+  });
+  it("caps path hashes and marks truncation without changing the source-binding decision", () => {
+    const entries = Array.from({ length: 34 }, (_, index) => ({ path: `file-${index}`, pathSha256: createHash("sha256").update(`file-${index}`).digest("hex"), kind: "file", mode: "644", contentSha256: "a".repeat(64), targetSha256: null }));
+    const changed = entries.map(item => ({ ...item, contentSha256: "b".repeat(64) }));
+    const delta = sourceBindingDelta(entries, changed);
+    expect(delta.counts.total).toBe(34); expect(delta.paths).toHaveLength(32); expect(delta.truncated).toBe(true);
+  });
+});
+
 describe("native Go evidence admission", () => {
   it("reports only bounded fixed malformed-event reasons without admitting or exposing their contents", () => {
     const marker = "private-event-content-never-publish";
@@ -170,7 +194,16 @@ describe("native Go evidence admission", () => {
     expect(validateGoEvents(stream(), observation, contract).verdict).toBe("failed");
   });
 
-  it.each(["", "\n", "{}\n", "null\n", "not-json\n", stream().trimEnd(), stream() + "truncated", stream() + "\n"])("rejects malformed, zero and truncated streams", (raw) => {
+  it.each([
+    ["empty", ""],
+    ["newline only", "\n"],
+    ["empty object", "{}\n"],
+    ["null value", "null\n"],
+    ["non-JSON text", "not-json\n"],
+    ["missing final newline", stream().trimEnd()],
+    ["truncated suffix", stream() + "truncated"],
+    ["extra final newline", stream() + "\n"],
+  ] as const)("rejects malformed, zero and truncated streams: %s", (_label, raw) => {
     expect(validateGoEvents(raw, goodExit, contract).verdict).toBe("failed");
   });
 
@@ -846,7 +879,7 @@ describe("upload native requirement admission", () => {
     expect(manifest.steps).toEqual([
       { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"] },
       { id: "package-native", command: ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
-      { id: "pid1-native", command: ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
+      { id: "pid1-native", command: ["python3", "-B", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"] },
       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },

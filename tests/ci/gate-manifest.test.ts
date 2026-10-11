@@ -1505,7 +1505,7 @@ describe("canonical native Linux guest contract", () => {
     expect(manifest.steps.map((step) => step.command)).toEqual([
       ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals|TestSystemdSignedUpdateAndRollback)$"],
       ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"],
-      ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"],
+      ["python3", "-B", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"],
       ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"],
       ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"],
       ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"],

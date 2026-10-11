@@ -1,0 +1,39 @@
+{
+  "aggregate_counts": {
+    "failure": 2,
+    "jobs": 32,
+    "skipped": 8,
+    "success": 22
+  },
+  "evidence_type": "exact-source-terminal-ci-summary",
+  "go": {
+    "outcome": "outer-binding-failed",
+    "phase_count_passed": 6
+  },
+  "interpretation": "Terminal CI is not green. Verify failure is a timeout-policy assertion, not a reported suite-runtime timeout. The Go phases passed but the outer binding failed.",
+  "main_counts": {
+    "failure": 2,
+    "jobs": 28,
+    "skipped": 8,
+    "success": 18
+  },
+  "queried_at_utc": "2026-10-11T04:32:20Z",
+  "runs": {
+    "main": 38109790338,
+    "native_platforms": 38109790343,
+    "native_workers": 38109790370
+  },
+  "source_report_sha256": "39de6231f08e648d5918c0f78b72e514314b492e142e2a8eb8469fffb071a160",
+  "source_sha": "7bd4b85d39a73002906173942c622fdbb377ae20",
+  "verify": {
+    "assertion": "tests/ci/release-gates.test.ts:739: expected 60 to be less than or equal to 45",
+    "job_id": 114382786312,
+    "outcome": "failed",
+    "unit_suites": {
+      "failed": 1,
+      "passed": 24566,
+      "skipped": 1921,
+      "vitest_duration_seconds": 1604.13
+    }
+  }
+}

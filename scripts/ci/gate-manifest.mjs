@@ -6292,7 +6292,7 @@ export const LINUX_GUEST_PACKAGE_COMMAND = ["python3", "scripts/ci/guest-package
 export const LINUX_GUEST_PID1_CASES = cases(`${GO_MODULE}/internal/runner/update`, ["TestSystemdSignedUpdateAndRollback"]);
 // This exact exclusion is valid only with the mandatory fresh owned-PID1 phase below.
 export const LINUX_GUEST_RACE_EXCLUSION = LINUX_GUEST_PACKAGE_PATTERN.slice(0, -2) + "|TestSystemdSignedUpdateAndRollback)$";
-export const LINUX_GUEST_PID1_COMMAND = ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
+export const LINUX_GUEST_PID1_COMMAND = ["python3", "-B", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
 export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds", "internal/runner/update"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-release", "cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
 export const LINUX_GUEST_ALLOWED_SKIPS = [

@@ -1744,6 +1744,41 @@
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-owned-cleanup-r10.json",
           "result": "Cleanup only:17 owned resources removed,0 remaining,2 forced stops;193 strict closeouts,stable source and host/VM floors. Exact witness-tag removed; no J1/J4/J2 acceptance.",
           "acceptedRunReceipt": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "7bd4b85d39a73002906173942c622fdbb377ae20",
+          "result": "Wave 6 J6 PostgreSQL + UX-03 R7: 75 passed / 0 failed / 0 skipped across one unfiltered schema report (15 assertions), plus tests/plugins/launch-integration.test.ts (39) and tests/plugins/service.test.ts (21). Seven required Wave 6 identities were validated against the same 15-assertion schema report; those validators are not additional test cases. Actual source-bound run passed; exact cleanup, process custody, source-freeze and host/VM floor checks passed. Scoped evidence only; it does not complete PROD-CI-08 acceptance.",
+          "command": "Frozen R7 runner with --source-root, --approved-source-head, and --approved-source-freeze-sha256; exact runner and argv digests are bound in the sanitized receipt.",
+          "environment": "Native macOS Darwin ARM64 supervisor; Docker Desktop Linux VM; PostgreSQL 16.15 Alpine pinned by sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685. Source freeze 9038f2e3c8e52c231fba4809132e3ecd951331553c583c33b206f6cad6c44ecb unchanged after cleanup; process custody, host/VM resource floors, and cleanup all passed.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-7bd4-wave6-pg-r7.json",
+          "executionReceiptComplete": true,
+          "receiptSha256": "e01d6c718a7ccdd791c67c4251686e2f28f263cd9632369def9252f60d9544b6",
+          "sourceFreezeSha256": "9038f2e3c8e52c231fba4809132e3ecd951331553c583c33b206f6cad6c44ecb",
+          "schemaReportSha256": "12de3850d0fde72eb76b4ff43401cc35b0abe68add0bc13dbc19fb0e0d554f1b",
+          "assertionBreakdown": {
+            "schemaFileSingleRun": 15,
+            "requiredIdentityValidatorsAgainstSameReport": 7,
+            "launchIntegration": 39,
+            "service": 21,
+            "totalExecutedAssertions": 75,
+            "validatorsCountedAsCases": false
+          },
+          "cleanup": {
+            "containerAbsent": true,
+            "credentialFileRemoved": true,
+            "networkAbsent": true,
+            "volumesAbsent": true
+          },
+          "custodyAndFloors": {
+            "processCustodyComplete": true,
+            "resourceFloorComplete": true,
+            "minimumHostFreeBytes": 338889764864,
+            "minimumDockerVmFreeBytes": 424514093056,
+            "minimumDockerVmAvailableMemoryBytes": 6772183040,
+            "minimumDockerVmCpuCount": 12
+          },
+          "requirementScope": "PROD-CI-08 local-engine lane support only; not whole fresh verification. The plugin assertions additionally support PROD-UX-03 local_engine."
         }
       ],
       "requiredEvidence": [
@@ -2230,6 +2265,53 @@
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json",
           "snapshotSha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "7bd4b85d39a73002906173942c622fdbb377ae20",
+          "runId": 38109790338,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38109790338",
+          "result": "Terminal exact-SHA observation across all three workflows: 32 jobs, 22 success, 2 failure, 8 skipped, 0 active. Main CI run 38109790338 was 18 success / 2 failure / 8 skipped; failures: verify (unit suite 24,566 passed / 1 failed / 1,921 skipped; tests/ci/release-gates.test.ts:739 asserts job timeout 60 <= strict 45 and fails) and Go. Native packaged workers run 38109790370 succeeded 2/2; native platforms run 38109790343 succeeded 2/2. Eight release-gated jobs were skipped and remain unverified. This is a complete terminal observation, not green CI and not CI09 acceptance; no milestone promotion.",
+          "command": "Read-only inspect all jobs from the exact-SHA CI, native packaged workers, and native platforms workflow runs; see sanitized per-job report.",
+          "environment": "GitHub-hosted main CI and native runner workflows; all run head SHAs equal 7bd4b85d39a73002906173942c622fdbb377ae20.",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-11-ci-7bd4-terminal-r5.json",
+          "executionReceiptComplete": true,
+          "workflowRuns": [
+            {
+              "name": "CI",
+              "runId": 38109790338,
+              "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38109790338",
+              "jobs": 28,
+              "success": 18,
+              "failure": 2,
+              "skipped": 8
+            },
+            {
+              "name": "Native packaged workers",
+              "runId": 38109790370,
+              "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38109790370",
+              "jobs": 2,
+              "success": 2,
+              "failure": 0,
+              "skipped": 0
+            },
+            {
+              "name": "Native platforms",
+              "runId": 38109790343,
+              "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38109790343",
+              "jobs": 2,
+              "success": 2,
+              "failure": 0,
+              "skipped": 0
+            }
+          ],
+          "sourceSha": "7bd4b85d39a73002906173942c622fdbb377ae20",
+          "snapshotAtUtc": "2026-10-11T04:32:20Z",
+          "failingJobs": [
+            "verify",
+            "go"
+          ],
+          "skippedReleaseGatedJobsRemainUnverified": true
         }
       ],
       "requiredEvidence": [
@@ -4909,6 +4991,44 @@
           "command": "node node_modules/vitest/vitest.mjs run tests/execution/build-egress-composition.test.ts tests/execution/build-admission.test.ts tests/plugins tests/execution/build-release-joins.test.ts --maxWorkers=1 --no-file-parallelism",
           "environment": "Node22.23.3 Darwin ARM64 native; maxWorkers1; modeled provider/store seams declared",
           "logs": "docs/build/production/evidence/PROD-LIFE-09/2026-10-07-integrated-controls-d3e710d2.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "7bd4b85d39a73002906173942c622fdbb377ae20",
+          "result": "The two PROD-UX-03 plugin test files passed in source-bound R7: launch-integration 39/0/0 and service 21/0/0 (60 assertions total). Receipt also records the same run’s 15-assertion Wave 6 PostgreSQL schema test and seven required identity validators against that single report; validators are not added to test count. Custody, cleanup, source freeze and resource floors passed. This is scoped local-engine evidence; it does not demonstrate the full plugin provenance, isolation, revocation, or default-application acceptance.",
+          "command": "Frozen R7 runner; execute tests/plugins/launch-integration.test.ts and tests/plugins/service.test.ts under the source-bound native PostgreSQL harness; runner argv digests in receipt.",
+          "environment": "Native macOS Darwin ARM64 supervisor; Docker Desktop Linux VM; PostgreSQL 16.15 Alpine pinned by sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685. Source freeze 9038f2e3c8e52c231fba4809132e3ecd951331553c583c33b206f6cad6c44ecb unchanged after cleanup; process custody, host/VM resource floors, and cleanup all passed.",
+          "logs": "docs/build/production/evidence/PROD-UX-03/2026-10-11-7bd4-wave6-pg-r7.json",
+          "executionReceiptComplete": true,
+          "receiptSha256": "e01d6c718a7ccdd791c67c4251686e2f28f263cd9632369def9252f60d9544b6",
+          "sourceFreezeSha256": "9038f2e3c8e52c231fba4809132e3ecd951331553c583c33b206f6cad6c44ecb",
+          "testFiles": [
+            {
+              "path": "tests/plugins/launch-integration.test.ts",
+              "passed": 39,
+              "failed": 0,
+              "skipped": 0,
+              "sha256": "020681fc0b2ac408395dc4e872cb3c1b5a2247323946d7b4821d6cf9e2ae3429"
+            },
+            {
+              "path": "tests/plugins/service.test.ts",
+              "passed": 21,
+              "failed": 0,
+              "skipped": 0,
+              "sha256": "86d0246b6212dac1b36e8595c3482c647b2b481544c0459d7261d188b71bafa5"
+            }
+          ],
+          "cleanup": {
+            "containerAbsent": true,
+            "credentialFileRemoved": true,
+            "networkAbsent": true,
+            "volumesAbsent": true
+          },
+          "custodyAndFloors": {
+            "processCustodyComplete": true,
+            "resourceFloorComplete": true
+          },
+          "requirementScope": "Only local_engine evidence for these two plugin test files. Contract evidence and full plugin provenance/isolation/revocation/default-app acceptance remain separate."
         }
       ],
       "requiredEvidence": [

@@ -127,22 +127,65 @@ export function validateGoEvents(raw, observation, contract) {
 }
 
 /** Hash source names+bytes privately; publish only the aggregate, never arbitrary paths. */
-function sourceBinding(root) {
+export function sourceBinding(root) {
   const listing = spawnSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
   const commit = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
   if (listing.status !== 0 || listing.signal || commit.status !== 0 || commit.signal || !/^[a-f0-9]{40}\n$/.test(commit.stdout)) throw new Error("source");
   const files = [...new Set(listing.stdout.split("\0").filter(Boolean))].sort();
   if (files.length === 0 || files.length > 100000) throw new Error("source");
   const hash = createHash("sha256");
+  const entries = [];
   for (const file of files) {
     const full = path.resolve(root, file);
     if (!full.startsWith(root + path.sep)) throw new Error("source");
     const st = fs.lstatSync(full);
-    if (st.isSymbolicLink()) hash.update(file + "\0symlink\0" + fs.readlinkSync(full) + "\0");
-    else if (st.isFile()) hash.update(file + "\0" + String(st.mode & 0o777) + "\0" + digest(fs.readFileSync(full)) + "\0");
-    else throw new Error("source");
+    if (st.isSymbolicLink()) {
+      const target = fs.readlinkSync(full);
+      hash.update(file + "\0symlink\0" + target + "\0");
+      entries.push({ path: file, pathSha256: digest(file), kind: "symlink", mode: null, contentSha256: null, targetSha256: digest(target) });
+    } else if (st.isFile()) {
+      const mode = String(st.mode & 0o777); const contentSha256 = digest(fs.readFileSync(full));
+      hash.update(file + "\0" + mode + "\0" + contentSha256 + "\0");
+      entries.push({ path: file, pathSha256: digest(file), kind: "file", mode, contentSha256, targetSha256: null });
+    } else throw new Error("source");
   }
-  return { commit: commit.stdout.trim(), sourceSha256: hash.digest("hex"), lockSha256: digest(fs.readFileSync(path.join(root, "package-lock.json"))) };
+  const binding = { commit: commit.stdout.trim(), sourceSha256: hash.digest("hex"), lockSha256: digest(fs.readFileSync(path.join(root, "package-lock.json"))) };
+  Object.defineProperty(binding, "entries", { value: entries, enumerable: false });
+  return binding;
+}
+/** Diagnostic only: the original aggregate binding remains the acceptance gate. */
+export function sourceBindingDelta(before, after, limit = 32) {
+  if (!Number.isSafeInteger(limit) || limit < 0 || limit > 32) throw new Error("source-delta-limit");
+  const left = new Map(before.map((entry) => [entry.path, entry]));
+  const right = new Map(after.map((entry) => [entry.path, entry]));
+  const changes = [];
+  const counts = { added: 0, removed: 0, content: 0, mode: 0, symlink: 0, type: 0 };
+  for (const name of [...new Set([...left.keys(), ...right.keys()])].sort()) {
+    const a = left.get(name); const b = right.get(name);
+    if (a && b && a.mode === b.mode && a.contentSha256 === b.contentSha256 && a.kind === b.kind && a.targetSha256 === b.targetSha256) continue;
+    let change;
+    if (!a) change = "added";
+    else if (!b) change = "removed";
+    else if (a.kind !== b.kind) change = "type";
+    else if (a.kind === "symlink" && a.targetSha256 !== b.targetSha256) change = "symlink";
+    else if (a.mode !== b.mode) change = "mode";
+    else change = "content";
+    counts[change]++;
+    changes.push({ pathSha256: (b ?? a).pathSha256, change });
+  }
+  changes.sort((a, b) => a.pathSha256.localeCompare(b.pathSha256));
+  return { counts: { ...counts, total: changes.length }, paths: changes.slice(0, limit), truncated: changes.length > limit };
+}
+export function sourceBindingSnapshotErrorDiagnostic(before) {
+  return { phase: "post-run", outcome: "snapshot-error",
+    before: { commit: before.commit, sourceSha256: before.sourceSha256, lockSha256: before.lockSha256 },
+    after: null, commitChanged: null, counts: null, paths: [], truncated: false };
+}
+function writePrivateSourceInventory(directory, phase, binding) {
+  try {
+    const file = path.join(directory, `source-binding-${phase}.private.json`);
+    fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, commit: binding.commit, sourceSha256: binding.sourceSha256, lockSha256: binding.lockSha256, entries: binding.entries }), { flag: "wx", mode: 0o600 });
+  } catch { /* This private sidecar is diagnostic-only and never changes gate outcome. */ }
 }
 const ATTEMPT_ID = /^[a-f0-9]{32}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -454,7 +497,9 @@ export async function runNativeGate(root = process.cwd(), attemptId = randomByte
     const versions = JSON.parse(fs.readFileSync(tool.output, "utf8"));
     if (versions.GOVERSION !== "go1.27.1" || versions.GOOS !== "linux" || !["amd64", "arm64"].includes(versions.GOARCH)) throw new Error("toolchain");
     const before = sourceBinding(root);
-    evidence.binding = { ...before, manifestSha256: digest(JSON.stringify(manifest)), fixtureReceiptSha256: digest(fs.readFileSync("/opt/zenith-file-write-mounts/.gate-receipt.json")) };
+    writePrivateSourceInventory(directory, "before", before);
+    evidence.binding = { commit: before.commit, sourceSha256: before.sourceSha256, lockSha256: before.lockSha256,
+      manifestSha256: digest(JSON.stringify(manifest)), fixtureReceiptSha256: digest(fs.readFileSync("/opt/zenith-file-write-mounts/.gate-receipt.json")) };
     evidence.tools = { node: "22.23.3", go: "1.27.1", GOOS: "linux", GOARCH: versions.GOARCH };
     for (const step of manifest.steps) {
       const stepEnv = { ...env, ...(step.id === "goldens" ? { ZENITH_UPDATE_MACHINE_GOLDENS: "1" } : {}) };
@@ -477,8 +522,21 @@ export async function runNativeGate(root = process.cwd(), attemptId = randomByte
       evidence.steps.push({ ...(fixture ? { fixture } : {}), ...(fixtureDiagnostic ? { fixtureDiagnostic } : {}), id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
       if (validation.verdict !== "passed" || !result.drained || result.interrupted) throw new Error("execution");
     }
-    const after = sourceBinding(root);
-    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error("source-changed");
+    let after;
+    try { after = sourceBinding(root); }
+    catch {
+      evidence.sourceBindingDiagnostic = sourceBindingSnapshotErrorDiagnostic(before);
+      throw new Error("source-changed");
+    }
+    writePrivateSourceInventory(directory, "after", after);
+    const delta = sourceBindingDelta(before.entries, after.entries);
+    const unchanged = before.commit === after.commit && before.sourceSha256 === after.sourceSha256 && before.lockSha256 === after.lockSha256;
+    if (!unchanged) {
+      evidence.sourceBindingDiagnostic = { phase: "post-run", outcome: "mismatch", before: { commit: before.commit, sourceSha256: before.sourceSha256, lockSha256: before.lockSha256 },
+        after: { commit: after.commit, sourceSha256: after.sourceSha256, lockSha256: after.lockSha256 }, commitChanged: before.commit !== after.commit,
+        counts: delta.counts, paths: delta.paths, truncated: delta.truncated };
+      throw new Error("source-changed");
+    }
     evidence.verdict = "passed";
   } catch { evidence.problems.push("gate-refused"); }
   finally {

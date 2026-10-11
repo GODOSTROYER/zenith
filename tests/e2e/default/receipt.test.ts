@@ -2,12 +2,26 @@ import { randomBytes } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { CHECKS, receipt } from './receipt.mjs';
 
-const input = () => ({
-  commit: randomBytes(20).toString('hex'), sourceDigest: randomBytes(32).toString('hex'), dirty: false,
-  platform: 'darwin', arch: 'arm64', dockerArch: 'aarch64', node: '22.23.3', docker: '28.5.0',
-  checks: CHECKS.map(id => ({ id, status: 'passed' })),
-  readbacks: { kind: randomBytes(32).toString('hex'), machine: randomBytes(32).toString('hex'), rotatedKind: randomBytes(32).toString('hex') },
-});
+type ReadbackFixture = {
+  kind: string;
+  machine: string;
+  rotatedKind: string;
+  obs02: string;
+  machineRejoin?: string;
+};
+
+const input = () => {
+  const readbacks: ReadbackFixture = {
+    kind: randomBytes(32).toString('hex'), machine: randomBytes(32).toString('hex'),
+    rotatedKind: randomBytes(32).toString('hex'), obs02: randomBytes(32).toString('hex'),
+    machineRejoin: randomBytes(32).toString('hex'),
+  };
+  return {
+    commit: randomBytes(20).toString('hex'), sourceDigest: randomBytes(32).toString('hex'), dirty: false,
+    platform: 'darwin', arch: 'arm64', dockerArch: 'aarch64', node: '22.23.3', docker: '28.5.0',
+    checks: CHECKS.map(id => ({ id, status: 'passed' })), readbacks,
+  };
+};
 
 describe('default journey evidence projection (contract only)', () => {
   it('emits ledger format only for a complete native clean-tree run', () => {
@@ -44,13 +58,13 @@ describe('default journey evidence projection (contract only)', () => {
     [{ id: 'invented', status: 'passed' }],
     [{ id: 'prerequisites', status: 'unsupported' }],
     [{ id: 'prerequisites', status: 'passed' }, { id: 'prerequisites', status: 'passed' }],
-  ])('rejects untrusted check identity/status and duplicate counting', (...checks) => {
+  ])('rejects untrusted check identity/status and duplicate counting (case %j)', (...checks) => {
     // Vitest expands the row; preserve the actual list of facts.
     expect(() => receipt({ ...input(), checks })).toThrow('journey:receipt-checks');
   });
   it.each([
     { dirty: true }, { commit: '' }, { sourceDigest: '' }, { dockerArch: 'x86_64' }, { platform: 'win32' },
-  ])('withholds ledger evidence from an unbound, dirty or nonnative run', patch => {
+  ])('withholds ledger evidence from an unbound, dirty or nonnative run (case %j)', patch => {
     expect(receipt({ ...input(), ...patch }).ledgerEligible).toBe(false);
   });
   it('scrubs untrusted version text', () => {
@@ -77,7 +91,14 @@ describe('default journey opt-in gate', () => {
       else process.env.ZENITH_DEFAULT_JOURNEY = previous;
     }
   });
-  it('requires all three independent readback hashes for passing evidence', () => {
+  it('requires all independent readback hashes for passing evidence', () => {
     expect(receipt({ ...input(), readbacks: {} }).status).toBe('incomplete');
+  });
+  it('requires a SHA-256 machine-rejoin readback while preserving the other four hashes', () => {
+    const fixture = input();
+    delete fixture.readbacks.machineRejoin;
+    const result = receipt(fixture);
+    expect(result.status).toBe('incomplete');
+    expect(result.readbacks.map(value => value.target)).toEqual(['kind', 'machine', 'rotatedKind', 'obs02']);
   });
 });

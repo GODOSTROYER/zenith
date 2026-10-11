@@ -1,0 +1,88 @@
+{
+  "schema": "zenith.ci09-exact-source-terminal-evidence.v1",
+  "observed_at_utc": "2026-10-11T06:58:24Z",
+  "source_sha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+  "branch": {
+    "name": "codex/production-2026-10-02",
+    "head_sha_at_observation": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+    "protected": false,
+    "branch_rules_http_status": 200,
+    "branch_rules_count": 0,
+    "legacy_branch_protection_http_status": 404,
+    "visible_repository_rulesets_count": 0,
+    "source_snapshot_sha256": "971b84d134df86ec877e62a31fd8e1e83f78ad9355204c44bb7adb7ade823768"
+  },
+  "workflow_runs": [
+    {
+      "workflow": "CI",
+      "run_id": 38116924079,
+      "event": "push",
+      "head_sha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Native skipped platforms",
+      "run_id": 38116924096,
+      "event": "push",
+      "head_sha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Native packaged workers",
+      "run_id": 38116924044,
+      "event": "push",
+      "head_sha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "job_counts": {
+    "total_expected": 32,
+    "total_observed": 32,
+    "required_total": 24,
+    "required_success": 24,
+    "required_failure": 0,
+    "required_active": 0,
+    "conditional_optional_total": 8,
+    "conditional_skipped": 8,
+    "aggregate_success": 24,
+    "aggregate_failure": 0,
+    "aggregate_skipped": 8,
+    "aggregate_active": 0,
+    "main_ci": {
+      "expected": 28,
+      "success": 20,
+      "failure": 0,
+      "skipped": 8,
+      "active": 0
+    },
+    "native_packaged_workers": {
+      "expected": 2,
+      "success": 2,
+      "failure": 0,
+      "active": 0
+    },
+    "native_skipped_platforms": {
+      "expected": 2,
+      "success": 2,
+      "failure": 0,
+      "active": 0
+    }
+  },
+  "conditional_skipped_jobs": [
+    "j15-operated-upgrade",
+    "j15-operated-restore",
+    "drv2-crash-partition",
+    "drv2-drift-repair",
+    "drivers-d4-two-tenants",
+    "drivers-d4-export",
+    "drv1-update-rollback",
+    "drv1-private-source"
+  ],
+  "all_three_push_runs_match_branch_and_source": true,
+  "eight_optional_jobs_verified": false,
+  "artifact_digests_revalidated": false,
+  "ci09_status": "All 24 required jobs passed on this exact source SHA across three push runs; eight conditional jobs remain unverified. This source-bound CI observation does not by itself promote CI-09 closure."
+}

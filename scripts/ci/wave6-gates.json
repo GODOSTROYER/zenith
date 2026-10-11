@@ -44,6 +44,7 @@
     "tests/agent-v3/tenancy.test.ts",
     "tests/audit-export/audit-export.test.ts",
     "tests/audit-export/purpose.test.ts",
+    "tests/auth/life10-migration-approval-browser.test.ts",
     "tests/auth/mfa-browser.test.ts",
     "tests/auth/mfa-legacy-cancel.test.ts",
     "tests/auth/mfa-operators.test.ts",
@@ -99,6 +100,8 @@
     "tests/docs/operator-docs.test.ts",
     "tests/e2e/default/journey.spec.mjs",
     "tests/e2e/default/receipt.test.ts",
+    "tests/e2e/default/ux-receipt-gated.test.ts",
+    "tests/e2e/default/ux-receipt.test.ts",
     "tests/execution/build-isolation.test.ts",
     "tests/execution/kubernetes-deploy-journey.test.ts",
     "tests/execution/mixed-orchestration-signals.test.ts",
@@ -186,6 +189,8 @@
     "tests/release/candidate.live.test.ts",
     "tests/release/checkpoint.test.ts",
     "tests/release/dossier.test.ts",
+    "tests/release/drivers/d4.test.ts",
+    "tests/release/drivers/export-data.test.ts",
     "tests/release/live-scope-coverage.test.ts",
     "tests/release/local-targets.test.ts",
     "tests/release/orchestrator.test.ts",
@@ -214,7 +219,8 @@
     "tests/supply-chain/release.test.ts",
     "tests/supply-chain/sbom.test.ts",
     "tests/tofu/typed-inputs.test.ts",
-    "tests/tofu/typed-substitution.test.ts"
+    "tests/tofu/typed-substitution.test.ts",
+    "tests/e2e/default/journey-receipt-gated.test.ts"
   ],
   "contractFiles": [
     "scripts/acceptance/live/dns/offline.test.ts",
@@ -295,6 +301,7 @@
     "tests/deploy/installation.test.ts",
     "tests/docs/operator-docs.test.ts",
     "tests/e2e/default/receipt.test.ts",
+    "tests/e2e/default/ux-receipt.test.ts",
     "tests/execution/build-isolation.test.ts",
     "tests/execution/kubernetes-deploy-journey.test.ts",
     "tests/execution/mixed-orchestration-signals.test.ts",
@@ -368,6 +375,8 @@
     "tests/release/acceptance-scenarios.test.ts",
     "tests/release/checkpoint.test.ts",
     "tests/release/dossier.test.ts",
+    "tests/release/drivers/d4.test.ts",
+    "tests/release/drivers/export-data.test.ts",
     "tests/release/live-scope-coverage.test.ts",
     "tests/release/local-targets.test.ts",
     "tests/release/orchestrator.test.ts",
@@ -2662,8 +2671,8 @@
     {
       "file": "tests/deploy/installation.native.test.ts",
       "suite": "supported installation structural preflight",
-      "test": "rejects ambiguous or weaker TLS on 'SUPABASE_DB_URL': 'sslmode=verify-full&sslmode=verify-fu…'",
-      "fullName": "POSIX private installation and Docker Compose contracts supported installation structural preflight rejects ambiguous or weaker TLS on 'SUPABASE_DB_URL': 'sslmode=verify-full&sslmode=verify-fu…'",
+      "test": "rejects ambiguous or weaker TLS on 'SUPABASE_DB_URL': 'sslmode=verify-full&sslmode=verify-fu\u2026'",
+      "fullName": "POSIX private installation and Docker Compose contracts supported installation structural preflight rejects ambiguous or weaker TLS on 'SUPABASE_DB_URL': 'sslmode=verify-full&sslmode=verify-fu\u2026'",
       "id": "wave6-e23a76ff3df91df6",
       "lane": "native-tools",
       "gates": [
@@ -2766,8 +2775,8 @@
     {
       "file": "tests/deploy/installation.native.test.ts",
       "suite": "supported installation structural preflight",
-      "test": "rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_DB_URL': 'sslmode=verify-full&sslmode=verify-fu…'",
-      "fullName": "POSIX private installation and Docker Compose contracts supported installation structural preflight rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_DB_URL': 'sslmode=verify-full&sslmode=verify-fu…'",
+      "test": "rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_DB_URL': 'sslmode=verify-full&sslmode=verify-fu\u2026'",
+      "fullName": "POSIX private installation and Docker Compose contracts supported installation structural preflight rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_DB_URL': 'sslmode=verify-full&sslmode=verify-fu\u2026'",
       "id": "wave6-1a0938717c55c1c7",
       "lane": "native-tools",
       "gates": [
@@ -2870,8 +2879,8 @@
     {
       "file": "tests/deploy/installation.native.test.ts",
       "suite": "supported installation structural preflight",
-      "test": "rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_MIGRATION_URL': 'sslmode=verify-full&sslmode=verify-fu…'",
-      "fullName": "POSIX private installation and Docker Compose contracts supported installation structural preflight rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_MIGRATION_URL': 'sslmode=verify-full&sslmode=verify-fu…'",
+      "test": "rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_MIGRATION_URL': 'sslmode=verify-full&sslmode=verify-fu\u2026'",
+      "fullName": "POSIX private installation and Docker Compose contracts supported installation structural preflight rejects ambiguous or weaker TLS on 'ZENITH_PLATFORM_MIGRATION_URL': 'sslmode=verify-full&sslmode=verify-fu\u2026'",
       "id": "wave6-05ba901fdbd90634",
       "lane": "native-tools",
       "gates": [
@@ -4713,6 +4722,76 @@
         "ZENITH_LIVE_BUDGET_FILE",
         "ZENITH_LIVE_DNS_PACKET_FILE"
       ]
+    },
+    {
+      "file": "tests/auth/life10-migration-approval-browser.test.ts",
+      "suite": "LIFE-10 browser migration approval route",
+      "test": "denies requester and records one exact-bound approval from a distinct real admin",
+      "fullName": "LIFE-10 browser migration approval route denies requester and records one exact-bound approval from a distinct real admin",
+      "id": "wave6-5615dc34e8887f07",
+      "lane": "browser",
+      "gates": [
+        "ZENITH_MFA_BROWSER"
+      ],
+      "prerequisites": [
+        "ZENITH_LIFE10_BROWSER_FIXTURES_FILE",
+        "ZENITH_MFA_BROWSER_FIXTURES_FILE",
+        "ZENITH_MFA_BROWSER_EXECUTABLE",
+        "ZENITH_TEST_PLATFORM_PG_URL",
+        "ZENITH_PLATFORM_DB_URL (or SUPABASE_DB_URL)",
+        "ZENITH_J6_WORKSPACE_ID",
+        "ZENITH_J6_ENVIRONMENT_ID",
+        "ZENITH_J6_OPERATION_ID"
+      ]
+    },
+    {
+      "file": "tests/e2e/default/ux-receipt-gated.test.ts",
+      "suite": "PROD-UX-01 actual-browser receipt",
+      "test": "validates the source-bound actual-browser receipt against the completed J2 receipt",
+      "fullName": "PROD-UX-01 actual-browser receipt validates the source-bound actual-browser receipt against the completed J2 receipt",
+      "id": "wave6-03be46338cbeb148",
+      "lane": "browser",
+      "gates": [
+        "ZENITH_DEFAULT_JOURNEY=1",
+        "ZENITH_TEST_UX01_RECEIPT=1",
+        "ZENITH_UX01_BROWSER=1"
+      ],
+      "prerequisites": [
+        "ZENITH_UX01_CHROME (actual Google Chrome executable)",
+        "ZENITH_UX01_RECEIPT (new absolute owner-private UX receipt in an owner-only mode-0700 directory, file mode 0600, outside checkout)",
+        "ZENITH_JOURNEY_RECEIPT (matching absolute owner-private J2 receipt in that same mode-0700 directory, file mode 0600, outside checkout)",
+        "Fresh owned J1/J2 browser stack, kind, Mailpit and trusted Chromium CA"
+      ]
+    },
+    {
+      "file": "tests/e2e/default/journey-receipt-gated.test.ts",
+      "suite": "PROD-OBS-02 actual J2 receipt",
+      "test": "requires the completed owned machine-health provenance check for OBS-02",
+      "fullName": "PROD-OBS-02 actual J2 receipt requires the completed owned machine-health provenance check for OBS-02",
+      "id": "wave6-0e2f61ae68595277",
+      "lane": "browser",
+      "gates": [
+        "ZENITH_DEFAULT_JOURNEY=1",
+        "ZENITH_TEST_J2_RECEIPT=1"
+      ],
+      "prerequisites": [
+        "ZENITH_JOURNEY_RECEIPT (new absolute owner-private J2 receipt in an owner-only mode-0700 directory, file mode 0600, outside checkout)"
+      ]
+    },
+    {
+      "file": "tests/e2e/default/journey-receipt-gated.test.ts",
+      "suite": "PROD-MACH-04 actual J2 receipt",
+      "test": "requires the completed native fresh-token rejoin check for MACH-04",
+      "fullName": "PROD-MACH-04 actual J2 receipt requires the completed native fresh-token rejoin check for MACH-04",
+      "id": "wave6-80bfa8cded622b84",
+      "lane": "browser",
+      "gates": [
+        "ZENITH_DEFAULT_JOURNEY=1",
+        "ZENITH_TEST_J2_RECEIPT=1"
+      ],
+      "prerequisites": [
+        "ZENITH_JOURNEY_RECEIPT (new absolute owner-private J2 receipt in an owner-only mode-0700 directory, file mode 0600, outside checkout)"
+      ]
     }
   ],
   "requirements": {
@@ -6497,7 +6576,12 @@
       "tests/retention/admin-routes.test.ts",
       "tests/retention/key-purpose.test.ts",
       "tests/retention/restore-destination.test.ts",
-      "tests/retention/retention.test.ts"
+      "tests/retention/retention.test.ts",
+      "tests/auth/life10-migration-approval-browser.test.ts"
+    ],
+    "PROD-LIFE-11": [
+      "tests/release/drivers/d4.test.ts",
+      "tests/release/drivers/export-data.test.ts"
     ],
     "PROD-LIFE-12": [
       "tests/execution/apply.test.ts",
@@ -6795,6 +6879,7 @@
       "tests/workflows/worker.test.ts"
     ],
     "PROD-MACH-03": [
+      "tests/acceptance/maintenance-default.test.ts",
       "tests/runners/admin-routes.test.ts",
       "tests/runners/agent-update-repo.test.ts",
       "tests/runners/aws-transport.test.ts",
@@ -6853,6 +6938,9 @@
       "tests/workflows/worker.test.ts"
     ],
     "PROD-MACH-04": [
+      "tests/e2e/default/journey-receipt-gated.test.ts",
+      "tests/e2e/default/journey.spec.mjs",
+      "tests/e2e/default/receipt.test.ts",
       "tests/runners/agent-update-repo.test.ts",
       "tests/runners/update-control-postgres.test.ts",
       "tests/runners/update-control.test.ts"
@@ -6935,6 +7023,11 @@
       "tests/reconcile/stability.test.ts",
       "tests/reconcile/support.test.ts",
       "tests/workflows/operations.test.ts"
+    ],
+    "PROD-OBS-02": [
+      "tests/e2e/default/journey-receipt-gated.test.ts",
+      "tests/e2e/default/journey.spec.mjs",
+      "tests/e2e/default/receipt.test.ts"
     ],
     "PROD-OBS-04": [
       "tests/acceptance/maintenance-default.test.ts",
@@ -7283,6 +7376,8 @@
       "tests/cli/plugin-sandbox.test.ts",
       "tests/e2e/default/journey.spec.mjs",
       "tests/e2e/default/receipt.test.ts",
+      "tests/e2e/default/ux-receipt-gated.test.ts",
+      "tests/e2e/default/ux-receipt.test.ts",
       "tests/plugins/launch-integration.test.ts",
       "tests/plugins/manifest.test.ts",
       "tests/plugins/mcp-boundary.test.ts",

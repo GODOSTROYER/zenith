@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { randomBytes } from "node:crypto";
-import { DRIVER_CHECKS, OPERATED_LABEL, OwnedCleanup, receiptExit, validateOperatedReceipt, type OperatedReceipt } from "../../../scripts/release/drivers/protocol";
+import { DRIVER_CHECKS, DRIVER_LIMITS, OPERATED_LABEL, OwnedCleanup, receiptExit, validateOperatedReceipt, type OperatedReceipt } from "../../../scripts/release/drivers/protocol";
 import { validateExportBundle, validatePortablePlan, runExport } from "../../../scripts/release/drivers/export";
 import { assertHttpRefusal, assertMcpRefusal, runTwoTenants } from "../../../scripts/release/drivers/two-tenants";
 import { localTargetLane, LOCAL_TARGETS, requiredChecks, validateLocalReceipt } from "../../../scripts/release/local-targets";
@@ -19,14 +19,15 @@ function receipt(scenarioId: "two-tenants" | "export" = "two-tenants"): Operated
       const content = (letter: "a" | "b") => kind === "object_store" ? objectWitness(knownData(runId, letter).objects) : rowWitness(knownData(runId, letter).rows);
       return [kind, { source: content("a"), target: content("a"), otherTenant: content("b"), exportedContentDigest: sourceDigest, restoredContentDigest: sourceDigest,
         tenantIsolation: true, mysqlTls: kind === "mysql" ? "verified_identity" : "not_applicable" }];
-    })) as OperatedReceipt["dataRoundtrips"] } : {}), limits: ["Local only; no live cloud."] };
+    })) as OperatedReceipt["dataRoundtrips"] } : {}), limits: [...DRIVER_LIMITS[scenarioId]] };
 }
-const expected = { scenarioId: "two-tenants", runId, sourceCommit: commit };
+const expected = { scenarioId: "two-tenants", runId, sourceCommit: commit, sourceDigest } as const;
 describe("DRV-4 closed operated evidence", () => {
   it("validates only complete scenario/run/source-bound evidence", () => {
     expect(validateLocalReceipt(receipt(), expected)).toEqual(receipt());
+    expect(() => validateLocalReceipt(receipt(), { ...expected, sourceDigest: "f".repeat(64) })).toThrow("binding");
     expect(receiptExit(receipt())).toBe(0);
-    for (const changed of [{ scenarioId: "export" }, { runId: "another-run" }, { sourceCommit: "d".repeat(40) }]) expect(() => validateOperatedReceipt({ ...receipt(), ...changed }, expected)).toThrow();
+    for (const changed of [{ scenarioId: "export" }, { runId: "another-run" }, { sourceCommit: "d".repeat(40) }, { sourceDigest: "e".repeat(64) }]) expect(() => validateOperatedReceipt({ ...receipt(), ...changed }, expected)).toThrow();
   });
   it.each(["missing", "duplicate", "extra", "reordered"])("refuses %s check inventories", change => {
     const raw = receipt();

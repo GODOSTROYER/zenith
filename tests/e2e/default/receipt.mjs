@@ -6,7 +6,7 @@ export const CHECKS = Object.freeze([
   'self-approval-refused', 'bearer-approval-refused', 'stale-semantics-refused',
   'browser-kind-execution-readback', 'rest-proposal-execution-readback',
   'mcp-proposal-execution-readback', 'machine-browser-consent',
-  'machine-independent-approval-readback', 'customer-credential-absence',
+  'machine-independent-approval-readback', 'machine-health-provenance-readback', 'machine-fresh-token-native-rejoin', 'customer-credential-absence',
   'connection-rotation-readback', 'connection-revocation-no-fallback', 'cleanup',
 ]);
 const STATUSES = new Set(['passed', 'failed', 'skipped', 'not_run']);
@@ -25,7 +25,7 @@ export function receipt(input = {}) {
   }
   const checks = CHECKS.map(id => ({ id, status: facts.find(fact => fact.id === id)?.status ?? 'not_run' }));
   const counts = Object.fromEntries([...STATUSES].map(status => [status, checks.filter(check => check.status === status).length]));
-  const complete = counts.passed === CHECKS.length && ['kind', 'machine', 'rotatedKind'].every(target => hash(input.readbacks?.[target], 64));
+  const complete = counts.passed === CHECKS.length && ['kind', 'machine', 'rotatedKind', 'obs02', 'machineRejoin'].every(target => hash(input.readbacks?.[target], 64));
   const bound = hash(input.commit, 40) && hash(input.sourceDigest, 64) && typeof input.dirty === 'boolean';
   const environment = {
     host: input.platform === 'darwin' && input.arch === 'arm64' ? 'macOS ARM64' : 'unsupported',
@@ -38,14 +38,14 @@ export function receipt(input = {}) {
   // A dirty tree can be rehearsed, but is never coherent-commit ledger evidence.
   const ledgerEligible = status === 'passed' && input.dirty === false;
   return {
-    schemaVersion: 1, requirementIds: ['PROD-PKG-05', 'PROD-DUR-03', 'PROD-DUR-04', 'PROD-LIFE-01', 'PROD-MACH-05'],
+    schemaVersion: 1, requirementIds: ['PROD-PKG-05', 'PROD-DUR-03', 'PROD-DUR-04', 'PROD-LIFE-01', 'PROD-MACH-05', 'PROD-OBS-02', 'PROD-MACH-04'],
     kind: 'local_engine', status, productionReady: false, ledgerEligible,
     commit: hash(input.commit, 40) ? input.commit : null,
     sourceDigest: hash(input.sourceDigest, 64) ? input.sourceDigest : null,
     dirty: typeof input.dirty === 'boolean' ? input.dirty : null,
     environment, counts, checks,
     // Only verifier-owned sha256 values, never a result body.
-    readbacks: ['kind', 'machine', 'rotatedKind'].flatMap(target => hash(input.readbacks?.[target], 64) ? [{ target, sha256: input.readbacks[target] }] : []),
+    readbacks: ['kind', 'machine', 'rotatedKind', 'obs02', 'machineRejoin'].flatMap(target => hash(input.readbacks?.[target], 64) ? [{ target, sha256: input.readbacks[target] }] : []),
     evidence: ledgerEligible ? {
       level: 'local_engine', commit: input.commit,
       command: 'ZENITH_DEFAULT_JOURNEY=1 node scripts/acceptance/default-journey.mjs --config <private-config> --receipt <evidence-file>',

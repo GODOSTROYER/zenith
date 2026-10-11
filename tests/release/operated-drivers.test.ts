@@ -15,16 +15,22 @@ import type { RestoreReport } from "@/lib/ops/recovery/restore";
 
 const owner = randomBytes(12).toString("hex");
 const images = () => Object.fromEntries(["api", "worker", "migration"].map(role => [role, `localhost:5000/zenith-${owner}/${role}@sha256:${randomBytes(32).toString("hex")}`])) as { api: string; worker: string; migration: string };
-const input = (scenarioId: "upgrade" | "restore" = "upgrade"): DriverInput => ({ scenarioId, runId: "drv3-test", sourceCommit: randomBytes(20).toString("hex"), receiptFile: path.join(os.tmpdir(), `drv3-${randomBytes(8).toString("hex")}.json`),
+type UpgradeRestoreTestInput = Omit<DriverInput, "scenarioId"> & { scenarioId: "upgrade" | "restore" };
+const gateTestEnv: NodeJS.ProcessEnv = { NODE_ENV: "test" };
+const input = (scenarioId: "upgrade" | "restore" = "upgrade"): UpgradeRestoreTestInput => ({ scenarioId, runId: "drv3-test", sourceCommit: randomBytes(20).toString("hex"), receiptFile: path.join(os.tmpdir(), `drv3-${randomBytes(8).toString("hex")}.json`),
   env: { NODE_ENV: "test", ZENITH_LOCAL_TARGETS: "1", ZENITH_LOCAL_OPERATED: "1", ZENITH_LOCAL_JOINED_DRIVERS: "1", ZENITH_ACCEPTANCE_DEFAULT_STACK: "1", ZENITH_DEFAULT_JOURNEY: "1", ZENITH_LOCAL_RUN_ID: "drv3-test", ZENITH_LOCAL_ROOT: path.join(os.tmpdir(), "zenith-j15-drv3-test-unit") } });
 const scratch: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const file of scratch.splice(0)) rmSync(file, { recursive: true, force: true }); });
 
 describe("DRV-3 operated planners and receipts", () => {
   it("keeps the tenant/export protocol separate from upgrade/restore before any engine access", async () => {
-    expect(() => assertOperatedGate({ ...input(), scenarioId: "two-tenants" })).toThrow("operated:scenario-binding");
-    expect(() => runOperated(input(), async () => {}, [])).toThrow("tenant-export-scenario");
-    expect(await runOperated({ ...input(), scenarioId: "two-tenants", env: { NODE_ENV: "test" } }, async () => {}, [])).toBe(2);
+    const tenantExport: Omit<DriverInput, "scenarioId"> & { scenarioId: "two-tenants"; sourceDigest: string } = { ...input(), scenarioId: "two-tenants", sourceDigest: randomBytes(32).toString("hex"), env: gateTestEnv };
+    expect(tenantExport.sourceDigest).toMatch(/^[a-f0-9]{64}$/); // a concrete 32-byte digest fixture, never a placeholder string
+    expect(() => assertOperatedGate(tenantExport)).toThrow("operated:scenario-binding");
+    expect(() => runOperated(input(), async () => {})).toThrow("operated:invalid-driver-arguments");
+    const driftCrash: { scenarioId: "drift-repair"; receiptFile: string; env: NodeJS.ProcessEnv } = { scenarioId: "drift-repair", receiptFile: path.join(os.tmpdir(), "drv2-gate-test.json"), env: gateTestEnv };
+    expect(await runOperated(driftCrash, async () => {})).toBe(2);
+    expect(await runOperated(tenantExport, async () => {})).toBe(2);
   });
   it("uses the shipped expand-worker-api ordering and distinct immutable owned candidates", () => {
     const previous = images(), candidate = images();

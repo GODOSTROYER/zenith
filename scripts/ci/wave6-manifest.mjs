@@ -28,7 +28,18 @@ function commandFor(item) {
   const args = ["node", "node_modules/vitest/vitest.mjs", "run", item.file];
   if (item.file.startsWith("scripts/acceptance/live/dns/")) args.push("--config", "scripts/acceptance/live/dns/vitest.config.ts");
   args.push("--testNamePattern", escape(item.fullName), "--no-file-parallelism", "--maxWorkers=2", "--reporter=json", "--outputFile", `.data-ci-lane/${item.id}.json`);
+  const receiptEnv = item.id === "wave6-03be46338cbeb148" ? {
+    ZENITH_UX01_RECEIPT: "<absolute-new-private-UX-receipt.json>",
+    ZENITH_JOURNEY_RECEIPT: "<absolute-new-private-J2-receipt.json>",
+    ZENITH_TEST_UX01_RECEIPT: "1",
+  } : item.id === "wave6-0e2f61ae68595277" || item.id === "wave6-80bfa8cded622b84" ? {
+    ZENITH_JOURNEY_RECEIPT: "<absolute-new-private-J2-receipt.json>",
+    ZENITH_TEST_J2_RECEIPT: "1",
+  } : item.file === "tests/e2e/default/journey-receipt-gated.test.ts" ? {
+    ZENITH_JOURNEY_RECEIPT: "<absolute-new-private-J2-receipt.json>",
+  } : undefined;
   return { id: item.id, argv: args, gates: item.gates, privatePrerequisites: item.prerequisites, needs: prerequisite[item.lane],
+    ...(receiptEnv ? { env: receiptEnv } : {}),
     verify: ["node", "scripts/ci/wave6-gates.mjs", "--case", item.id, "--report", `.data-ci-lane/${item.id}.json`] };
 }
 /** Printing does not enable gates, load credentials, start engines or call providers. */
@@ -41,7 +52,22 @@ export function commandsForRequirement(id) {
     const batch = contracts.slice(at, at + 8).filter(file => !file.startsWith("scripts/acceptance/live/dns/"));
     if (batch.length) commands.push({ argv: ["node", "node_modules/vitest/vitest.mjs", "run", ...batch, "--no-file-parallelism", "--maxWorkers=2"], needs: "Local contract/PGlite only; skipped engine assertions remain unverified." });
   }
-  if (files.some(file => file.endsWith("journey.spec.mjs"))) commands.push({ argv: ["node", "scripts/acceptance/default-journey.mjs", "--config", "<absolute-private-J2-config.json>", "--receipt", "<new-private-J2-receipt.json>"], gates: ["ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1"], needs: prerequisite.browser });
+  if (files.some(file => file.endsWith("journey.spec.mjs"))) {
+    const uxReceipt = id === "PROD-UX-01";
+    commands.push({
+      argv: ["node", "scripts/acceptance/default-journey.mjs", "--config", "<absolute-private-J2-config.json>", "--receipt", "<absolute-new-private-J2-receipt.json>"],
+      gates: ["ZENITH_DEFAULT_JOURNEY=1", "ZENITH_ACCEPTANCE_DEFAULT_STACK=1", ...(uxReceipt ? ["ZENITH_UX01_BROWSER=1"] : [])],
+      ...(uxReceipt ? { env: {
+        ZENITH_DEFAULT_JOURNEY: "1",
+        ZENITH_ACCEPTANCE_DEFAULT_STACK: "1",
+        ZENITH_UX01_BROWSER: "1",
+        ZENITH_UX01_CHROME: "<absolute-actual-Chrome-executable>",
+        ZENITH_UX01_RECEIPT: "<absolute-new-private-UX-receipt.json>",
+        ZENITH_JOURNEY_RECEIPT: "<absolute-new-private-J2-receipt.json>",
+      } } : {}),
+      needs: prerequisite.browser,
+    });
+  }
   if (files.includes("scripts/acceptance/live/dns/offline.test.ts")) commands.push({ argv: ["node", "node_modules/vitest/vitest.mjs", "run", "scripts/acceptance/live/dns/offline.test.ts", "--config", "scripts/acceptance/live/dns/vitest.config.ts", "--no-file-parallelism", "--maxWorkers=2"], needs: "Offline DNS transport contracts." });
   commands.push(...WAVE6.gatedCases.filter(item => files.includes(item.file)).map(commandFor));
   return { requirement: id, status: "implementation_complete_verification_pending", execution: "Sequential, Node 22; Docker Desktop 4 GiB, one kind node, no concurrent profiles; live deferred.", commands };

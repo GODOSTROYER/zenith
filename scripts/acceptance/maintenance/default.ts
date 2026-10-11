@@ -6,12 +6,16 @@ import { readFile } from "node:fs/promises";
 import { Client, Connection, ScheduleNotFoundError } from "@temporalio/client";
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import { withLease } from "@/lib/controlplane/leases";
+import { CRITICAL_JOBS } from "@/lib/platform/critical-jobs";
 import { assertCompatibleCriticalSchedule, CRITICAL_SCHEDULE_ID } from "@/lib/workflows/critical-schedule";
 import { assertCompatibleReconcileSchedule, RECONCILE_SCHEDULE_ID } from "@/lib/workflows/reconcile-schedule";
 import { TASK_QUEUE } from "@/lib/workflows/types";
 import { assignPlan } from "@/lib/billing/store";
 import { DEFAULT_PLAN_ID } from "@/lib/billing/plans";
 import { localUrl, CORE_JOBS, assertMaintenancePreconditions, seededEpoch } from "./preconditions";
+
+// Durable-only maintenance entries with no HTTP fallback route.
+const ADDENDA_JOBS = ["key-rewrap", "data-minimize", "data-retention", "managed-serving"] as const;
 
 async function wait<T>(read: () => Promise<T | false>, budgetMs = 180_000): Promise<T> {
   const deadline = Date.now() + budgetMs;
@@ -56,6 +60,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, children: workerClosures, graceful: false as boolean };
   const ownedSchedules: string[] = [];
   const workspaceId = `j4-billing-${randomUUID()}`;
+  const observedJobs = [...CORE_JOBS, "billing", ...ADDENDA_JOBS] as const;
   try {
     const epoch = await assertMaintenancePreconditions(db, process.env);
     connection = await Connection.connect({ address: process.env.ZENITH_TEMPORAL_ADDRESS });
@@ -87,7 +92,28 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     const healthy = async (minimum: number) => {
       assert(worker?.exitCode === null && worker?.signalCode === null, "Owned worker exited.");
       const rows = await repos.scheduledJobs.listScheduledJobs(db);
-      return [...CORE_JOBS, "billing"].every(job => rows.some(row => row.job === job && row.runsTotal >= minimum && row.lastStatus === "ok" && row.lastSuccessSource === "temporal")) ? rows : false;
+      return observedJobs.every(job => rows.some(row => row.job === job && row.runsTotal >= minimum && row.lastStatus === "ok" && row.lastSuccessSource === "temporal")) ? rows : false;
+    };
+    const assertAddendumNoOverlap = async (job: typeof ADDENDA_JOBS[number], alsoBusy: readonly string[] = [], signals: readonly AbortSignal[] = []) => {
+      await withLease(db, { scope: `critical-job:${job}`, holder: `test:j4:${job}:${randomUUID()}`, ttlMs: CRITICAL_JOBS[job].leaseTtlMs }, async (_lease, leaseSignal) => {
+        const before = await repos.scheduledJobs.getScheduledJob(db, job);
+        assert(before, `No successful run record exists for ${job}.`);
+        const actions = (await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe()).info.numActionsTaken;
+        await wait(async () => {
+          leaseSignal.throwIfAborted();
+          for (const signal of signals) signal.throwIfAborted();
+          const current = await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe();
+          if (current.info.numActionsTaken <= actions || current.info.runningActions.length) return false;
+          const recent = current.info.recentActions.at(-1);
+          assert(recent?.action.type === "startWorkflow", "Natural action is absent.");
+          const result = await client.workflow.getHandle(recent.action.workflow.workflowId, recent.action.workflow.firstExecutionRunId).result() as Record<string, string>;
+          assert(result[job] === "busy", `Natural maintenance action overlapped the held ${job} lease.`);
+          assert(alsoBusy.every(name => result[name] === "busy"), "Natural maintenance action overlapped a held core-job lease.");
+          const after = await repos.scheduledJobs.getScheduledJob(db, job);
+          assert(after?.runsTotal === before.runsTotal, `A run record was added while the ${job} lease was held.`);
+          return true;
+        }, 90_000);
+      });
     };
     ownedSchedules.push(CRITICAL_SCHEDULE_ID, RECONCILE_SCHEDULE_ID);
     start();
@@ -106,19 +132,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       await withLease(db, { scope: "critical-job:billing", holder: `test:j4:${randomUUID()}`, ttlMs: 120_000 }, async (_billingLease, billingSignal) => {
         const before = (await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.runsTotal;
         const billingBefore = (await repos.scheduledJobs.getScheduledJob(db, "billing"))!.runsTotal;
-        const actions = (await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe()).info.numActionsTaken;
-        await wait(async () => {
-          signal.throwIfAborted();
-          billingSignal.throwIfAborted();
-          const current = await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe();
-          if (current.info.numActionsTaken <= actions || current.info.runningActions.length) return false;
-          const recent = current.info.recentActions.at(-1);
-          assert(recent?.action.type === "startWorkflow", "Natural action is absent.");
-          const result = await client.workflow.getHandle(recent.action.workflow.workflowId, recent.action.workflow.firstExecutionRunId).result() as { runbooks: string; billing: string };
-          assert(result.runbooks === "busy", "Natural default runbooks pass overlapped the held lease.");
-          assert(result.billing === "busy", "Natural default billing pass overlapped the held lease.");
-          return true;
-        });
+        await assertAddendumNoOverlap(ADDENDA_JOBS[0], ["runbooks", "billing"], [signal, billingSignal]);
         const fallback = await http("/api/internal/tick/runbooks");
         assert(["busy", "durable_current"].includes(String(fallback.deferred)), "HTTP fallback did not defer.");
         assert((await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.runsTotal === before, "A second runbook pass overlapped.");
@@ -127,6 +141,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
         assert((await repos.scheduledJobs.getScheduledJob(db, "billing"))!.runsTotal === billingBefore, "A second billing pass overlapped.");
       });
     });
+    for (const job of ADDENDA_JOBS.slice(1)) await assertAddendumNoOverlap(job);
     const firstCloseout = await stopOwnedWorker(worker!);
     assert(firstCloseout, "Owned worker closeout proof is unavailable.");
     workerClosures.push(firstCloseout); worker = undefined;
@@ -148,16 +163,18 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     start();
     const after = await wait(async () => {
       const rows = await healthy(2);
-      return rows && [...CORE_JOBS, "billing"].every(job => rows.find(r => r.job === job)!.runsTotal > beforeRestart.find(r => r.job === job)!.runsTotal) ? rows : false;
+      return rows && observedJobs.every(job => rows.find(r => r.job === job)!.runsTotal > beforeRestart.find(r => r.job === job)!.runsTotal) ? rows : false;
     });
     const recovered = await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe();
     assertCompatibleCriticalSchedule(recovered);
     assert(recovered.info.numActionsTaken >= previousActions, "Schedule history did not survive worker restart.");
     assert(after.find(r => r.job === "housekeeping")!.missedTicksTotal > 0, "Natural outage was not counted.");
+    assert(ADDENDA_JOBS.every(job => after.find(r => r.job === job)!.missedTicksTotal > beforeRestart.find(r => r.job === job)!.missedTicksTotal),
+      "A durable-only addendum did not record missed ticks across the worker outage.");
     const status = await http("/api/internal/tick/status");
-    assert(Array.isArray(status.jobs) && [...CORE_JOBS, "billing"].every(job => (status.jobs as { job: string; durable: boolean; state: string }[]).some(row => row.job === job && row.durable && row.state === "healthy")), "Default API health does not match durable readback.");
+    assert(Array.isArray(status.jobs) && observedJobs.every(job => (status.jobs as { job: string; durable: boolean; state: string }[]).some(row => row.job === job && row.durable && row.state === "healthy")), "Default API health does not match durable readback.");
     assert(await seededEpoch(db) === epoch, "Published cleanup epoch changed.");
-    return { schema: 1, level: "local_engine", runId: hostWorkerClosure.runId, naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, housekeepingEffect: true, epochPreserved: true, hostWorkerClosure };
+    return { schema: 1, level: "local_engine", runId: hostWorkerClosure.runId, naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, maintenanceAddenda: [...ADDENDA_JOBS], addendaLeaseExclusion: true, addendaRestartCatchup: true, housekeepingEffect: true, epochPreserved: true, hostWorkerClosure };
   } finally {
     const errors: unknown[] = [];
     // Drain while our worker is still alive. A cleanup failure never prevents stopping our child.

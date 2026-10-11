@@ -15,7 +15,7 @@ import { localPaths, assertLocalDocker, waitFor } from "../local-environment";
 import { requiredChecks, validateLocalReceipt, type LocalReceipt, type SourceBoundLocalReceipt, localEnvironment } from "../local-targets";
 import { DRIVER_CHECKS, OPERATED_LABEL, OwnedCleanup, driverPlan, operatedReceipt, observerBinding, type DriverScenario } from "./operated-contract";
 
-import { DRIVER_CHECKS as TENANT_EXPORT_CHECKS, OwnedCleanup as TenantExportCleanup, receiptExit, validateOperatedReceipt, type DriverScenario as TenantExportScenario, type OperatedReceipt as TenantExportReceipt } from "./protocol";
+import { DRIVER_CHECKS as TENANT_EXPORT_CHECKS, DRIVER_LIMITS as TENANT_EXPORT_LIMITS, CleanupBlocker as TenantExportCleanupBlocker, OwnedCleanup as TenantExportCleanup, receiptExit, settleAfterQuiescence, validateOperatedReceipt, type DriverScenario as TenantExportScenario, type OperatedReceipt as TenantExportReceipt } from "./protocol";
 
 import { ports } from "../../acceptance/default-stack/config.mjs";
 import { hostEnvironment } from "../../acceptance/default-stack/env.mjs";
@@ -298,11 +298,12 @@ function upgradeRestoreReceiptFor(input: DriverInput, checks: LocalReceipt["chec
     limits: ["Owned local operated rehearsal. No live cloud, production acceptance or release approval.",
       "Lean profile: one API and one worker; pauses are observable, no high availability claim.",
       "J2 kind target and real browser identities; local Kubernetes credentials stay in the tenant vault."] };
-  return validateLocalReceipt(receipt, input);
+  return validateLocalReceipt(receipt, { scenarioId: input.scenarioId as OperatedScenario, runId: input.runId, sourceCommit: input.sourceCommit });
 }
 
 export class UpgradeRestoreSession {
   readonly facts: LocalReceipt["checks"] = [];
+  private cleanupBlocked = false;
   readonly privateFiles: string[] = [];
   readonly finalizers: (() => Promise<void>)[] = [];
   state!: ReturnType<typeof readState>;
@@ -322,7 +323,10 @@ export class UpgradeRestoreSession {
   constructor(readonly input: DriverInput) {}
   async step(id: string, work: () => Promise<void>): Promise<void> {
     try { await work(); this.facts.push({ id, status: "passed" }); }
-    catch { this.facts.push({ id, status: "failed" }); throw new Error("operated:" + id); }
+    catch {
+      if (id === "operator-cli-route" || id === "fresh-restore") this.cleanupBlocked = true;
+      this.facts.push({ id, status: "failed" }); throw new Error("operated:" + id);
+    }
   }
   privateJson(name: string, value: unknown): string {
     const file = path.join(this.input.env.ZENITH_LOCAL_ROOT!, `${this.input.scenarioId}-${name}.json`);
@@ -487,6 +491,8 @@ export class UpgradeRestoreSession {
     }, 360_000);
   }
   async finish(): Promise<void> {
+    // Keep the entire owned fixture and private evidence for parent settlement after uncertain restore CLI activity.
+    if (this.cleanupBlocked) throw new Error("operated:cleanup-retained-for-parent-settlement");
     await finishOwned([
       async () => { if (this.browser) await this.browser.close(); },
       ...this.finalizers,
@@ -802,17 +808,23 @@ async function sourceDriverCli(run: (receipt: string, env?: NodeJS.ProcessEnv) =
 // Keep each driver's original public API while dispatching to its closed protocol.
 type DriftCrashArguments = Parameters<typeof runDriftCrashOperated>;
 type SourceArguments = Parameters<typeof runSourceOperated>;
-type TenantExportArguments = [input: DriverInput, work: (context: OperatedContext) => Promise<void>, limits: readonly string[]];
+type TenantExportArguments = [input: DriverInput, work: (context: OperatedContext) => Promise<void>];
+type BoundTenantExportArguments = [input: DriverInput & { scenarioId: TenantExportScenario }, work: (context: OperatedContext) => Promise<void>];
+type RunOperatedArguments = DriftCrashArguments | SourceArguments | TenantExportArguments;
+function isTenantExportArguments(args: RunOperatedArguments): args is BoundTenantExportArguments {
+  return args.length === 2 && (args[0].scenarioId === "two-tenants" || args[0].scenarioId === "export");
+}
+function isDriftCrashArguments(args: RunOperatedArguments): args is DriftCrashArguments {
+  return args.length === 2 && (args[0].scenarioId === "drift-repair" || args[0].scenarioId === "crash-partition");
+}
 export function runOperated(...args: DriftCrashArguments): Promise<number>;
 export function runOperated(...args: SourceArguments): Promise<number>;
 export function runOperated(...args: TenantExportArguments): Promise<number>;
-export function runOperated(...args: DriftCrashArguments | SourceArguments | TenantExportArguments): Promise<number> {
-  if (args.length === 3) {
-    const [input, work, limits] = args;
-    ensure(input.scenarioId === "two-tenants" || input.scenarioId === "export", "tenant-export-scenario");
-    return runTenantExportOperated(input as TenantExportInput, work, limits);
-  }
-  return args.length === 5 ? runSourceOperated(...args) : runDriftCrashOperated(...args);
+export function runOperated(...args: RunOperatedArguments): Promise<number> {
+  if (isTenantExportArguments(args)) return runTenantExportOperated(...args);
+  if (isDriftCrashArguments(args)) return runDriftCrashOperated(...args);
+  if (args.length === 5) return runSourceOperated(...args);
+  throw new Error("operated:invalid-driver-arguments");
 }
 type UpgradeRestoreReceiptArguments = Parameters<typeof upgradeRestoreReceiptFor>;
 type SourceReceiptArguments = Parameters<typeof sourceReceiptFor>;
@@ -840,12 +852,12 @@ export interface Tenant {
   operationId?: string; deploymentId?: string;
 }
 export interface OperatedContext {
-  config: JourneyConfig; stack: Stack; browser: Browser; scratch: string; input: TenantExportInput; cleanup: TenantExportCleanup;
+  config: JourneyConfig; stack: Stack; browser: Browser; scratch: string; input: TenantExportInput; cleanup: TenantExportCleanup; quiescence: TenantExportCleanup; cleanupBlocked: TenantExportCleanupBlocker;
   readbacks: Record<string, string>; step(id: string, work: () => Promise<void>): Promise<void>;
   dataRoundtrips: NonNullable<TenantExportReceipt["dataRoundtrips"]>;
 }
 
-async function runTenantExportOperated(input: TenantExportInput, work: (context: OperatedContext) => Promise<void>, limits: readonly string[]): Promise<number> {
+async function runTenantExportOperated(input: TenantExportInput, work: (context: OperatedContext) => Promise<void>): Promise<number> {
   // No config, auth, filesystem, subprocess or network access before explicit opt-in.
   if (input.env.ZENITH_LOCAL_DRIVER_D4 !== "1" || input.env.ZENITH_LOCAL_JOINED_DRIVERS !== "1"
     || input.env.ZENITH_ACCEPTANCE_DEFAULT_STACK !== "1" || input.env.ZENITH_DEFAULT_JOURNEY !== "1") return 2;
@@ -861,15 +873,17 @@ async function runTenantExportOperated(input: TenantExportInput, work: (context:
   ensure(source.head === input.sourceCommit, "source-commit-binding");
   const receipt: TenantExportReceipt = { schema: 1, evidenceLabel: OPERATED_LABEL, scenarioId: input.scenarioId, runId: input.runId,
     sourceCommit: source.head, sourceDigest: source.contentSha256, checks: TENANT_EXPORT_CHECKS[input.scenarioId].map(id => ({ id, status: "skipped" })),
-    readbacks: {}, limits: ["Owned local operated rehearsal only. No live cloud, production signoff or commercial acceptance.", ...limits] };
-  const cleanup = new TenantExportCleanup();
+    readbacks: {}, limits: [...TENANT_EXPORT_LIMITS[input.scenarioId]] };
+  const cleanupBlocked = new TenantExportCleanupBlocker();
+  const cleanup = new TenantExportCleanup(cleanupBlocked);
+  const quiescence = new TenantExportCleanup();
+  let context: OperatedContext | undefined;
   const step = async (id: string, fn: () => Promise<void>) => {
     const check = receipt.checks.find(item => item.id === id);
     ensure(check?.status === "skipped", "check-inventory");
     try { await fn(); check!.status = "passed"; } catch { check!.status = "failed"; throw new Error("Operated driver check failed"); }
   };
   try {
-    let context!: OperatedContext;
     await step("preconditions", async () => {
       ensure(process.platform === "darwin" && process.arch === "arm64", "native-mac-required");
       privateLocation(input.receiptFile);
@@ -903,8 +917,9 @@ async function runTenantExportOperated(input: TenantExportInput, work: (context:
       const browser = await chromium.launch({ headless: true });
       cleanup.add(async () => { await browser.close(); });
       const dataRoundtrips = input.scenarioId === "export" ? (receipt.dataRoundtrips = {}) : {};
-      context = { config, stack, browser, scratch, input, cleanup, readbacks: receipt.readbacks, dataRoundtrips, step };
+      context = { config, stack, browser, scratch, input, cleanup, quiescence, cleanupBlocked, readbacks: receipt.readbacks, dataRoundtrips, step };
     });
+    if (!context) throw new Error("Operated context was not initialized");
     await work(context);
     await step("source-stable", async () => { ensure(JSON.stringify(sourceBinding()) === JSON.stringify(source), "source-drift"); });
   } catch {
@@ -915,9 +930,10 @@ async function runTenantExportOperated(input: TenantExportInput, work: (context:
     }
   }
   finally {
-    const clean = await cleanup.settle();
-    receipt.checks.find(item => item.id === "owned-cleanup")!.status = clean && receipt.checks[0].status === "passed" ? "passed" : "failed";
-    validateOperatedReceipt(receipt, input);
+    const settled = await settleAfterQuiescence(quiescence, cleanup, cleanupBlocked);
+    if (!settled.quiesced) { try { await context?.browser.close(); } catch { /* preserve owned fixtures and their diagnostic state */ } }
+    receipt.checks.find(item => item.id === "owned-cleanup")!.status = settled.clean && receipt.checks[0].status === "passed" ? "passed" : "failed";
+    validateOperatedReceipt(receipt, { scenarioId: input.scenarioId, runId: input.runId, sourceCommit: input.sourceCommit, sourceDigest: source.contentSha256 });
     writeFileSync(input.receiptFile, JSON.stringify(receipt, null, 2) + "\n", { mode: 0o600, flag: "wx" });
   }
   return receiptExit(receipt);

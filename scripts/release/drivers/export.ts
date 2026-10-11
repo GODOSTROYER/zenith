@@ -199,9 +199,6 @@ export async function runExport(input: DriverInput): Promise<number> {
       ctx.readbacks.portable = sha256({ name, encrypted, blocked, groups });
       ensure(sha256(bundle.files.map(file => ({ path: file.path, content: readFileSync(path.join(directory, file.path), "utf8") }))) === ctx.readbacks.bundle, "export-bytes-unchanged-after-apply");
     });
-  }, ["Local operated SQL/object data roundtrips plus LocalStack infrastructure export and independent OpenTofu1.12.5 apply. No vault value or access/session portability is claimed.",
-    "LIFE-11 aws descriptors select the SQL/S3 compatibility engines for owned local containers. No AWS resource provisioning or real cloud-provider observation is claimed; a second real cloud provider remains live-deferred.",
-    "J1 lean; database pairs run sequentially with two MinIO fixtures, settled before the 512 MiB LocalStack leg. Resource limits are plans, not measured host fitness; no production HA claim.",
-    "The exported AWS~5/random~3 provider constraints are preserved; init needs the verifier's provider cache or registry downloads. No real cloud API is used."]);
+  });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void runDriverCli("export", runExport).then(code => { process.exitCode = code; });

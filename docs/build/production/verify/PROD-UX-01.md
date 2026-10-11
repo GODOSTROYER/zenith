@@ -329,3 +329,10 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-UX-01 --print > /tmp/zenith-w
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+
+## Wave 6 UX receipt mapping
+
+Wave 6 maps `tests/e2e/default/ux-receipt.test.ts` and `tests/e2e/default/ux-receipt-gated.test.ts` to `PROD-UX-01`; the actual-browser receipt gate is `wave6-03be46338cbeb148`. The contract test checks the closed receipt schema. The gated test validates the private UX receipt against the completed, source-bound J2 journey receipt and actual Wave 6 report.
+
+This evidence records seven audited screens at the defined desktop and mobile viewports. The planned uncertainty scenario remains `not_run`, so the UX receipt result is `incomplete`; this mapping does not establish full UX acceptance.

@@ -31,6 +31,7 @@ import { RunCheckpoint, fileStore, type CheckpointStore } from "./checkpoint";
 import { REQUIRED_SCENARIO_IDS, SCENARIOS, allLaneFiles, type Lane, type LiveLane, type LocalCommandLane, type Scenario } from "./scenarios";
 import { Scope, ScopeError, defaultManifestPath, loadScope } from "./scope";
 import { localTargetLane, validateLocalReceipt, localEnvironment } from "./local-targets";
+import { sourceBinding } from "../deploy/installation.mjs";
 
 export type LaneStatus = "passed" | "passed_with_skips" | "no_tests" | "failed" | "not_run" | "deferred" | "skipped" | "passed_live";
 export interface LaneResult { scenarioId: string; laneId: string; kind: Lane["kind"]; status: LaneStatus; detail: string; counts?: { passed: number; failed: number; skipped: number }; command?: string[]; missingGates?: string[]; evidenceLabel?: LocalCommandLane["evidenceLabel"]; limits?: string[] }
@@ -179,7 +180,7 @@ export async function runAcceptance(options: RunOptions, deps: RunDeps = {}): Pr
       if (lane.kind === "live_sandbox") result = await liveLane(scenario, lane, { options, exec, env, scope, scopeRefusal, readFile });
       else {
         checkpoint.begin(id);
-        result = "command" in lane ? await localCommandLane(scenario, lane, { options, exec, env, readFile, sourceCommit }) : await localLane(scenario, lane, { options, exec, env, readFile });
+        result = "command" in lane ? await localCommandLane(scenario, lane, { options, exec, env, readFile, sourceCommit, ...(scenario.id === "two-tenants" || scenario.id === "export" ? { sourceDigest: sourceBinding().contentSha256 } : {}) }) : await localLane(scenario, lane, { options, exec, env, readFile });
       }
       lanes.push(result);
       if (result.status === "passed" || result.status === "passed_live") {
@@ -297,7 +298,7 @@ export function sourceFingerprint(root: string): string {
 }
 
 async function localCommandLane(scenario: Scenario, lane: LocalCommandLane, ctx: {
-  options: RunOptions; exec: Exec; env: Readonly<Record<string, string | undefined>>; readFile: (file: string) => string; sourceCommit: string | null;
+  options: RunOptions; exec: Exec; env: Readonly<Record<string, string | undefined>>; readFile: (file: string) => string; sourceCommit: string | null; sourceDigest?: string;
 }): Promise<LaneResult> {
   const base = { scenarioId: scenario.id, laneId: lane.id, kind: "local_engine" as const, evidenceLabel: lane.evidenceLabel };
   const gates = missingGates(lane, ctx.env);
@@ -309,7 +310,7 @@ async function localCommandLane(scenario: Scenario, lane: LocalCommandLane, ctx:
   if (run.code === 2) return { ...base, command: argv, status: "skipped", detail: "Local target declined: needs its joined scenario driver and prerequisites. Not run, not counted." };
   let receipt;
   try {
-    receipt = validateLocalReceipt(JSON.parse(ctx.readFile(out)), { scenarioId: scenario.id, runId: ctx.options.runId, sourceCommit: ctx.sourceCommit ?? "" });
+    receipt = validateLocalReceipt(JSON.parse(ctx.readFile(out)), { scenarioId: scenario.id, runId: ctx.options.runId, sourceCommit: ctx.sourceCommit ?? "", ...(scenario.id === "two-tenants" || scenario.id === "export" ? { sourceDigest: ctx.sourceDigest } : {}) });
     if (receipt.evidenceLabel !== lane.evidenceLabel) throw new Error("Local evidence label mismatch");
   } catch {
     return { ...base, command: argv, status: "failed", detail: `Local target exited ${run.code} without a valid source/run/scenario-bound receipt.` };

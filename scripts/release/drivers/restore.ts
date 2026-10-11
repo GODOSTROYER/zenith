@@ -2,16 +2,59 @@
 import { cpSync, existsSync, lstatSync, realpathSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import { spawn } from "node:child_process";
 import { openPlatformDb } from "@/lib/controlplane/db";
 import { KeyRing } from "@/lib/keycustody/registry";
 import { captureBackup } from "@/lib/ops/recovery/backup";
 import { verifyBackupDirectory, type BackupManifest } from "@/lib/ops/recovery/manifest";
 import { runRestore, type RestoreOptions, type RestoreReport } from "@/lib/ops/recovery/restore";
+import { RECOVERY_REPORT_FORMAT } from "@/lib/ops/recovery/report";
 import { execRunner, pgArgs, toolsFromEnv } from "@/lib/ops/recovery/process";
 import { compose } from "../../acceptance/default-stack/runtime.mjs";
 import { browserRequest, ensure, kindReadback, ok } from "../../../tests/e2e/default/support.mjs";
 import { restoreDatabaseName } from "./contracts";
 import { operatedRun, driverCli, type DriverInput } from "./operated";
+
+const RESTORE_CLI_OUTPUT_LIMIT = 64 * 1024;
+interface RestoreCliResult { exitCode: number | null; signal: NodeJS.Signals | null; stdout: string; stderr: string; overflow: boolean; timedOut: boolean; launchFailed: boolean; streamFailed: boolean }
+/** Capture complete bounded streams and resolve only after the direct child emits `close`. */
+function runRestoreCli(argv: readonly string[], env: NodeJS.ProcessEnv): Promise<RestoreCliResult> {
+  const child = spawn(argv[0]!, argv.slice(1), {
+    cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"], shell: false, windowsHide: true, detached: false,
+  });
+  return new Promise(resolve => {
+    const stdout: Buffer[] = [], stderr: Buffer[] = [];
+    let stdoutBytes = 0, stderrBytes = 0;
+    let overflow = false, timedOut = false, launchFailed = false, streamFailed = false;
+    let terminationStarted = false;
+    let forceTimer: NodeJS.Timeout | undefined;
+    const terminate = () => {
+      if (terminationStarted) return;
+      terminationStarted = true;
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+      forceTimer = setTimeout(() => {
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      }, 5_000);
+    };
+    const timeout = setTimeout(() => { timedOut = true; terminate(); }, 1_080_000);
+    const capture = (chunks: Buffer[], chunk: Buffer, stream: "stdout" | "stderr") => {
+      const current = stream === "stdout" ? stdoutBytes : stderrBytes;
+      if (current + chunk.length > RESTORE_CLI_OUTPUT_LIMIT) { overflow = true; terminate(); return; }
+      chunks.push(Buffer.from(chunk));
+      if (stream === "stdout") stdoutBytes += chunk.length; else stderrBytes += chunk.length;
+    };
+    child.stdout.on("data", (chunk: Buffer) => capture(stdout, chunk, "stdout"));
+    child.stderr.on("data", (chunk: Buffer) => capture(stderr, chunk, "stderr"));
+    child.stdout.on("error", () => { streamFailed = true; terminate(); });
+    child.stderr.on("error", () => { streamFailed = true; terminate(); });
+    child.once("error", () => { launchFailed = true; });
+    child.once("close", (exitCode, signal) => {
+      clearTimeout(timeout);
+      if (forceTimer) clearTimeout(forceTimer);
+      resolve({ exitCode, signal, stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8"), overflow, timedOut, launchFailed, streamFailed });
+    });
+  });
+}
 
 export function requireRefusal(report: Pick<RestoreReport, "ok" | "steps">, step: string): void {
   if (report.ok || !report.steps.some(s => s.id === step && s.status === "refused")
@@ -99,7 +142,7 @@ export async function runRestoreScenario(input: DriverInput): Promise<number> {
       const rows = await session.db.query<{ n: number }>("select count(*)::int as n from platform.operations where workspace_id=$1 and id=$2 and status='succeeded'", [session.workspaceId, operationId]);
       ensure(rows[0].n === 1, "source-not-overwritten");
     });
-    await session.step("fresh-restore", async () => {
+    await session.step("operator-cli-route", async () => {
       // Recovery's product/public snapshot references real Auth users and extensions.
       // Copy those prerequisites to the same fresh DB, not a second modeled identity.
       const authDump = path.join(root, "restore-auth.dump"); session.privateFiles.push(authDump);
@@ -110,7 +153,40 @@ export async function runRestoreScenario(input: DriverInput): Promise<number> {
       try { await fresh.query("drop schema public"); } finally { await fresh.close(); }
       const auth = await execRunner(tools.pgRestore, [...targetConnection.args, "--no-owner", "--exit-on-error", "--single-transaction", authDump], { env: targetConnection.env });
       ensure(auth.code === 0, "auth-prerequisites-restored");
-      report = await runRestore(deps, options);
+      const targetUrlEnv = "ZENITH_OPERATED_RESTORE_TARGET_URL";
+      const argv = ["restore", "--backup", backup, "--target-url-env", targetUrlEnv,
+        "--run-id", options.runId, "--actor", options.actor, "--reason", options.reason,
+        "--report", options.reportFile, "--confirm-customer-state",
+        "--observed-epoch", String(options.observedEpoch), "--temporal-namespace", namespace,
+        "--temporal-address", temporal.address!, "--terminate-temporal"];
+      const sourceUrl = session.environment.ZENITH_PLATFORM_DB_URL!;
+      const privateValues = Object.entries(session.environment)
+        .filter(([key, value]) => value !== undefined && value !== "" && /(PASSWORD|TOKEN|SECRET|CREDENTIAL|KEY|JWK|SUPABASE.*DB_URL|ZENITH_PLATFORM_DB_URL|DATABASE_URL|POSTGRES.*URL)/i.test(key))
+        .map(([, value]) => value!);
+      ensure(argv[argv.indexOf("--target-url-env") + 1] === targetUrlEnv
+        && !argv.some(arg => arg.includes(target.href) || arg.includes(sourceUrl) || privateValues.some(value => arg.includes(value))), "restore-cli-target-env-only");
+      // No detached child/session: direct exit/signal are recorded only from `close`.
+      // This is not descendant custody; the outer R17 acceptance must prove CLI descendants closed before cleanup.
+      const result = await runRestoreCli(
+        [process.execPath, "node_modules/tsx/dist/cli.mjs", "scripts/ops/recovery.ts", ...argv],
+        { ...session.environment, [targetUrlEnv]: target.href },
+      );
+      ensure(result.exitCode === 0 && result.signal === null && !result.timedOut && !result.overflow
+        && !result.launchFailed && !result.streamFailed, "restore-cli-closed-without-overflow");
+      const transcript = `${result.stdout}\n${result.stderr}`;
+      ensure(!transcript.includes(target.href) && !transcript.includes(sourceUrl)
+        && privateValues.every(value => !transcript.includes(value)), "restore-cli-output-redaction");
+      const parsedReport: unknown = JSON.parse(readFileSync(options.reportFile, "utf8"));
+      ensure(parsedReport !== null && typeof parsedReport === "object" && !Array.isArray(parsedReport), "restore-cli-report-shape");
+      const candidate = parsedReport as Partial<RestoreReport>;
+      ensure(candidate.format === RECOVERY_REPORT_FORMAT && candidate.runId === options.runId
+        && candidate.backupId === manifest.backupId && candidate.manifestDigest === manifest.digest, "restore-cli-report-binding");
+      report = candidate as RestoreReport;
+      const reportText = JSON.stringify(report);
+      ensure(!reportText.includes(target.href) && !reportText.includes(sourceUrl)
+        && privateValues.every(value => !reportText.includes(value)), "restore-cli-report-redaction");
+    });
+    await session.step("fresh-restore", async () => {
       ensure(report.ok && report.epoch! > manifest.platform.recoveryEpoch
         && ["verify", "keys", "empty", "restore", "facts", "epoch", "temporal"].every(id => report.steps.some(s => s.id === id && s.status === "ok")), "actual-fresh-restore");
     });

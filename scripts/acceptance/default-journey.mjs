@@ -16,7 +16,7 @@ export function run(args = process.argv.slice(2)) {
     process.stdout.write(JSON.stringify(receipt({ checks: [{ id: 'prerequisites', status: 'skipped' }] })) + '\n');
     return 0;
   }
-  let config, output, scratch;
+  let config, output, scratch, scratchRemovalAuthorized = false;
   while (args.length) {
     const flag = args.shift(), value = args.shift();
     if (!value) fail('usage');
@@ -66,8 +66,10 @@ export function run(args = process.argv.slice(2)) {
         ZENITH_JOURNEY_SOURCE: sourceFile, ZENITH_JOURNEY_SCRATCH: scratch },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    if (child.error || child.signal || child.status === null) fail('child-settlement-unconfirmed');
     if (!fs.existsSync(output)) fail('no-receipt');
     let result = JSON.parse(fs.readFileSync(output, 'utf8'));
+    if (!Array.isArray(result.checks) || typeof result.status !== 'string') fail('receipt-invalid');
     if (JSON.stringify(bind()) !== JSON.stringify(initial)) {
       // Replace only this invocation's newly created receipt; never preserve
       // a claimed pass after the tested source changed under a running stack.
@@ -75,6 +77,9 @@ export function run(args = process.argv.slice(2)) {
       result = writeReceipt(output, { ...source, checks: result.checks.map(check =>
         check.id === 'prerequisites' ? { id: check.id, status: 'failed' } : check) });
     }
+    const candidateCheckFailed = result.checks.some(check =>
+      ['two-operator-workspace', 'cleanup'].includes(check.id) && check.status === 'failed');
+    scratchRemovalAuthorized = !candidateCheckFailed;
     process.stdout.write(JSON.stringify({ status: result.status, counts: result.counts, ledgerEligible: result.ledgerEligible }) + '\n');
     return child.status === 0 && result.status === 'passed' ? 0 : 1;
   } catch {
@@ -82,7 +87,12 @@ export function run(args = process.argv.slice(2)) {
     process.stdout.write('journey:failed; inspect the sanitized receipt and prerequisite runbook\n');
     return 1;
   } finally {
-    if (scratch) fs.rmSync(scratch, { recursive: true, force: true });
+    if (scratch && scratchRemovalAuthorized) {
+      let markerAbsent = false;
+      try { fs.lstatSync(path.join(scratch, 'RETAIN-RUNNER-CUSTODY')); }
+      catch (error) { markerAbsent = error?.code === 'ENOENT'; }
+      if (markerAbsent) fs.rmSync(scratch, { recursive: true, force: true });
+    }
   }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

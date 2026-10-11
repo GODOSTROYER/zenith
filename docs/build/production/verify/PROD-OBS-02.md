@@ -45,3 +45,8 @@ Expected: all pass. No env vars needed (fake sources and fake machine drivers; t
 
 ## 5. Suggested ledger implementationStatus
 `implemented_contract_tested: typed telemetry envelope with scope/session/observedAt/freshness/provenance and explicit fresh/stale/empty/unknown/inaccessible states on fabric logs/metrics/events/traces, resource health and machine health; contract and fake-engine tests only, no live provider run`
+
+
+## Wave 6 J2 receipt mapping
+
+The canonical `PROD-OBS-02` requirement maps the J2 operated journey and receipt contract to `tests/e2e/default/journey.spec.mjs` and `tests/e2e/default/receipt.test.ts`. Gate `wave6-0e2f61ae68595277` checks the private J2 receipt's completed `machine-health-provenance-readback` check and its `obs02` readback hash. Its verifier requires a clean, native, complete receipt; a contract or inventory entry alone does not establish runtime acceptance.

@@ -4,7 +4,7 @@ import path from "node:path";
 import catalog from "../../deploy/acceptance/local-targets/scenarios.json";
 import type { LocalCommandLane, Scenario } from "./scenarios";
 import { DRIVER_CHECKS, OperatedReceiptSchema, OPERATED_LABEL } from "./drivers/operated-contract";
-import { DRIVER_CHECKS as TENANT_EXPORT_CHECKS, validateOperatedReceipt as validateTenantExportReceipt } from "./drivers/protocol";
+import { DRIVER_CHECKS as TENANT_EXPORT_CHECKS, validateOperatedReceipt as validateTenantExportReceipt, type LocalReceiptBinding } from "./drivers/protocol";
 import { OPERATED_CHECKS as UPGRADE_RESTORE_CHECKS, operatedScenario } from "./drivers/contracts";
 
 export { OPERATED_LABEL };
@@ -80,8 +80,12 @@ export function requiredChecks(scenarioId: string): readonly string[] {
   return scenarioId === "mixed-recovery" ? [...checks, "partition-unavailable", "partition-recovered", "outage-readback"] : checks;
 }
 
-export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string }): LocalReceipt {
-  if (expected.scenarioId === "two-tenants" || expected.scenarioId === "export") return validateTenantExportReceipt(raw, expected);
+export function validateLocalReceipt<S extends string>(raw: unknown, expected: LocalReceiptBinding<S>): LocalReceipt;
+export function validateLocalReceipt(raw: unknown, expected: { scenarioId: string; runId: string; sourceCommit: string; sourceDigest?: string }): LocalReceipt {
+  if (expected.scenarioId === "two-tenants" || expected.scenarioId === "export") {
+    if (!expected.sourceDigest) throw new Error("Local receipt source digest required");
+    return validateTenantExportReceipt(raw, { scenarioId: expected.scenarioId, runId: expected.runId, sourceCommit: expected.sourceCommit, sourceDigest: expected.sourceDigest });
+  }
   const drv1 = sourceScenario(expected.scenarioId);
   const drv2 = expected.scenarioId === "drift-repair" || expected.scenarioId === "crash-partition";
   const receipt = drv2 ? OperatedReceiptSchema.parse(raw) : drv1 ? SourceBoundReceipt.parse(raw) : Receipt.parse(raw);

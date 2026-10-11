@@ -97,7 +97,6 @@ export async function runTwoTenants(input: DriverInput): Promise<number> {
         ensure((await detailOf(tenant, tenant.operationId!)).operation.status === "succeeded", "deployment-unchanged");
       }
     });
-  }, ["kind uses a shared disposable cluster and namespaced fixture identity. This proves application authority and object ownership isolation, not hostile-cluster or network-policy isolation.",
-    "No real customer identity, account or cross-cloud workload is exercised. J4 timer behavior is covered by its separate maintenance lane."]);
+  });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void runDriverCli("two-tenants", runTwoTenants).then(code => { process.exitCode = code; });

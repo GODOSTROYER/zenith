@@ -1,6 +1,6 @@
 /** Real browser/session routes -> default broker -> signed registered zenithd -> durable audit/evidence. */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import { verifyAuditChain } from "@/lib/machines/runbooks/audit";
@@ -37,13 +37,23 @@ export async function registeredRunbookAcceptance(): Promise<Record<string, unkn
     const epoch = await seededEpoch(db);
     const machine = await repos.machines.getMachine(db, target.workspaceId, target.targetId);
     assert(machine?.transport === "zenithd" && machine.status === "active" && !machine.stale && machine.environmentId === target.environmentId && machine.capabilities.includes("machine.inspect"), "Requires a real active registered machine bound to the fixture environment.");
+    assert(!machine.capabilities.includes("machine.exec") && !machine.capabilities.includes("container.exec"), "The active registered agent advertises an escape hatch that its local configuration should have disabled.");
     const rows = await db.query<{ created_at: string; unknown: boolean }>("select created_at::text, platform.cleanup_scope_epoch_unknown(workspace_id, project_id, id) as unknown from public.environments where workspace_id=$1 and id=$2", [target.workspaceId, target.environmentId]);
     assert(rows.length === 1 && rows[0].unknown === false && Date.parse(rows[0].created_at) >= Date.parse(epoch), "Seed the fixture environment after the immutable cleanup epoch.");
-    const { version } = await request("/api/platform/v1/runbooks", { runbookId, definition: { schemaVersion: 1, name: "J4 registered inspection", steps: [{ id: "inspect", title: "Inspect registered machine", operation: "machine.inspect", args: {} }] } }) as { version: { version: number; definitionDigest: string } };
+    const { version } = await request("/api/platform/v1/runbooks", { runbookId, definition: { schemaVersion: 1, name: "J4 registered inspection", steps: [{ id: "inspect", title: "Inspect registered machine", operation: "machine.inspect", args: {} }] } }) as { version: { runbookId: string; version: number; definitionDigest: string; signature: string; signingKid: string } };
+    assert(version.runbookId === runbookId && version.version >= 1 && /^[a-f0-9]{64}$/.test(version.definitionDigest), "Signed published version identity/digest binding is missing.");
+    assert(typeof version.signature === "string" && version.signature.length > 0 && typeof version.signingKid === "string" && version.signingKid.length > 0, "Signed published version receipt is missing.");
+    const jwsParts = version.signature.split(".");
+    assert(jwsParts.length === 3, "Published runbook signature is not a compact JWS.");
+    const jwsHeader = JSON.parse(Buffer.from(jwsParts[0], "base64url").toString("utf8")) as { alg?: string; typ?: string; kid?: string };
+    assert(jwsHeader.alg === "EdDSA" && jwsHeader.typ === "zenith-runbook+jwt" && jwsHeader.kid === version.signingKid, "Published runbook signature metadata is not bound to its signing key id.");
+    const signedReceipt = { runbookId, version: version.version, definitionDigest: version.definitionDigest, signingKid: version.signingKid, signatureSha256: createHash("sha256").update(version.signature).digest("hex") };
     const targets = [{ transport: "zenithd", targetId: target.targetId, environmentId: target.environmentId, resourceId: target.resourceId }];
     const { run } = await request(`/api/platform/v1/runbooks/${runbookId}/runs`, { version: version.version, targets, maxRunDurationSec: 120, maxParallelTargets: 1 }) as { run: RunbookRunRecord };
     activeRuns.push(run.id);
     const detail = await waitRun(run.id);
+    assertSuccessfulRunWithinDeadline(detail.run);
+    assert(detail.run.runbookId === signedReceipt.runbookId && detail.run.version === signedReceipt.version && detail.run.definitionDigest === signedReceipt.definitionDigest, "Executed run is not bound to the captured signed version.");
     assert(detail.run.status === "succeeded" && detail.steps.length === 1 && detail.steps[0].status === "succeeded" && detail.steps[0].evidenceId, "Registered agent delivery did not produce successful durable evidence.");
     assert(verifyAuditChain(detail.audit), "Run audit chain is broken.");
     const join = detail.audit.find(event => event.event === "run.step.authorized");
@@ -64,9 +74,10 @@ export async function registeredRunbookAcceptance(): Promise<Record<string, unkn
     assert(pending.run.status === "pending_approval", "Raw exec bypassed independent human approval.");
     await request(`/api/platform/v1/runbooks/runs/${pending.run.id}/cancel`, { reason: "Owned J4 acceptance cancellation" });
     const cancelled = await waitRun(pending.run.id);
+    assertPreStartCancellationTimestamps(cancelled.run);
     assert(cancelled.run.status === "cancelled" && cancelled.steps.length === 0 && verifyAuditChain(cancelled.audit) && cancelled.audit.some(event => event.event === "run.cancel_requested"), "Cancellation/audit did not persist before delivery.");
     assert(await seededEpoch(db) === epoch);
-    return { schema: 1, level: "local_engine", registeredSignedDelivery: true, brokerSemanticsBound: true, oneDelivery: true, durableEvidence: true, auditJoin: true, pendingCancellation: true, rawExecApprovalRequired: true, epochPreserved: true };
+    return { schema: 2, level: "local_engine", registeredSignedDelivery: true, signedReceipt, executedRunBinding: { runId: detail.run.id, runbookId: detail.run.runbookId, version: detail.run.version, definitionDigest: detail.run.definitionDigest }, deadlineBounded: true, replayRefusal: "not_observed_by_this_public_acceptance_interface", machineExecDisabledByFreshAgentCapabilities: true, machineExecGuardRefusal: "not_observed; approval/cancellation intentionally prevents delivery", brokerSemanticsBound: true, oneDelivery: true, durableEvidence: true, auditJoin: true, pendingCancellation: true, rawExecApprovalRequired: true, epochPreserved: true };
   } finally {
     const errors: unknown[] = [];
     for (const id of activeRuns) {
@@ -90,4 +101,22 @@ export async function registeredRunbookAcceptance(): Promise<Record<string, unkn
     try { await db.close(); } catch (error) { errors.push(error); }
     if (errors.length) throw new AggregateError(errors, "Owned runbook cleanup is unconfirmed; retain the namespace/database.");
   }
+}
+
+function assertSuccessfulRunWithinDeadline(run: RunbookRunRecord): void {
+  const created = Date.parse(run.createdAt);
+  const deadline = Date.parse(run.deadlineAt);
+  const started = run.startedAt === undefined ? undefined : Date.parse(run.startedAt);
+  const finished = run.finishedAt === undefined ? undefined : Date.parse(run.finishedAt);
+  assert(run.status === "succeeded" && Number.isFinite(created) && Number.isFinite(deadline) && deadline >= created, "Successful run deadline timestamps are invalid.");
+  assert(started !== undefined && Number.isFinite(started) && created <= started && started <= deadline, "Successful run started outside its persisted deadline.");
+  assert(finished !== undefined && Number.isFinite(finished) && started <= finished && finished <= deadline, "Successful run finished outside its persisted deadline.");
+}
+
+function assertPreStartCancellationTimestamps(run: RunbookRunRecord): void {
+  const created = Date.parse(run.createdAt);
+  const deadline = Date.parse(run.deadlineAt);
+  const finished = run.finishedAt === undefined ? Number.NaN : Date.parse(run.finishedAt);
+  assert(run.status === "cancelled" && run.startedAt === undefined && Number.isFinite(created) && Number.isFinite(deadline) && deadline >= created, "Pre-start cancellation timestamps are invalid.");
+  assert(Number.isFinite(finished) && finished >= created, "Pre-start cancellation finish timestamp is invalid.");
 }

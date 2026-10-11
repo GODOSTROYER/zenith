@@ -401,3 +401,8 @@ The retained Go compile container from the R7 refusal was cleaned in R3: wrapper
 ## Native R8 terminal disposition, 11 October 2026
 
 Native R8 ended with wrapper exit 2 (`daemon-build-exit`) before any case executed (0 cases). This is not a failed assertion and does not establish native acceptance. Cleanup completed; baseline parity, command custody, and source stability were confirmed. All 36 main and four VM held commands returned 0 and were strictly closed. The owned compiler exited naturally with code 1 and `OOMKilled: false`; exact-ID removal without force and absence were confirmed. Diagnosis remains ongoing. [Sanitized evidence](../evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).
+
+
+## Wave 6 J2 native rejoin evidence mapping
+
+The J2 native fresh-token rejoin check is associated with `PROD-MACH-04` through the canonical journey, receipt contract, and gate `wave6-80bfa8cded622b84`. That gate requires the private J2 receipt to contain a completed `machine-fresh-token-native-rejoin` check and its `machineRejoin` readback hash. It records this bounded real native revoke/rejoin scenario; the other MACH-04 proof areas listed above remain independently required.

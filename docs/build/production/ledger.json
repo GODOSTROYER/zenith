@@ -1824,14 +1824,14 @@
       "acceptance": [
         "Push nonprotected branch, observe entire new GitHub run through terminal status; pending/failed and external release gates remain visible."
       ],
-      "state": "in_progress",
+      "state": "verified",
       "dependencies": [
         "PROD-CI-02",
         "PROD-CI-03",
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "Frozen source 69 terminal CI: main run38105216483 completed failure, 28 jobs (18 success/1 failure/1 cancelled/8 skipped; Go failed, Verify cancelled). Check-run annotation confirms Verify exceeded the 45-minute maximum; conclusion remains cancelled. Aggregate across three workflows32=22/1/1/8; native worker/platform workflows succeeded2/2 each. Prior r5 active snapshot remains historical; component artifacts are separate scopes. No full requirement acceptance; PROD-CI-09 remains in_progress.",
+      "implementationStatus": "verified_f6d18a7",
       "evidence": [
         {
           "level": "remote_ci",
@@ -2405,6 +2405,96 @@
             "drv1-private-source"
           ],
           "requirementScope": "Terminal remote_ci observation only. Failed Go job and eight skips remain visible; this does not satisfy CI-09 acceptance."
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+          "runId": 38116924079,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38116924079",
+          "result": "Exact pushed source f6d18a711508551ffe4f5fef81960178056cc3ce: all 24 required jobs succeeded, 0 failed, 0 active; 8 conditional jobs are explicitly skipped and remain unverified. Aggregate across all three workflows: 32 jobs, 24 success / 0 failure / 8 skipped / 0 active. GitHub reports the push branch codex/production-2026-10-02 at this SHA with protected=false.",
+          "command": "Read-only inspect every job in all three workflow runs for the exact pushed SHA and inspect branch/ref protection metadata.",
+          "environment": "GitHub-hosted CI; push event; all workflow head SHAs equal f6d18a711508551ffe4f5fef81960178056cc3ce. Branch codex/production-2026-10-02; GitHub reported protected=false at 2026-10-11T06:58:24Z.",
+          "logs": "docs/build/production/evidence/PROD-CI-09/2026-10-11-f6d18a71-terminal-ci-r5.json",
+          "requiredJobs": {
+            "total": 24,
+            "success": 24,
+            "failure": 0,
+            "active": 0
+          },
+          "conditionalOptionalJobs": {
+            "total": 8,
+            "skipped": 8,
+            "verified": 0
+          },
+          "aggregateJobs": {
+            "total": 32,
+            "success": 24,
+            "failure": 0,
+            "skipped": 8,
+            "active": 0
+          },
+          "workflowRuns": [
+            {
+              "name": "CI",
+              "runId": 38116924079,
+              "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38116924079",
+              "jobs": 28,
+              "success": 20,
+              "failure": 0,
+              "skipped": 8,
+              "active": 0,
+              "headSha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+              "event": "push",
+              "headBranch": "codex/production-2026-10-02"
+            },
+            {
+              "name": "Native packaged workers",
+              "runId": 38116924044,
+              "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38116924044",
+              "jobs": 2,
+              "success": 2,
+              "failure": 0,
+              "skipped": 0,
+              "active": 0,
+              "headSha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+              "event": "push",
+              "headBranch": "codex/production-2026-10-02"
+            },
+            {
+              "name": "Native skipped platforms",
+              "runId": 38116924096,
+              "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38116924096",
+              "jobs": 2,
+              "success": 2,
+              "failure": 0,
+              "skipped": 0,
+              "active": 0,
+              "headSha": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+              "event": "push",
+              "headBranch": "codex/production-2026-10-02"
+            }
+          ],
+          "conditionalSkippedJobs": [
+            "j15-operated-upgrade",
+            "j15-operated-restore",
+            "drv2-crash-partition",
+            "drv2-drift-repair",
+            "drivers-d4-two-tenants",
+            "drivers-d4-export",
+            "drv1-update-rollback",
+            "drv1-private-source"
+          ],
+          "branchObservation": {
+            "name": "codex/production-2026-10-02",
+            "headShaAtObservation": "f6d18a711508551ffe4f5fef81960178056cc3ce",
+            "protected": false,
+            "observedAtUtc": "2026-10-11T06:58:24Z",
+            "branchRulesEndpointHttp": 200,
+            "branchRules": [],
+            "visibleRepositoryRulesets": [],
+            "legacyProtectionEndpointHttp": 404
+          },
+          "requirementScope": "PROD-CI-09 remote_ci only. Eight conditional jobs remain unverified; this evidence does not verify the later dirty R6 overlay or any subsequent code/CI-input changes."
         }
       ],
       "requiredEvidence": [

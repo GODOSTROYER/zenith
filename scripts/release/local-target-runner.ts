@@ -13,6 +13,7 @@ import { SCENARIOS } from "./scenarios";
 import { runJoinedScenario } from "./local-joined";
 import { readState as defaultStackState } from "../acceptance/default-stack/runtime.mjs";
 import { hostEnvironment } from "../acceptance/default-stack/env.mjs";
+import { sourceBinding } from "../deploy/installation.mjs";
 
 export async function billingRehearsal(env: NodeJS.ProcessEnv): Promise<void> {
   if (readState(env).profile !== "billing") throw new Error("Needs the billing profile");
@@ -60,7 +61,9 @@ export async function runLocalScenario(scenarioId: string, receiptFile: string, 
       const child = await defaultExec([process.execPath, "node_modules/tsx/dist/cli.mjs", target.driver, "--run-id", runId, "--receipt", receiptFile],
         { cwd: process.cwd(), env: { ...env, ...hostEnvironment(defaultStackState(env.ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR)) }, timeoutMs: 2_400_000 });
       if (child.code === 2) return 2;
-      const receipt = validateLocalReceipt(JSON.parse(readFileSync(receiptFile, "utf8")), { scenarioId, runId, sourceCommit });
+      const source = sourceBinding();
+      if (source.head !== sourceCommit) throw new Error("Source changed during operated run");
+      const receipt = validateLocalReceipt(JSON.parse(readFileSync(receiptFile, "utf8")), { scenarioId, runId, sourceCommit, sourceDigest: source.contentSha256 });
       return child.code === 0 && receipt.checks.every(check => check.status === "passed") ? 0 : 1;
     }
     return await runJoinedScenario({ scenarioId, runId, sourceCommit, receiptFile, env });

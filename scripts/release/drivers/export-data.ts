@@ -22,7 +22,7 @@ interface ExportRecord { id: string; operationId: string; workspaceId: string; e
 interface RestoreRecord { operationId: string; exportId: string; targetResourceId: string; status: string; expectedContentDigest: string; observedContentDigest: string }
 interface PortabilityView { environmentId: string; truncated: boolean; exports: ExportRecord[]; restores: RestoreRecord[] }
 const quote = (s: string) => "'" + s.replaceAll("'", "''") + "'";
-const terminal = ["succeeded", "failed", "uncertain", "denied", "expired", "cancelled", "rejected"];
+const terminal = ["succeeded", "failed", "denied", "expired", "cancelled", "rejected"];
 
 /** Use J1's already-owned CA and network, and explicitly opt ONLY its worker into private fixture connections. */
 async function configureWorker(ctx: OperatedContext): Promise<string> {
@@ -189,18 +189,25 @@ async function operation(ctx: OperatedContext, tenant: Tenant, resourceId: strin
   ensure(result.operation?.status === "awaiting_approval", "data-human-gate");
   const id = result.operation.id;
   let startedAttempt = false, settled = false;
-  ctx.cleanup.add(async () => {
+  ctx.quiescence.add(async () => {
     if (settled) return;
-    if (!startedAttempt) {
-      ok(await browserRequest(tenant.owner, `/api/platform/v1/operations/${id}/cancel`, { reason: "Owned local rehearsal cleanup" }, "POST", tenant.workspaceId));
-      return;
+    try {
+      if (!startedAttempt) {
+        ok(await browserRequest(tenant.owner, `/api/platform/v1/operations/${id}/cancel`, { reason: "Owned local rehearsal cleanup" }, "POST", tenant.workspaceId));
+        return;
+      }
+      // A lost/late workflow response must not leave a worker using fixtures while
+      // they are torn down. This invocation owns the disposable J1 worker.
+      const workers = JSON.parse(await command("docker", ["inspect", ctx.stack.worker]));
+      ensure(workers.length === 1 && workers[0].Id === ctx.stack.worker
+        && workers[0].Config.Labels?.["io.zenith.installation"] === ctx.stack.state.applicationInstallationId, "owned-worker-quiescence");
+      if (workers[0].State.Running) await command("docker", ["stop", "--time", "15", ctx.stack.worker]);
+      const stopped = JSON.parse(await command("docker", ["inspect", ctx.stack.worker]));
+      ensure(stopped.length === 1 && stopped[0].Id === ctx.stack.worker && !stopped[0].State.Running, "worker-stopped-before-data-cleanup");
+    } catch (error) {
+      ctx.cleanupBlocked.block();
+      throw error;
     }
-    // A lost/late workflow response must not leave a worker using fixtures while
-    // they are torn down. This invocation owns the disposable J1 worker.
-    const [worker] = JSON.parse(await command("docker", ["inspect", ctx.stack.worker]));
-    ensure(worker.Config.Labels?.["io.zenith.installation"] === ctx.stack.state.applicationInstallationId, "owned-worker-quiescence");
-    await command("docker", ["stop", "--time", "15", ctx.stack.worker]);
-    ensure(!JSON.parse(await command("docker", ["inspect", ctx.stack.worker]))[0].State.Running, "worker-stopped-before-data-cleanup");
   });
   await approveOperation(ctx, tenant, id);
   startedAttempt = true;
@@ -213,7 +220,7 @@ async function operation(ctx: OperatedContext, tenant: Tenant, resourceId: strin
 }
 
 export async function operatedDataRoundtrips(ctx: OperatedContext): Promise<void> {
-  const cleanup = new OwnedCleanup(); ctx.cleanup.add(async () => { ensure(await cleanup.settle(), "data-owned-cleanup"); });
+  const cleanup = new OwnedCleanup(ctx.cleanupBlocked); ctx.cleanup.add(async () => { ensure(await cleanup.settle(), "data-owned-cleanup"); });
   let network = "", stores!: [Storage, Storage], tenants!: [Tenant, Tenant];
   const images = pinnedFixtureImages(ctx.input.env);
   await ctx.step("data-preconditions", async () => {
@@ -227,7 +234,7 @@ export async function operatedDataRoundtrips(ctx: OperatedContext): Promise<void
   ensure(JSON.stringify(legs.map(l => l.kind)) === JSON.stringify(DATA_KINDS), "complete-data-leg-inventory");
   for (const leg of legs) await ctx.step(`${leg.kind.replace("_", "-")}-data-roundtrip`, async () => {
     const kind = leg.kind;
-    const engines = new OwnedCleanup(); cleanup.add(async () => { ensure(await engines.settle(), "database-pair-cleanup"); });
+    const engines = new OwnedCleanup(ctx.cleanupBlocked); cleanup.add(async () => { ensure(await engines.settle(), "database-pair-cleanup"); });
     const pair = kind === "object_store" ? undefined : await databasePair(ctx, engines, network, leg);
     const source = pair?.source ?? stores[0].container, target = pair?.target ?? stores[1].container;
     const objectEndpoint = (store: Storage): LegEndpoint => ({ url: `http://127.0.0.1:${store.container.port}`, user: store.accessKey, password: store.password, bucket: bucket("data", "a", ctx.input.runId) });

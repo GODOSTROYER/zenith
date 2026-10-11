@@ -4,7 +4,7 @@ import { z } from "zod";
 export const OPERATED_LABEL = "local_operated_rehearsal";
 export const OPERATED_CHECKS = {
   upgrade: ["preconditions", "compatibility-gates", "browser-review-in-flight", "expand-worker-api", "candidate-readback", "api-failure-injected", "rollback-readback", "approved-execution-readback", "source-bound", "cleanup"],
-  restore: ["preconditions", "browser-approved-snapshot", "backup-verified", "post-snapshot-consumption", "damaged-backup-refused", "missing-keys-refused", "nonempty-target-refused", "fresh-restore", "epoch-and-ledger-readback", "old-approval-refused", "browser-continuation", "fresh-approval-readback", "source-bound", "cleanup"],
+  restore: ["preconditions", "browser-approved-snapshot", "backup-verified", "post-snapshot-consumption", "damaged-backup-refused", "missing-keys-refused", "nonempty-target-refused", "operator-cli-route", "fresh-restore", "epoch-and-ledger-readback", "old-approval-refused", "browser-continuation", "fresh-approval-readback", "source-bound", "cleanup"],
 } as const;
 export function operatedScenario(id: string): id is keyof typeof OPERATED_CHECKS { return id === "upgrade" || id === "restore"; }
 const image = z.string().regex(/^localhost:5000\/zenith-[a-f0-9]{24}\/(api|worker|migration)@sha256:[a-f0-9]{64}$/);

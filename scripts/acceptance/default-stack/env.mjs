@@ -21,7 +21,7 @@ export function hostEnvironment(state) {
   return environment;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await cli(async () => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) void cli(async () => {
   requireEngineGate();
   const [directory, file, ...extra] = process.argv.slice(2);
   if (!directory || !file || extra.length) fail('env-usage');

@@ -1,0 +1,52 @@
+{
+  "schema": "zenith.public.j1-j4-prepare-failure.v1",
+  "source": {
+    "head": "cf299647df8551f246e04021a8784a7742b06749",
+    "clean": true,
+    "entryCount": 5934,
+    "contentSha256": "61feff56a1114e502392d21acdbc6e17b9f7d02755bfcc435337c03f9979d1bf",
+    "freezeSha256": "457ae0a0a6634e94e732b25ac043fc7307f93e7a4ca1e5143979046e0f059703"
+  },
+  "attempt": "R15",
+  "outcome": "failed-retain-owned-state",
+  "phaseResults": {
+    "deferredJ1UpExitCode": 0,
+    "preApi": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "receiptSha256": "2d23d403b041a0402c08f8abe623775e9468759b63c43f6d74319aa994d3beb7"
+    },
+    "preStart": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "receiptSha256": "94fc6e61eaf6e8b3ec2cfbb05185a0baef62456497a0b810f6eeced8418771af"
+    }
+  },
+  "failure": {
+    "stage": "j4MachineSchedules",
+    "driverExitCode": 1,
+    "classification": "module transformation failure before assertions; no test-assertion failure recorded",
+    "diagnostic": "Top-level await in the direct-CLI guard was rejected under CJS output format.",
+    "logSha256": "cd6f8ccee2f9f82bb2c04e7855231191ec26cefe8307b0525beef9828cb0e9c3",
+    "testReportEmitted": false
+  },
+  "terminalReviewSha256": "9a9ea856a252c0376c695d62dc43746119a5ebdbd1118cb2c5cc6525c353aec8",
+  "failureAnalysisSha256": "c383457dcbad09b561a9d4bd7e6aeb8400bbea628c49b9ce0eb637634348e4ce",
+  "codeDiagnosisSha256": "d0d6fb00d221e8650f3dea4e3e05cbc9c986650f321d1ed770c64f72a5a9c2a7",
+  "joinedReceiptSha256": "778af1a5ae67f5b5cf2a6a9c32402562f896834a297a97c078844843251d9b06",
+  "cleanup": {
+    "statusAtTerminalReview": "not_executed",
+    "cleanupCandidateSha256": "7b86c2a209f1f918832c7713c86bdb59e71d50f5d5b5367465f57cfaf8029d1f",
+    "candidateReview": "passed",
+    "liveResourceInventoryRevalidated": false
+  },
+  "repair": {
+    "status": "unintegrated",
+    "earlierCandidates": "R1/R2 held on test-helper issues; R3 correction in progress"
+  },
+  "trustMutationPerformed": false,
+  "acceptanceClaim": false,
+  "milestonePromoted": false
+}

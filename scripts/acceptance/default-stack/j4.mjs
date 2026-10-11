@@ -470,4 +470,4 @@ async function main() {
   if (command !== 'resume' || flag !== '--directory' || !directory || extra.length) fail('usage');
   process.stdout.write(`${JSON.stringify(await resumeJ4(directory))}\n`);
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await cli(main);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) void cli(main);

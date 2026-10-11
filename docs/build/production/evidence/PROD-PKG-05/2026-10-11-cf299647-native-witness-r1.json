@@ -1,0 +1,41 @@
+{
+  "schema": "zenith.public.native-witness-build.v1",
+  "source": {
+    "head": "cf299647df8551f246e04021a8784a7742b06749",
+    "clean": true,
+    "entryCount": 5934,
+    "contentSha256": "61feff56a1114e502392d21acdbc6e17b9f7d02755bfcc435337c03f9979d1bf"
+  },
+  "result": "passed_build_only",
+  "scope": "Native ARM64 witness image build and retained-artifact review only; image was not invoked and no J2/browser or milestone acceptance is claimed.",
+  "summarySha256": "38bf9fa1c0110eb10287bb4d0de523310e79d799cac0e7e43e9f6f72bafdfdba",
+  "terminalReviewSha256": "fd27a92a7d73ecd56919f7b3e5f8f6299c1b01d1bad49e3aa91d5cb471df94b7",
+  "outerCaptureSha256": "bdc5516d8adf25fbca56cc319d019352c09c4d6a706ee1306e0d4a7e9728e375",
+  "custodySha256": "f7200bea1d3d50c8f991fcc0fdbb96a022d22af06ba8bec8135cc3cd107debca",
+  "build": {
+    "exitCode": 0,
+    "platform": "linux/arm64",
+    "runtimeUser": "65532:65532",
+    "push": false,
+    "imageInvoked": false,
+    "baseImagesDigestPinned": true,
+    "imageId": "sha256:04fe8c2e581ddaccd54c080f9c92a661b5f784a76d8c34567ec8f57bb51d8d79",
+    "imageIidSha256": "c0b9c4b0b02b4d858c40b64de01ef35179812ee6886382c86ac0ea2bc4f407ce",
+    "dockerfileSha256": "15b1962e53eba7778efc35f43dc10805361bbbf1b10e221d337e1c9bd1e59307"
+  },
+  "custody": {
+    "eventCount": 10,
+    "droppedEvents": 0,
+    "pendingLive": 0,
+    "quarantined": 0,
+    "processesAbsent": true
+  },
+  "floors": {
+    "hostMinimumBytes": 316572102656,
+    "hostFreeBytes": 316572188672,
+    "vmMinimumBytes": 421678952448,
+    "vmFreeBytes": 421889806336,
+    "monitorProbeFailures": 0
+  },
+  "acceptanceClaim": false
+}

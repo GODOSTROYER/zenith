@@ -121,7 +121,7 @@ export async function readiness(state, { j4Resume = false } = {}) {
   if (receipt.failed) fail('readiness');
   return receipt;
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await cli(async () => {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) void cli(async () => {
   if (process.argv.length !== 3) fail('usage');
   process.stdout.write(`${JSON.stringify(await readiness(readState(process.argv[2])))}\n`);
 });

@@ -5,7 +5,7 @@
  * Every test runs against BOTH stores (in-memory and PGlite over the real
  * platform schema), so a difference between them is a failing test.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { verifyCapabilityGrant, type PublicJwk } from "@/lib/credentials";
 import { loadPlanFixture } from "../policy/plan-fixtures";
 import { STORE_KINDS, allowDecision, closeSharedPgliteAfterAll, expectBrokerError, integrationOf, makeHarness, navigator, proposeOk, requestFor, scriptedEngine, systemPrincipal, user } from "./support";
@@ -385,5 +385,23 @@ describe.each(STORE_KINDS)("responses carry no secret-looking values [%s]", (kin
     const body = JSON.stringify(out);
     for (const canary of [CANARY_AWS, CANARY_JWT, "hunter2", "BEGIN PRIVATE KEY", "za_", "ghp_"]) expect(body).not.toContain(canary);
     expect(body).not.toMatch(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./);
+  });
+});
+
+describe("capability test fixture IDs", () => {
+  it("keeps generated IDs free of canary prefixes and distinct when Math.random ends in za", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.901598506907399);
+    try {
+      const first = await makeHarness({ kind: "memory" });
+      const second = await makeHarness({ kind: "memory" });
+      const firstIds = Object.values(first.ids);
+      const secondIds = Object.values(second.ids);
+
+      expect(firstIds.every((id) => !id.includes("za_"))).toBe(true);
+      expect(secondIds.every((id) => !id.includes("za_"))).toBe(true);
+      expect(first.ids.wsA).not.toBe(second.ids.wsA);
+    } finally {
+      random.mockRestore();
+    }
   });
 });

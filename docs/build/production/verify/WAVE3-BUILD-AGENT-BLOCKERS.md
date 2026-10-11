@@ -445,3 +445,17 @@ Protected-image helper R6 reports 18/18 and custody guards on source R8 report 8
 ## Cleanup R8 failure and R9 helper review, 12 October 2026
 
 Focused terminal helper/guard proofs pass (18/18 and 8/8), but do not establish actual cleanup acceptance. Cleanup R8 failed after lock admission and owned-work creation: successful list/inspect output contained valid digest-qualified `RepoTags`, which the tag-only validator rejected. It stopped before predelete/down/delete; no resource deletion is claimed. R9 source review conditionally approves strict existing `RepoDigests` authority and raw projection. Its 21-capture regression over the 50-identity context remains pending. CI347R6 is nonterminal. No milestone or release flags change. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r8-terminal-and-failure-r9-review.json).
+
+
+## Cleanup R10 failure and CI fixture-source boundary, 12 October 2026
+
+Cleanup R10 failed after partial deletion at held command 004. The protected-image before/predelete checks passed; the after check is unproven. No postinventory or cleanup receipt exists, and lock clearance did not occur. Preserve the failed state and active recovery; do not treat it as cleanup acceptance.
+
+Carrier CI1e3 is terminal with one `platform-postgres` failure (23 success, 8 skipped, 1 failed; 32 jobs); Verify passed after 28m49s. A generated base-36 fixture ID triggered the raw `za_` canary. A reviewed isolated two-file fixture candidate uses lowercase hexadecimal from 16 cryptographic random bytes and adds deterministic regression coverage, without changing existing canary assertions. Its focused proof remains pending. Any committed source successor needs fresh R16/R13 and downstream R15/direct-consumer rebinding; frozen c45 receipts do not apply. Ledger 10/66/2 and all release flags remain unchanged. [Evidence](../evidence/PROD-CI-08/2026-10-12-c45c9591-focused-canary-r3-and-cleanup-r10-status.json).
+
+
+## Focused canary proof and current cleanup recovery blocker, 12 October 2026
+
+The fixture candidate's focused memory/PGlite result is supported by a terminal supplement: 124 assertions passed across two files (36 derived suites), with zero failures or skips and strict custody. The earlier wrapper metric failure remains preserved; this proof does not establish PostgreSQL CI or production acceptance.
+
+Cleanup R10 partially deleted owned resources before failing at command 004. The after-state is unproven, no postinventory or cleanup receipt exists, and the root lock remains retained. The R4 adapter source candidate and its 24-vector proof are pending; read-only R12 census/context proof is also pending. Recovery must use a fresh bound inventory; no cleanup retry is accepted. Carrier CI1e3 remains terminal with one PostgreSQL canary failure. The two-file source change requires new source freeze, R16/R13, and downstream R15/direct-consumer rebinding. No milestone or release flags changed. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-focused-canary-r3-and-cleanup-r10-status.json).

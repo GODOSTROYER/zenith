@@ -14,6 +14,7 @@
  * The product-store ports (scope chain, roles) are a small explicit `World` so
  * a test states exactly who is a member of what.
  */
+import { randomBytes } from "node:crypto";
 import { afterAll } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import type { Principal, Scope } from "@/lib/controlplane/types";
@@ -217,7 +218,8 @@ export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEn
   const kind = options.kind ?? "memory";
   if (options.nativeDb !== undefined && (kind !== "postgres" || !isOpenedPlatformDbHandle(options.nativeDb, "postgres")))
     throw new Error("The native test harness requires its genuine opened PostgreSQL handle.");
-  const p = `t${++counter}x${Math.random().toString(36).slice(2, 7)}`;
+  // Hex avoids secret-prefix canaries such as `za_` while keeping ids unique across workers.
+  const p = `t${++counter}x${randomBytes(16).toString("hex")}`;
   const ids: Ids = {
     wsA: `${p}_wsA`,
     wsB: `${p}_wsB`,

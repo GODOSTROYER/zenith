@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "owned_local_witness_fixed_tag_rotation",
+  "acceptanceClaim": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "contentSha256": "f2f0fd1fad96012b01780161bc293c3b3299460f1c22eca9d5a7c61a4aa1f8eb",
+    "sourceFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "sourceInventoryCount": 5960,
+    "stable": true
+  },
+  "session": {
+    "id": 53208,
+    "closed": true,
+    "exitCode": 0
+  },
+  "result": {
+    "status": "fixed-tag-rotated-image-preserved",
+    "fixedTagAbsent": true,
+    "imagePreservedByAlias": true,
+    "preservationAliasVerified": true,
+    "onlyExpectedReferenceDeltaVerified": true,
+    "beforeImageCount": 16,
+    "beforeReferenceCount": 27,
+    "inventoryParityPassed": true,
+    "allHeldCommandsStrictlyClosed": true,
+    "ownedChildAbsent": true,
+    "ownedRegistryAbsent": true,
+    "floorWatcherJoined": true,
+    "resourceFloorPassed": true
+  },
+  "inputReceiptSha256": "5bc52942a1321671385f1160a335e33a6883e7166a22f226cde612245afc43a6",
+  "scope": "Local tag rotation and preservation only; this does not establish J2 witness acceptance."
+}

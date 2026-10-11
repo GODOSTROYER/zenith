@@ -1,3 +1,11 @@
+## Current c45c9591 terminal CI results, 11 October 2026
+
+Exact-source CI for `c45c95915531799b455b0f21faf7885de05ba6db` is terminal across three workflows: 24 jobs succeeded, eight conditional jobs were skipped, and none failed. The main workflow had 20 successful jobs and eight conditional skips; both native workflows passed their two jobs each. In the main workflow, Verify passed with 24,593 tests passed, 0 failed, and 1,925 skipped (26,518 total; 1,144 files passed and 97 skipped); typecheck, lint, Smoke, and Gimbal also passed. The platform PostgreSQL job passed 4,105 tests, 0 failed, and 15 skipped (4,120 total), with 1,160 required groups. The separate workflows job passed 1,559 tests, 0 failed, and 0 skipped across 113 required groups. These lane results are reported separately and are not combined into one test total. The native audit is separately scoped: its four jobs passed, including 44 packaged-worker checks across AMD64 and ARM64 and one selected test each for systemd and Windows ACL. Fifteen Windows ACL sibling tests were excluded by selection, not executed as skips. Conditional workflow jobs remain unverified. Full local-core verification, a native witness build, and actual J1/J4 acceptance remain pending. Ledger remains **10 verified / 66 in progress / 2 planned (12.82%)**; all four release flags remain false. No production acceptance or milestone promotion is claimed. [Terminal source-CI inventory](evidence/PROD-CI-08/2026-10-11-c45c9591-terminal-ci-r2.json) · [Native audit](evidence/PROD-CI-08/2026-10-11-c45c9591-native-ci-r1.json).
+
+## Historical c45c9591 in-progress CI snapshot, observed 18:06:58Z
+
+On exact source `c45c95915531799b455b0f21faf7885de05ba6db`, the native CI audit passed all four jobs: both non-emulated packaged-worker architectures passed 22/22 checks each (44 total), and the Linux systemd and Windows ACL selected leaves each passed 1/1. At the 18:06:58Z inventory snapshot, the main workflow had 18 successful jobs, eight conditional skips, zero failures, and two active jobs (`platform-postgres` and `verify`). This was a nonterminal observation superseded by the terminal results above. The separate workflows job passed 1,559 tests in 113 required groups with no failures or skips. The Windows ACL artifact reports 15 sibling tests excluded by selection; these were not executed skips. Native CI results do not establish local J4 acceptance. Full-core verification, the native witness build, and the J1/J4 acceptance journey remain pending. Ledger remains **10 verified / 66 in progress / 2 planned (12.82%)**; all four release flags remain false. No production acceptance or milestone promotion is claimed. [Scoped native and workflow snapshot](evidence/PROD-CI-08/2026-10-11-c45c9591-native-ci-r1.json).
+
 ## J4 local worker startup correction, 11 October 2026
 
 The same-source projected worker deterministically refused its missing packaged OpenTofu identity and production Temporal TLS configuration. A genuine native Darwin ARM64 OpenTofu 1.12.5 fixture was packaged from the retained checksum-pinned release archive and its exact executable payload. With explicit disposable local test mode and that verified identity, both actual startup validators returned successfully. This is bounded configuration evidence; it does not reconstruct the original generic J4 failure or establish natural-timer acceptance.
@@ -991,3 +999,38 @@ MACH04 native R7 terminal update, 11 October: wrapper exit 2, zero cases execute
 The old 94 witness tag `localhost:5000/zenith-j2-witness:rc` was removed and exact-tag absence was confirmed; its receipt makes no J2 acceptance claim. Go cleanup R3 is complete; native R8 terminated with wrapper exit 2 before any case executed. [Cleanup evidence](evidence/PROD-CI-08/2026-10-11-cleanup-reconciliation-r4.json).
 
 Native R8 is terminal at wrapper exit 2 (`daemon-build-exit`) with zero executed cases. Cleanup and custody are complete; preserve this as a wrapper refusal rather than a test failure. Diagnosis remains ongoing, and no acceptance or release state changes. [Evidence](evidence/PROD-MACH-04/2026-10-11-native-r8-terminal-r2.json).
+
+
+## 12 October fresh full-core result
+
+Fresh R16 on exact frozen source `c45c95915531799b455b0f21faf7885de05ba6db` exited 0: 24,575 passed / 1,943 skipped / 0 failed across 26,518 exact identities; source stayed stable. Treat this as core execution evidence, with skips still skipped. Native witness, J1/J4, and browser acceptance remain queued. Historical failures and refusals remain preserved. Ledger: 10 verified / 66 in progress / 2 planned; no promotion or release-flag change. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-fresh-full-core-r16.json).
+
+
+## 12 October witness and J1/J4 prepare update
+
+The old fixed witness tag was rotated cleanly and its image preserved; fresh R13 built the source-bound ARM64 witness image with no push. R13 remains build-only, with full-run acceptance pending. Fresh R15/R5 joined preparation ended exit 1 with a sticky `parent_bracket_mismatch` custody quarantine and retained owned state. J4 prestart 14/0 and pre-API 13/0 are phase-only; outer joined execution was refused. No cleanup receipt proves resource deletion. CA trust was not changed; AirPlay remains off under prior authorization. Keep J1/J4 and J2 acceptance pending. [Rotation](evidence/PROD-CI-08/2026-10-12-c45c9591-witness-tag-rotation-r3.json) · [Build](evidence/PROD-CI-08/2026-10-12-c45c9591-j2-witness-r13-build.json) · [Failure diagnosis](evidence/PROD-CI-08/2026-10-12-c45c9591-j1-j4-r15-prepare-failure.json).
+
+
+## 12 October offline DNS and recovery-hold status
+
+Offline DNS R3 passed 59/59 pinned assertion identities on unchanged c45 source; nine held commands closed cleanly. R2's wrapper exit 1 from the suite-count expectation remains historical and unaccepted. This is offline unit coverage only, with no live DNS or milestone acceptance and no addition to full-core totals because overlap is unknown. Clarification: R13's ARM64 witness image build succeeded; invoking that built image for acceptance is still pending. The c45 Node/DOM full-core result is already 24,575 passed / 1,943 skipped / 0 failed. Cleanup R2 remains HOLD pending deterministic-gap review; registry R2 remains HOLD while its test/telemetry baseline fix is in progress. No acceptance or ledger change. [DNS R3 evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-dns-offline-r3.json).
+
+
+## 12 October registry held-test disposition
+
+Strict held R4 passed the explicit 87 R16 baseline +13 staged-parent tests (100/100; no runtime skips), with exact pinned identity sets, stable source, and clean custody. The earlier 103-method attempt remains failed/unaccepted at 100 pass /2 fail /1 error; preserve it. Three R17-only capacity method identities are excluded from this R16-policy scope, not skipped or passed. The event/identity bounds remain 128; R17's expanded event and byte-guard contracts remain deferred and unclosed. Focused fake-only proof is not production/engine acceptance; exact consumer/source binding review remains required for integration. Cleanup R3 is HOLD with two defects; R4 cleanup guards/review remain pending. No gate waiver or ledger promotion. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-registry-policy-unit-r4.json).
+
+
+## 12 October cleanup and successor readiness
+
+R4 cleanup was a preflight refusal before lock/work/engine because its capture parser expected a dictionary but received the preserved R15 list; original resources were untouched. Its separate synthetic guards passed 11/11, with independent review allowing only a fresh, internally gated cleanup attempt. Cleanup R5 adds strict list parsing and exact retained-lock recovery; source review and focused parser/lock tests remain pending, so cleanup has not occurred. Phase successor bindings pass source review but actual invocation is pending; historical R16 stays unchanged. J6 remains HOLD on the missing owner-authorized generated PostgreSQL credential readback; source-only producer drafts do not satisfy it. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-successor-j6-readiness-r4.json).
+
+
+## 12 October current status and cleanup R5 preflight
+
+The full c45 Node/DOM core is already green at 24,575 passed /1,943 skipped /0 failed. The ARM64 witness image build passed; invocation of that built image for acceptance remains queued. Cleanup R5 preflight closed exit 2 after 11/12 guard cases passed. The lone failure is a test-fixture AttributeError (`read_private_stable` missing), independently confirmed as fixture-only. Actual cleanup was not entered; original resources and sticky marker remain untouched. R5 source review is conditional on focused tests; fixture R2 repair is pending. Cleanup R3 stays HOLD; no product change or milestone promotion. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r5-preflight-r1.json).
+
+
+## 12 October cleanup R5 attempt
+
+The corrected R5 parser/lock-guard preflight passed all 12 synthetic cases and independent terminal review; this supported a cleanup attempt subject to fresh runtime gates. That actual attempt admitted the lock, created owned work, and completed initial census, source freeze, and owned inventory, then failed exit 1 at `protectedImagesBefore` (`held-command-not-strictly-settled`) before owned-down/removal began. No resource deletion is claimed. The marker remains retained; no new exact-byte readback is asserted. Keep both prior R5 preflight history and actual cleanup failure. Full core is already passed; the ARM64 witness image build passed and invocation for acceptance remains pending. [Evidence](evidence/PROD-CI-08/2026-10-12-c45c9591-cleanup-r5-attempt-r2.json).

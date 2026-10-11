@@ -1,0 +1,97 @@
+{
+  "aggregate": {
+    "acceptanceClaimed": false,
+    "cancelledJobs": 0,
+    "conditionalSkippedJobs": 8,
+    "failedJobs": 0,
+    "jobsTotal": 32,
+    "successfulJobs": 24,
+    "workflowCount": 3
+  },
+  "kind": "c45c9591_terminal_ci_scoped_results",
+  "ledger": {
+    "inProgress": 66,
+    "planned": 2,
+    "releaseFlagsChanged": false,
+    "verified": 10
+  },
+  "limitations": [
+    "Conditional workflow jobs remain unverified.",
+    "Native results are scoped job evidence and do not establish local J4 acceptance.",
+    "Full local-core verification, native witness build, and J1/J4 acceptance remain pending.",
+    "Do not aggregate lane test totals; their distinct scopes are reported separately."
+  ],
+  "mainWorkflow": {
+    "conclusion": "success",
+    "conditionalSkippedJobs": 8,
+    "failedJobs": 0,
+    "inventorySha256": "879038d2a48175c1f51034d0c218a176e1273c4a180b3eeec9676e68ff177c2d",
+    "jobsTotal": 28,
+    "observedAt": "2026-10-11T18:19:49.169658Z",
+    "platformPostgres": {
+      "requiredGroupsPassed": 1160,
+      "status": "success",
+      "testsFailed": 0,
+      "testsPassed": 4105,
+      "testsSkipped": 15,
+      "testsTotal": 4120
+    },
+    "runId": 38161373100,
+    "successfulJobs": 20,
+    "verify": {
+      "gimbal": "success",
+      "lint": "success",
+      "smoke": "success",
+      "status": "success",
+      "testFilesPassed": 1144,
+      "testFilesSkipped": 97,
+      "testFilesTotal": 1241,
+      "testsFailed": 0,
+      "testsPassed": 24593,
+      "testsSkipped": 1925,
+      "testsTotal": 26518,
+      "typecheck": "success"
+    },
+    "workflows": {
+      "requiredGroupsPassed": 113,
+      "status": "success",
+      "testsFailed": 0,
+      "testsPassed": 1559,
+      "testsSkipped": 0
+    }
+  },
+  "milestonePromotion": false,
+  "nativeWorkflows": {
+    "failedJobs": 0,
+    "jobsTotal": 4,
+    "packagedWorkerChecks": {
+      "amd64": 22,
+      "arm64": 22,
+      "emulated": false,
+      "failures": 0,
+      "skips": 0,
+      "total": 44
+    },
+    "platformSelectedLeaves": {
+      "systemd": {
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "windowsAcl": {
+        "excludedSiblingTests": 15,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      }
+    },
+    "priorScopedAuditSha256": "b91ca678d3556b27e4d078236cc66df21cb76cd8632ceb693d4d2fcf3f31f511",
+    "successfulJobs": 4
+  },
+  "schemaVersion": 1,
+  "source": {
+    "branch": "codex/production-2026-10-02",
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "event": "push"
+  }
+}

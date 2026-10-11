@@ -1,0 +1,86 @@
+{
+  "acceptance": false,
+  "kind": "c45c9591_scoped_native_ci_and_main_workflow_snapshot",
+  "mainWorkflowSnapshot": {
+    "activeJobNames": [
+      "platform-postgres",
+      "verify"
+    ],
+    "activeJobs": 2,
+    "conclusion": null,
+    "conditionalSkippedJobs": 8,
+    "failedJobs": 0,
+    "inventoryObservedAt": "2026-10-11T18:06:58.250734Z",
+    "inventorySha256": "873573820c9a5bda4a9c2805173284530e7cd3e3baefa65bbf325dbe5d8b4324",
+    "jobsTotal": 28,
+    "runId": 38161373100,
+    "scope": "snapshot only; platform-postgres and Verify were still active at observation time",
+    "status": "in_progress",
+    "successfulJobs": 18,
+    "workflowsJob": {
+      "laneDurationSeconds": 649.58,
+      "requiredGroups": 113,
+      "status": "success",
+      "testFilesPassed": 75,
+      "testsFailed": 0,
+      "testsPassed": 1559,
+      "testsSkipped": 0
+    }
+  },
+  "milestonePromotion": false,
+  "nativeAudit": {
+    "auditReportSha256": "b91ca678d3556b27e4d078236cc66df21cb76cd8632ceb693d4d2fcf3f31f511",
+    "failedJobs": 0,
+    "jobs": 4,
+    "observedAt": "2026-10-11T17:59:46Z",
+    "packagedWorker": {
+      "architectures": [
+        "linux/arm64",
+        "linux/amd64"
+      ],
+      "artifactZipSha256": [
+        "c1845401f80a8aeeb53558cd6f71f09b45cfa5eccfdf247893bc772107105eb8",
+        "6e88be9b015c7c5dfae383cf1b18e9ed1f69ad5b48b7a000f632e82b1bded82f"
+      ],
+      "checksPerArchitecture": 22,
+      "childExitCodes": [
+        0,
+        0
+      ],
+      "emulated": false,
+      "failedChecks": 0,
+      "passedChecksTotal": 44,
+      "skippedChecks": 0
+    },
+    "platformLeaves": {
+      "linuxSystemd": {
+        "artifactZipSha256": "18177496569d5df84b54018e27bf48225315c1c637848608445dc6ac32dc541d",
+        "cleanup": "complete",
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      },
+      "windowsAcl": {
+        "artifactZipSha256": "fc088418d872aa1554ce26d336b7a802c2b5b0aeecb625660211011e689fb331",
+        "cleanup": "complete",
+        "excludedSiblingCount": 15,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0
+      }
+    },
+    "runIds": {
+      "packagedWorkers": 38161373119,
+      "platforms": 38161373099
+    },
+    "scope": "native jobs only; not overall main CI completion or local/J4 acceptance",
+    "successfulJobs": 4
+  },
+  "releaseFlagsChanged": false,
+  "schemaVersion": 1,
+  "source": {
+    "branch": "codex/production-2026-10-02",
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "event": "push"
+  }
+}

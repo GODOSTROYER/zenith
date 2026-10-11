@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "repository": "GODOSTROYER/zenith",
+  "candidateHeadSha": "6645396caf0b68b1c91a669e10114c918cf181d2",
+  "currentFocusedOverlayStatus": "passed-scoped-checks-only",
+  "sourceCommitAndOverlayAreDistinct": true,
+  "r16FullCore": {
+    "result": "failed",
+    "acceptedExecutionReceipt": false,
+    "wrapperExitCode": 1,
+    "elapsedSeconds": 470.934,
+    "counts": {
+      "passed": 24542,
+      "failed": 1,
+      "skipped": 1939,
+      "collected": 26482,
+      "completed": 26482
+    },
+    "soleFailure": "PGlite ordering assertion in store-contract revoke fixture",
+    "sourceStable": true,
+    "custodyPassed": true,
+    "diskFloorPassed": true,
+    "ownedDataCleanupPassed": true,
+    "summaryReceiptSha256": "da8cad711a51dcf3fb02460761a134edb1b7a9d550a5173fc1342119cca145f7",
+    "terminalAuditSha256": "429e601a123811f1ac7c4844ff1baa590f5197bf0ba9bc7a16417f80e1548fe2"
+  },
+  "fixtureRepair": {
+    "scope": "sole PGlite ordering fixture",
+    "assertionsPreserved": true,
+    "independentlyReviewed": true
+  },
+  "focusedDiagnostics": [
+    {
+      "name": "store-contract fixture",
+      "result": "focused-only pass",
+      "receiptSha256": "7c768edbdc4e43c34d166090c6fed75f88728c3012d4a26ff19744c8bd721e8f",
+      "trackedSourceFreezeSha256": "6579b3f2dea914431d759f5399d91f8d1cfd5a3c8162f15389fc12f2cfca97b6",
+      "actualTypecheckExitCode": 0,
+      "vitest": {
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0
+      },
+      "fullAcceptance": false
+    },
+    {
+      "name": "guest-file-write diagnostic",
+      "result": "focused-only pass",
+      "receiptSha256": "d24351fafc9d2e012526258cbfb725aab7b19cee21ec26d25a3a79a29ff214b0",
+      "trackedSourceFreezeSha256": "542da8c8fa222ebdb0d51bbbd1d4677d16cb982254c30b01053b8c4f0ba8dad5",
+      "vitest": {
+        "passed": 194,
+        "failed": 0,
+        "skipped": 0,
+        "durationSeconds": 25.42
+      },
+      "eslint": {
+        "changedJavaScriptTypeScriptPaths": 3,
+        "exitCode": 0
+      },
+      "strictCommands": {
+        "count": 2,
+        "bothCustodyClean": true,
+        "sourceStable": true,
+        "floorsPassed": true,
+        "rootAuditedAllOutputHashes": true
+      },
+      "fullAcceptance": false
+    }
+  ],
+  "exact664CiR3": {
+    "snapshotSha256": "0efc17d418d2cb38db1536755a852f5f670e98529aeeff64095dc69f9dde483f",
+    "snapshotAtUtc": "2026-10-11T02:21:50Z",
+    "counts": {
+      "success": 20,
+      "failure": 1,
+      "cancelled": 1,
+      "skipped": 8,
+      "active": 2
+    },
+    "activeJobs": [
+      "Verify",
+      "platform-postgres"
+    ],
+    "buildCancellationCause": "unknown",
+    "linuxGuestArtifact": {
+      "id": 11689047908,
+      "zipDigest": "sha256:9ea5f0afced2a0a1d905f05f23ad3f84a419419f7fe826ff8b35b448f4cd4e60"
+    },
+    "amd64LinuxGuest": {
+      "race": {
+        "packages": 22,
+        "passed": 1074,
+        "failed": 0,
+        "skipped": 3
+      },
+      "packageNative": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      "pid1": {
+        "failureStage": "guest-baseline",
+        "failureOperation": "guest-baseline-container-identity",
+        "bodyExecuted": false,
+        "guestCasesExecuted": 0
+      }
+    },
+    "newFieldIds": {
+      "count": 9,
+      "mode": "read-only diagnostic",
+      "acceptanceWeakening": false
+    },
+    "runIds": {
+      "main": 38104053282,
+      "workers": 38104053355,
+      "platforms": 38104053276
+    }
+  },
+  "minioAppend": {
+    "r3AppendStatic": {
+      "result": "refused",
+      "beforeFreshPidProbes": true,
+      "beforeLedgerOperation": true,
+      "beforeEngineAction": true,
+      "marker": "r11-marker-time-outside-first-r5-attempt",
+      "scope": "bounded diagnostic only",
+      "exactMarkerWriter": "under independent audit after worker exit"
+    },
+    "appendLedgerExists": false,
+    "baseAcquired": false
+  },
+  "ledger": {
+    "verified": 9,
+    "inProgress": 67,
+    "planned": 2,
+    "requiredEvidenceChanged": false,
+    "allFourReleaseFlags": false,
+    "milestonePromoted": false
+  },
+  "author": "Saivedant Hava <saivedant169@gmail.com>",
+  "overlayFileSha256": {
+    "tests/runners/store-contract.test.ts": "07351d0c1d347d289bbc74b0fdf97722507ed2b526d4dc2eb3fe691cbc3cfa17",
+    "scripts/ci/guest-pid1-fixtures.py": "6bd83e1111b92cb9976768ace641392544c1a4bac97f16ffd70637660052b959",
+    "scripts/ci/run-guest-file-write-gate.mjs": "7e23613eaabbcfcfd699323cb3755c40b46c620f3d72a8d3c4ecffcb11039a0d",
+    "tests/ci/guest-file-write-gate.test.ts": "3c68d94c06fb85549b45ec0c65b07a52f961afff4a944aade9f8d326b7fe51b3"
+  }
+}

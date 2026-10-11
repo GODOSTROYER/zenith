@@ -55,6 +55,9 @@ DIAGNOSTIC_OPERATIONS={
  'verify-builder','build-apt-image','load-apt-image','release-builder','create-pid1','verify-pid1','guest-baseline',
  'guest-baseline-pid1','guest-baseline-architecture','guest-baseline-cgroup','guest-baseline-no-owned-paths',
  'guest-baseline-container-identity','guest-baseline-running-idle','guest-baseline-exec-settlement',
+ 'guest-baseline-container-id','guest-baseline-container-created','guest-baseline-container-name','guest-baseline-container-image',
+ 'guest-baseline-container-config','guest-baseline-container-host-config','guest-baseline-container-host-config-oom-kill-disable',
+ 'guest-baseline-container-mounts','guest-baseline-container-mount-order',
  'guest-prerequisite','actual-systemd-case','guest-postcondition','cleanup-reconcile','cleanup-stop-pid1',
  'cleanup-remove-pid1','cleanup-release-builder','cleanup-remove-image','cleanup-remove-context',
  'cleanup-verify-baseline','cleanup-close-guard','cleanup-unknown','unknown'
@@ -102,6 +105,25 @@ def set_diagnostic_operation(operation):
  DIAGNOSTIC_OPERATION=operation if operation in DIAGNOSTIC_OPERATIONS else 'unknown'
 def operation_for_phase(phase):
  return RUN_OPERATIONS.get(phase,RUN_STAGES.get(phase,'unknown'))
+CONTAINER_IDENTITY_FIELDS=(
+ ('Id','guest-baseline-container-id'),('Created','guest-baseline-container-created'),
+ ('Name','guest-baseline-container-name'),('Image','guest-baseline-container-image'),
+ ('Config','guest-baseline-container-config'),('HostConfig','guest-baseline-container-host-config'),
+ ('Mounts','guest-baseline-container-mounts')
+)
+def container_identity_failure_operation(field,expected,observed):
+ if field=='HostConfig' and isinstance(expected,dict) and isinstance(observed,dict):
+  if 'OomKillDisable' in expected and 'OomKillDisable' in observed:
+   expected_oom=expected['OomKillDisable'];observed_oom=observed['OomKillDisable']
+   expected_rest={k:v for k,v in expected.items() if k!='OomKillDisable'}
+   observed_rest={k:v for k,v in observed.items() if k!='OomKillDisable'}
+   false_none=(expected_oom is None and type(observed_oom) is bool and observed_oom is False) or (observed_oom is None and type(expected_oom) is bool and expected_oom is False)
+   if expected_rest==observed_rest and false_none:return 'guest-baseline-container-host-config-oom-kill-disable'
+ if field=='Mounts' and type(expected) is list and type(observed) is list and expected!=observed:
+  expected_rows=sorted(json.dumps(row,sort_keys=True,separators=(',',':')) for row in expected)
+  observed_rows=sorted(json.dumps(row,sort_keys=True,separators=(',',':')) for row in observed)
+  if expected_rows==observed_rows:return 'guest-baseline-container-mount-order'
+ return dict(CONTAINER_IDENTITY_FIELDS)[field]
 def set_cleanup_operation(operation):
  global DIAGNOSTIC_CLEANUP_OPERATION
  DIAGNOSTIC_CLEANUP_OPERATION=operation if operation in DIAGNOSTIC_OPERATIONS else 'cleanup-unknown'
@@ -370,6 +392,13 @@ def main():
   c=obj(['container','inspect',name],phase,budget_deadline)[0]
   if phase in GUEST_BASELINE_CONTAINER_PHASES:set_diagnostic_operation('guest-baseline-container-identity')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
+  if phase in GUEST_BASELINE_CONTAINER_PHASES:
+   for field,_ in CONTAINER_IDENTITY_FIELDS:
+    try:observed=c[field]
+    except KeyError:
+     set_diagnostic_operation(dict(CONTAINER_IDENTITY_FIELDS)[field]);raise
+    if observed!=container_snapshot[field]:
+     set_diagnostic_operation(container_identity_failure_operation(field,container_snapshot[field],observed));break
   assert {k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}==container_snapshot
   return c
  def verify_pid1_container(c):

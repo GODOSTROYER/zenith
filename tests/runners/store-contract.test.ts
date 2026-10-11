@@ -164,7 +164,9 @@ describe.each(["runner", "machine"] as const)("%s registration", (kind) => {
     const q = queueOf(h.store, kind);
     const agent = await enrol(h, kind, a);
     const queued = await enqueue(h, q, a, agent.id);
+    await h.wait(10); // separate database-clock timestamps so insertion order is unambiguous
     const claimed = await enqueue(h, q, a, agent.id);
+    await h.wait(10);
     const running = await enqueue(h, q, a, agent.id);
     // claim in creation order: [queued, claimed, running] -> mark the first two claimed only
     const got = await q.claimNext({ workspaceId: a, agentId: agent.id, max: 3, leaseMs: 30_000 });

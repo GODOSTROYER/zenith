@@ -1094,7 +1094,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
       const b = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 2 });
       try {
         const results = await Promise.all([migratePlatformDb(a), migratePlatformDb(b), migratePlatformDb(a), migratePlatformDb(b)]);
-        expect(results.flatMap((r) => r.applied)).toEqual(ALL);
+        expect(results.flatMap((r) => r.applied).sort((a, b) => a - b)).toEqual(ALL);
         expect(await platformSchemaStatus(a)).toMatchObject({ current: true });
         const ledger = await a.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations");
         expect(ledger[0].n).toBe(ALL.length);

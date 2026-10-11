@@ -2044,6 +2044,42 @@
           "independentReviewSha256": "cf1dceabff459c15e929d706f56a8eddd1b44e619158ebaebcc8bc65f2c1ea97",
           "candidateCommitted": false,
           "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0",
+          "runId": 38144120018,
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38144120018",
+          "result": "The platform-postgres job completed with one concurrency-order assertion failure: 4,104 passed / 1 failed / 15 skipped across 4,120 identities. PostgreSQL service health, migration execution, normal test completion, and teardown passed; this was not an infrastructure failure. The exact same assertion identity passed on cf299647. No acceptance or promotion.",
+          "command": "Inspect exact-source platform-postgres CI job and its source-bound sanitized run artifacts.",
+          "environment": "GitHub push run 38144120018, attempt 1, exact source a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0; job 114483794662.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-a58bb8ff-platform-postgres-failure-r1.json",
+          "rawJobLogSha256": "30d4e7f7c17e07aef998f58f6543fcee8e4013af48baf5a88d0ac48866e90015",
+          "jobArtifactId": "11704164187",
+          "jobArtifactSha256": "c253b2a0b81d25dd7d3dda7bebd8028c7ab14228816dbf6a4037e6d14f88f91b",
+          "failedIdentity": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+          "failedAssertion": "Migration versions 1 through 58 should be in ascending order; versions 1–4 were observed after 5–58.",
+          "acceptanceClaim": false
+        },
+        {
+          "level": "contract",
+          "commit": "f07030bcb4fed1349448161ad5b5fe0708ff66b5",
+          "result": "Reviewed source-only assertion-order candidate, not integrated: focused ESLint passed and the pure manifest test passed 1/0/25, but it did not exercise the changed PostgreSQL race assertion. No PostgreSQL concurrency case, fresh PostgreSQL CI, or full CI ran; no acceptance or promotion.",
+          "command": "Review the isolated migration-race assertion patch; run focused ESLint and the pure manifest test only.",
+          "environment": "Base source f07030bcb4fed1349448161ad5b5fe0708ff66b5; one-file tests/controlplane/migrations.test.ts candidate overlay; uncommitted.",
+          "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-f07030bc-migration-race-assertion-repair-r1.json",
+          "candidatePatchSha256": "977724807fd58cb65e2feb390e8e845c4761b8aa1d25017b23552fcaf6473a84",
+          "candidatePostimageSha256": "7211b5f7e3f676fb13401cce299b86e6902523da12164620946ae54593e16365",
+          "independentReviewSha256": "5254ddc65d953d012fec0fb11fbca8d85aa0fe0fa18ccbdca0df87547fb1c0df",
+          "pureManifestTests": {
+            "passed": 1,
+            "failed": 0,
+            "skipped": 25,
+            "changedPostgresRaceExercised": false
+          },
+          "focusedEslint": "passed",
+          "candidateIntegrated": false,
+          "acceptanceClaim": false
         }
       ],
       "requiredEvidence": [

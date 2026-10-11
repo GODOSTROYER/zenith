@@ -1,0 +1,52 @@
+{
+  "schema": "zenith.public.platform-postgres-failure.v1",
+  "sourceCommit": "a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0",
+  "run": {
+    "id": "38144120018",
+    "attempt": 1,
+    "jobId": "114483794662",
+    "job": "platform-postgres",
+    "conclusion": "failure"
+  },
+  "failure": {
+    "kind": "concurrency-order assertion",
+    "file": "tests/controlplane/migrations.test.ts",
+    "line": 1097,
+    "requiredIdentity": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+    "identityCounts": {
+      "total": 11,
+      "passed": 10,
+      "failed": 1,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "expected": "migration versions 1 through 58 in ascending order",
+    "observed": "same versions exactly once in order 5 through 58, then 1 through 4",
+    "assertionFailure": true
+  },
+  "aggregateCounts": {
+    "total": 4120,
+    "passed": 4104,
+    "failed": 1,
+    "skipped": 15,
+    "unknown": 0
+  },
+  "evidence": {
+    "rawJobLogSha256": "30d4e7f7c17e07aef998f58f6543fcee8e4013af48baf5a88d0ac48866e90015",
+    "artifactId": "11704164187",
+    "artifactSha256": "c253b2a0b81d25dd7d3dda7bebd8028c7ab14228816dbf6a4037e6d14f88f91b",
+    "embeddedEvidenceSha256": "0562f910cd99925efc245fe7a82c00aae29de5bfd85da669486c04219ffbe675",
+    "sourceBinding": "matched"
+  },
+  "infrastructure": {
+    "postgresServiceHealthy": true,
+    "migrationsSucceeded": true,
+    "testsFinishedNormally": true,
+    "containerTeardownSucceeded": true,
+    "infrastructureFailureObserved": false
+  },
+  "priorSameIdentityOn": "cf299647df8551f246e04021a8784a7742b06749",
+  "priorSameIdentityPassed": true,
+  "acceptanceClaim": false,
+  "milestonePromoted": false
+}

@@ -1,3 +1,23 @@
+## Integrated worker fixture and verifier regression checkpoint — 12 October 2026
+
+The real React worker fixture now lets natural peer IPC EOF complete Node 22 child-close accounting. The real close event, 10-second deadline, assertions and cleanup IPC remain strict. Fresh post-change full Node/DOM and exact-source CI are pending.
+
+The process-tracker ordering repair passed independently reviewed held synthetic checks: 7 methods/21 subcases, the 47-method/61-case custody regression suite, and 6 additional methods/33 subcases, each with zero failures or skips. These separate overlapping results do not replace full native acceptance or erase the refused 6aed run. Native100100/100 and actual Temporal10/10 remain scoped evidence at 6aed.
+
+Ledger: 10 verified / 66 in progress / 2 planned (12.82%); all release flags remain false. Next: publish this checkpoint, bind the fresh clean source, run full I/O acceptance, then continue default-stack J1/J4/J2 and natural maintenance verification.
+
+## Historical source 6aed3a99 checkpoint — 12 October 2026 (R4)
+
+The 6aed source has terminal CI: 22 successes, 8 conditional skips, and 2 failures across 32 jobs; both separate native workflows passed 2/2 selected jobs. Both failures are the same React worker natural-close test in Hosted and Verify Unit. Verify Typecheck passed. The two job reports therefore do not represent separate root causes or identities.
+
+Native100 passed 100/100 with cleanup, lock clear, observer join, and source checkpoints independently reviewed. Focused Temporal restart passed 10/10 with custody and cleanup review. Both are bounded results.
+
+The parent-order tracker proof passed 7 methods / 21 subcases under strict terminal custody, but it is synthetic-only; the required 47-case suite and supplemental cases remain pending. Full Node/DOM still reported 24,624 passed / 0 failed / 1,943 pending, but its wrapper refused `parent_capture_mismatch`; the green Vitest counts are not accepted full-run evidence. WSET IPC R2 remains source-reviewed with runtime/CI pending.
+
+Ledger remains 10 verified / 66 in progress / 2 planned (78 total; 12.82%). All four release flags remain false. No acceptance promotion is proposed.
+
+### Prior source checkpoints
+
 ## Current source 27c01268 checkpoint — 12 October 2026
 
 Commit `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3` integrates five code files and has not yet been pushed. The source publisher, final CI, default-stack, and full-core checks remain pending.

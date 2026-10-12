@@ -1,3 +1,26 @@
+## Integrated worker fixture and verifier regression checkpoint — 12 October 2026
+
+The real React worker fixture now lets natural peer IPC EOF complete Node 22 child-close accounting. The real close event, 10-second deadline, assertions and cleanup IPC remain strict. Fresh post-change full Node/DOM and exact-source CI are pending.
+
+The process-tracker ordering repair passed independently reviewed held synthetic checks: 7 methods/21 subcases, the 47-method/61-case custody regression suite, and 6 additional methods/33 subcases, each with zero failures or skips. These separate overlapping results do not replace full native acceptance or erase the refused 6aed run. Native100100/100 and actual Temporal10/10 remain scoped evidence at 6aed.
+
+Ledger: 10 verified / 66 in progress / 2 planned (12.82%); all release flags remain false. Next: publish this checkpoint, bind the fresh clean source, run full I/O acceptance, then continue default-stack J1/J4/J2 and natural maintenance verification.
+
+## Historical source 6aed3a99 verification queue — 12 October 2026 (R4)
+
+| Gate | Latest evidence | Remaining gate |
+| --- | --- | --- |
+| Exact-source CI | Terminal overall: 22 passed, 8 conditional skips, 2 failed of 32. Both failures are the same React natural-close test in Hosted and Verify Unit; Verify Typecheck passed. Native workflows each passed 2/2 selected jobs. | Resolve and verify the real React child natural close, then obtain passing exact-source CI. |
+| Native100 | Focused 100/100; independent review confirms cleanup, lock clear, observer join and matching source checkpoints. | Focused proof only; no milestone acceptance. |
+| Temporal restart | Focused 10/10 across five suites; cleanup and custody review P. | Focused proof only; broader observability acceptance remains separate. |
+| Full Node/DOM | 24,624 passed, 0 failed, 1,943 pending; wrapper refused `parent_capture_mismatch`. | Resolve custody/source-finalization issue and obtain an accepted full run. |
+| Tracker | Strict synthetic proof: 7 methods / 21 subcases passed. | Mandatory 47-case suite and supplemental cases pending. |
+| WSET IPC | Test-only R2 source-reviewed. | Runtime focused checks and exact-source CI. |
+
+Ledger remains 10/66/2; all release flags remain false. No acceptance promotion is proposed.
+
+### Prior verification queue
+
 ## Current source 27c01268 verification queue — 12 October 2026
 
 | Gate | Latest evidence | Remaining gate |

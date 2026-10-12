@@ -1,0 +1,58 @@
+{
+  "acceptance": false,
+  "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+  "custody": {
+    "activeLeaders": 0,
+    "allCommandsCompleteJoinedSettled": true,
+    "allFinalAbsenceProven": true,
+    "cleanupCompleted": true,
+    "custodyLedgers": 66,
+    "droppedEvents": 0,
+    "heldCommands": 26,
+    "lockClear": true,
+    "overflow": false,
+    "ownedContainerAbsent": true,
+    "pendingLive": 0,
+    "quarantine": 0,
+    "telemetryComplete": true,
+    "truncation": false,
+    "vmReceiptPassed": true
+  },
+  "execution": {
+    "acceptedRunReceipt": false,
+    "executionReceiptSha256": "6d1d51cc93b5a3e80d94453d2731fccecbd9fd7cc405c51d7e767aecab411620",
+    "failed": 0,
+    "passed": 100,
+    "pending": 0,
+    "sourceContentSha256": "2149ac778e690415fdf25c3ed9e97fc6669c705af9d22a344972d5c28b5382a9",
+    "status": "passed-native100-focused-only",
+    "suites": 2,
+    "vitestReportSha256": "5b133361fe107591a37739cb1b44872950453ba6f80f8e9b11dcf90f7f6b3c6a",
+    "wrapperExitCode": 0
+  },
+  "kind": "6aed_native100_focused_terminal_evidence",
+  "level": "local_engine",
+  "milestonePromotion": false,
+  "pins": {
+    "manifestSha256": "dbe3be2eb127d864c05c93242c4620eb5d1a93b54e0a0481b7113e0da65934f1",
+    "resultPath": "/private/tmp/zenith-native100-r3-_zh1vklv/result.private.json",
+    "resultSha256": "6d1d51cc93b5a3e80d94453d2731fccecbd9fd7cc405c51d7e767aecab411620",
+    "terminalReview": {
+      "path": "/tmp/zenith-6aed3a99-native100-terminal-review-r1/review.json",
+      "sha256": "a892cc8d3759f6bcdf31b391e7315dfe7d9743ed60767b9edc317a71f1da033a"
+    },
+    "vmReceiptSha256": "9b9c58eb73b71e44a321e45d333b0b19892a5dd6e1adab6f782b094bfcab7a43"
+  },
+  "requirement": "PROD-CI-08",
+  "schemaVersion": 1,
+  "scopeLimitations": [
+    "This is only the focused native100 lane; it does not establish complete fresh verification or release acceptance.",
+    "The full-core refusal below remains separately preserved and is not repaired or superseded by this focused pass."
+  ],
+  "source": {
+    "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+    "sourceBeforeAfterStable": true,
+    "sourceCount": 6003,
+    "sourceFreezeSha256": "489e5d9c17ffe3d76611d2a7ec40e05daaa15ae08b5323365a2da91d51ab0794"
+  }
+}

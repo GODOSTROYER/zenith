@@ -1,0 +1,56 @@
+{
+  "acceptance": false,
+  "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+  "custody": {
+    "activeLeaders": 0,
+    "allFinalAbsenceProven": true,
+    "continuousFloorBytes": 23622320128,
+    "custodyLedgers": 11,
+    "downloadsDisabled": true,
+    "droppedEvents": 0,
+    "overflow": false,
+    "pendingLive": 0,
+    "quarantine": 0,
+    "sourceBeforeAfterEqual": true,
+    "telemetryComplete": true,
+    "truncation": false
+  },
+  "execution": {
+    "acceptedRunReceipt": false,
+    "failed": 0,
+    "heldCommands": 11,
+    "passed": 10,
+    "pending": 0,
+    "sourceContentSha256": "2149ac778e690415fdf25c3ed9e97fc6669c705af9d22a344972d5c28b5382a9",
+    "status": "passed-focused-actual-owned-temporal-restart-and-skip",
+    "suitesFailed": 0,
+    "suitesPassed": 5,
+    "suitesPending": 0,
+    "vitestReportSha256": "3b6dd4dae299626526e692916357427356988eb1eb41740a36294c3a21b3a88b",
+    "wrapperReceiptSha256": "0b49b2751d25e6490d2d8ef18468e8122d06a99b90f5a3d9f0e52144127894a6"
+  },
+  "kind": "6aed_obs04_temporal_restart_focused_terminal_evidence",
+  "level": "local_engine",
+  "milestonePromotion": false,
+  "pins": {
+    "nodeSha256": "68f4d07ca49e0500cc135c7e0a445093e228e42e126ac22306d045f0a8c2636b",
+    "suiteSha256": "ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65",
+    "temporalCliSha256": "33c298d41f6eefebf01a28a3511f444480e939e21d3518cb0c12a4abad467c4b",
+    "terminalReview": {
+      "path": "/tmp/zenith-6aed3a99-temporal-restart-terminal-review-r1/review.json",
+      "sha256": "2604056533ff1036caeed9e4f2e6a344c25159af04481f182b6ac732c146f703"
+    },
+    "wrapperReceiptPath": "/private/tmp/zenith-6aed3a99-temporal-restart-held-fz5vute5/wrapper-receipt.private.json"
+  },
+  "requirement": "PROD-OBS-04",
+  "schemaVersion": 1,
+  "scopeLimitations": [
+    "Focused temporal schedule restart/overlap lane only; does not establish full observability milestone acceptance."
+  ],
+  "source": {
+    "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+    "sourceBeforeAfterStable": true,
+    "sourceCount": 6003,
+    "sourceFreezeSha256": "489e5d9c17ffe3d76611d2a7ec40e05daaa15ae08b5323365a2da91d51ab0794"
+  }
+}

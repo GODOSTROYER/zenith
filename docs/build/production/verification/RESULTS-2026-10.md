@@ -1,3 +1,23 @@
+## Integrated worker fixture and verifier regression checkpoint — 12 October 2026
+
+The real React worker fixture now lets natural peer IPC EOF complete Node 22 child-close accounting. The real close event, 10-second deadline, assertions and cleanup IPC remain strict. Fresh post-change full Node/DOM and exact-source CI are pending.
+
+The process-tracker ordering repair passed independently reviewed held synthetic checks: 7 methods/21 subcases, the 47-method/61-case custody regression suite, and 6 additional methods/33 subcases, each with zero failures or skips. These separate overlapping results do not replace full native acceptance or erase the refused 6aed run. Native100100/100 and actual Temporal10/10 remain scoped evidence at 6aed.
+
+Ledger: 10 verified / 66 in progress / 2 planned (12.82%); all release flags remain false. Next: publish this checkpoint, bind the fresh clean source, run full I/O acceptance, then continue default-stack J1/J4/J2 and natural maintenance verification.
+
+## Historical 6aed3a99 results — 12 October 2026 (R4)
+
+Exact-source CI is terminal with 22 successful, 8 conditional-skipped, and 2 failed jobs of 32. Both failures are the same React worker natural-close test in Hosted and Verify Unit; the Verify Typecheck step passed. Both separate native workflows passed 2/2 selected jobs. This is the current-source CI result, not acceptance while the natural-close test fails.
+
+Native100 passed 100/100 with cleanup complete, lock cleared, observer joined, and source checkpoints matching. Focused Temporal restart/overlap passed 10/10 across five suites with held-command and custody cleanup review. Both are scoped proofs.
+
+The parent-order tracker passed 7 methods / 21 subcases under strict terminal review, but that proof is synthetic-only; required 47-case and supplemental verification remain pending. Full Node/DOM emitted 24,624 passed / 0 failed / 1,943 pending across 26,567 identities, but the outer wrapper refused `parent_capture_mismatch` and produced no after-run source freeze. This remains unaccepted. WSET IPC R2 remains source-reviewed; runtime verification is pending.
+
+Ledger remains 10 verified / 66 in progress / 2 planned; all four release flags remain false.
+
+### Prior October results
+
 ## Current 27c01268 results — 12 October 2026
 
 Commit `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3` integrates five code files and is not pushed. The prior exact-source 068 CI remains 21 success / 8 conditional skips / 3 failures of 32; both separate native workflows passed 2/2 selected jobs. It is not CI evidence for the 27c candidate.

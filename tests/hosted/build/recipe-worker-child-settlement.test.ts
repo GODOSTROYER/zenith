@@ -437,8 +437,7 @@ describe("recipe worker actual-child settlement", () => {
       throw new Error(`${message}; worker stderr=${workerStderr.slice(0, MAX_DIAGNOSTIC_BYTES)}`);
     }
     traceWorker({ event: "WORKER_RESULT_FILE_READY", stage: "result-file-ready" });
-    // The result is written synchronously at beforeExit; the worker may already have closed IPC before the watcher sees it.
-    if (worker.connected) worker.disconnect();
+    // Let natural exit deliver peer IPC EOF; parent disconnect bypasses ChildProcess close accounting.
     traceWorker({ event: "WORKER_WAIT_NATURAL_CLOSE", stage: "wait-natural-close" });
     const workerClosed = await withDeadline(closed, 10_000);
     traceWorker({ event: "WORKER_NATURAL_CLOSE_RESULT", stage: "natural-close-result", code: workerClosed === "deadline" ? null : workerClosed.code, signal: workerClosed === "deadline" ? null : workerClosed.signal });

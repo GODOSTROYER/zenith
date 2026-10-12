@@ -1,0 +1,41 @@
+{
+  "evidenceId": "PROD-CI-08-native100-recovery-068391c2-r1",
+  "laterIntegratedCommit": "27c0126888a3f5cbafabb6ca8e3033eeaa96aed3",
+  "laterIntegrationStatus": "source fixes integrated; these terminal runs were performed against 068391c2, not 27c01268",
+  "limitations": [
+    "Cleanup proof only; not a test result or acceptance receipt.",
+    "The original refused native100 attempt and its receipt remain separate historical evidence."
+  ],
+  "pins": {
+    "priorRecoveryReceiptSha256": "1bd5118bddbda1492780db9bb02eec9b81a4407550a441dea8b6e1d1a3503291",
+    "recoveryReceiptSha256": "967fedfcbe56f994bb5cb4dc5b8868bc0108bcc42433a7e312fb3dbd2d2c8df4",
+    "review": {
+      "path": "/tmp/zenith-068391c2-native100-recovery-terminal-review-r1/review.json",
+      "sha256": "ee9087aa14be83dc5d99d0f96251c670883a34071eed07224c85c1116a41726a"
+    },
+    "sourceFreezeSha256": "453ea3c1f96965d98a3e2d99fbf9fbaeb2427d6f34465d9742421432dc110b35"
+  },
+  "result": {
+    "acceptedRunReceipt": false,
+    "activeLeaders": 0,
+    "allExit0CompleteJoinedNoSurvivors": true,
+    "allTerminalAbsenceProven": true,
+    "commands": 33,
+    "containerAbsent": true,
+    "custodyLedgers": 37,
+    "droppedEvents": 0,
+    "foreignInventoryUnchanged": true,
+    "historicalAndCurrentTupleUnion": 448,
+    "lockCleared": true,
+    "noTestsRerun": true,
+    "pendingLive": 0,
+    "sourceStable": true,
+    "status": "exact-owned-container-cleaned-lock-cleared",
+    "telemetryComplete": true,
+    "truncation": false
+  },
+  "schema": "zenith.scoped-cleanup-evidence.v1",
+  "scope": "cleanup and custody recovery of prior owned native100 container; no test rerun",
+  "testedSourceCommit": "068391c2bd8eae625f159855c55ce913146ba792",
+  "testedSourceFreezeSha256": "453ea3c1f96965d98a3e2d99fbf9fbaeb2427d6f34465d9742421432dc110b35"
+}

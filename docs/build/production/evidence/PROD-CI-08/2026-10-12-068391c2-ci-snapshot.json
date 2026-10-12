@@ -1,0 +1,24 @@
+{
+  "acceptedRunReceipt": false,
+  "conditionalSkipped": 8,
+  "evidenceId": "PROD-CI-09-exact-source-068391c2-refresh-r1",
+  "failed": 3,
+  "laterIntegration": {
+    "commit": "27c0126888a3f5cbafabb6ca8e3033eeaa96aed3",
+    "freshCiAtIntegratedCommit": "not established by this snapshot",
+    "sourceFixesStatus": "integrated"
+  },
+  "limitations": [
+    "The 21/8/3 terminal result is pinned to 068391c2.",
+    "Eight skips remain conditional; do not report universal zero skips.",
+    "Three failures remain in the exact-source run; source integration does not convert this run into a green run."
+  ],
+  "passed": 21,
+  "promotion": false,
+  "releaseAcceptance": false,
+  "schema": "zenith.ci-snapshot-supplement.v1",
+  "scope": "exact-source CI snapshot, supplemental status only",
+  "snapshotSha256": "a119539421224deef42fe6f731f4fbb1d98440d8245eb1113ec9d251ba970b30",
+  "sourceCommit": "068391c2bd8eae625f159855c55ce913146ba792",
+  "terminalJobs": 32
+}

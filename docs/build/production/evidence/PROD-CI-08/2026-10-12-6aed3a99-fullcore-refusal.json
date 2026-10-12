@@ -1,0 +1,54 @@
+{
+  "acceptance": false,
+  "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+  "execution": {
+    "acceptedRunReceipt": false,
+    "identityReportSha256": "52a1687699bdca6b5bb7fcb4d0122e3cd9edfa7432dcfaf077539a0e86f1bac0",
+    "noAcceptedFullCoreRun": true,
+    "outerLogSha256": "f04297e5c9507ecc65d590f31c02dd01579c7073132764c00c92939798cc8094",
+    "outerRefusalOverridesVitestSuccess": true,
+    "quarantineReason": "parent_capture_mismatch",
+    "quarantines": 1,
+    "runnerCustodyRefusal": true,
+    "status": "refused-fullcore-hard-custody-violation",
+    "vitestFailed": 0,
+    "vitestPassed": 24624,
+    "vitestPending": 1943,
+    "vitestReportSha256": "a227c67c90152b6654fa75c60fbf813a07867c981ca441cc130b0464f6099165",
+    "wrapperExitCode": 2
+  },
+  "kind": "6aed_fullcore_refusal_terminal_evidence",
+  "level": "local_engine",
+  "milestonePromotion": false,
+  "pins": {
+    "privateRuntime": "/private/tmp/zenith-newmac-core-g6nkasix",
+    "terminalReview": {
+      "path": "/tmp/zenith-6aed3a99-fullcore-refusal-review-r1/review.json",
+      "sha256": "cb8323eafc33f4b5a014f5750571ae9fa70d6705f61481e02754072bd5a704c4"
+    }
+  },
+  "postRefusalCheckpoint": {
+    "exitCode": 1,
+    "path": "/private/tmp/zenith-newmac-core-g6nkasix/post-refusal-admission-checkpoint.private.json",
+    "priorRunRemainsRefused": true,
+    "scope": "fresh read-only absence observation for explicitly checked PIDs only; no retroactive custody acceptance",
+    "sha256": "2bb4c7756aeb1900c6b0fb9962ae1e70755bffa1c7870f93b1ba9ddc50a9fe6c",
+    "signalsSent": false,
+    "stdoutHasHeaderOnly": true
+  },
+  "requirement": "PROD-CI-08",
+  "schemaVersion": 1,
+  "scopeLimitations": [
+    "Preserve this refusal as original full-core history; do not replace it with the focused Native100 pass.",
+    "The terminal refusal overrides Vitest\u2019s zero assertion failures.",
+    "Post-refusal PID absence is a later scoped observation only; it does not retroactively validate the refused run."
+  ],
+  "source": {
+    "afterRunSourceFreezePresent": false,
+    "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+    "sourceBeforeAfterStable": false,
+    "sourceBeforeFreezeOnly": true,
+    "sourceCount": 6003,
+    "sourceFreezeSha256": "489e5d9c17ffe3d76611d2a7ec40e05daaa15ae08b5323365a2da91d51ab0794"
+  }
+}

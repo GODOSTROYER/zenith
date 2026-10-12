@@ -742,7 +742,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "Reviewed worker child settlement, stop diagnostics and PID1 readiness fixes integrated35ef7804. Focused92/92 and final lint/typecheck pass with strict custody/source/floor evidence; fresh coherent full verification and exact-pushed-source CI remain pending.",
+      "implementationStatus": "Minimal worker IPC success-path fixture repair integrated with strict natural close and cleanup gates retained. Exact6aed Native100100P and Temporal10P focused proof plus verifier ordering21/61/33 separate synthetic cases pass; original full-core custody refusal retained. Fresh post-change full I/O, coherent CI and default-stack/browser acceptance remain pending.",
       "evidence": [
         {
           "level": "local_engine",
@@ -2289,6 +2289,54 @@
           "result": "Exact reviewed worker overlay integrated unchanged: focused92P0F0S across6wholefiles/21suites,29heldcommands with final absence/no quarantines and stable source; affectedESLint/fullTypeScript0 across30heldcommands. Separate stop5P/PID1focused203P. Scoped evidence only, no product accepted receipt; fresh combined-source fullcore/native100/defaultstack/browser/engine and CI acceptance pending. Prior refused attempts preserved.",
           "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-f73-worker92-static-focused-r9.json",
           "executionReceiptComplete": false
+        },
+        {
+          "level": "local_engine",
+          "commit": "068391c2bd8eae625f159855c55ce913146ba792",
+          "result": "Historical exact068 Native100100P0F0S focused strict proof; not acceptance for later source.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-068391c2-native100-focused.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "068391c2bd8eae625f159855c55ce913146ba792",
+          "result": "Original Native100 refusal retained; separately owned recovery cleanup passed. No retroactive acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-068391c2-native100-recovery.json"
+        },
+        {
+          "level": "contract",
+          "commit": "068391c2bd8eae625f159855c55ce913146ba792",
+          "result": "Historical exact068 focused PID1 readiness/retry diagnostics204P0F0S on Darwin; no actual Linux PID1 acceptance claim.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-068391c2-pid1-retry-focused.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "068391c2bd8eae625f159855c55ce913146ba792",
+          "result": "Historical exact068 terminal CI snapshot retained separately from newer6aed source; no fresh acceptance promotion.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-068391c2-ci-snapshot.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+          "result": "Exact6aed Native100100P0F0S with independent strict custody/source/floor/cleanup review; focused proof only.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-6aed3a99-native100-focused.json"
+        },
+        {
+          "level": "local_engine",
+          "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+          "result": "Exact6aed full Node/DOM24624P0F1943pending, but wrapperREFUSED parent_capture_mismatch; no accepted summary/after-source-freeze. Fresh scoped PIDabsence observation does not erase refusal.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-6aed3a99-fullcore-refusal.json"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+          "result": "Exact6aed all32jobs terminal22P8conditionalS2failedjobs; both failures share React worker natural-close test. Native4P, Go and typecheckP. Not a green whole CI baseline.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-6aed3a99-ci-terminal.json"
+        },
+        {
+          "level": "contract",
+          "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+          "result": "Focused ordering7methods21subcasesP; broader custody47methods61declaredcasesP; additional ordering6methods33subcasesP, all0F0S and strict independent terminalreviewP. Synthetic only; fresh fullI/O required.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-6aed3a99-staged-parent-regressions.json"
         }
       ],
       "requiredEvidence": [
@@ -5234,6 +5282,12 @@
           "result": "Bounded focused OBS-04 runtime proof on a disposable CFB-based overlay (runtime b2qcn9b2): 10 passed, 0 failed, comprising 2 actual Temporal restart/overlap cases and 8 model cases. This does not establish default worker effects/health, missed-interval catch-up, or whole-requirement acceptance.",
           "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-12-cfb715bf-focused-temporal-r1.json",
           "environment": "CFB source overlay; runtime b2qcn9b2; independently terminal-reviewed bounded run"
+        },
+        {
+          "level": "local_engine",
+          "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+          "result": "Exact6aed actual owned Temporal restart/SKIP10P0F0S; independent custody/source/floor/cleanup reviewP. Focused only; natural maintenance/health/fallback/catch-up/no-overlap acceptance remains pending.",
+          "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-12-6aed3a99-temporal-focused.json"
         }
       ],
       "requiredEvidence": [

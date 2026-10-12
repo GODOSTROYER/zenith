@@ -1,3 +1,22 @@
+## Integrated worker fixture and verifier regression checkpoint — 12 October 2026
+
+The real React worker fixture now lets natural peer IPC EOF complete Node 22 child-close accounting. The real close event, 10-second deadline, assertions and cleanup IPC remain strict. Fresh post-change full Node/DOM and exact-source CI are pending.
+
+The process-tracker ordering repair passed independently reviewed held synthetic checks: 7 methods/21 subcases, the 47-method/61-case custody regression suite, and 6 additional methods/33 subcases, each with zero failures or skips. These separate overlapping results do not replace full native acceptance or erase the refused 6aed run. Native100100/100 and actual Temporal10/10 remain scoped evidence at 6aed.
+
+Ledger: 10 verified / 66 in progress / 2 planned (12.82%); all release flags remain false. Next: publish this checkpoint, bind the fresh clean source, run full I/O acceptance, then continue default-stack J1/J4/J2 and natural maintenance verification.
+
+## Historical 6aed3a99 build and verification blockers — 12 October 2026 (R4)
+
+- **React worker natural close:** terminal exact-source CI has the same real-React close test failing in Hosted and Verify Unit. Typecheck passed. Resolve the natural-close cause and obtain passing CI.
+- **Full Node/DOM acceptance:** Vitest reported 24,624 passed / 0 failed / 1,943 pending, but the wrapper refused `parent_capture_mismatch`; no accepted full-run receipt or after-run source freeze exists.
+- **Tracker verification:** strict synthetic 7-method / 21-subcase proof passed; mandatory 47-case suite and supplemental cases remain pending.
+- **WSET IPC fixture:** test-only R2 has source review only; runtime and exact-source CI remain pending.
+
+Native100 100/100 and focused Temporal 10/10 passed with independent cleanup/custody review within their bounded scopes. They do not substitute for full R16 acceptance. Ledger remains 10 verified / 66 in progress / 2 planned; all release flags remain false. No requirement promotion is claimed.
+
+### Prior blocker history
+
 ## Current 27c01268 build and verification blockers — 12 October 2026
 
 - **Push and source binding:** five code files are integrated in commit `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3`, not yet pushed. Fresh source publisher and coherent CI remain pending.

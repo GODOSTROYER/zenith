@@ -48,7 +48,7 @@ function emitTrace(row: EventRow, sequence: number, stdoutBytes: number, stderrB
     stdoutBytes,
     stderrBytes,
   };
-  for (const key of ["message", "snapshot", "code", "signal", "ok", "joined", "killAccepted", "stillLive", "tsxTransformed", "trackedLive", "settlementDone", "resultPublished", "workerAlive", "childAlive", "version", "serviceObserved", "spawned", "closed", "live", "uncertain", "childStdoutEvents", "stdin", "ipcConnected", "resources", "closeAfterExit", "exitObserved", "streams", "readableEnded", "writableEnded", "destroyed", "streamClosed", "childConnected"]) {
+  for (const key of ["message", "snapshot", "code", "signal", "ok", "joined", "killAccepted", "stillLive", "tsxTransformed", "trackedLive", "settlementDone", "resultPublished", "workerAlive", "childAlive", "version", "serviceObserved", "spawned", "closed", "live", "uncertain", "childStdoutEvents", "stdin", "ipcConnected", "resources", "closeAfterExit", "exitObserved", "streams", "readableEnded", "writableEnded", "destroyed", "streamClosed", "childConnected", "pid"]) {
     if (row[key] !== undefined) safeRow[key] = key === "message" ? String(row[key]).slice(0, 500) : row[key];
   }
   try {
@@ -396,30 +396,52 @@ describe("recipe worker actual-child settlement", () => {
       workerStderrBytes += Buffer.byteLength(chunk);
       if (workerStderr.length < MAX_DIAGNOSTIC_BYTES) workerStderr += chunk.slice(0, MAX_DIAGNOSTIC_BYTES - workerStderr.length);
     });
+    const workerStreamState = () => ({
+      stdout: {
+        readableEnded: workerStdout.readableEnded,
+        destroyed: workerStdout.destroyed,
+        closed: workerStdout.closed,
+      },
+      stderr: {
+        readableEnded: workerStderrStream.readableEnded,
+        destroyed: workerStderrStream.destroyed,
+        closed: workerStderrStream.closed,
+      },
+      ipcConnected: worker.connected,
+    });
+    let workerTraceSequence = 0;
+    const traceWorker = (row: EventRow) => {
+      workerTraceSequence += 1;
+      emitTrace({ ...row, streams: workerStreamState(), pid: worker.pid }, workerTraceSequence, workerStdoutBytes, workerStderrBytes);
+    };
+    workerStdout.on("end", () => traceWorker({ event: "WORKER_STDOUT_END", stage: "worker-stdout-end" }));
+    workerStdout.on("close", () => traceWorker({ event: "WORKER_STDOUT_CLOSE", stage: "worker-stdout-close" }));
+    workerStderrStream.on("end", () => traceWorker({ event: "WORKER_STDERR_END", stage: "worker-stderr-end" }));
+    workerStderrStream.on("close", () => traceWorker({ event: "WORKER_STDERR_CLOSE", stage: "worker-stderr-close" }));
     const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
       worker.once("error", reject);
       worker.once("exit", (code, signal) => {
-        emitTrace({ event: "WORKER_EXIT", stage: "process-exit", code, signal, ipcConnected: worker.connected }, 5, workerStdoutBytes, workerStderrBytes);
+        traceWorker({ event: "WORKER_EXIT", stage: "process-exit", code, signal });
       });
       worker.once("close", (code, signal) => {
         activeProcesses.delete(worker);
-        emitTrace({ event: "WORKER_CLOSE", stage: "stdio-close", code, signal, ipcConnected: worker.connected }, 6, workerStdoutBytes, workerStderrBytes);
+        traceWorker({ event: "WORKER_CLOSE", stage: "stdio-close", code, signal });
         resolve({ code, signal });
       });
     });
-    emitTrace({ event: "WORKER_WAIT_RESULT_FILE", stage: "wait-result-file" }, 1, workerStdoutBytes, workerStderrBytes);
+    traceWorker({ event: "WORKER_WAIT_RESULT_FILE", stage: "wait-result-file" });
     try {
       await waitForFile(resultFile, 170_000);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`${message}; worker stderr=${workerStderr.slice(0, MAX_DIAGNOSTIC_BYTES)}`);
     }
-    emitTrace({ event: "WORKER_RESULT_FILE_READY", stage: "result-file-ready" }, 2, workerStdoutBytes, workerStderrBytes);
+    traceWorker({ event: "WORKER_RESULT_FILE_READY", stage: "result-file-ready" });
     // The result is written synchronously at beforeExit; the worker may already have closed IPC before the watcher sees it.
     if (worker.connected) worker.disconnect();
-    emitTrace({ event: "WORKER_WAIT_NATURAL_CLOSE", stage: "wait-natural-close" }, 3, workerStdoutBytes, workerStderrBytes);
+    traceWorker({ event: "WORKER_WAIT_NATURAL_CLOSE", stage: "wait-natural-close" });
     const workerClosed = await withDeadline(closed, 10_000);
-    emitTrace({ event: "WORKER_NATURAL_CLOSE_RESULT", stage: "natural-close-result", code: workerClosed === "deadline" ? null : workerClosed.code, signal: workerClosed === "deadline" ? null : workerClosed.signal, ipcConnected: worker.connected }, 7, workerStdoutBytes, workerStderrBytes);
+    traceWorker({ event: "WORKER_NATURAL_CLOSE_RESULT", stage: "natural-close-result", code: workerClosed === "deadline" ? null : workerClosed.code, signal: workerClosed === "deadline" ? null : workerClosed.signal });
     expect(workerClosed, `worker did not naturally close; stdout=${output.slice(0, MAX_DIAGNOSTIC_BYTES)}; stderr=${workerStderr.slice(0, MAX_DIAGNOSTIC_BYTES)}`).not.toBe("deadline");
     expect((workerClosed as { code: number | null }).code, output).toBe(0);
     const result = JSON.parse(fs.readFileSync(resultFile, "utf8")) as { ok: boolean; outDir: string; modules: number };

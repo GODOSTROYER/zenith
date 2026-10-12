@@ -52,11 +52,11 @@ describe('default-stack owned container stop grace', () => {
       phase: 'observed', stopResolved: true, wasRunning: true, postStopInspectionAvailable: true,
       runningAfter: false, exitCode: 137, oomKilled: false,
     });
-    expect(cleanupStopDiagnostic({ resource, current: { Config: { StopSignal: 'untrusted-value' } },
+    expect(cleanupStopDiagnostic({ resource, current: { Config: { StopSignal: 'untrusted-value' } }, stopped: undefined,
       graceSeconds: 660, elapsedMs: 1, phase: 'stop', stopResolved: false })).toMatchObject({
       signal: 'other', postStopInspectionAvailable: false, runningAfter: null, exitCode: null, oomKilled: null,
     });
-    expect(cleanupStopDiagnostic({ resource, current: {}, graceSeconds: 60, elapsedMs: 1,
+    expect(cleanupStopDiagnostic({ resource, current: {}, stopped: undefined, graceSeconds: 60, elapsedMs: 1,
       phase: 'stop', stopResolved: false }).signal).toBe('SIGTERM');
   });
 

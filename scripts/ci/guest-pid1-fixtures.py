@@ -288,6 +288,11 @@ def pid1_container_state_diagnostic(container):
  if status not in PID1_CONTAINER_STATUSES:return None
  if exit_code is not None and (type(exit_code) is not int or not 0<=exit_code<=255):return None
  return {'running':running,'paused':paused,'restarting':restarting,'oomKilled':oom_killed,'status':status,'exitCode':exit_code}
+def pid1_inspection_stream_phase(phase,edge,retry):
+ assert phase=='guest-baseline-pid1' and edge in ('before','after') and type(retry) is int and retry>=0
+ suffix='' if retry==0 else '-retry-%03d'%retry
+ return phase+'-'+edge+suffix
+
 def wait_for_systemd_pid1(attempt,deadline,clock,sleep,interval=0.25):
  """Retry only the exact not-ready comm under one caller-owned deadline."""
  first_not_ready=None
@@ -463,7 +468,7 @@ def main():
    if phase in RUN_STAGES:set_diagnostic_stage(RUN_STAGES[phase])
    set_diagnostic_operation(operation_for_phase(phase))
   assert pin is None and exec_pin is None;pin=phase;receipt['unconfirmedDelivery']=phase;save();result=run(argv,phase,timeout);pin=None;receipt['unconfirmedDelivery']=None;save();return result
- def obj(argv,phase,budget_deadline=None):return json.loads(run(argv,phase,budget_deadline=budget_deadline))
+ def obj(argv,phase,budget_deadline=None,stream_phase=None):return json.loads(run(argv,phase,budget_deadline=budget_deadline,stream_phase=stream_phase))
  def absent(kind,value,phase):
   if kind=='volume':args=['volume','ls','-q','--filter','name=^'+value+'$']
   else:args=['container','ls','-aq','--filter','name=^/'+value+'$']
@@ -482,8 +487,8 @@ def main():
   nonlocal builder_snapshot
   assert capture_builder('builder-before-release')==builder_snapshot
   mutate(['buildx','rm',builder],'release-builder',120);absent('container',builder_name,'builder-absent');absent('volume',cache,'cache-absent');builder_snapshot=None
- def owned_container(phase,budget_deadline=None):
-  c=obj(['container','inspect',name],phase,budget_deadline)[0]
+ def owned_container(phase,budget_deadline=None,stream_phase=None):
+  c=obj(['container','inspect',name],phase,budget_deadline,stream_phase)[0]
   if phase in GUEST_BASELINE_CONTAINER_PHASES:set_diagnostic_operation('guest-baseline-container-identity')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   if phase in GUEST_BASELINE_CONTAINER_PHASES:
@@ -558,7 +563,7 @@ def main():
    else:context_snapshot=None
   else:raise AssertionError('unknown delivery retained: '+phase)
   pin=None;receipt['unconfirmedDelivery']=None;save()
- def execute(argv,phase,timeout=60,budget_deadline=None,allow_nonzero=False,stream_phase=None):
+ def execute(argv,phase,timeout=60,budget_deadline=None,allow_nonzero=False,stream_phase=None,inspection_retry=None):
   nonlocal exec_pin
   if cleaning:set_diagnostic_stage('cleanup')
   else:
@@ -567,12 +572,14 @@ def main():
   if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-running-idle')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert pin is None and exec_pin is None
-  c=owned_container(phase+'-before',budget_deadline)
+  before_stream=pid1_inspection_stream_phase(phase,'before',inspection_retry) if inspection_retry is not None else None
+  c=owned_container(phase+'-before',budget_deadline,before_stream)
   if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-running-idle')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert c['State']['Running'] and not c.get('ExecIDs')
   exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario',budget_deadline=budget_deadline,allow_nonzero=allow_nonzero,stream_phase=stream_phase)
-  c=owned_container(phase+'-after',budget_deadline)
+  after_stream=pid1_inspection_stream_phase(phase,'after',inspection_retry) if inspection_retry is not None else None
+  c=owned_container(phase+'-after',budget_deadline,after_stream)
   if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-exec-settlement')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert not c.get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
@@ -632,7 +639,7 @@ def main():
    global DIAGNOSTIC_CHILD_EXIT_CODE
    stream_phase='guest-baseline-pid1' if retry==0 else 'guest-baseline-pid1-retry-%03d'%retry
    if retry>0:DIAGNOSTIC_CHILD_EXIT_CODE=None
-   result=execute(argv,'guest-baseline-pid1',timeout=remaining,budget_deadline=guest_baseline_deadline,allow_nonzero=True,stream_phase=stream_phase)
+   result=execute(argv,'guest-baseline-pid1',timeout=remaining,budget_deadline=guest_baseline_deadline,allow_nonzero=True,stream_phase=stream_phase,inspection_retry=retry)
    pid1_baseline_stream=stream_phase
    return result
   recovered=wait_for_systemd_pid1(pid1_attempt,guest_baseline_deadline,time.monotonic,time.sleep)

@@ -1402,6 +1402,36 @@ assert len(calls) == 1
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
   });
+  it("uses fresh inspection streams for each actual PID1 retry", () => {
+    const model = String.raw`
+import ast, pathlib, subprocess, sys, types
+source = pathlib.Path(sys.argv[1]).read_text(); tree = ast.parse(source)
+main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+execute = next(node for node in ast.walk(main) if isinstance(node, ast.FunctionDef) and node.name == 'execute')
+attempt = next(node for node in ast.walk(main) if isinstance(node, ast.FunctionDef) and node.name == 'pid1_attempt')
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'pid1_inspection_stream_phase')
+wait = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'wait_for_systemd_pid1')
+wrapper = ast.parse('def harness():\n    exec_pin = None\n    pin = None\n    cleaning = False\n    receipt = {"unconfirmedExec": None}\n    pid1_baseline_stream = "guest-baseline-pid1"\n    name = "mock-owned-pid1"\n    guest_baseline_deadline = 10.0\n    observed_inspections = []\n    replies = [(1, b"init\\n"), (0, b"systemd\\n")]\n    class Clock:\n        def __init__(self): self.now = 0.0\n        def read(self): return self.now\n        def sleep(self, amount): self.now += amount\n    clock = Clock()\n    def owned_container(phase, budget_deadline=None, stream_phase=None):\n        observed_inspections.append((phase, stream_phase))\n        return {"State": {"Running": True}, "ExecIDs": []}\n    def run(argv, phase, timeout=60, docker=True, budget_deadline=None, allow_nonzero=False, stream_phase=None):\n        assert phase == "guest-baseline-pid1" and allow_nonzero\n        return replies.pop(0)\n    def save(): pass\n    def set_diagnostic_stage(_stage): pass\n    def set_diagnostic_operation(_operation): pass\n    return clock, observed_inspections, pid1_attempt\n').body[0]
+wrapper.body = wrapper.body[:-1] + [execute, attempt, wrapper.body[-1]]
+namespace = {
+ 'subprocess': subprocess, 'time': types.SimpleNamespace(monotonic=lambda: 1.0),
+ 'RUN_STAGES': {}, 'GUEST_BASELINE_PHASES': {'guest-baseline-pid1'},
+ 'DIAGNOSTIC_CHILD_EXIT_CODE': None,
+ 'operation_for_phase': lambda _phase: 'guest-baseline-pid1',
+ 'set_diagnostic_operation': lambda _operation: None,
+ 'set_diagnostic_stage': lambda _stage: None,
+}
+exec(compile(ast.Module(body=[helper, wait, wrapper], type_ignores=[]), 'actual-pid1-stream-retry', 'exec'), namespace)
+clock, observed, attempt_fn = namespace['harness']()
+namespace['wait_for_systemd_pid1'](attempt_fn, 10.0, clock.read, clock.sleep)
+assert [phase for phase, _stream in observed] == ['guest-baseline-pid1-before', 'guest-baseline-pid1-after', 'guest-baseline-pid1-before', 'guest-baseline-pid1-after']
+streams = [stream for _phase, stream in observed]
+assert streams == ['guest-baseline-pid1-before', 'guest-baseline-pid1-after', 'guest-baseline-pid1-before-retry-001', 'guest-baseline-pid1-after-retry-001']
+assert len(set(streams)) == 4
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
   it("clears transient PID1 exit diagnostics through the actual retry closure", () => {
     const model = String.raw`
 import ast, pathlib, subprocess, sys
@@ -1427,12 +1457,13 @@ def scenario(second):
     namespace['DIAGNOSTIC_CHILD_EXIT_CODE'] = None
     replies = [(1, b'init\n'), second]
     seen_diagnostic = []; calls = []
-    def execute(argv, phase, timeout=60, budget_deadline=None, allow_nonzero=False, stream_phase=None):
+    def execute(argv, phase, timeout=60, budget_deadline=None, allow_nonzero=False, stream_phase=None, inspection_retry=None):
         assert phase == 'guest-baseline-pid1' and allow_nonzero
+        assert inspection_retry == len(calls)
         assert timeout > 0 and budget_deadline == 30.0
         seen_diagnostic.append(namespace['DIAGNOSTIC_CHILD_EXIT_CODE'])
         code, output = replies.pop(0)
-        calls.append((stream_phase, code, argv))
+        calls.append((stream_phase, code, argv, inspection_retry))
         if code:
             namespace['DIAGNOSTIC_CHILD_EXIT_CODE'] = code
         return code, output
@@ -1446,6 +1477,7 @@ def scenario(second):
         assert second[0] == 0 and recovered == 2
     assert current_phase() == 'guest-baseline-pid1-retry-001'
     assert [item[0] for item in calls] == ['guest-baseline-pid1', 'guest-baseline-pid1-retry-001']
+    assert [item[3] for item in calls] == [0, 1]
     assert calls[0][2] == calls[1][2]
     assert seen_diagnostic == [None, None]
     return namespace['DIAGNOSTIC_CHILD_EXIT_CODE']

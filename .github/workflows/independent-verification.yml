@@ -39,6 +39,8 @@ jobs:
       - name: Run admission custody regressions and existing mixed contracts
         run: npx --no-install vitest run --project=node --maxWorkers=1 tests/execution/mixed
       - name: Typecheck complete repository
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npx --no-install tsc --noEmit
-      - name: Lint changed contract suite
-        run: npx --no-install eslint tests/execution/mixed/admission-custody.test.ts
+      - name: Lint changed source and contract suites
+        run: npx --no-install eslint src/lib/execution/graph.ts src/lib/execution/mixed/admission.ts tests/execution/mixed/admission-custody.test.ts tests/execution/mixed/admission-content.test.ts

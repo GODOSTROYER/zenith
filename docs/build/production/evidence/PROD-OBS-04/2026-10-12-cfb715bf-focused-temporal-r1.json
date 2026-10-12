@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "kind": "held-obs04-critical-schedule-focused-run",
+  "acceptedRunReceipt": false,
+  "outcome": "passed-focused-actual-owned-temporal",
+  "beforeEqualsAfter": true,
+  "continuousFloorBytes": 12000000000,
+  "sourceCount": 5978,
+  "sourceFreezeSha256": "7cb0aa4ba5270fb5cfa0c7bd18025038a451073f3af2df5b20c833aca9dc07b3",
+  "sourceHead": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+  "vitest": {
+    "caseIdentities": [
+      {
+        "ancestorTitles": [
+          "critical maintenance schedule definition"
+        ],
+        "title": "is a one-attempt, SKIP-overlap, bounded catch-up schedule on the execution queue"
+      },
+      {
+        "ancestorTitles": [
+          "critical maintenance schedule definition"
+        ],
+        "title": "accepts its own description and refuses any drift in an authority-bearing field"
+      },
+      {
+        "ancestorTitles": [
+          "ensureCriticalMaintenanceSchedule"
+        ],
+        "title": "creates the schedule when absent"
+      },
+      {
+        "ancestorTitles": [
+          "ensureCriticalMaintenanceSchedule"
+        ],
+        "title": "adopts a compatible existing schedule and keeps an operator pause"
+      },
+      {
+        "ancestorTitles": [
+          "ensureCriticalMaintenanceSchedule"
+        ],
+        "title": "refuses an incompatible existing schedule and never overwrites it"
+      },
+      {
+        "ancestorTitles": [
+          "ensureCriticalMaintenanceSchedule"
+        ],
+        "title": "tolerates a concurrent creator and verifies what is there"
+      },
+      {
+        "ancestorTitles": [
+          "ensureCriticalMaintenanceSchedule"
+        ],
+        "title": "reports an unconfirmed transport rather than guessing"
+      },
+      {
+        "ancestorTitles": [
+          "inspectCriticalMaintenanceSchedule"
+        ],
+        "title": "projects counts only and flags absence, drift and pause"
+      },
+      {
+        "ancestorTitles": [
+          "critical maintenance schedule on an actual owned durable Temporal service"
+        ],
+        "title": "preserves compatible schedule and queued actual workflow across server restart"
+      },
+      {
+        "ancestorTitles": [
+          "critical maintenance schedule on an actual owned durable Temporal service"
+        ],
+        "title": "skips overlap while the first genuine activity is held"
+      }
+    ],
+    "counts": {
+      "numFailedTests": 0,
+      "numPassedTests": 10,
+      "numPendingTests": 0,
+      "numTodoTests": 0,
+      "numTotalTests": 10
+    },
+    "expectedIdentityCount": 10,
+    "expectedIdentitySetMatched": true,
+    "reportSha256": "44ed25a63d70ba805b3494d00d1d85c2e7d13319218768d7953c98c3871c2590"
+  },
+  "limitations": [
+    "controlled maintenance outcomes only",
+    "not default maintenance effects, J4 natural-timer acceptance, or production acceptance"
+  ],
+  "receiptSha256": "2855e00ad7b3c7f945c2395279ffda795e72762bc45047cd4bf1e17ea4e44763",
+  "scope": "10 focused cases:8 models and2 real Temporal restart/overlap cases; not default J4 job effects or production acceptance"
+}

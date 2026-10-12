@@ -1,0 +1,230 @@
+{
+  "kind": "reviewed CFB evidence and integrated verifier fixes",
+  "status": "five tested candidate postimages integrated exactly; fresh committed-source full verification and CI pending",
+  "testedCheckoutHead": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+  "sourceBindingHead": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+  "sourceContentSha256": "f937dd17eb27cb68ed7a8ca91350decaa4847129ed7076b0473a781466d7e58c",
+  "sourceFreezeSha256": "7cb0aa4ba5270fb5cfa0c7bd18025038a451073f3af2df5b20c833aca9dc07b3",
+  "upstreamImplementationBase": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "canonicalCiIndexSha256": "d8025767a755e342911c49ccf7d66efafdec0a900f09f0f326d8525c11fbfa16",
+  "coreR16": {
+    "passed": 24578,
+    "skipped": 1943,
+    "failed": 0,
+    "identities": 26521,
+    "reviewSha256": "d1bd42167d318b01f6393bf7373ca85ac8fd7ae45ff1418e638096eb58dfb4ab",
+    "reviewJsonSha256": "b324cf1a0218f923de8587b8bf6484eb5b5b83b62c65572aab1f3c2d70910218",
+    "summarySha256": "5eb932ac8ce0b8aa09846ae2f7e248bf3de61682731702d4b2d00f4dc4b804e8",
+    "executionReceiptSha256": "8a969c1b7805c2928a8cd582e5dae72a4c71ca2362a97c8a79c9c8333e724c43"
+  },
+  "ci": {
+    "passed": 24,
+    "conditionalSkips": 8,
+    "failed": 0,
+    "running": 0,
+    "jobs": 32,
+    "workflows": 3
+  },
+  "boundedCases": {
+    "mixed": 11,
+    "workflow": 35,
+    "ux03Docker": 3,
+    "j4SyntheticDiagnostics": 9,
+    "postgresContinuation": {
+      "passed": 6,
+      "failed": 0,
+      "filteredSkips": 39
+    },
+    "sumPassingCases": 67,
+    "scope": "component and continuation checks only; no full suite/product acceptance",
+    "sumExplanation": "11 mixed +35 workflows +3 Docker +9 diagnostics +6 PostgreSQL +3 stop-grace =67 distinct bounded cases; combined12 reruns the same9 diagnostics",
+    "stopGrace": 3
+  },
+  "diagnosticProofs": {
+    "unitR7": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "proofSha256": "e23ad1a2195789b8cde263fdde6b32596148af3e9bc68a39c30dffef2b120447",
+      "acceptedRunReceipt": false
+    },
+    "staticR3": {
+      "passed": 2,
+      "failed": 0,
+      "scope": "TypeScript and lint",
+      "proofSha256": "9ef204327af725411a563f503739b78c286170a88ee1e2460669c1b650469849",
+      "acceptedRunReceipt": false
+    },
+    "independentReviewSha256Prefix": "126ffc"
+  },
+  "ux03CleanupR3": {
+    "receiptSha256": "2c538b5915222016ffe56c91985b9e6c462da188d9142a56a58424e767e9cb73",
+    "status": "cleanup_completed_test_acceptance_not_provided",
+    "heldCommandsSettled": 31,
+    "baselineImages": 21,
+    "restoredImages": 21,
+    "sourceEntries": 5978
+  },
+  "temporalCompletion": {
+    "receiptSha256": "58262c5f934cfb63b5000a0b792bde4fb9a1114fc73bbc8f60bc0e3051d785d8",
+    "sourceAfterVerified": true,
+    "sourceEntries": 5978,
+    "testsRerun": 0,
+    "acceptedRunReceipt": false
+  },
+  "sourceFreezePreflight": {
+    "receiptSha256": "6681be15f2ea3ee16c044aec30b030b51d6df510c210b96d012b746e2d167a8a",
+    "sourceEntries": 5978,
+    "sourceFreezeSha256": "7cb0aa4ba5270fb5cfa0c7bd18025038a451073f3af2df5b20c833aca9dc07b3",
+    "sourceContentSha256": "f937dd17eb27cb68ed7a8ca91350decaa4847129ed7076b0473a781466d7e58c",
+    "producerPathSha256Prefix": "d76"
+  },
+  "postgresHistory": {
+    "originalR5": "0 executed / 45 skipped",
+    "R4Continuation": "refused pre-child: observer-runtime-path-binding",
+    "R7Continuation": "6 passed / 39 filtered skips; cleanup complete; acceptance unproven",
+    "R7TerminalReview": {
+      "verdict": "PASS",
+      "passed": 6,
+      "failed": 0,
+      "filteredSkips": 39,
+      "reviewSha256": "83045f9c07337d8802b25c03183f748f54b4bd8d92025c2e12fd972f741c0017",
+      "reviewJsonSha256": "4e362a48b20222cecd935202fed439ccb2c1d1e3f2628be4ff8f2949c179f625",
+      "hostMinimumFreeBytes": "not persisted; watcher and floor check passed"
+    }
+  },
+  "compilerHistory": {
+    "R1": "refused after 4 GiB OOM",
+    "R3": "passed"
+  },
+  "j4": {
+    "originalMachineSchedulesR15": "failed-retain-owned-state; unaccepted",
+    "cleanupR4": "historical pre-deletion refusal due to CLI/config label mismatch; no deletions started",
+    "diagnosis": "Cleanup representation defect repaired and terminal-reviewed; original default-schedule product failure remains to be diagnosed on a fresh fixture.",
+    "freshEngineProbeR5": {
+      "verdict": "PASS_READ_ONLY_ENGINE_PROBE",
+      "receiptSha256": "25485077fffdc761c44a5ea9c70fb80624bae01907ce3889b88abe1c8178dd43"
+    },
+    "sourcePreparedR5": {
+      "purpose": "preserve Desktop CLI and config label representations",
+      "sourceSha256Prefix": "58460",
+      "review": "PASS source and terminal; cleanup completed"
+    },
+    "cleanupR5": {
+      "status": "terminal PASS for bounded cleanup",
+      "root": 70658,
+      "exitCode": 0,
+      "completedAtUtc": "02:30:45",
+      "heldStages": 9,
+      "evidenceItems": 22,
+      "ownedRemovals": 19,
+      "ownedResourcesRemaining": 0,
+      "foreignResourceParity": true,
+      "protectedResourceChecksPassed": true,
+      "forcedStops": 2,
+      "gracefulAcceptance": false,
+      "receiptSha256": "8f62c9b2a8b56ad7be1c03eca292333bfd5c64f8c51a3f59123feb4675b7128d",
+      "observerReviewSha256": "ee28bc9fb76858746cdb8a1ef683055cd6223b12cfb92363ed0a022b4fc71672",
+      "observerReviewJsonSha256": "5d5ae95fbfd75928dbd591f9458df5195869b17ecc2a9733a7d0efce2a3d0b20",
+      "minimumHostFreeBytes": 264355860480,
+      "minimumDockerVmFreeBytes": 406764761088,
+      "diskFloorBytes": 23622320128
+    }
+  },
+  "ledger": {
+    "verified": 10,
+    "inProgress": 66,
+    "planned": 2,
+    "total": 78,
+    "verifiedPercent": 12.82,
+    "milestonePromotion": false,
+    "releaseFlags": false
+  },
+  "sanitization": {
+    "privatePathsOmitted": true,
+    "rawLogsOmitted": true,
+    "credentialsOmitted": true,
+    "personalPathsOmitted": true
+  },
+  "stopGraceCandidateR3": {
+    "patchSha256": "c49d8c62e27ec87623cae5fb6ee46ded7fc73ac6032fcc5318494a265986bff0",
+    "status": "superseded historical source candidate; itsthree newcaseidentities laterpassed onR4",
+    "nineDiagnosticsAreRerunNotNewCases": true,
+    "priorApplicationIdentityFixtureFinding": "preserved"
+  },
+  "stopGraceCandidateR4": {
+    "patchSha256": "49272833e75a3fa51f17c08536113cae6e40c199d25f222ba78bfb81152cf2b4",
+    "sourceReview": "independent positive",
+    "acceptedRunReceipt": false,
+    "runtimeSha256Prefix": "7cf3d9",
+    "testSha256Prefix": "d765979",
+    "combinedFocused": {
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "proofSha256": "4e66891b596c5542785fcbcf0d4234862d7958bf46ac08f1bd16d0464a589494",
+      "previouslyCountedCases": 9,
+      "newCases": 3,
+      "independentTerminalReview": "PASS"
+    },
+    "staticR6": {
+      "status": "pass",
+      "passed": 2,
+      "failed": 0,
+      "scope": "TypeScript and ESLint",
+      "proofSha256": "7019d7a9a311674f65694defe8c8c7adc6211554f50ae65579a4f4a65a38e70a",
+      "acceptedRunReceipt": false
+    },
+    "independentTerminalReview": "PASS focused and static",
+    "candidateBoundary": "Focused/static proofs used a CFB-based isolated overlay; primary integration exactly matches these postimages. Fresh committed successor full verification pending.",
+    "independentFocusedReview": {
+      "verdict": "PASS",
+      "reviewSha256": "56c0e1bb1a2d7bafe64228fdab9dfdcd3c363b84662389136319f669e9f1159e",
+      "reviewJsonSha256": "694ad85daa80610f4a52cf2ddb513427955efab289e0347761e7b099fd139596"
+    },
+    "staticTerminalReview": {
+      "verdict": "PASS",
+      "reviewSha256": "e7bf4f064f572caa42d1999ab1e2203a0893bdc93a6efc9737bd41b445fb7efb",
+      "reviewJsonSha256": "f534f2af2b08dc0b4fc233c842065237d272c78caca63b52c61ccdbd7317cb75"
+    },
+    "integrationTransportR4": "failed cleanly; no changes",
+    "sourceMatchedIntegrationR5": {
+      "transportSha256": "4e43c94a98894175e63593fa6378356ca3057aa8317c031d43b96b32e84ae830",
+      "applyCheck": "pass against exact tested postimages",
+      "integrated": true
+    },
+    "freshFullCiAcceptance": "pending",
+    "runtimeSha256": "7cf3d9c26027d0a8081c08e39c7500a7777137e634245a4c6770517e1cff897d",
+    "testSha256": "d765979aa95fa75ad98fc8732e76c02e2551ab1f6d84d05aa96af6971bf62868"
+  },
+  "sourceIntegration": {
+    "matchesTestedPostimages": true,
+    "stopGraceTransportSha256": "4e43c94a98894175e63593fa6378356ca3057aa8317c031d43b96b32e84ae830",
+    "diagnosticTransportCorrectionSha256": "da72747f55a26542d376ef3048e7c901d2eef2ef62239ee88accbf94f9a6102d",
+    "historicalR1Patch": "original bytes overwritten; reconstructed patch does not match original hash and is not exact evidence",
+    "candidateBasis": "CFB base with five explicitly hashed overlays; full successor acceptance pending",
+    "postimages": {
+      "scripts/acceptance/maintenance/default.ts": "3d85d0cf003f2576a426c4ea406d4a447227a59fc254ff7ca3276d47d044470d",
+      "scripts/acceptance/maintenance/run.ts": "0fd9044955911f4fc9f5424a00b9050b72fddc017cdbd22d46ceaf7ce41e6f8e",
+      "tests/acceptance/maintenance-cli-diagnostics.test.ts": "f071676659b737bdcb141a83b63aee6c6b7c29e68f409b1db6031e67a25a0154",
+      "scripts/acceptance/default-stack/runtime.mjs": "7cf3d9c26027d0a8081c08e39c7500a7777137e634245a4c6770517e1cff897d",
+      "tests/acceptance/default-stack-stop-grace.test.ts": "d765979aa95fa75ad98fc8732e76c02e2551ab1f6d84d05aa96af6971bf62868"
+    },
+    "independentFinalReviewSha256": "720feacaff498c407c86663ba582e5cf7de65532f88356ddc630f2606175087f",
+    "independentFinalReviewJsonSha256": "38db42250103d327c95258dde788f76b7cc485f24eaff2ba032ad168ccd430a1"
+  },
+  "publicationQualification": "Historical failure records retained. No milestone promotion or release approval. Production flags false.",
+  "componentContracts": {
+    "tests/controlplane/execution-ledger.test.ts": {
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0
+    },
+    "tests/controlplane/state-backend-recovery.test.ts": {
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0
+    },
+    "scope": "Exact CFB CI unit-report components; not added to the67 focused subtotal"
+  }
+}

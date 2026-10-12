@@ -424,7 +424,7 @@ ZENITH_J6_OPERATION_ID to the recorded real fixture, local endpoints and reviewe
 operation; use local signing keys, no KMS/cloud credentials.
 
 ```bash
-export ZENITH_ALLOW_CONTRACT_MIGRATIONS=42,49,59
+export ZENITH_ALLOW_CONTRACT_MIGRATIONS=42,49,58
 npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts
 npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts --status
 ZENITH_TEST_J6_SOURCE_PG=1 npx vitest run tests/providers/kubernetes/build/schema.test.ts --no-file-parallelism --maxWorkers=2

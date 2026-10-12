@@ -61,6 +61,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
   const ownedSchedules: string[] = [];
   const workspaceId = `j4-billing-${randomUUID()}`;
   const observedJobs = [...CORE_JOBS, "billing", ...ADDENDA_JOBS] as const;
+  let primaryFailure: { value: unknown } | undefined;
   try {
     const epoch = await assertMaintenancePreconditions(db, process.env);
     connection = await Connection.connect({ address: process.env.ZENITH_TEMPORAL_ADDRESS });
@@ -175,6 +176,9 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     assert(Array.isArray(status.jobs) && observedJobs.every(job => (status.jobs as { job: string; durable: boolean; state: string }[]).some(row => row.job === job && row.durable && row.state === "healthy")), "Default API health does not match durable readback.");
     assert(await seededEpoch(db) === epoch, "Published cleanup epoch changed.");
     return { schema: 1, level: "local_engine", runId: hostWorkerClosure.runId, naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, maintenanceAddenda: [...ADDENDA_JOBS], addendaLeaseExclusion: true, addendaRestartCatchup: true, housekeepingEffect: true, epochPreserved: true, hostWorkerClosure };
+  } catch (error) {
+    primaryFailure = { value: error };
+    throw error;
   } finally {
     const errors: unknown[] = [];
     // Drain while our worker is still alive. A cleanup failure never prevents stopping our child.
@@ -224,7 +228,10 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       || new Set(workerClosures.map(entry => entry.pid)).size !== 2 || new Set(workerClosures.map(entry => entry.workerIdentity)).size !== 2)) {
       errors.push(new Error("Owned worker closeout proof is incomplete."));
     }
-    if (errors.length) throw new AggregateError(errors, "Owned maintenance cleanup is unconfirmed; retain namespace/database.");
+    if (errors.length) {
+      if (primaryFailure) throw new AggregateError(errors, "Owned maintenance cleanup is unconfirmed; retain namespace/database.", { cause: primaryFailure.value });
+      throw new AggregateError(errors, "Owned maintenance cleanup is unconfirmed; retain namespace/database.");
+    }
     hostWorkerClosure.graceful = true;
   }
 }

@@ -34,6 +34,32 @@ export function run(command, args, options = {}) {
 }
 export const docker = (args, options = {}) => run('docker', args, options);
 export const save = (file, value) => fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+
+const WORKER_COMPOSE_SERVICES = new Set(['execution-worker', 'execution-worker-peer']);
+const INFRA_COMPOSE_SERVICES = new Set(['temporal', 'supabase-edge']);
+const SUPABASE_INFRA_SERVICES = new Set(['auth', 'db', 'kong', 'pooler', 'rest']);
+const INFRA_STOP_GRACE_SECONDS = 60;
+const WORKER_STOP_GRACE_SECONDS = 660;
+
+/** Shorten only exact known disposable infrastructure with its expected owner labels. */
+export function containerStopGraceSeconds(item, state) {
+  const labels = item?.Config?.Labels ?? item?.Labels;
+  if (WORKER_COMPOSE_SERVICES.has(labels?.['com.docker.compose.service'])) return WORKER_STOP_GRACE_SECONDS;
+  const service = labels?.['com.docker.compose.service'];
+  if (state.applicationInstallationId
+    && typeof state.applicationProjectName === 'string' && state.applicationProjectName.length > 0
+    && labels?.[installationLabel] === state.applicationInstallationId
+    && labels?.['com.docker.compose.project'] === state.applicationProjectName
+    && INFRA_COMPOSE_SERVICES.has(service)) {
+    return INFRA_STOP_GRACE_SECONDS;
+  }
+  if (labels?.[projectLabel] === state.projectId && typeof item?.Name === 'string'
+    && [...SUPABASE_INFRA_SERVICES].some(name => item.Name === `/supabase_${name}_${state.projectId}`)) {
+    return INFRA_STOP_GRACE_SECONDS;
+  }
+  return WORKER_STOP_GRACE_SECONDS;
+}
+
 export function readState(directory) {
   const dir = privateLocation(directory); assertPrivate(dir, true);
   const file = path.join(dir, 'state.json'); assertPrivate(file);
@@ -141,9 +167,10 @@ export async function cleanup(state) {
     cleanupPlan([{ ...resource, labels: current.Config?.Labels ?? current.Labels }], state);
     if (!owns(current.Config?.Labels ?? current.Labels, state)) fail('resource-ownership');
     if (resource.kind === 'container') {
-      // Allow the shipped 11-minute worker drain. Observe any actual forced
-      // settlement separately; absence does not prove graceful delivery.
-      await docker(['stop', '--time', '660', resource.id], { timeout: 700_000 });
+      // Preserve the shipped worker drain. Only positively identified disposable
+      // infrastructure gets the shorter stop window; unknown roles remain conservative.
+      const graceSeconds = containerStopGraceSeconds(current, state);
+      await docker(['stop', '--time', String(graceSeconds), resource.id], { timeout: graceSeconds * 1000 + 40_000 });
       const [stopped] = JSON.parse(await docker(['container', 'inspect', resource.id]));
       if (current.State?.Running && (stopped.State?.ExitCode === 137 || stopped.State?.OOMKilled)) forcedStops++;
       await docker(['rm', '-v', resource.id]);

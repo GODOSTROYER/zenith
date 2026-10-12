@@ -140,7 +140,7 @@ Limits are bounds, not reservations. No concurrent full default stack rehearsal.
 
 First start the existing enforcing-CNI kind environment:
 ```bash
-export ZENITH_KIND_CLUSTER_NAME=zenith-j6
+export ZENITH_KIND_CLUSTER_NAME=zenith-life07-j6
 export ZENITH_K8S_WORKDIR="$(mktemp -d)"
 bash scripts/k8s/kind-calico-up.sh
 export KUBECONFIG="$ZENITH_K8S_WORKDIR/kubeconfig"
@@ -279,7 +279,7 @@ credential resolver, provider port or simulated approval is accepted.
 
 ```bash
 umask 077
-export ZENITH_KIND_CLUSTER_NAME=zenith-j6
+export ZENITH_KIND_CLUSTER_NAME=zenith-life07-j6
 export ZENITH_K8S_WORKDIR="$(mktemp -d)"
 # Preserve the repository's real digest-pinned node image; add an isolated worker.
 cp scripts/k8s/kind-calico.config.yaml "$ZENITH_K8S_WORKDIR/kind.yaml"
@@ -355,14 +355,14 @@ actual Jobs for review; restoring a precondition requires another reviewed profi
 
 ### Real PostgreSQL and whole default release
 
-Assembly must merge migrations 53-58 from their assigned jobs before the contiguous migration
-inventory gate. J6 registers 59 without placeholders or edits to published SQL/aggregate snapshots.
+Assembly must merge migrations 53-57 from their assigned jobs before the contiguous migration
+inventory gate. J6 registers 58 without placeholders or edits to published SQL/aggregate snapshots.
 Drain old writers before explicitly admitting registered contract migrations on the disposable DB.
 
 ```bash
 export ZENITH_PLATFORM_DB=postgres
 export ZENITH_PLATFORM_DB_URL="$ZENITH_TEST_PLATFORM_PG_URL"
-export ZENITH_ALLOW_CONTRACT_MIGRATIONS=42,49,59
+export ZENITH_ALLOW_CONTRACT_MIGRATIONS=42,49,58
 npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts
 npx tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts --status
 ZENITH_TEST_J6_SOURCE_PG=1 npx vitest run tests/providers/kubernetes/build/schema.test.ts --no-file-parallelism --maxWorkers=2

@@ -27,7 +27,7 @@
   "host": "Mac mini Mac18,5; Apple M6; native ARM64",
   "resourcePolicy": {
     "ramGB": 24,
-    "maximumActiveImplementationWorkers": 3,
+    "maximumActiveImplementationWorkers": 40,
     "maximumHeavyVerificationProcesses": 1,
     "fullVitestWorkers": 1,
     "workersCommit": false,
@@ -37,7 +37,9 @@
     "localDefaultStackDiskFloorGiB": 11.175870895385742,
     "localDefaultStackProfile": "New Mac mini native ARM64, 24GiB physical RAM; Docker VM currently about7.75GiB, not the proposed12GiB. One heavy workload; continuous12GB user floor, packaged-worker18GiB prerequisite and default-stack22GiB code floor retained. No unrelated cleanup.",
     "historicalLocalDefaultStackDiskFloorGiB": 22,
-    "localDefaultStackDiskFloorBytes": 12000000000
+    "localDefaultStackDiskFloorBytes": 12000000000,
+    "availableConcurrentWorkerCapacity": 41,
+    "workerCapacityRationale": "Runtime supports40 subagents plus coordinator; use independent scoped work dynamically, with one heavy workload and resource gates. Capacity is not active count."
   },
   "evidenceLevels": [
     "contract",
@@ -740,7 +742,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "Current source2029575f: fresh local full-core R16 and exact-source CI passed in scoped lanes; native ARM64 J2 image build passed without push and was not invoked. Original R13 pooler prepare remains a failed retained-state attempt. Diagnostic R4 probe failed before DB connection on temporary tsx-cache ENOENT; strict closeout passed. Reviewed tmpfs candidate passed19 focused contracts and ESLint0 on isolated overlay, not integrated or runtime accepted. Cleanup-only R6 reports17 removed/0 owned remaining/2 forced stops with joined observers and source/floors passing; independent terminal audit pending. Original failure is preserved; no graceful-stop, pooler readiness, or acceptance claim.",
+      "implementationStatus": "Exact CFB core/CI receipts appended as scoped evidence; skips remain visible, fresh successor and remaining full verification gates pending; no full acceptance claim.",
       "evidence": [
         {
           "level": "local_engine",
@@ -2264,6 +2266,22 @@
           "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-11-55463591-j4-worker-startup-remedy-r2.json",
           "acceptedRunReceipt": false,
           "acceptanceClaim": false
+        },
+        {
+          "level": "contract",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "result": "Exact CFB full Node/DOM core R16: 24578 passed, 0 failed, 1943 skipped across 26521 identities. Scoped aggregate core evidence only; skipped identities remain skips and this does not establish full production acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-cfb715bf-verification-r1.json",
+          "summarySha256": "5eb932ac8ce0b8aa09846ae2f7e248bf3de61682731702d4b2d00f4dc4b804e8",
+          "reviewSha256": "d1bd42167d318b01f6393bf7373ca85ac8fd7ae45ff1418e638096eb58dfb4ab",
+          "reviewJsonSha256": "b324cf1a0218f923de8587b8bf6484eb5b5b83b62c65572aab1f3c2d70910218"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "result": "Canonical exact-source terminal CI: 24 successful jobs, 8 conditional skips, 0 failures, 0 cancellations, 0 running across three successful workflows. Skips are not passes; this is scoped CI evidence and not complete release acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-12-cfb715bf-terminal-ci-r1.json",
+          "indexSha256": "d8025767a755e342911c49ccf7d66efafdec0a900f09f0f326d8525c11fbfa16"
         }
       ],
       "requiredEvidence": [
@@ -2290,7 +2308,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "current_exact_source_2029575f_main_and_native_ci_terminal_success_with_8_conditional_skips",
+      "implementationStatus": "current_exact_source_cfb715b_terminal_success_24_successful_jobs_8_conditional_skips",
       "evidence": [
         {
           "level": "remote_ci",
@@ -3007,6 +3025,13 @@
             }
           ],
           "acceptanceClaim": false
+        },
+        {
+          "level": "remote_ci",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "result": "Observed terminal exact-source CI: 24 successful jobs, 8 conditional skips, 0 failed, 0 cancelled, 0 in progress across three workflows. Conditional skips remain distinct from passes. The requirement was already verified; this only appends current-source evidence.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-12-cfb715bf-terminal-ci-r1.json",
+          "indexSha256": "d8025767a755e342911c49ccf7d66efafdec0a900f09f0f326d8525c11fbfa16"
         }
       ],
       "requiredEvidence": [
@@ -3868,6 +3893,34 @@
           "commit": "7d75b21d884da6f3beae2889740b0a52d9118eee",
           "result": "Root fresh disposablekind provider6P0F0S and release1P0F0S; dedicated kubeconfig only, pinned release image loaded. Cluster and owned containers absent; kubeconfig removed. Actual tested provenance2c9d6fa plus exact UNCdiff16aa6c92; source committed unchanged7d75b21. No managed CNI/stateful/live-cloud proof.",
           "artifact": "docs/build/production/evidence/local-kind/start-uncertainty.json"
+        },
+        {
+          "level": "contract",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "result": "Exact-source unit components: execution-ledger 16 passed/0 failed/0 skipped and state-backend-recovery 13 passed/0 failed/0 skipped. Bounded contracts only; they do not prove integrated durable outbox/recovery epoch, real-PostgreSQL projection persistence, provider resolution, or operator continuation.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-cfb715bf-verification-r1.json",
+          "testPaths": [
+            "tests/controlplane/execution-ledger.test.ts",
+            "tests/controlplane/state-backend-recovery.test.ts"
+          ]
+        },
+        {
+          "level": "local_engine",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "result": "Bounded PostgreSQL continuation on disposable CFB-based overlay: 6 passed, 0 failed, 39 filtered skips; 23 held commands settled and were absent; cleanup completed and source freeze matched. It covers persisted idempotent enqueue and recovery-epoch uncertainty only; it does not prove provider idempotency/readback, operator resolution, durable external-mutation outbox, full lifecycle recovery, or acceptance-cleanup quiescence.",
+          "artifact": "docs/build/production/evidence/PROD-DUR-07/2026-10-12-cfb715bf-pg-six-r1.json",
+          "sourceFreezeSha256": "7cb0aa4ba5270fb5cfa0c7bd18025038a451073f3af2df5b20c833aca9dc07b3",
+          "continuationSourceSha256": "a5130f77dfdbacef548cd1f9e0cc395beb36c9863f5c396e9998438fc737b278",
+          "terminalReviewSha256": "83045f9c07337d8802b25c03183f748f54b4bd8d92025c2e12fd972f741c0017"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "runId": 38181003853,
+          "result": "Exact-source CI platform-PostgreSQL job 114593354575: 4106 passed, 0 failed, 15 conditional skips; all 1160 required groups passed. This lane is not proof of provider-effect resolution or real-PostgreSQL product projection persistence.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-12-cfb715bf-terminal-ci-r1.json",
+          "jobId": 114593354575,
+          "indexSha256": "d8025767a755e342911c49ccf7d66efafdec0a900f09f0f326d8525c11fbfa16"
         }
       ],
       "requiredEvidence": [
@@ -5160,6 +5213,13 @@
           "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-08-owned-temporal-diagnostics.json",
           "fixCommit": "98a3f6f5de1e0d11de378cfe995db8642f6cc182",
           "integrationCommit": "2fb5f888cf53a8473c42997fbbfa94ac4808cb17"
+        },
+        {
+          "level": "local_engine",
+          "commit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+          "result": "Bounded focused OBS-04 runtime proof on a disposable CFB-based overlay (runtime b2qcn9b2): 10 passed, 0 failed, comprising 2 actual Temporal restart/overlap cases and 8 model cases. This does not establish default worker effects/health, missed-interval catch-up, or whole-requirement acceptance.",
+          "artifact": "docs/build/production/evidence/PROD-OBS-04/2026-10-12-cfb715bf-focused-temporal-r1.json",
+          "environment": "CFB source overlay; runtime b2qcn9b2; independently terminal-reviewed bounded run"
         }
       ],
       "requiredEvidence": [
@@ -7161,7 +7221,8 @@
         "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
         "runId": 38127637059
       }
-    }
+    },
+    "latestVerifierCheckpoint": "2026-10-12 CFB full core and terminal CI reconciled;67 bounded focused cases;failed J4 stack owned cleanup completed;reviewed five-file fixes integrated;fresh coherent successor acceptance pending."
   },
   "sessionHistory": [
     {

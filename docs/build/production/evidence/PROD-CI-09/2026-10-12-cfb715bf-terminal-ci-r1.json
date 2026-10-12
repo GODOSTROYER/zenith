@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "kind": "sanitized-canonical-exact-source-ci-reconciliation",
+  "source": {
+    "repository": "GODOSTROYER/zenith",
+    "fullCommit": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+    "event": "push",
+    "workflows": 3,
+    "jobs": 32,
+    "inventoryObservedAt": "2026-10-11T23:06:28Z",
+    "inventorySha256": "6ede1b1e96dfead0fd53e9ee68a54b8309485e61500e8a0d29ae2e75ff6e624b",
+    "inventoryReportSha256": "3ed3923fb19f218ffbdc73fe819406c74a231a47c65f6606ef5f1670d3cdaaff",
+    "publicationDraftR5IndexSha256": "20fdad4da4c7e26818349e1db191ffb259fbcd7929ec70894fa69435772b5776",
+    "publicationDraftR5ManifestSha256": "b88d5bc86d8234ca3fde5dc48eb879c0e078f790e4feb9b9884ad13c055fb9da"
+  },
+  "runs": [
+    {
+      "workflow": "Native skipped platforms",
+      "runId": 38181004003,
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {"id": 114593354251, "name": "linux-systemd", "conclusion": "success"},
+        {"id": 114593354524, "name": "windows-acl", "conclusion": "success"}
+      ]
+    },
+    {
+      "workflow": "Native packaged workers",
+      "runId": 38181003862,
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {"id": 114593353967, "name": "packaged-worker (arm64, ubuntu-24.04-arm)", "conclusion": "success", "platform": "linux/arm64", "emulated": false, "checks": 22, "failed": 0, "skipped": 0, "reportSha256": "7d9f51503ee5c7333b7c943ded88ca22f1597e5f656c297e319693f2b60e0b87"},
+        {"id": 114593354126, "name": "packaged-worker (amd64, ubuntu-24.04)", "conclusion": "success", "platform": "linux/amd64", "emulated": false, "checks": 22, "failed": 0, "skipped": 0, "reportSha256": "a4df46921456157fe30ef35fae89d3beffeeb4d7e5804d788927d890e54931fa"}
+      ]
+    },
+    {
+      "workflow": "CI",
+      "runId": 38181003853,
+      "attempt": 1,
+      "conclusion": "success",
+      "jobCounts": {"success": 20, "skipped": 8, "failure": 0, "cancelled": 0, "inProgress": 0},
+      "jobs": [
+        {"id": 114593354365, "name": "adversarial", "conclusion": "success"},
+        {"id": 114593354471, "name": "postgres", "conclusion": "success"},
+        {"id": 114593354493, "name": "ledger", "conclusion": "success"},
+        {"id": 114593354507, "name": "verify", "conclusion": "success"},
+        {"id": 114593354559, "name": "hosted", "conclusion": "success"},
+        {"id": 114593354566, "name": "wave5-contract", "conclusion": "success"},
+        {"id": 114593354571, "name": "tofu", "conclusion": "success"},
+        {"id": 114593354575, "name": "platform-postgres", "conclusion": "success"},
+        {"id": 114593354576, "name": "recovery", "conclusion": "success"},
+        {"id": 114593354580, "name": "workflows", "conclusion": "success"},
+        {"id": 114593354582, "name": "workflow-history-replay", "conclusion": "success"},
+        {"id": 114593354588, "name": "policy", "conclusion": "success"},
+        {"id": 114593354596, "name": "generated", "conclusion": "success"},
+        {"id": 114593354642, "name": "operation-gates (reconciliation)", "conclusion": "success"},
+        {"id": 114593354695, "name": "supply-chain", "conclusion": "success"},
+        {"id": 114593354723, "name": "agent", "conclusion": "success"},
+        {"id": 114593354748, "name": "operation-gates (workflow-intents)", "conclusion": "success"},
+        {"id": 114593354750, "name": "build", "conclusion": "success"},
+        {"id": 114593354764, "name": "go", "conclusion": "success"},
+        {"id": 114593354781, "name": "docker", "conclusion": "success"},
+        {"id": 114593355188, "name": "drivers-d4-export", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593355216, "name": "drv1-private-source", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593355226, "name": "j15-operated-upgrade", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593355367, "name": "drv2-crash-partition", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593355384, "name": "drv1-update-rollback", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593355387, "name": "j15-operated-restore", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593374424, "name": "drivers-d4-two-tenants", "conclusion": "skipped", "skipClass": "conditional, not a pass"},
+        {"id": 114593376911, "name": "drv2-drift-repair", "conclusion": "skipped", "skipClass": "conditional, not a pass"}
+      ]
+    }
+  ],
+  "terminalAggregate": {
+    "successfulRuns": 3,
+    "successfulJobs": 24,
+    "conditionalSkippedJobs": 8,
+    "failedJobs": 0,
+    "cancelledJobs": 0,
+    "activeJobs": 0,
+    "interpretation": "24 successes and 8 conditional skips are kept distinct; run conclusion success is not a claim that skipped scenarios ran."
+  },
+  "scopeCounts": {
+    "verifyUnitDom": {
+      "jobId": 114593354507,
+      "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+      "testCases": 26521,
+      "passed": 24596,
+      "failed": 0,
+      "skipped": 1925,
+      "files": 1241,
+      "passedFiles": 1144,
+      "fullySkippedFiles": 97,
+      "domCases": {"passed": 1065, "failed": 0, "skipped": 0, "files": 92},
+      "reportSource": "exact job log summary; no structured verify artifact or individual case identity export"
+    },
+    "adversarial": {"jobId": 114593354365, "requiredGroups": 10, "passed": 238, "failed": 0, "skipped": 0, "unknown": 0, "evidenceSha256": "029c8aa57413121aedc9f97ce61f235e5fac550a3051fc3e2497db998c85d74c"},
+    "postgres": {"jobId": 114593354471, "passed": 379, "failed": 0, "skipped": 0, "requiredGroups": 93},
+    "platformPostgres": {"jobId": 114593354575, "total": 4121, "passed": 4106, "failed": 0, "skipped": 15, "requiredGroups": 1160, "requiredGroupsPassed": 1160, "skipMeaning": "8 backend-matrix variants and 7 exclusive maintenance-row mutations; required groups themselves all passed"},
+    "wave5Contract": {"jobId": 114593354566, "total": 1225, "passed": 1225, "failed": 0, "skipped": 0, "requiredGroups": 69},
+    "recovery": {"jobId": 114593354576, "total": 10, "passed": 10, "failed": 0, "skipped": 0},
+    "workflowHistoryReplay": {"jobId": 114593354582, "total": 34, "passed": 34, "failed": 0, "skipped": 0},
+    "policy": {"jobId": 114593354588, "tests": 242, "passed": 242, "failed": 0, "skipped": 0, "unknown": 0, "requiredGroups": 8, "opa": {"passed": 219, "total": 219}, "sourceArtifactSha256": "dfa8ec52d5dc4293c512e1b9eedcd3053f87cd4bda4ae641ea5de5ce3406b68b"},
+    "supplyChain": {"jobId": 114593354695, "lockfileIntegrity": {"registryPackages": 924, "bundledPackages": 6}, "completeLockedAuditKnownFindings": 0, "exceptions": 0, "rawAuditJsonExported": false, "lockSha256": "2b52b2cbac18db7d858567378856427e4ae8bf27ee819d203aa1f528745325c6", "auditSourceSha256": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941", "exceptionsRegistrySha256": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4", "evidenceIndexSha256": "e3c0ed1cc79cd0b72af0563482fe4c3363f1bc6bc647fc30f826e063f7d828d7"},
+    "go": {"jobId": 114593354764, "linuxGuest": {"architecture": "amd64", "passedLeaves": 1074, "failedLeaves": 0, "skippedLeaves": 3, "requiredIdentityCount": 154, "requiredAllPassed": true}, "nativePackageFixtures": {"requiredPassed": 4, "failed": 0, "skipped": 0}, "systemdFixture": {"requiredPassed": 1, "failed": 0, "skipped": 0}, "goldenLeavesPassed": 21},
+    "nativePackagedWorker": {
+      "arm64": {"jobId": 114593353967, "checksPassed": 22, "failed": 0, "skipped": 0, "emulated": false, "artifactReportSha256": "7d9f51503ee5c7333b7c943ded88ca22f1597e5f656c297e319693f2b60e0b87"},
+      "amd64": {"jobId": 114593354126, "checksPassed": 22, "failed": 0, "skipped": 0, "emulated": false, "artifactReportSha256": "a4df46921456157fe30ef35fae89d3beffeeb4d7e5804d788927d890e54931fa"}
+    },
+    "windowsAcl": {"jobId": 114593354524, "passed": 1, "failed": 0, "skipped": 0, "excludedSiblingCount": 15, "excludedNotCountedAsExecutedSkips": true},
+    "localCoreR16SeparateFromCi": {"passed": 24578, "failed": 0, "skipped": 1943, "uniqueIdentities": 26521, "reviewSha256": "d1bd42167d318b01f6393bf7373ca85ac8fd7ae45ff1418e638096eb58dfb4ab", "scope": "separate exact-CFB local full-core evidence; not combined with or substituted for remote Verify counts"}
+  },
+  "currentDependencyEvidence": {
+    "status": "actual mandatory CI supply-chain job success at exact CFB SHA",
+    "jobId": 114593354695,
+    "knownFindings": 0,
+    "exceptionEntries": 0,
+    "approvedDependencyChangesClaimed": false,
+    "timeBound": true,
+    "historicalEightVsSeven": "unresolved; original macOS raw report and Linux full per-advisory JSON unavailable; this CFB audit does not reconcile them"
+  },
+  "evidenceBoundary": {
+    "ledgerPromotion": false,
+    "releaseApproval": false,
+    "allSkippedScenariosProved": false,
+    "rawLogsIncluded": false,
+    "secretValuesIncluded": false
+  }
+}

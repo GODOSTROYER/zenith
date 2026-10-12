@@ -164,8 +164,8 @@ install command, permission escalation, Docker/cloud request or real credential 
 - Runtime handler and reviewed node seccomp/AppArmor files must be provisioned on the Mac.
   review-profile.ts hashes their actual bytes into the profile and protected node label.
   Missing support/failed probes remains BLOCKED/refused, never a pass or privileged fallback.
-- Assembly must merge assigned migrations53-58 before the contiguous inventory gate. J6 adds
-  only assigned59; no fake placeholders or edits to published snapshots. This gate was not
+- Assembly must merge assigned migrations 53-57 before the contiguous inventory gate. J6 adds
+  only assigned 58; no fake placeholders or edits to published snapshots. This gate was not
   run against the intentionally incomplete parallel-job registry.
 - Registry auth is exact-host Basic dockerconfig; bearer challenge is refused. Use an owned
   local registry/mirror with isolated host/IP destinations. Source archive cap stays700KiB.

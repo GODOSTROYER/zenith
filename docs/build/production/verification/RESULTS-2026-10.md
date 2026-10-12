@@ -1,3 +1,17 @@
+## Current verification status, 12 October 2026 — CFB evidence and integrated verifier fixes
+
+Exact source `cfb715bfcff8049e031e1422c526da4bc13d5d5c` passed full Node/DOM core: **24,578 passed / 1,943 skipped / 0 failed**, with 26,521 reconciled identities. All three exact-source CI workflows finished: **24 successful jobs / 8 conditional skips / 0 failures** across 32 jobs. Architecture-specific native evidence remains separate; skipped jobs remain unverified.
+
+The latest bounded component work has **67 distinct passing cases**: 11 mixed, 35 workflows, 3 Docker, 9 diagnostic, 6 PostgreSQL and 3 stop-grace cases. The combined 12-case run repeated those same nine diagnostics and added three stop-grace cases; TypeScript and ESLint also passed, with independent source and terminal reviews. The five integrated file hashes exactly match the tested candidate. The committed successor still needs fresh full-core, CI and stack acceptance; these focused results do not close milestones.
+
+The failed J4 stack has been removed under reviewed owned cleanup: **19 resources removed, zero remaining**, nine settled held stages, unchanged foreign resources and protected builder/witness, with continuous disk floors preserved. **Two forced stops** are recorded; cleanup is not graceful-shutdown acceptance. The fixture fix gives positively identified disposable infrastructure 60 seconds while keeping workers and unknown roles at 660 seconds, retaining all ownership and forced-stop checks.
+
+PostgreSQL continuation passed six selected cases with 39 filtered, and completed container/credential cleanup. Temporal completion and Docker image cleanup also finished. Original refusals remain preserved. Two patch transport defects were detected and corrected to the exact tested postimages; no new product behavior was introduced by transport correction. Original stop-grace R1 patch bytes were overwritten; its reconstruction is explicitly not exact historical evidence.
+
+**Ledger: 10 verified / 66 in progress / 2 planned =12.82%**, up from9 verified (11.54%) at handoff. All four release flags remain false. Next: commit/push, bind the fresh source contract, run the full suite and native witness, then fresh J4 scheduling, J1 continuation and J2 browser/MFA acceptance. Later local runbook/agent/recovery journeys depend on those fixtures. Cloud/DNS/private-source acceptance, the168-hour trusted cost window and separate production signoff remain external prerequisites. PKG-04's12GiB Docker prerequisite is not met by the current7.75GiB VM; its protected builder cannot be restarted without authorization.
+
+[Reviewed evidence](evidence/PROD-CI-08/2026-10-12-cfb715bf-verification-r1.json) · [Exact-source CI](evidence/PROD-CI-09/2026-10-12-cfb715bf-terminal-ci-r1.json) · [Builder blockers](verification/BUILD-BLOCKERS-2026-10-12.md).
+
 ## PID-1 diagnostic proof and R12/R13 cleanup evidence, 12 October 2026
 
 The frozen c45 Node/DOM core remains 24,575 passed / 1,943 skipped / 0 failed; the ARM64 witness image build passed, while acceptance invocation remains pending. The separately reviewed focused fixture canary remains limited to two memory/PGlite files at 124/0/0, with the original wrapper metric failure preserved.

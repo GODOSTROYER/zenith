@@ -1,3 +1,15 @@
+## Shutdown diagnostic and recovery R4 closeout — 12 October 2026
+
+The focused shutdown diagnostic fixture passed **13 passed / 0 failed / 0 skipped**; proof SHA-256 `0b21979df26953e93548aa6c3e011b1fb995a24aaa1937d5b9044a2eecba695b`, independent terminal review JSON SHA-256 `d7ed173032dc4bd333934b8d28f00fdef03885f025471ff56ed374208646568d` and Markdown SHA-256 `f96a2a88b09682ed83a9b926f07682a53cb2f889a6f54074f53c60fa5dfb727c`. It records 37 child processes closed, stable 6,012-entry freeze, owned-link removal, and 245,608,067,072-byte minimum free space (>22 GiB). This is diagnostic-fixture evidence only.
+
+Runtime R4 and test R5 are SHA-256 `406427ee3d23f24973c58b65ba1528082521edd4e547dc85d4597a83e36f7b4e` and `e58a9b1a5c376c6cbb71605f0ae40fd926cdd23399fff89d8d8f7ecde2c40e0e`. Their scope is a nonbehavioral type-only delta after the prior focused proof. Eight-file lint, full TypeScript using a 5 GiB heap, and ledger validation passed; receipt SHA-256 `b24d91a3c67a00efb5e9cea267995c88863c1fb12de7e6789724edb93097a581`. Full coherent testing and post-push CI for the integrated commit remain pending.
+
+Recovery R4 proof SHA-256 `8d2e47da64d1ff1fca90728e5992a8cac562707993f90ed95c610ff199dab608`; independent review JSON SHA-256 `6a7b9189475219ff64cfc97fa944541a3aa525092a45f350fd8ab27d08dcc643`. The review is `P_SCOPED_RECOVERY_CLOSEOUT_HOLD_ACCEPTANCE`: it confirms 19 historical owned resources absent, canonical plan empty, protected/foreign parity, and reports sticky-lock release at the same-inode commit boundary. A separate root live check observed the lock empty; the proof itself does not make that separate observation. Recovery R3 failed and remains historical.
+
+Cleanup R5 remains failed/unaccepted. Its receipt SHA-256 `4b1296975c8ceb280fb9100b64c2fadf2fe27f31c205211f34a0969cea96b70a` records 19 removed, zero owned resources remaining, two forced stops, and `productionReady:false`. The R4 recovery does not convert this to cleanup acceptance, graceful shutdown, or zero-forced-stop acceptance. Ledger is 11/65/2 (14.1%), with historical 9/67/2 and 10/66/2 checkpoints preserved; all release flags remain false.
+
+### Earlier candidate results below are historical and superseded where inconsistent with this update.
+
 ## Current 673f candidate status — 12 October 2026
 
 This candidate records PROD-CI-07 as **verified** for the current, time-bound known-finding scope after the reviewed input-equivalence and exact-source supply-chain evidence were joined. The historical 8-versus-7 raw audit discrepancy remains unresolved and preserved as provenance. The ledger is **11 verified / 65 in progress / 2 planned** across 78 requirements; all four release flags remain false.

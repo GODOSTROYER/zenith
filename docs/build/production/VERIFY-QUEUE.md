@@ -1,3 +1,12 @@
+## Current shutdown/recovery gates — 12 October 2026, integrated commit 6410def1
+
+1. Run a fresh coherent full test and post-push exact-source CI after commit `6410def173ff03a160be1d5200c3543325e8c283` receives its evidence update and source freeze.
+2. Keep actual shutdown cause, graceful shutdown, signal ordering, stop-grace, and zero-forced-stop acceptance gates open. The focused 13/0/0 diagnostic fixture does not close them.
+3. Preserve cleanup R5 as failed/unaccepted (19 removed, zero owned remaining, two forced stops). Recovery R4 terminal PASS is limited to failed-cleanup postcondition closeout; recovery R3 failed and is not the successful recovery.
+4. Continue remaining PROD-CI-08 gates. The canonical ledger is 11/65/2 (14.1%); preserve earlier 9/67/2 and 10/66/2 checkpoints. Keep all release flags false.
+
+### Earlier queue entries below are historical and superseded where inconsistent with this update.
+
 ## Current 673f candidate status — 12 October 2026
 
 This candidate records PROD-CI-07 as **verified** for the current, time-bound known-finding scope after the reviewed input-equivalence and exact-source supply-chain evidence were joined. The historical 8-versus-7 raw audit discrepancy remains unresolved and preserved as provenance. The ledger is **11 verified / 65 in progress / 2 planned** across 78 requirements; all four release flags remain false.

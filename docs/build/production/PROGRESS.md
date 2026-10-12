@@ -1,3 +1,13 @@
+## Current shutdown and recovery evidence — 12 October 2026, integrated commit 6410def1
+
+The focused shutdown diagnostic fixture passed **13/13** with 0 failures or skips. It recorded 37 child processes closed, a stable 6,012-entry freeze, owned-link removal, and a minimum free-space reading above 22 GiB. Final runtime R4 and test R5 hashes were verified against the integrated candidate; the type-only validation receipt records eight-file lint, full TypeScript at 5 GiB, and ledger validation as passed. A fresh coherent full test and post-push exact-source CI for the final evidence successor of integration commit `6410def173ff03a160be1d5200c3543325e8c283` remain pending. [Shutdown and validation evidence](evidence/PROD-CI-08/2026-10-12-673f33f1-shutdown-focused-r3.json).
+
+Recovery **R4** passed independent review for failed-cleanup closeout only. Its proof confirms 19 historical owned resources absent, canonical ownership plan empty, and protected/foreign parity. The recovery review establishes a reported sticky-lock release at its same-inode commit boundary; a separate root live check subsequently observed the lock empty. The recovery proof itself does not claim that root separately observed lock state. Recovery R3 failed and is not the successful recovery. The original cleanup R5 remains failed and unaccepted: 19 removed, zero owned resources remaining, two forced stops. Recovery does not make that cleanup graceful or satisfy the zero-forced-stop gate. [Recovery R4 closeout evidence](evidence/PROD-CI-08/2026-10-12-673f33f1-cleanup-recovery-r4.json).
+
+The canonical ledger is **11 verified / 65 in progress / 2 planned (14.1%)**. Earlier 9/67/2 and 10/66/2 checkpoints remain historical. All release flags remain false. PROD-CI-08 and product acceptance remain open.
+
+### Earlier candidate status blocks below are historical; this update supersedes their sticky-lock and recovery-generation statements.
+
 ## Current 673f candidate status — 12 October 2026
 
 This candidate records PROD-CI-07 as **verified** for the current, time-bound known-finding scope after the reviewed input-equivalence and exact-source supply-chain evidence were joined. The historical 8-versus-7 raw audit discrepancy remains unresolved and preserved as provenance. The ledger is **11 verified / 65 in progress / 2 planned** across 78 requirements; all four release flags remain false.

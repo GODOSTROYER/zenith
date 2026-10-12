@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "kind": "sanitized owned-state recovery R4 closeout evidence",
+  "scope": "R4 recovery verifies failed-cleanup postconditions; it is not cleanup acceptance or production readiness",
+  "recoveryGeneration": "R4",
+  "recoveryProofSha256": "8d2e47da64d1ff1fca90728e5992a8cac562707993f90ed95c610ff199dab608",
+  "independentTerminalReview": {
+    "result": "P_SCOPED_RECOVERY_CLOSEOUT_HOLD_ACCEPTANCE",
+    "jsonSha256": "6a7b9189475219ff64cfc97fa944541a3aa525092a45f350fd8ab27d08dcc643"
+  },
+  "closeoutEvidence": {
+    "historicalOwnedResources": 19,
+    "allAbsent": true,
+    "canonicalOwnedPlanEmpty": true,
+    "foreignAndProtectedParity": true,
+    "protectedWitnessAndBuilderValidated": true,
+    "heldStagesSettled": 4,
+    "diskFloorsRecorded": true,
+    "lockClearanceReportedAtSameInodeCommitBoundary": true
+  },
+  "rootSeparateLiveObservation": {
+    "lockObservedEmpty": true,
+    "observationReference": "faddc0 prefix reported by root; separate from saved recovery proof"
+  },
+  "preservedCleanupR5Failure": {
+    "receiptSha256": "4b1296975c8ceb280fb9100b64c2fadf2fe27f31c205211f34a0969cea96b70a",
+    "status": "failed/unaccepted",
+    "removed": 19,
+    "ownedResourcesRemaining": 0,
+    "forcedStops": 2,
+    "productionReady": false
+  },
+  "historicalRecoveryR3": "failed; not the successful recovery",
+  "acceptance": {
+    "cleanupAccepted": false,
+    "acceptedRun": false,
+    "productionReady": false,
+    "gracefulShutdownAccepted": false
+  },
+  "sanitization": {
+    "privatePathsOmitted": true,
+    "rawLogsOmitted": true,
+    "credentialsOmitted": true
+  }
+}

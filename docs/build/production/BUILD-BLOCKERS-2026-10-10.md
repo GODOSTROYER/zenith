@@ -1,3 +1,13 @@
+# Current builder blockers — 12 October 2026, integrated commit 6410def1
+
+Recovery R4 has independently verified failed-cleanup postconditions: all 19 historical owned resources are absent, the canonical ownership plan is empty, and protected/foreign parity is preserved. The recovery review reports lock release at the same-inode commit boundary; a separate root live check observed the lock empty afterward. The recovery proof does not itself claim that separate live observation. Recovery R3 failed and remains historical.
+
+The original cleanup R5 remains failed/unaccepted: 19 resources removed, zero owned resources remaining, and two forced stops. Recovery R4 resolves retained state but does not convert the cleanup result into graceful-shutdown or zero-forced-stop acceptance. A fresh coherent full test and post-push exact-source CI remain pending. Ledger is 11/65/2 (14.1%), with prior 9/67/2 and 10/66/2 checkpoints preserved; all release flags remain false.
+
+Evidence: [recovery R4 closeout](evidence/PROD-CI-08/2026-10-12-673f33f1-cleanup-recovery-r4.json) · [shutdown diagnostic](evidence/PROD-CI-08/2026-10-12-673f33f1-shutdown-focused-r3.json).
+
+### Earlier blocker entries below are historical and superseded where inconsistent with this update.
+
 ## Current 673f candidate status — 12 October 2026
 
 This candidate records PROD-CI-07 as **verified** for the current, time-bound known-finding scope after the reviewed input-equivalence and exact-source supply-chain evidence were joined. The historical 8-versus-7 raw audit discrepancy remains unresolved and preserved as provenance. The ledger is **11 verified / 65 in progress / 2 planned** across 78 requirements; all four release flags remain false.

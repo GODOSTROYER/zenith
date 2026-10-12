@@ -1,3 +1,15 @@
+# Current builder blockers — 12 October 2026, integrated commit 6410def1
+
+- Focused shutdown diagnostic fixture passed 13/13, but it does not establish a fixed shutdown cause or close graceful-shutdown, signal-order, stop-grace, or zero-forced-stop gates.
+- Type-only runtime R4/test R5 validation passed with eight-file lint, full TypeScript at 5 GiB, and ledger validation. A fresh coherent full test and post-push CI for the integrated commit remain pending.
+- Recovery R4 independently passed failed-cleanup postcondition closeout: 19 prior owned resources absent, canonical ownership plan empty, protected parity preserved. The review reports lock release at its same-inode commit boundary; root separately observed the lock empty afterward. Do not attribute that separate live observation to the saved recovery proof. Recovery R3 failed.
+- Cleanup R5 remains failed/unaccepted with two forced stops. No graceful shutdown or zero-forced-stop acceptance is claimed.
+- Canonical ledger is 11/65/2 (14.1%); prior 9/67/2 and 10/66/2 checkpoints remain historical. Release flags false; PROD-CI-08 remains open.
+
+Evidence: [shutdown diagnostic](../evidence/PROD-CI-08/2026-10-12-673f33f1-shutdown-focused-r3.json) · [recovery R4](../evidence/PROD-CI-08/2026-10-12-673f33f1-cleanup-recovery-r4.json).
+
+### Earlier blocker entries below are historical and superseded where inconsistent with this update.
+
 # Builder-facing blockers — source 685fb836 R5, 12 October 2026
 
 - Exact-source full core and CI are terminal PASS within scope. Eight workflow jobs are conditional skips. Verify log capture is complete; current exact-source CI is not blocked. The remaining issue is the historical CI07 handoff dependency only.

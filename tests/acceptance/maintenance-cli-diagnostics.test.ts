@@ -63,6 +63,20 @@ describe("J4 maintenance CLI failure diagnostics", () => {
       .toBe("maintenance_database_not_fresh");
     expect(maintenanceDiagnosticCode(new Error("Migration-seeded cleanup epoch is missing or invalid; refuse without changing it.")))
       .toBe("cleanup_epoch_invalid");
+    expect(maintenanceDiagnosticCode(new Error("The existing critical maintenance schedule is incompatible; operator review is required.")))
+      .toBe("critical_schedule_incompatible");
+    expect(maintenanceDiagnosticCode(new Error("The critical maintenance schedule response is unconfirmed; inspect its fixed identity before retrying.")))
+      .toBe("critical_schedule_transport_unconfirmed");
+    expect(maintenanceDiagnosticCode(new Error("Durable reconciliation prerequisites are unavailable.")))
+      .toBe("reconcile_prerequisites_unavailable");
+    expect(maintenanceDiagnosticCode(new Error("The existing reconciliation schedule is incompatible; operator review is required.")))
+      .toBe("reconcile_schedule_incompatible");
+    expect(maintenanceDiagnosticCode(new Error("The reconciliation schedule response is unconfirmed; inspect its fixed identity before retrying.")))
+      .toBe("reconcile_schedule_transport_unconfirmed");
+    expect(maintenanceDiagnosticCode(new Error("Durable reconciliation configuration is invalid.")))
+      .toBe("reconcile_configuration_invalid");
+    expect(maintenanceDiagnosticCode(new TypeError("fetch failed"))).toBe("http_transport_failed");
+    expect(maintenanceDiagnosticCode(new TypeError("fetch failed: private endpoint secret"))).toBe("acceptance_failed_unclassified");
   });
 
   it("writes only fixed fields and an allowlisted SQLSTATE in an owned private J4 root", () => {
@@ -163,7 +177,7 @@ describe("J4 maintenance CLI failure diagnostics", () => {
     expect(JSON.parse(receiptText)).toEqual({
       code: "cleanup_unconfirmed",
       type: "aggregate",
-      cause: { code: "postgres_sqlstate", type: "error", sqlState: "23505" },
+      cause: { code: "postgres_sqlstate", type: "error", sqlState: "23505", phase: "preconditions" },
     });
   });
 
@@ -179,6 +193,14 @@ describe("J4 maintenance CLI failure diagnostics", () => {
     expect(output.stdout).toBe('{"naturalTimers":true}\n');
     expect(output.stderr).toBe("");
     expect(() => lstatSync(env.ZENITH_LOCAL_MAINTENANCE_DIAGNOSTIC_FILE!)).toThrow();
+  });
+
+  it("ignores caller-forged phase fields", () => {
+    const env = ownedEnvironment();
+    const forged = Object.assign(new Error("arbitrary provider response"), { phase: "preconditions" });
+    expect(writeMaintenanceDiagnostic(forged, env)).toBe(true);
+    const receipt = JSON.parse(readFileSync(env.ZENITH_LOCAL_MAINTENANCE_DIAGNOSTIC_FILE!, "utf8")) as Record<string, unknown>;
+    expect(receipt).toEqual({ code: "acceptance_failed_unclassified", type: "error" });
   });
 
   it("returns a fixed generic code for arbitrary assertion text and non-error values", () => {

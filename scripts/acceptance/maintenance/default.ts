@@ -32,6 +32,19 @@ async function closedWithin(child: ChildProcess, timeoutMs: number): Promise<{ c
 interface WorkerOwnership { restartOrdinal: number; workerIdentity: string }
 interface WorkerCloseout extends WorkerOwnership { pid: number; closed: true; exitCode: number | null; signal: NodeJS.Signals | null }
 const workerOwnership = new WeakMap<ChildProcess, WorkerOwnership>();
+export type MaintenanceDiagnosticPhase =
+  | "preconditions" | "temporal_setup" | "seed_owned_records" | "natural_timer_health"
+  | "critical_schedule_contract" | "reconcile_schedule_contract" | "natural_timer_effects"
+  | "billing_durable_fallback" | "lease_exclusion" | "worker_stop" | "real_worker_outage"
+  | "outage_fallback" | "billing_idempotency" | "worker_restart" | "restart_catchup"
+  | "api_health" | "epoch_check";
+const maintenanceFailurePhases = new WeakMap<object, MaintenanceDiagnosticPhase>();
+/** Return only a phase attached to the original error caught by this source-owned driver. */
+export function maintenanceFailurePhase(error: unknown): MaintenanceDiagnosticPhase | undefined {
+  return error !== null && (typeof error === "object" || typeof error === "function")
+    ? maintenanceFailurePhases.get(error)
+    : undefined;
+}
 export async function stopOwnedWorker(child: ChildProcess): Promise<WorkerCloseout | undefined> {
   const ownership = workerOwnership.get(child);
   assert(Number.isSafeInteger(child.pid) && child.pid! > 0, "Owned worker identity is unavailable.");
@@ -62,8 +75,11 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
   const workspaceId = `j4-billing-${randomUUID()}`;
   const observedJobs = [...CORE_JOBS, "billing", ...ADDENDA_JOBS] as const;
   let primaryFailure: { value: unknown } | undefined;
+  let phase: MaintenanceDiagnosticPhase = "preconditions";
   try {
+    phase = "preconditions";
     const epoch = await assertMaintenancePreconditions(db, process.env);
+    phase = "temporal_setup";
     connection = await Connection.connect({ address: process.env.ZENITH_TEMPORAL_ADDRESS });
     const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE });
     for (const id of [CRITICAL_SCHEDULE_ID, RECONCILE_SCHEDULE_ID]) await assert.rejects(client.schedule.getHandle(id).describe(), ScheduleNotFoundError);
@@ -71,6 +87,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       const queue = await client.workflowService.describeTaskQueue({ namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, taskQueue: { name: TASK_QUEUE }, taskQueueType });
       assert((queue.pollers?.length ?? 0) === 0, "Isolated namespace already has a worker.");
     }
+    phase = "seed_owned_records";
     // Record fixture timestamps only after the migration's immutable epoch. No singleton INSERT/UPDATE/DELETE.
     await assignPlan(db, { workspaceId, planId: DEFAULT_PLAN_ID, actor: "test:j4", reason: "owned local rehearsal" });
     const nonce = randomUUID();
@@ -116,18 +133,24 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
         }, 90_000);
       });
     };
+    phase = "natural_timer_health";
     ownedSchedules.push(CRITICAL_SCHEDULE_ID, RECONCILE_SCHEDULE_ID);
     start();
     const first = await wait(() => healthy(1));
 
+    phase = "critical_schedule_contract";
     const critical = await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe();
     assertCompatibleCriticalSchedule(critical);
+    phase = "reconcile_schedule_contract";
     assertCompatibleReconcileSchedule(await client.schedule.getHandle(RECONCILE_SCHEDULE_ID).describe(), { contract: "zenith.reconcile-sweep.v1", maxEnvironments: 1, environmentConcurrency: 1 });
+    phase = "natural_timer_effects";
     assert(!critical.state.paused && critical.info.numActionsTaken > 0, "Natural maintenance timer never fired.");
     const pruned = await db.query("select nonce from platform.agent_nonces where agent_id=$1 and nonce=$2", [workspaceId, nonce]);
     assert(pruned.length === 0, "Default housekeeping did not prune the seeded expired nonce.");
     assert(first.find(row => row.job === "billing")!.lastCounts.accounts >= 1, "Default billing did not examine durable accounts.");
+    phase = "billing_durable_fallback";
     assert((await http("/api/internal/tick/billing")).deferred === "durable_current", "Billing HTTP fallback did not yield to the durable timer.");
+    phase = "lease_exclusion";
     // Hold the real shared lease across a natural timer, then issue the actual fallback route.
     await withLease(db, { scope: "critical-job:runbooks", holder: `test:j4:${randomUUID()}`, ttlMs: 120_000 }, async (_lease, signal) => {
       await withLease(db, { scope: "critical-job:billing", holder: `test:j4:${randomUUID()}`, ttlMs: 120_000 }, async (_billingLease, billingSignal) => {
@@ -143,25 +166,31 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
       });
     });
     for (const job of ADDENDA_JOBS.slice(1)) await assertAddendumNoOverlap(job);
+    phase = "worker_stop";
     const firstCloseout = await stopOwnedWorker(worker!);
     assert(firstCloseout, "Owned worker closeout proof is unavailable.");
     workerClosures.push(firstCloseout); worker = undefined;
+    phase = "real_worker_outage";
     // Real elapsed time, longer than both fallback deferral and two minute cadences.
     const until = Date.now() + 125_000;
     while (Date.now() < until) await new Promise(resolve => setTimeout(resolve, Math.min(1000, until - Date.now())));
+    phase = "outage_fallback";
     const fallback = await http("/api/internal/tick/runbooks");
     assert(fallback.ran === true, "Fallback did not resume during the worker outage.");
     assert((await repos.scheduledJobs.getScheduledJob(db, "runbooks"))!.lastSuccessSource === "fallback");
     const billingFallback = await http("/api/internal/tick/billing");
     assert(billingFallback.enabled === true && billingFallback.deferred === undefined && Number(billingFallback.accounts) >= 1 && billingFallback.invoiceErrors === 0, "Billing fallback did not resume during the real worker outage.");
     assert((await repos.scheduledJobs.getScheduledJob(db, "billing"))!.lastSuccessSource === "fallback");
+    phase = "billing_idempotency";
     const invoices = await db.query("select id, period from platform.billing_invoices where workspace_id=$1 order by period", [workspaceId]);
     const repeatedBilling = await http("/api/internal/tick/billing");
     assert(repeatedBilling.enabled === true && repeatedBilling.deferred === undefined && repeatedBilling.invoicesCreated === 0 && repeatedBilling.invoiceErrors === 0, "Repeated authenticated billing fallback did not converge.");
     assert.deepEqual(await db.query("select id, period from platform.billing_invoices where workspace_id=$1 order by period", [workspaceId]), invoices, "Repeated billing fallback duplicated invoices.");
+    phase = "worker_restart";
     const beforeRestart = await repos.scheduledJobs.listScheduledJobs(db);
     const previousActions = (await client.schedule.getHandle(CRITICAL_SCHEDULE_ID).describe()).info.numActionsTaken;
     start();
+    phase = "restart_catchup";
     const after = await wait(async () => {
       const rows = await healthy(2);
       return rows && observedJobs.every(job => rows.find(r => r.job === job)!.runsTotal > beforeRestart.find(r => r.job === job)!.runsTotal) ? rows : false;
@@ -172,11 +201,14 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     assert(after.find(r => r.job === "housekeeping")!.missedTicksTotal > 0, "Natural outage was not counted.");
     assert(ADDENDA_JOBS.every(job => after.find(r => r.job === job)!.missedTicksTotal > beforeRestart.find(r => r.job === job)!.missedTicksTotal),
       "A durable-only addendum did not record missed ticks across the worker outage.");
+    phase = "api_health";
     const status = await http("/api/internal/tick/status");
     assert(Array.isArray(status.jobs) && observedJobs.every(job => (status.jobs as { job: string; durable: boolean; state: string }[]).some(row => row.job === job && row.durable && row.state === "healthy")), "Default API health does not match durable readback.");
+    phase = "epoch_check";
     assert(await seededEpoch(db) === epoch, "Published cleanup epoch changed.");
     return { schema: 1, level: "local_engine", runId: hostWorkerClosure.runId, naturalTimers: true, schedules: 2, criticalJobs: CORE_JOBS.length, billing: true, billingFallback: true, billingFallbackIdempotent: true, workerRestart: true, fallbackResumed: true, jobLeaseExclusion: true, maintenanceAddenda: [...ADDENDA_JOBS], addendaLeaseExclusion: true, addendaRestartCatchup: true, housekeepingEffect: true, epochPreserved: true, hostWorkerClosure };
   } catch (error) {
+    if (error !== null && (typeof error === "object" || typeof error === "function")) maintenanceFailurePhases.set(error, phase);
     primaryFailure = { value: error };
     throw error;
   } finally {

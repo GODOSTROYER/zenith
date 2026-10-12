@@ -1,3 +1,16 @@
+## Current source 685fb836 verification queue — R5
+
+1. Commit and publish the integrated three-file J4 diagnostic change and this evidence update, bind the new clean source freeze, and run the required fresh acceptance chain; the existing focused proofs remain candidate-only.
+2. Cleanup R4 has independent terminal PASS for its scoped cleanup receipt: 19 removed, zero remaining, two forced stops, and `acceptedRunReceipt:false`. This does not establish graceful shutdown or fresh J4 acceptance. Preserve R3 refusal history.
+3. Execute the corrected native canonical-role R5 candidate under its authorized workflow. The original R4 suite remains failed/unaccepted; invalid `NOINHERIT` seed configuration is distinct from the unproven inner initializer exception.
+4. Complete native witness invocation/J2 acceptance; current witness evidence covers image build only.
+5. Resolve the historical PROD-CI-07 advisory reconciliation dependency. Current exact-source CI and Verify log capture are terminal; do not report them as pending.
+6. Preserve the 10/66/2 ledger, all 78 requirement IDs, and false release flags.
+
+### Historical source snapshots retained below
+
+The following preexisting CFB and earlier-source sections are retained as historical records. Their old “current” headings and next steps describe those dated snapshots, not the 685fb836 status above.
+
 ## Current verification status, 12 October 2026 — CFB evidence and integrated verifier fixes
 
 Exact source `cfb715bfcff8049e031e1422c526da4bc13d5d5c` passed full Node/DOM core: **24,578 passed / 1,943 skipped / 0 failed**, with 26,521 reconciled identities. All three exact-source CI workflows finished: **24 successful jobs / 8 conditional skips / 0 failures** across 32 jobs. Architecture-specific native evidence remains separate; skipped jobs remain unverified.

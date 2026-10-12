@@ -1,3 +1,21 @@
+## Current source 685fb836 checkpoint — R5 evidence update, 12 October 2026
+
+The tested source is `685fb836a4d1342a4ce3ca07cb217a3fe3428c24` (5,985 entries; source content digest `d7e59d7f3664d7f6b801e85a437cf0f36259ad479f99cf556841baad4633c0a1`; canonical freeze `5bb9cffc31c8dbde43f42a76df1321339064e2da0acc7f36198299113868782e`). Full-core R16 passed **24,590 / 1,943 skipped / 0 failed** across 26,533 identities. Exact-source CI is terminal green: 3 successful workflows, 24 passed / 8 conditional skips / 0 failed across 32 jobs. The completed Verify job separately reports **24,608 passed / 1,925 skipped / 0 failed** across 26,533 tests; these remote counts are distinct from local R16.
+
+The focused J4 diagnostic candidate proof passed 10/10 and the static TypeScript/ESLint candidate proof passed 2/2; both have independent terminal PASS reviews. Both remain candidate-only with `acceptedRunReceipt:false`. The three reviewed diagnostic postimages are now integrated into the worktree; that updated tree still requires a fresh source freeze and coherent acceptance run. The prior R16/CI and focused proofs remain bound to the 685fb836 snapshot. The native ARM64 witness remains image-build-only; no J2 invocation is claimed.
+
+The original native role R4 suite attempt remains unaccepted: **0 passed / 100 pending / 2 failed suites** during bootstrap. The seed roles without `NOINHERIT` are deterministically invalid; the exact inner initializer exception remains unproven. A separate native100 recovery completed. Its reviewed receipt records the owned PostgreSQL fixture removed and sticky lock cleared at closeout; this does not accept the failed suite. Corrected canonical-role R5 source remains unexecuted.
+
+J4 cleanup R3 refused before deletion because the empty guard log did not match an alias entry; preserve that refusal. Cleanup R4 completed with **19 resources removed, zero owned resources remaining, and two forced stops**. Its receipt records `acceptedRunReceipt:false` and `productionReady:false`; independent terminal review passed (SHA-256 `a65dbf65c748e78ae2d0f17a061a1599a5b0c27f7c08e4aeb1c121df6bfcf75e`). This is a scoped cleanup result, not graceful-shutdown or J4 acceptance.
+
+Exact-source CI Verify log capture is complete. Job 114641494664 reported 24,608 passed / 1,925 skipped / 0 failed; raw-log SHA-256 `b4c32dbf4b73ed3bf290ddcd4af1b631d50edf401ab7910e99ae1b6cdd50b50f`. The workflow lane reported 1,559 passed across 75 files and 113 required groups; raw-log SHA-256 `f8fe238ef420210c89401ea48bcbe32749f18460036eb6148ecf4993fb976b18`. Its 28-file / 547-case breakdown is partial and is not the lane total. Current exact-source CI is terminal; the remaining cross-packet issue is the historical CI07 handoff dependency only.
+
+Ledger remains **10 verified / 66 in progress / 2 planned (12.82%)**; all release flags remain false. No milestone promotion is proposed. CFB evidence is a separate historical source and is not combined here.
+
+### Historical source snapshots retained below
+
+The following preexisting CFB and earlier-source sections are retained as historical records. Their old “current” headings and next steps describe those dated snapshots, not the 685fb836 status above.
+
 ## Current verification status, 12 October 2026 — CFB evidence and integrated verifier fixes
 
 Exact source `cfb715bfcff8049e031e1422c526da4bc13d5d5c` passed full Node/DOM core: **24,578 passed / 1,943 skipped / 0 failed**, with 26,521 reconciled identities. All three exact-source CI workflows finished: **24 successful jobs / 8 conditional skips / 0 failures** across 32 jobs. Architecture-specific native evidence remains separate; skipped jobs remain unverified.

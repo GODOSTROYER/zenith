@@ -1,4 +1,4 @@
-import { defaultMaintenanceAcceptance } from "./default";
+import { defaultMaintenanceAcceptance, maintenanceFailurePhase, type MaintenanceDiagnosticPhase } from "./default";
 import { constants, closeSync, fchmodSync, fsyncSync, fstatSync, lstatSync, openSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +47,12 @@ const ASSERTION_DIAGNOSTIC_CODES = new Map<string, string>([
   ["A durable-only addendum did not record missed ticks across the worker outage.", "addendum_missed_ticks_not_counted"],
   ["Default API health does not match durable readback.", "durable_api_health_mismatch"],
   ["Published cleanup epoch changed.", "cleanup_epoch_changed"],
+  ["The existing critical maintenance schedule is incompatible; operator review is required.", "critical_schedule_incompatible"],
+  ["The critical maintenance schedule response is unconfirmed; inspect its fixed identity before retrying.", "critical_schedule_transport_unconfirmed"],
+  ["Durable reconciliation prerequisites are unavailable.", "reconcile_prerequisites_unavailable"],
+  ["The existing reconciliation schedule is incompatible; operator review is required.", "reconcile_schedule_incompatible"],
+  ["The reconciliation schedule response is unconfirmed; inspect its fixed identity before retrying.", "reconcile_schedule_transport_unconfirmed"],
+  ["Durable reconciliation configuration is invalid.", "reconcile_configuration_invalid"],
   ["Running workflow remains; retain namespace/database.", "workflow_cleanup_unconfirmed"],
   ["Owned maintenance cleanup is unconfirmed; retain namespace/database.", "cleanup_unconfirmed"],
 ]);
@@ -60,6 +66,7 @@ export function maintenanceDiagnosticCode(error: unknown): string {
     if (error && typeof error === "object") {
       const candidate = error as { name?: unknown; message?: unknown };
       if (typeof candidate.message !== "string") return "acceptance_failed_unclassified";
+      if (error instanceof TypeError && candidate.message === "fetch failed") return "http_transport_failed";
       const known = ASSERTION_DIAGNOSTIC_CODES.get(candidate.message);
       if (known) return known;
       for (const job of ["engine", "alerts", "outbox", "housekeeping", "runner-reaper", "runbooks", "reconcile",
@@ -83,7 +90,7 @@ const SQLSTATE_CODES = new Set([
 const DIAGNOSTIC_TYPES = new Set(["assertion", "aggregate", "error", "unknown"] as const);
 type MaintenanceDiagnosticType = "assertion" | "aggregate" | "error" | "unknown";
 
-type MaintenanceDiagnosticFields = { code: string; type: MaintenanceDiagnosticType; sqlState?: string };
+type MaintenanceDiagnosticFields = { code: string; type: MaintenanceDiagnosticType; sqlState?: string; phase?: MaintenanceDiagnosticPhase };
 
 function maintenanceDiagnosticFields(error: unknown): MaintenanceDiagnosticFields {
   let type: MaintenanceDiagnosticType = "unknown";
@@ -100,10 +107,12 @@ function maintenanceDiagnosticFields(error: unknown): MaintenanceDiagnosticField
     sqlState = undefined;
   }
   const code = maintenanceDiagnosticCode(error);
+  const phase = maintenanceFailurePhase(error);
   return {
     code: code === "acceptance_failed_unclassified" && sqlState ? "postgres_sqlstate" : code,
     type: DIAGNOSTIC_TYPES.has(type) ? type : "unknown",
     ...(sqlState ? { sqlState } : {}),
+    ...(phase ? { phase } : {}),
   };
 }
 

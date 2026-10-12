@@ -6881,13 +6881,13 @@
     }
   ],
   "sessionState": {
-    "status": "fresh_r16_native_build_and_exact_ci_passed_operated_acceptance_pending",
-    "sourceCheckpoint": "2029575ffa8e365871b9c85f7da741d95f89a773",
+    "status": "diagnostic_integrated_fresh_coherent_verification_pending",
+    "sourceCheckpoint": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
     "publicationBranch": "codex/production-2026-10-02",
-    "lastPushedCommit": "2029575ffa8e365871b9c85f7da741d95f89a773",
-    "lastPushedRun": 38127637038,
-    "lastPushedRunStatus": "Exact source 2029575f: main CI success20/28 with8 conditional skips; native workflows2/2 each. Verify24584/0/1925 across26509 identities, maxWorkers2 configured and occupancy unmeasured. Fresh local R16 passed24566/0/1943 across26509 identities on stable5926-entry freeze. Native ARM64 J2 witness build passed without push; image not invoked. R13 prepare exited2 failed-retain-owned-state before API pooler probe; cleanup incomplete and R17 diagnostic pending.",
-    "currentVerification": "Fresh full R16 and native ARM64 image build passed on exact source2029575f within their scopes; exact-source CI terminal success20/28 with8 conditional skips plus native workflows2/2 each. Local R16 and CI counts are separately bound. J2 image not invoked. R13 pooler preflight refused before API probe and retained owned state; R17 diagnostic pending. No release acceptance or promotion.",
+    "lastPushedCommit": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+    "lastPushedRun": 38196907237,
+    "lastPushedRunStatus": "terminal success: main20 passed/8 conditional skipped, native workers2 passed, native platforms2 passed; exact685 only",
+    "currentVerification": "docs/build/production/evidence/PROD-CI-08/2026-10-12-685fb836-core-ci-cleanup.json",
     "remainingLocalPackets": {
       "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
       "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
@@ -6903,8 +6903,8 @@
       "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Saivedant Hava <saivedant169@gmail.com>.",
       "pending": "Livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff. MCP client repair already integrated; historical CI07 eight-versus-seven advisory report reconciliation remains open."
     },
-    "releaseVerdict": "10 verified /66 in_progress /2 planned (12.82%); no promotion from DAA core or focused CI trial. Required evidence unchanged; all four release flags false.",
-    "next": "Commit this reviewed CI worker trial and truthful evidence; pull --no-rebase and push same branch. Run fresh coherent full R16, inspect exact-source CI, rebuild native ARM64 J2 witness, then execute authorized J1/J2/UX/J4 with independently reviewed helpers and restore owned trust/AirPlay after testing.",
+    "releaseVerdict": "10 verified /66 in_progress /2 planned (12.82%); all four release flags false; focused/cleanup/build proofs do not close product acceptance.",
+    "next": "Publish integrated phase diagnostics and evidence normally on same branch after pull --no-rebase; obtain clean fresh source freeze and bound helpers, run full R16/native100/fresh owned J4/J2 acceptance while inspecting every exact-source CI job.",
     "completedLocalKind": {
       "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
       "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
@@ -6913,7 +6913,7 @@
       "scope": "Provider6/release1/guest49 all passed; local kind/PGlite/signed fixture limits retained.",
       "historical": true
     },
-    "recordedAt": "2026-10-08",
+    "recordedAt": "2026-10-12T04:29:14.936593+00:00",
     "nativeRun": "current37786124092_two_failed;historical37578066955",
     "cleanup": "Failed105/2 and corrected107/0/0 native historical attempts both retained; corrected receipt128 observed groups absent, runtime/socket removed, listener refused, end source binding true. Earlier162 native and owned Supabase cleanup retain original source scope. Unrelated Docker baseline preserved.",
     "nativeSkippedPlatformsRun": "current37786123826_two_success;historical37578066934",
@@ -7222,7 +7222,17 @@
         "runId": 38127637059
       }
     },
-    "latestVerifierCheckpoint": "2026-10-12 CFB full core and terminal CI reconciled;67 bounded focused cases;failed J4 stack owned cleanup completed;reviewed five-file fixes integrated;fresh coherent successor acceptance pending."
+    "latestVerifierCheckpoint": "2026-10-12 CFB full core and terminal CI reconciled;67 bounded focused cases;failed J4 stack owned cleanup completed;reviewed five-file fixes integrated;fresh coherent successor acceptance pending.",
+    "currentScopedEvidence": {
+      "source": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+      "core": "24590 passed/1943 skipped/0 failed; 26533 joined identities",
+      "ci": "24 passed jobs/8 conditional skipped/0 failed; Verify24608 passed/1925 skipped/0 failed",
+      "diagnosticCandidate": "10 focused cases and Tsc/ESLint2 checks independently passed; three exact postimages integrated, fresh source verification pending",
+      "ownedCleanup": "J4 19 removed/0 remaining/2 forced stops, acceptedRun false, independent terminal review pass; native100 exact fixture recovery pass with lock clear at closeout",
+      "native100": "original100 pending/2 suite setup failures; reviewed canonical NOINHERIT role seed R5 remains unexecuted",
+      "witness": "native ARM64 nonroot build only, no invocation/J2 acceptance",
+      "external": "CI07 historical advisory reconciliation, live/cloud/DNS/private-app/signoff and 168h meter requirements remain open"
+    }
   },
   "sessionHistory": [
     {
@@ -8232,6 +8242,350 @@
         "scope": "Local provider/release/guest components only; CNI/PGlite limits retained"
       },
       "recordedAt": "2026-10-06T04:02:45.264219+00:00"
+    },
+    {
+      "status": "fresh_r16_native_build_and_exact_ci_passed_operated_acceptance_pending",
+      "sourceCheckpoint": "2029575ffa8e365871b9c85f7da741d95f89a773",
+      "publicationBranch": "codex/production-2026-10-02",
+      "lastPushedCommit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+      "lastPushedRun": 38127637038,
+      "lastPushedRunStatus": "Exact source 2029575f: main CI success20/28 with8 conditional skips; native workflows2/2 each. Verify24584/0/1925 across26509 identities, maxWorkers2 configured and occupancy unmeasured. Fresh local R16 passed24566/0/1943 across26509 identities on stable5926-entry freeze. Native ARM64 J2 witness build passed without push; image not invoked. R13 prepare exited2 failed-retain-owned-state before API pooler probe; cleanup incomplete and R17 diagnostic pending.",
+      "currentVerification": "Fresh full R16 and native ARM64 image build passed on exact source2029575f within their scopes; exact-source CI terminal success20/28 with8 conditional skips plus native workflows2/2 each. Local R16 and CI counts are separately bound. J2 image not invoked. R13 pooler preflight refused before API probe and retained owned state; R17 diagnostic pending. No release acceptance or promotion.",
+      "remainingLocalPackets": {
+        "integratedRepairs": "733f81f8 nine reviewed CI paths; root437/0/6, compiler/lint/actionlint0. Six actualLinux cases and complete native/full/successorCI pending.",
+        "authorityFixtures": "Reviewed4e07113d/d8ad975d integrated5e5417b9; exactfinal6files92/0/0, combinedcompiler/lint0. Model/provider-fixture proof only.",
+        "brokerAndLeases": "ded51029/56446629 integrated; sourceboundc7+2WIP actualnativePG162/0/0 including62mandatorynative. Independent receipt and85 observed groups/cleanup/sourcebinding accepted; freshDB scope only.",
+        "historicalFixtures": "Integrated4acebfb9 after actualnative107/0/0/58mandatory and independent128groups cleanup/sourcebinding. Prior105/2 retained. Exact244testedruntimeinputs match integratedea8.",
+        "nativeBuild": "Packagingasset2 integrated19a2ae14; rootactualcomponentmissingasset1\u2192canonicalasset0 and packaging135/0/6. Go5 integrated7b9ae3e3; root671/0/0 strictcontracts, current154/158 requiredcount. GenuineLinux6/newrunnerPID1/image/runtime stillpending; no generic skip exception.",
+        "defaultStackPreparation": "Historical9d reduced five-service startup/configuration capture passed limitedscope; subsequentTLS initialization failed. Ownedresources/certificates removed; fresh26SQL/schema58/defaultsource composition needed.",
+        "fullNativeUnit": "Historical9d unit counts retained only for9d. Exact0cc mainverify failed typecheck with heap OOM before full unit; current combined full unit pending.",
+        "workflowFixtures": "Integrated ea8 authority82/0/0 and 59fe release5/0/0; actual default agent/hosted journeys remain open.",
+        "ownership": "Integratedc8c87402 after actual55/0/0/36PG, independent155groups/sourcebindingcleanup,368/0/0contracts, compiler0. Exacttwo truthful titleIDs changed, counts preserved."
+      },
+      "permissions": {
+        "approved": "Local disposable default API/server acceptance on this Mac only; owned PG/Temporal/kind/native worker tests; bounded verifier repairs and normal same-branch push. Author/committer Saivedant Hava <saivedant169@gmail.com>.",
+        "pending": "Livecloud/spend/DNS/privateGitHubApp; destructive retention/business/production signoff. MCP client repair already integrated; historical CI07 eight-versus-seven advisory report reconciliation remains open."
+      },
+      "releaseVerdict": "10 verified /66 in_progress /2 planned (12.82%); no promotion from DAA core or focused CI trial. Required evidence unchanged; all four release flags false.",
+      "next": "Commit this reviewed CI worker trial and truthful evidence; pull --no-rebase and push same branch. Run fresh coherent full R16, inspect exact-source CI, rebuild native ARM64 J2 witness, then execute authorized J1/J2/UX/J4 with independently reviewed helpers and restore owned trust/AirPlay after testing.",
+      "completedLocalKind": {
+        "sourceCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
+        "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-08-kind56-read-minter-successor.json",
+        "cleanupComplete": true,
+        "scope": "Provider6/release1/guest49 all passed; local kind/PGlite/signed fixture limits retained.",
+        "historical": true
+      },
+      "recordedAt": "2026-10-08",
+      "nativeRun": "current37786124092_two_failed;historical37578066955",
+      "cleanup": "Failed105/2 and corrected107/0/0 native historical attempts both retained; corrected receipt128 observed groups absent, runtime/socket removed, listener refused, end source binding true. Earlier162 native and owned Supabase cleanup retain original source scope. Unrelated Docker baseline preserved.",
+      "nativeSkippedPlatformsRun": "current37786123826_two_success;historical37578066934",
+      "lastPushedUnitResult": {
+        "status": "historical_not_executed_on_0cc",
+        "reason": "verify113341210148 failed Typecheck with heap OOM before unit/smoke/Gimbal",
+        "historical9d": {
+          "passed": 21828,
+          "failed": 0,
+          "skipped": 1647
+        }
+      },
+      "currentWork": "Current source 2029575ffa8e365871b9c85f7da741d95f89a773: exact-source R16 passed24566/0/1943 across26509 identities and4886 suites; stable5926-entry freeze ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0, counters matched, wrapper0, floor passed. Native ARM64 J2 witness build passed without push; image not invoked. Exact CI main20 success/8 conditional skip; native workflows2/2 each; unit24584/0/1925, maxWorkers2 configured, occupancy unmeasured. R13 failed-retain-owned-state before API authority pooler probe (exit2); custody held, cleanup incomplete, ten pending R16 births absent. R17 diagnostic pending, no retry. Other R14/R7-fixed-R1/R15/R6 records are source-review only. Ledger10/66/2 and all four flags false; no promotion.",
+      "currentCandidateCi": {
+        "sourceCommit": "2029575ffa8e365871b9c85f7da741d95f89a773",
+        "main": {
+          "runId": 38127637038,
+          "total": 28,
+          "success": 20,
+          "failure": 0,
+          "skipped": 8,
+          "active": 0,
+          "cancelled": 0,
+          "status": "completed_success"
+        },
+        "nativePackagedWorkers": {
+          "runId": 38127637059,
+          "total": 2,
+          "success": 2,
+          "failure": 0,
+          "status": "completed_success"
+        },
+        "nativeSkippedPlatforms": {
+          "runId": 38127637055,
+          "total": 2,
+          "success": 2,
+          "failure": 0,
+          "status": "completed_success"
+        },
+        "threeWorkflowAggregate": {
+          "total": 32,
+          "success": 24,
+          "failure": 0,
+          "skipped": 8,
+          "active": 0,
+          "cancelled": 0,
+          "status": "completed_success",
+          "laneCountsCombined": false
+        },
+        "unitStep": {
+          "jobId": 114435213228,
+          "passed": 24584,
+          "failed": 0,
+          "skipped": 1925,
+          "identities": 26509,
+          "durationSeconds": 1606.94,
+          "maxWorkersConfigured": 2,
+          "actualWorkerOccupancyMeasured": false
+        },
+        "localR16": {
+          "passed": 24566,
+          "failed": 0,
+          "skipped": 1943,
+          "identities": 26509,
+          "suites": 4886,
+          "sourceFreezeSha256": "ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0",
+          "sourceEntries": 5926,
+          "summarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+          "executionReceiptSha256": "81f3aaef3dc788d2e32a278fbad9c5bc74a340d4de042138843f23f0d14d19ed",
+          "combinedWithCi": false
+        },
+        "nativeBuild": {
+          "status": "passed",
+          "architecture": "arm64",
+          "exitCode": 0,
+          "push": false,
+          "runtimeInvoked": false,
+          "summarySha256": "da3fe73579c3307d0bae7ab55ce839936e67a9a3bdc06d5b9170a1b799344005",
+          "reviewSha256": "e75d9ce81bf1747a78294fb823e79193390452f171497347992d9bcfba4b9d13"
+        },
+        "terminalSnapshotSha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+        "workerCountClarificationSha256": "95cc4f7dc5234a2b9161479483456b00e01879d20c8bdeb639ba8a0c3eed2108",
+        "ciArtifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+        "r16Artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-r16-full-core-r1.json",
+        "nativeArtifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-j2-native-build-r1.json"
+      },
+      "source69EvidenceRefs": {
+        "currentDelta": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json",
+        "r16ExecutionReceiptSha256": "f215759d23a793cd9fac4b3f1539471dc109402ac1d2610ff07c16033ab19968",
+        "r16SummarySha256": "0adb31db5de1e2c0144dc809d7f0e44f7b59fe701921da2582d79c6e6b879f0d",
+        "r10WitnessSummarySha256": "c1b031342545a4a4e2e2ffa1204d846cdedcaadf224c2e623bc3b7246357f750",
+        "milestoneEligibility": "0 additional requirement IDs fully eligible; all four flags false",
+        "milestoneEligibilityAssessmentJsonSha256": "b0f3c4873374d1ff4482abd4dc5beee3532fdd22d301e35f78122eca757dbabd",
+        "j4FocusedCandidateDiagnostic": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-j4-focused-r2-diagnostic.json",
+        "j4FocusedReceiptSha256": "2dff41ffa2d26e6107fe9977dc43cc266a74fea319415bae979fc6f0ccb5d227",
+        "j4TypecheckPriorReceiptSha256": "9732950177bbf51009e7ad515e40accf2bcd3eb1df68d4c15808aa8eef7b9635",
+        "ciR5SnapshotSha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
+        "j4FocusedEvidenceJsonSha256": "184662f95d6a01ad45da22e2e1544d6d28fb0558ce508aadcf9bedd9b6e2187f",
+        "terminalCiSnapshotReportSha256": "28232ce9c8398322919790990e0e882ed3dbee209bb93326ba21efc3315dc9d3",
+        "terminalCiSnapshotJsonSha256": "cfaff3889af5072d107296c781e9786d7e2991943959f3fee0e6952816c700ae",
+        "priorNonterminalCiSnapshotSha256": "440c40e43efbade76b6f8fc3079397fc12a84f944f8dd608b96dbbd79f68b73b",
+        "terminalCiEvidencePath": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-terminal-ci-observation.json",
+        "terminalCiTimeoutProofReportSha256": "6521d1a44f22abd1682fac8d61b6ceba19be65dba4018b343016ca8097a4eb8f",
+        "terminalCiTimeoutProofJsonSha256": "3b739bf5d5dfdbe9d892426f4b10e2355b9c4ab6ae98b6661322672bdfde75c7",
+        "terminalCiEvidenceJsonSha256": "2b03295e530eeb58b8b7d45d86aa60fde34f57c21bf3cc1f21ff3e19fbadcdfa"
+      },
+      "historicalE84CandidateWork": "Historical e84 CI snapshot (not current) was terminal red (main18P/2F/8S; native worker and platform workflows each2 successful jobs). Focused fixture R4 actual tsc and195/0/0 two-file run passed on e84 plus four explicit postimages. Frozen-94 overlay221ddb R14 passed one native case with wrapper rc0 and109 strict commands; not a full Go gate. Historical packet summaries below remain historical: Reviewed historical, worker asset, Go inventory, workflow routes, compiler heap and release fixture repairs integrated. Root107/0/0 actualPG58 mandatory,671/0/0 gate contracts,82/0/0 authority,135/0/6 packaging,120/0/0 heap guards,5/0/0 release and compiler0 are separate scopes. Full source gates/new CI and ownership/Linux/default journey/security clearance remain open.",
+      "ownedCleanup69": {
+        "schemaVersion": 1,
+        "sourceHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+        "recordedAt": "2026-10-11T03:52:04.539791+00:00",
+        "scope": "Failed J1 stack cleanup and exact owned witness-tag cleanup; no J1/J4/J2 acceptance",
+        "failedJ1Cleanup": {
+          "outerExitCode": 0,
+          "receiptSha256": "7bd0a19545af623351ef9f12bbdff76e74faed3c0fed1c310effe3f6bffa069c",
+          "removed": 17,
+          "ownedResourcesRemaining": 0,
+          "forcedStops": 2,
+          "heldCommands": 193,
+          "strictCloseoutPassed": true,
+          "sourceFreezeStable": true,
+          "hostFloorMinimumBytes": 336022933504,
+          "vmFloorMinimumBytes": 419691646976,
+          "floorBytes": 23622320128,
+          "observersJoined": true,
+          "j4PrivateMaterialsAbsent": true,
+          "historicalReceiptsRetained": true,
+          "acceptedRunReceipt": false
+        },
+        "witnessTagCleanup": {
+          "outerExitCode": 0,
+          "receiptSha256": "6eb40fb83748d78a1af608a282f85ae5e6a3a11c5a8979b30d4fc098b3392a38",
+          "exactTagAbsent": true,
+          "strictCloseoutPassed": true,
+          "sourceFreezeStable": true,
+          "ownedChildAndRegistryAbsent": true,
+          "acceptanceClaim": false
+        },
+        "originalFailuresPreserved": true,
+        "milestonesPromoted": 0,
+        "remaining": "Integrate reviewed repairs, then fresh coherent full core, witness and J1/J4/browser acceptance. Forced stops are not graceful-shutdown evidence."
+      },
+      "previousCandidateCiBefore2029575fR3": {
+        "sourceCommit": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+        "main": {
+          "runId": 38105216483,
+          "total": 28,
+          "success": 18,
+          "failure": 1,
+          "skipped": 8,
+          "active": 0,
+          "activeJob": null,
+          "failedJob": "go",
+          "cancelled": 1,
+          "cancelledJob": "verify",
+          "status": "completed_failure"
+        },
+        "threeWorkflowAggregate": {
+          "total": 32,
+          "success": 22,
+          "failure": 1,
+          "skipped": 8,
+          "active": 0,
+          "cancelled": 1,
+          "status": "completed"
+        },
+        "laneCountsCombined": false,
+        "snapshotSha256": null,
+        "focusedOutputCapRepair": {
+          "passed": 195,
+          "failed": 0,
+          "skipped": 0,
+          "durationSeconds": 26.34,
+          "lintExitCode": 0,
+          "receiptSha256": "d7bcd516197c10ada3c017630d4ebe152613fc162282afda5e8e67dda22abf80"
+        },
+        "prior47768": {
+          "passed": 194,
+          "failed": 1,
+          "reason": "missing AST helper; refusal preserved"
+        },
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-current-progress-delta.json",
+        "r5Snapshot": {
+          "observedAtUtc": "2026-10-11T03:04:29Z",
+          "sha256": "6c9133ae3973d8a6640048c9b3146cf66b4dbb45a2ec41c2752f6529075dda39",
+          "unchangedSinceR4": true,
+          "historicalAfterTerminalRefresh": true
+        },
+        "j4FocusedCandidateDiagnostic": {
+          "receiptSha256": "2dff41ffa2d26e6107fe9977dc43cc266a74fea319415bae979fc6f0ccb5d227",
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0,
+          "eslintExitCode": 0,
+          "candidateFreezeEqualsPrimary": false,
+          "j4RuntimeAcceptance": false,
+          "evidence": "docs/build/production/evidence/PROD-CI-08/2026-10-11-69-j4-focused-r2-diagnostic.json",
+          "evidenceJsonSha256": "184662f95d6a01ad45da22e2e1544d6d28fb0558ce508aadcf9bedd9b6e2187f"
+        },
+        "latestTerminalObservation": {
+          "observedAtUtc": "2026-10-11T03:14:43Z",
+          "conclusion": "failure",
+          "verify": "cancelled",
+          "verifyTimeoutAnnotation": "The job has exceeded the maximum execution time of 45m0s",
+          "go": "failure",
+          "cancellationCause": "confirmed by check-run annotation",
+          "snapshotReportSha256": "28232ce9c8398322919790990e0e882ed3dbee209bb93326ba21efc3315dc9d3",
+          "snapshotJsonSha256": "cfaff3889af5072d107296c781e9786d7e2991943959f3fee0e6952816c700ae",
+          "publicEvidenceRecordSha256": "2b03295e530eeb58b8b7d45d86aa60fde34f57c21bf3cc1f21ff3e19fbadcdfa",
+          "timeoutProofJsonSha256": "3b739bf5d5dfdbe9d892426f4b10e2355b9c4ab6ae98b6661322672bdfde75c7"
+        },
+        "previousNonterminalSnapshotSha256": "440c40e43efbade76b6f8fc3079397fc12a84f944f8dd608b96dbbd79f68b73b"
+      },
+      "currentPoolerPreparation": {
+        "attempt": "R13",
+        "exitCode": 2,
+        "outcome": "failed-retain-owned-state",
+        "stage": "before API-authority pooler probe",
+        "custody": "held",
+        "cleanupComplete": false,
+        "pendingR16Births": 10,
+        "pendingBirthResolution": "all absent",
+        "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-r13-refusal-r1.json",
+        "diagnosticR4": {
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-diagnostic-r4-r1.json",
+          "probeReturnCode": 1,
+          "cause": "ENOENT creating temporary tsx cache before DB connection",
+          "strictCloseout": true,
+          "lockReleased": true,
+          "lockQuarantined": false,
+          "retainedStackModified": false,
+          "cleanupComplete": false,
+          "next": "No probe after the reviewed tmpfs candidate has run; wait for cleanup/source boundary before any retry."
+        },
+        "tmpfsCandidateR1": {
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-pooler-tmpfs-candidate-r1.json",
+          "candidatePatchSha256": "aba6fb2b8bbdb904ded04c556d435b72f71a7c7106401b358339283dbe9a7caa",
+          "focusedTests": "19/0/0",
+          "eslintExitCode": 0,
+          "integrated": false,
+          "runtimeAcceptance": false
+        },
+        "cleanupR6": {
+          "status": "owned_cleanup_completed_terminal_audit_passed",
+          "commandExitCode": 0,
+          "cleanupReceiptSha256": "193e3c380c685ddff8002d80b1f72166a08ea6ac9c0b288c9f86f7b0a0abe586",
+          "removed": 17,
+          "ownedResourcesRemaining": 0,
+          "forcedStops": 2,
+          "hostWatcherJoined": true,
+          "vmObserverJoined": true,
+          "terminalAuditPending": false,
+          "accepted": false,
+          "milestonePromoted": false,
+          "trustMutationPerformed": false,
+          "airplayMutationPerformed": false,
+          "terminalAuditReviewSha256": "dc1761f9dce3e1b1e1f20487362ee0aafbc265fa05993c46904963cc869d0578",
+          "custodyEvents": 61,
+          "pendingResolvedAbsent": 18,
+          "pendingStillLive": 0,
+          "quarantined": 0,
+          "activeIdentityCount": 0,
+          "captureRows": 24,
+          "captureExhaustionAbsent": true,
+          "vmSamples": 268,
+          "vmCommands": 536,
+          "lockEmptyAndUnheld": true
+        }
+      },
+      "currentRequirementEvidence": {
+        "PROD-CI-08": {
+          "levels": [
+            "local_engine",
+            "local_linux_arm64",
+            "remote_ci"
+          ],
+          "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "r16Artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-r16-full-core-r1.json",
+          "nativeBuildArtifact": "docs/build/production/evidence/PROD-CI-08/2026-10-11-2029575f-j2-native-build-r1.json",
+          "ciRunIds": [
+            38127637038,
+            38127637059,
+            38127637055
+          ]
+        },
+        "PROD-CI-09": {
+          "level": "remote_ci",
+          "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "runIds": [
+            38127637038,
+            38127637059,
+            38127637055
+          ]
+        },
+        "PROD-PKG-01": {
+          "level": "remote_ci",
+          "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "runId": 38127637059
+        },
+        "PROD-PKG-02": {
+          "level": "remote_ci",
+          "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+          "runId": 38127637059
+        }
+      },
+      "latestVerifierCheckpoint": "2026-10-12 CFB full core and terminal CI reconciled;67 bounded focused cases;failed J4 stack owned cleanup completed;reviewed five-file fixes integrated;fresh coherent successor acceptance pending."
     }
   ],
   "wave5Assembly": {

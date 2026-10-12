@@ -1,3 +1,18 @@
+## Source 685fb836 R5 results snapshot — 12 October 2026
+
+- **Full core:** R16 terminal PASS, 24,590 passed / 1,943 skipped / 0 failed across 26,533 identities. Summary SHA-256 `895736020dc6cf20585af23d2b272bff762c8516f7acb242f7e379a5fd24c317`; terminal review JSON SHA-256 `3b88a542a93bb13c353ae64f87d5e84ad80fc45ac9834b9dfb04a9a6cc110af2`.
+- **Exact-source CI:** 3/3 workflows successful; 24 passed / 8 conditional skips / 0 failed among 32 jobs. Index SHA-256 `1244274451649e8f6fa07b3bde96806b137b3cde594a90fb96b85b884261fc99`. Verify job 114641494664 completed successfully with 24,608 passed / 1,925 skipped / 0 failed across 26,533 tests; raw log SHA-256 `b4c32dbf4b73ed3bf290ddcd4af1b631d50edf401ab7910e99ae1b6cdd50b50f`; saved summary JSON SHA-256 `c95f33550579ee854f903bcb8c90d3b5e06e360ad8169b52489d8afab1236163`. These remote counts are separate from local R16. Workflow lane total: 1,559 passed / 75 files / 113 groups, raw log SHA-256 `f8fe238ef420210c89401ea48bcbe32749f18460036eb6148ecf4993fb976b18`. The 28-file / 547-case detail is a partial slice, not the full lane total. Lane counts overlap and are not added.
+- **Focused candidates:** J4 diagnostic 10/10, proof SHA-256 `0761651eff4c35adc2c9fa93c96b3a79212571337c9517d48d8968512065ff32`, terminal review JSON `54220bf378998a7361c47e2a7cd6cc2d789f44440270e066f95b9eea30f29915`. Static TypeScript/ESLint 2/2; proof SHA-256 `3bf75a4531be300146d81e2db8651d3660d4bcd23636bc6979f17bcc4aabb062`, terminal review JSON `2d636c48a2a073c03f73608df5971c22523644170d2187f1dccfbf0f499230d6`. Both are candidate-only; `acceptedRunReceipt:false`.
+- **J4 cleanup:** R3 refused before deletion on an empty-guard-log/alias-entry mismatch. R4 completed with 19 resources removed, zero owned resources remaining, and two forced stops. Receipt SHA-256 `defd71a5f5f21bb935bcef5c2a90d366cf445162ee01ea189acf31e0a4782a0b`; `acceptedRunReceipt:false`. Independent terminal review PASS SHA-256 `a65dbf65c748e78ae2d0f17a061a1599a5b0c27f7c08e4aeb1c121df6bfcf75e`. This is scoped cleanup only, not graceful-shutdown or J4 acceptance.
+- **Native role/R4 recovery:** original native role R4 run had 0 passed / 100 pending / 2 failed suites during bootstrap. The `NOINHERIT` seed setup is deterministically invalid; the precise inner initializer exception is unproven. Separate recovery receipt SHA-256 `b0f7f7374e05b3998bcf9cf7ed4a7f8cb9d97446527a9ccf3c1334d4a02dfe52`, independent review PASS; receipt records owned PostgreSQL fixture removal and sticky-lock clear at closeout. Corrected canonical-role R5 candidate remains unexecuted.
+- **Witness:** ARM64 nonroot image build only; no invocation or J2/product acceptance. Summary SHA-256 `85ada12ac496aaecc33f6bb3e9c4c339231196322fdc34204292303a592b01ca`; review `a43195483f10ff79099a986e4cab4ae4abdb0bd5ca7e0bd65ffd45c49281508f`.
+
+Ledger remains 10 verified / 66 in progress / 2 planned; the 78 requirement rows and all release flags are unchanged. No milestone promotion is claimed.
+
+### Historical source snapshots retained below
+
+The following preexisting CFB and earlier-source sections are retained as historical records. Their old “current” headings and next steps describe those dated snapshots, not the 685fb836 status above.
+
 ## Current verification status, 12 October 2026 — CFB evidence and integrated verifier fixes
 
 Exact source `cfb715bfcff8049e031e1422c526da4bc13d5d5c` passed full Node/DOM core: **24,578 passed / 1,943 skipped / 0 failed**, with 26,521 reconciled identities. All three exact-source CI workflows finished: **24 successful jobs / 8 conditional skips / 0 failures** across 32 jobs. Architecture-specific native evidence remains separate; skipped jobs remain unverified.

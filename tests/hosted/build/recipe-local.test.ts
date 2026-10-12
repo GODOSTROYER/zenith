@@ -51,6 +51,22 @@ function request(overrides: Partial<import("@/lib/hosted/contracts").BuildReques
   };
 }
 
+function writeSuccessfulResultWorker(name: string, termination: "nonzero" | "signal"): string {
+  const worker = path.join(DATA, name);
+  const finish = termination === "signal"
+    ? 'process.kill(process.pid, "SIGTERM");'
+    : 'process.exit(23);';
+  fs.writeFileSync(worker, `
+    import fs from "node:fs";
+    const job = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+    fs.mkdirSync(job.outDir, { recursive: true });
+    fs.writeFileSync(job.outDir + "/index.html", "<!doctype html><title>worker output</title>");
+    fs.writeFileSync(process.argv[3], JSON.stringify({ ok: true, outDir: job.outDir, modules: 1 }));
+    ${finish}
+  `);
+  return worker;
+}
+
 describe("RecipeLocalRunner availability", () => {
   it("refuses when ZENITH_BUILD_RUNNER is unset, naming the variable and the isolated options", async () => {
     // CI's hosted job exports ZENITH_BUILD_RUNNER for the whole process, so
@@ -297,6 +313,33 @@ describe("RecipeLocalRunner isolation and limits", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("without writing a result");
     expect(result.error).toContain("3");
+  }, 60_000);
+
+
+  it("refuses a success result and index.html when the worker exits nonzero", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "recipe-local";
+    const worker = writeSuccessfulResultWorker("successful-result-nonzero.mjs", "nonzero");
+    const result = await new build.RecipeLocalRunner({ workerPath: worker }).run(
+      request(),
+      new AbortController().signal
+    );
+    expect(result.ok).toBe(false);
+    expect(result.outputDir).toBeUndefined();
+    expect(result.error).toContain("code 23");
+    expect(result.error).toContain("zero exit code is required");
+  }, 60_000);
+
+  it("refuses a success result and index.html when the worker exits by signal", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "recipe-local";
+    const worker = writeSuccessfulResultWorker("successful-result-signal.mjs", "signal");
+    const result = await new build.RecipeLocalRunner({ workerPath: worker }).run(
+      request(),
+      new AbortController().signal
+    );
+    expect(result.ok).toBe(false);
+    expect(result.outputDir).toBeUndefined();
+    expect(result.error).toContain("code unknown");
+    expect(result.error).toContain("zero exit code is required");
   }, 60_000);
 });
 

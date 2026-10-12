@@ -138,7 +138,7 @@ function recordingFactory(sandbox: unknown) {
 function fakeSandbox(
   behaviour: {
     installExit?: number;
-    workerExit?: number;
+    workerExit?: number | null;
     result?: unknown;
     distFiles?: Record<string, string>;
     attestation?: unknown;
@@ -195,8 +195,12 @@ function fakeSandbox(
         opts?.onStdout?.(`running ${cmd.slice(0, 20)}\n`);
         const isToolchainCheck = cmd.startsWith("node -e");
         if (behaviour.hangWorker && !isToolchainCheck) return new Promise<never>(() => {});
-        const exitCode = isToolchainCheck ? behaviour.installExit ?? 0 : behaviour.workerExit ?? 0;
-        return { exitCode, stdout: "", stderr: "" };
+        const exitCode = isToolchainCheck
+          ? behaviour.installExit ?? 0
+          : Object.prototype.hasOwnProperty.call(behaviour, "workerExit")
+            ? behaviour.workerExit
+            : 0;
+        return { exitCode: exitCode as number, stdout: "", stderr: "" };
       },
     },
     async kill() {
@@ -366,6 +370,29 @@ describe("E2bRunner call sequence", () => {
       expect(fs.existsSync(path.join(outputDir, "assets", "index-abc.js"))).toBe(true);
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses success results when the worker exits nonzero or without an exact status", async () => {
+    configureE2b();
+    for (const workerExit of [7, null, undefined] as const) {
+      const { sandbox, calls } = fakeSandbox({ workerExit });
+      const result = await new build.E2bRunner({ createSandbox: async () => sandbox }).run(
+        request(),
+        new AbortController().signal
+      );
+      expect(result.ok, `worker exit ${String(workerExit)} must be refused`).toBe(false);
+      expect(result.error).toContain(`received ${String(workerExit)}`);
+      expect(calls.map((call) => call.name)).toEqual([
+        "files.read",
+        "files.write",
+        "commands.run",
+        "commands.run",
+        "files.read",
+        "kill",
+      ]);
+      expect(calls.filter((call) => call.name === "files.read")).toHaveLength(2);
+      expect(calls.some((call) => call.name === "files.list")).toBe(false);
     }
   });
 
@@ -553,7 +580,7 @@ describe("E2bRunner call sequence", () => {
 /* ---------------------------- the docker double --------------------------- */
 
 /** A `spawn` double: records the argv and answers with a scripted exit code. */
-function fakeSpawn(script: (command: string, args: readonly string[]) => { code: number; stdout?: string }) {
+function fakeSpawn(script: (command: string, args: readonly string[]) => { code: number | null | undefined; stdout?: string }) {
   const seen: { command: string; args: string[] }[] = [];
   const spawn: import("@/lib/hosted/build").SpawnFn = (command, args) => {
     seen.push({ command, args: [...args] });
@@ -713,6 +740,40 @@ describe("DockerRunner argument vector", () => {
     // than claim a build it cannot see.
     expect(result.ok).toBe(false);
     expect(result.error).toContain("without writing a result");
+  });
+
+  it("accepts an artifact only when the container exits with exact zero", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "docker";
+    process.env.ZENITH_RECIPE_IMAGE = IMAGE_DIGEST;
+    for (const code of [0, 9, null, undefined] as const) {
+      const { spawn, seen } = fakeSpawn((_command, args) => {
+        if (args[0] === "run") {
+          const mountArg = args[args.indexOf("-v", args.indexOf("-v") + 1) + 1];
+          const outputDir = mountArg?.slice(0, mountArg.lastIndexOf(":"));
+          if (!outputDir) throw new Error("docker run did not provide its output mount");
+          fs.writeFileSync(path.join(outputDir, "result.json"), JSON.stringify({ ok: true, outDir: "/out", modules: 1, foreign: [] }));
+          fs.writeFileSync(path.join(outputDir, "dist", "index.html"), "<title>valid artifact</title>");
+        }
+        return { code: args[0] === "run" ? code : 0 };
+      });
+      const result = await new build.DockerRunner({ spawn }).run(request(), new AbortController().signal);
+      if (code === 0) {
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          const outputDir = result.outputDir;
+          if (!outputDir) throw new Error("successful Docker result did not include outputDir");
+          try {
+            expect(fs.readFileSync(path.join(outputDir, "index.html"), "utf8")).toContain("valid artifact");
+          } finally {
+            fs.rmSync(outputDir, { recursive: true, force: true });
+          }
+        }
+      } else {
+        expect(result.ok, `container exit ${String(code)} must be refused`).toBe(false);
+        expect(result.error).toContain(`code ${code ?? "unknown"}`);
+      }
+      expect(seen.some((call) => call.args[0] === "run")).toBe(true);
+    }
   });
 
   it("never starts a container when the image is a tag", async () => {

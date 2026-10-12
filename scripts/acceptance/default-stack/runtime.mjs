@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { assertPrivate, privateLocation, composeEnvironment } from '../../deploy/installation.mjs';
 import { cleanupPlan, fail, owns, root, installationLabel, projectLabel } from './config.mjs';
 
@@ -34,6 +34,63 @@ export function run(command, args, options = {}) {
 }
 export const docker = (args, options = {}) => run('docker', args, options);
 export const save = (file, value) => fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+
+const CLEANUP_STOP_SIGNALS = new Set(['SIGTERM', 'SIGINT', 'SIGQUIT']);
+export function cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs, phase, stopResolved }) {
+  const configuredSignal = current.Config?.StopSignal ?? 'SIGTERM';
+  const state = stopped?.State;
+  return {
+    id: resource.id,
+    name: typeof current.Name === 'string' ? current.Name : null,
+    graceSeconds,
+    signal: CLEANUP_STOP_SIGNALS.has(configuredSignal) ? configuredSignal : 'other',
+    elapsedMs,
+    phase,
+    stopResolved,
+    wasRunning: current.State?.Running === true,
+    postStopInspectionAvailable: Boolean(stopped),
+    runningAfter: state ? state.Running === true : null,
+    exitCode: Number.isInteger(state?.ExitCode) ? state.ExitCode : null,
+    oomKilled: state ? state.OOMKilled === true : null,
+  };
+}
+
+export function writeCleanupStopDiagnosticFile(directory, filename, value) {
+  if (typeof directory !== 'string' || typeof filename !== 'string'
+    || !/^cleanup-stop-[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.private\.json$/.test(filename)
+    || !Number.isInteger(fs.constants.O_EXCL) || !Number.isInteger(fs.constants.O_NOFOLLOW)) return false;
+  let target;
+  let descriptor;
+  try {
+    assertPrivate(directory, true);
+    const resolvedDirectory = fs.realpathSync(directory);
+    if (privateLocation(resolvedDirectory) !== resolvedDirectory) return false;
+    target = path.join(resolvedDirectory, filename);
+    descriptor = fs.openSync(target, fs.constants.O_WRONLY | fs.constants.O_CREAT
+      | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+    const opened = fs.fstatSync(descriptor);
+    const entry = fs.lstatSync(target);
+    if (!opened.isFile() || opened.uid !== process.getuid?.() || opened.nlink !== 1
+      || (opened.mode & 0o077) !== 0 || entry.isSymbolicLink()
+      || entry.dev !== opened.dev || entry.ino !== opened.ino) return false;
+    fs.fchmodSync(descriptor, 0o600);
+    fs.writeFileSync(descriptor, `${JSON.stringify(value, null, 2)}\n`);
+    fs.fsyncSync(descriptor);
+    const after = fs.fstatSync(descriptor);
+    const afterEntry = fs.lstatSync(target);
+    return after.isFile() && after.uid === process.getuid?.() && after.nlink === 1
+      && (after.mode & 0o777) === 0o600 && !afterEntry.isSymbolicLink()
+      && afterEntry.dev === after.dev && afterEntry.ino === after.ino;
+  } catch { return false; }
+  finally { if (descriptor !== undefined) { try { fs.closeSync(descriptor); } catch { /* Best effort. */ } } }
+}
+
+function persistCleanupStopDiagnostic(directory, diagnostic) {
+  try {
+    const filename = `cleanup-stop-${randomUUID()}.private.json`;
+    writeCleanupStopDiagnosticFile(directory, filename, { schemaVersion: 1, container: diagnostic });
+  } catch { /* Diagnostic creation must never change cleanup behavior. */ }
+}
 
 const WORKER_COMPOSE_SERVICES = new Set(['execution-worker', 'execution-worker-peer']);
 const INFRA_COMPOSE_SERVICES = new Set(['temporal', 'supabase-edge']);
@@ -170,8 +227,23 @@ export async function cleanup(state) {
       // Preserve the shipped worker drain. Only positively identified disposable
       // infrastructure gets the shorter stop window; unknown roles remain conservative.
       const graceSeconds = containerStopGraceSeconds(current, state);
-      await docker(['stop', '--time', String(graceSeconds), resource.id], { timeout: graceSeconds * 1000 + 40_000 });
-      const [stopped] = JSON.parse(await docker(['container', 'inspect', resource.id]));
+      const started = process.hrtime.bigint();
+      let stopResolved = false;
+      let elapsedMs = 0;
+      let stopped;
+      try {
+        await docker(['stop', '--time', String(graceSeconds), resource.id], { timeout: graceSeconds * 1000 + 40_000 });
+        stopResolved = true;
+        elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+        [stopped] = JSON.parse(await docker(['container', 'inspect', resource.id]));
+      } catch (error) {
+        if (elapsedMs === 0) elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+        persistCleanupStopDiagnostic(state.directory, cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs,
+          phase: stopResolved ? 'post-stop-inspect' : 'stop', stopResolved }));
+        throw error;
+      }
+      persistCleanupStopDiagnostic(state.directory, cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs,
+        phase: 'observed', stopResolved }));
       if (current.State?.Running && (stopped.State?.ExitCode === 137 || stopped.State?.OOMKilled)) forcedStops++;
       await docker(['rm', '-v', resource.id]);
     } else if (resource.kind === 'image') {

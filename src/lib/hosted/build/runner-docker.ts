@@ -365,6 +365,11 @@ export class DockerRunner implements BuildRunner {
           error: `The container exited with code ${result.code ?? "unknown"} without writing a result. The captured log is the only evidence of what happened.`,
         });
       if (!worker.ok) return done({ ok: false, error: worker.error ?? "The build failed without naming a reason." });
+      if (result.code !== 0)
+        return done({
+          ok: false,
+          error: `The container did not exit successfully (code ${result.code ?? "unknown"}). The artifact was not stored.`,
+        });
       if (!fs.existsSync(path.join(outDir, "index.html")))
         return done({ ok: false, error: "The container build produced no index.html. The artifact was not stored." });
 

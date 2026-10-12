@@ -256,9 +256,10 @@ def initialize_diagnostic(root,attempt):
  DIAGNOSTIC_DIRECTORY=directory;DIAGNOSTIC_ROOT=root
 PID1_COMM_DIAGNOSTIC_MAX_BYTES=4096
 PID1_CONTAINER_STATUSES={'created','restarting','running','removing','paused','exited','dead'}
-def pid1_comm_diagnostic(out):
+def pid1_comm_diagnostic(out,stream_phase='guest-baseline-pid1'):
  """Read the comm emitted by the failed baseline exec from its private stream."""
- source=pathlib.Path(out)/'guest-baseline-pid1.stdout.private'
+ if not re.fullmatch(r'guest-baseline-pid1(?:-retry-[0-9]{3})?',stream_phase):return None
+ source=pathlib.Path(out)/(stream_phase+'.stdout.private')
  flags=os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)
  try:fd=os.open(source,flags)
  except OSError:return None
@@ -287,6 +288,25 @@ def pid1_container_state_diagnostic(container):
  if status not in PID1_CONTAINER_STATUSES:return None
  if exit_code is not None and (type(exit_code) is not int or not 0<=exit_code<=255):return None
  return {'running':running,'paused':paused,'restarting':restarting,'oomKilled':oom_killed,'status':status,'exitCode':exit_code}
+def wait_for_systemd_pid1(attempt,deadline,clock,sleep,interval=0.25):
+ """Retry only the exact not-ready comm under one caller-owned deadline."""
+ first_not_ready=None
+ retry=0
+ command=['/bin/sh','-ec','comm="$(cat /proc/1/comm)" || exit 125; printf "%s\\n" "$comm"; test "$comm" = systemd']
+ while True:
+  remaining=deadline-clock()
+  if remaining<=0:
+   if first_not_ready is not None:raise subprocess.CalledProcessError(1,'owned-child')
+   raise TimeoutError()
+  code,output=attempt(command,remaining,retry)
+  if code==0 and output==b'systemd\n':return retry+1
+  if code==0:raise AssertionError('pid1-readiness-output')
+  if code!=1 or output!=b'init\n':raise subprocess.CalledProcessError(code,'owned-child')
+  if first_not_ready is None:first_not_ready=True
+  retry+=1
+  remaining=deadline-clock()
+  if remaining<=0:raise subprocess.CalledProcessError(1,'owned-child')
+  sleep(min(interval,remaining))
 def write_diagnostic():
  if DIAGNOSTIC_DIRECTORY is None:return
  failure_stage=DIAGNOSTIC_FAILURE_STAGE or (DIAGNOSTIC_STAGE if DIAGNOSTIC_FAILURE is not None else 'complete')
@@ -394,7 +414,7 @@ def main():
  def save():write(out/'receipt.private.json',receipt)
  def interrupt(signum,frame):raise InterruptedError('owned interrupt')
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
- def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None,budget_deadline=None):
+ def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None,budget_deadline=None,allow_nonzero=False,stream_phase=None):
   global DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS
   if cleaning:set_diagnostic_stage('cleanup')
   else:
@@ -406,8 +426,9 @@ def main():
   host_call('pre-run-guard',lambda:guard.check(cleanup=cleaning,bootstrap=phase=='native-info'))
   childenv={**env,**(extra or {})}
   def limits():resource.setrlimit(resource.RLIMIT_FSIZE,(32*1024**2,32*1024**2))
-  stdout=host_call('phase-stream-open',lambda:(out/(phase+'.stdout.private')).open('xb'))
-  try:stderr=host_call('phase-stream-open',lambda:(out/(phase+'.stderr.private')).open('xb'))
+  stream_phase=stream_phase or phase
+  stdout=host_call('phase-stream-open',lambda:(out/(stream_phase+'.stdout.private')).open('xb'))
+  try:stderr=host_call('phase-stream-open',lambda:(out/(stream_phase+'.stderr.private')).open('xb'))
   except BaseException:
    host_call('phase-stream-close',stdout.close);raise
   try:
@@ -432,8 +453,9 @@ def main():
    if phase=='apt-image-build' and DIAGNOSTIC_FAILURE is None:
     DIAGNOSTIC_APT_BUILD_FAILURE_CLASS=host_call('apt-classifier-read',lambda:classify_apt_build_failure(out/(phase+'.stderr.private')))
    if DIAGNOSTIC_FAILURE is None and DIAGNOSTIC_CHILD_EXIT_CODE is None:DIAGNOSTIC_CHILD_EXIT_CODE=child.returncode
-   raise subprocess.CalledProcessError(child.returncode,'owned-child')
-  return host_call('phase-stdout-read',lambda:(out/(phase+'.stdout.private')).read_bytes())
+   if not allow_nonzero:raise subprocess.CalledProcessError(child.returncode,'owned-child')
+  output=host_call('phase-stdout-read',lambda:(out/(stream_phase+'.stdout.private')).read_bytes())
+  return (child.returncode,output) if allow_nonzero else output
  def mutate(argv,phase,timeout=60):
   nonlocal pin
   if cleaning:set_diagnostic_stage('cleanup')
@@ -536,7 +558,7 @@ def main():
    else:context_snapshot=None
   else:raise AssertionError('unknown delivery retained: '+phase)
   pin=None;receipt['unconfirmedDelivery']=None;save()
- def execute(argv,phase,timeout=60,budget_deadline=None):
+ def execute(argv,phase,timeout=60,budget_deadline=None,allow_nonzero=False,stream_phase=None):
   nonlocal exec_pin
   if cleaning:set_diagnostic_stage('cleanup')
   else:
@@ -549,16 +571,17 @@ def main():
   if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-running-idle')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert c['State']['Running'] and not c.get('ExecIDs')
-  exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario',budget_deadline=budget_deadline)
+  exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run([f['tools']['go']['path'],'tool','test2json','-t','-p',PACKAGE,*command,'exec',name,*argv] if phase=='actual-one-systemd-scenario' else ['exec',name,*argv],phase,timeout,docker=phase!='actual-one-systemd-scenario',budget_deadline=budget_deadline,allow_nonzero=allow_nonzero,stream_phase=stream_phase)
   c=owned_container(phase+'-after',budget_deadline)
   if phase in GUEST_BASELINE_PHASES:set_diagnostic_operation('guest-baseline-exec-settlement')
   if budget_deadline is not None and time.monotonic()>=budget_deadline:raise TimeoutError()
   assert not c.get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
+ pid1_baseline_stream='guest-baseline-pid1'
  def capture_pid1_baseline_diagnostic():
   global DIAGNOSTIC_STAGE,DIAGNOSTIC_OPERATION,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS
   saved=(DIAGNOSTIC_STAGE,DIAGNOSTIC_OPERATION,DIAGNOSTIC_FAILURE,DIAGNOSTIC_FAILURE_STAGE,DIAGNOSTIC_FAILURE_OPERATION,DIAGNOSTIC_CHILD_EXIT_CODE,DIAGNOSTIC_HOST_FAILURE_OPERATION,DIAGNOSTIC_HOST_FAILURE_ERRNO,DIAGNOSTIC_APT_BUILD_OOM_OBSERVED,DIAGNOSTIC_APT_BUILD_FAILURE_CLASS)
   try:
-   comm=pid1_comm_diagnostic(out)
+   comm=pid1_comm_diagnostic(out,pid1_baseline_stream)
    state=None
    try:state=pid1_container_state_diagnostic(owned_container('guest-baseline-pid1-after',guest_baseline_deadline))
    except BaseException:pass
@@ -604,7 +627,16 @@ def main():
   container_snapshot={k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}
   expected_guest_arch='aarch64' if f['arch']=='arm64' else 'x86_64'
   guest_baseline_deadline=time.monotonic()+60
-  execute(['/bin/sh','-ec','comm="$(cat /proc/1/comm)" || exit 125; printf "%s\\n" "$comm"; test "$comm" = systemd'],'guest-baseline-pid1',budget_deadline=guest_baseline_deadline)
+  def pid1_attempt(argv,remaining,retry):
+   nonlocal pid1_baseline_stream
+   global DIAGNOSTIC_CHILD_EXIT_CODE
+   stream_phase='guest-baseline-pid1' if retry==0 else 'guest-baseline-pid1-retry-%03d'%retry
+   if retry>0:DIAGNOSTIC_CHILD_EXIT_CODE=None
+   result=execute(argv,'guest-baseline-pid1',timeout=remaining,budget_deadline=guest_baseline_deadline,allow_nonzero=True,stream_phase=stream_phase)
+   pid1_baseline_stream=stream_phase
+   return result
+  recovered=wait_for_systemd_pid1(pid1_attempt,guest_baseline_deadline,time.monotonic,time.sleep)
+  if recovered>1:DIAGNOSTIC_CHILD_EXIT_CODE=None
   execute(['/bin/sh','-ec','test "$(uname -m)" = '+expected_guest_arch],'guest-baseline-architecture',budget_deadline=guest_baseline_deadline)
   execute(['/bin/sh','-ec','test -f /sys/fs/cgroup/cgroup.controllers'],'guest-baseline-cgroup',budget_deadline=guest_baseline_deadline)
   execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"'],'guest-baseline-no-owned-paths',budget_deadline=guest_baseline_deadline)

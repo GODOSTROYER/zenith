@@ -1356,6 +1356,106 @@ assert project_state(None) is None
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
   });
+  it("retries only init-to-systemd readiness within one strict deadline", () => {
+    const model = String.raw`
+import ast, pathlib, subprocess, sys
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'wait_for_systemd_pid1')
+namespace = {'subprocess': subprocess}
+exec(compile(ast.Module(body=[helper], type_ignores=[]), 'actual-pid1-readiness', 'exec'), namespace)
+wait = namespace['wait_for_systemd_pid1']
+class Clock:
+    def __init__(self): self.now = 0.0; self.sleeps = []
+    def read(self): return self.now
+    def sleep(self, amount): self.sleeps.append(amount); self.now += amount
+clock = Clock(); replies = [(1,b'init\n'),(0,b'systemd\n')]; calls = []
+def ready(argv, remaining, retry):
+    calls.append((argv,remaining,retry)); return replies.pop(0)
+assert wait(ready, 10.0, clock.read, clock.sleep) == 2
+assert calls[0][0] == calls[1][0] and calls[0][2] == 0 and calls[1][2] == 1
+assert calls[0][0] == ['/bin/sh','-ec','comm="$(cat /proc/1/comm)" || exit 125; printf "%s\\n" "$comm"; test "$comm" = systemd']
+clock = Clock(); calls = []
+def stuck(_argv, _remaining, _retry): calls.append(1); return (1,b'init\n')
+try: wait(stuck, 0.5, clock.read, clock.sleep)
+except subprocess.CalledProcessError as error: assert error.returncode == 1
+else: raise AssertionError('init accepted at deadline')
+assert len(calls) == 2 and clock.now == 0.5
+clock = Clock(); calls = []
+def failed(_argv, _remaining, _retry): calls.append(1); return (125,b'')
+try: wait(failed, 10.0, clock.read, clock.sleep)
+except subprocess.CalledProcessError as error: assert error.returncode == 125
+else: raise AssertionError('exec failure retried')
+assert len(calls) == 1
+clock = Clock(); calls = []
+def cancelled(_argv, _remaining, _retry): calls.append(1); raise InterruptedError()
+try: wait(cancelled, 10.0, clock.read, clock.sleep)
+except InterruptedError: pass
+else: raise AssertionError('cancellation swallowed')
+assert len(calls) == 1
+clock = Clock(); calls = []
+def wrong(_argv, _remaining, _retry): calls.append(1); return (1,b'init\nextra\n')
+try: wait(wrong, 10.0, clock.read, clock.sleep)
+except subprocess.CalledProcessError as error: assert error.returncode == 1
+else: raise AssertionError('non-exact init output retried')
+assert len(calls) == 1
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
+  it("clears transient PID1 exit diagnostics through the actual retry closure", () => {
+    const model = String.raw`
+import ast, pathlib, subprocess, sys
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+attempts = [node for node in ast.walk(main) if isinstance(node, ast.FunctionDef) and node.name == 'pid1_attempt']
+assert len(attempts) == 1
+attempt = attempts[0]
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'wait_for_systemd_pid1')
+wrapper = ast.parse('''
+def harness(execute, guest_baseline_deadline):
+    pid1_baseline_stream = 'guest-baseline-pid1'
+    def pid1_attempt(argv, remaining, retry): pass
+    def stream_phase(): return pid1_baseline_stream
+    return pid1_attempt, stream_phase
+''').body[0]
+wrapper.body[1] = attempt
+namespace = {'subprocess': subprocess, 'DIAGNOSTIC_CHILD_EXIT_CODE': None}
+exec(compile(ast.Module(body=[helper, wrapper], type_ignores=[]), 'actual-pid1-retry-wiring', 'exec'), namespace)
+wait = namespace['wait_for_systemd_pid1']
+
+def scenario(second):
+    namespace['DIAGNOSTIC_CHILD_EXIT_CODE'] = None
+    replies = [(1, b'init\n'), second]
+    seen_diagnostic = []; calls = []
+    def execute(argv, phase, timeout=60, budget_deadline=None, allow_nonzero=False, stream_phase=None):
+        assert phase == 'guest-baseline-pid1' and allow_nonzero
+        assert timeout > 0 and budget_deadline == 30.0
+        seen_diagnostic.append(namespace['DIAGNOSTIC_CHILD_EXIT_CODE'])
+        code, output = replies.pop(0)
+        calls.append((stream_phase, code, argv))
+        if code:
+            namespace['DIAGNOSTIC_CHILD_EXIT_CODE'] = code
+        return code, output
+    pid1_attempt, current_phase = namespace['harness'](execute, 30.0)
+    ticks = iter([0.0, 0.1, 0.2, 0.3, 0.4])
+    try:
+        recovered = wait(pid1_attempt, 20.0, lambda: next(ticks), lambda _delay: None)
+    except subprocess.CalledProcessError as error:
+        assert second[0] == 125 and error.returncode == 125
+    else:
+        assert second[0] == 0 and recovered == 2
+    assert current_phase() == 'guest-baseline-pid1-retry-001'
+    assert [item[0] for item in calls] == ['guest-baseline-pid1', 'guest-baseline-pid1-retry-001']
+    assert calls[0][2] == calls[1][2]
+    assert seen_diagnostic == [None, None]
+    return namespace['DIAGNOSTIC_CHILD_EXIT_CODE']
+
+assert scenario((125, b'')) == 125
+assert scenario((0, b'systemd\n')) is None
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
   it("keeps the read-only native-info bootstrap admission through delayed child polling", () => {
     const model = String.raw`
 import ast, errno, json, os, pathlib, stat, sys, tempfile, types

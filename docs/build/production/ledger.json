@@ -742,7 +742,7 @@
         "PROD-CI-06",
         "PROD-CI-07"
       ],
-      "implementationStatus": "Exact CFB core/CI receipts appended as scoped evidence; skips remain visible, fresh successor and remaining full verification gates pending; no full acceptance claim.",
+      "implementationStatus": "Reviewed worker child settlement, stop diagnostics and PID1 readiness fixes integrated35ef7804. Focused92/92 and final lint/typecheck pass with strict custody/source/floor evidence; fresh coherent full verification and exact-pushed-source CI remain pending.",
       "evidence": [
         {
           "level": "local_engine",
@@ -2282,6 +2282,13 @@
           "result": "Canonical exact-source terminal CI: 24 successful jobs, 8 conditional skips, 0 failures, 0 cancellations, 0 running across three successful workflows. Skips are not passes; this is scoped CI evidence and not complete release acceptance.",
           "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-12-cfb715bf-terminal-ci-r1.json",
           "indexSha256": "d8025767a755e342911c49ccf7d66efafdec0a900f09f0f326d8525c11fbfa16"
+        },
+        {
+          "level": "contract",
+          "commit": "35ef780463d1e43faa7da9cefabe9604f7cb4041",
+          "result": "Exact reviewed worker overlay integrated unchanged: focused92P0F0S across6wholefiles/21suites,29heldcommands with final absence/no quarantines and stable source; affectedESLint/fullTypeScript0 across30heldcommands. Separate stop5P/PID1focused203P. Scoped evidence only, no product accepted receipt; fresh combined-source fullcore/native100/defaultstack/browser/engine and CI acceptance pending. Prior refused attempts preserved.",
+          "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-f73-worker92-static-focused-r9.json",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [
@@ -2308,7 +2315,7 @@
         "PROD-CI-04",
         "PROD-CI-05"
       ],
-      "implementationStatus": "current_exact_source_cfb715b_terminal_success_24_successful_jobs_8_conditional_skips",
+      "implementationStatus": "Historical green baseline remains verified; latest completed pre-integration f73 CI23success8conditional-skips1Go-failure. Integrated35ef7804 awaits fresh exact-source CI; no current green claim.",
       "evidence": [
         {
           "level": "remote_ci",
@@ -3032,6 +3039,13 @@
           "result": "Observed terminal exact-source CI: 24 successful jobs, 8 conditional skips, 0 failed, 0 cancelled, 0 in progress across three workflows. Conditional skips remain distinct from passes. The requirement was already verified; this only appends current-source evidence.",
           "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-12-cfb715bf-terminal-ci-r1.json",
           "indexSha256": "d8025767a755e342911c49ccf7d66efafdec0a900f09f0f326d8525c11fbfa16"
+        },
+        {
+          "level": "remote_ci",
+          "commit": "f73da18901b38c94374b2a101c724c83874191c9",
+          "result": "Terminal23successfuljobs8conditional-skips1Go-PID1failure across32jobs. Verify24609P1925S0F; both native workflows2P each. PID1 artifact observes init, not a proven later systemd transition. Historical verified status preserved; new integrated source CI pending.",
+          "artifact": "docs/build/production/evidence/PROD-CI-09/2026-10-12-f73-terminal-ci-pid1.json",
+          "executionReceiptComplete": false
         }
       ],
       "requiredEvidence": [

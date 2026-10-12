@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "recordType": "scoped evidence supplement",
+  "observedDate": "2026-10-12",
+  "source": {
+    "head": "f73da18901b38c94374b2a101c724c83874191c9",
+    "entries": 5987,
+    "contentSha256": "f5466cbc4a945085787e30ff25f4ae4b5cffa613648802395ce941ace6c45b28",
+    "canonicalFreezeSha256": "a1aa925bd5f82807acad822f0cfd91a15cde34b80a6d29493fbdeb9adbfd6c53",
+    "beforeAfterFreezeRawSha256": "42aa2c2b95a690c816e3de2cf21a86a20dbe367fb72956e343d2ce1533f49b2c"
+  },
+  "focusedEvidence": [
+    {
+      "id": "native100-owned-cleanup-recovery",
+      "scope": "exact-owned fixture cleanup and sticky-marker recovery after the historical native100 run",
+      "reviewVerdict": "P",
+      "receiptSha256": "1bd5118bddbda1492780db9bb02eec9b81a4407550a441dea8b6e1d1a3503291",
+      "independentReviewSha256": "8f70917b8ed6449d9fe72ffd82646a13ce2f78c2eb22c8fee758959b95bf227a",
+      "rootTerminalAttestationSha256": "5225d896fe01b23c529745ca49b7985047df43813287a91c39c7c442d5b98633",
+      "historicalTestRun": {
+        "passed": 100,
+        "failed": 0,
+        "acceptedRunReceipt": false,
+        "testsRerunDuringCleanup": false
+      },
+      "limitations": [
+        "cleanup proof only",
+        "does not accept the historical test run",
+        "does not establish live lock state"
+      ]
+    },
+    {
+      "id": "stop-diagnostics-focused-proof",
+      "scope": "focused source-bound stop-diagnostics proof only",
+      "reviewVerdict": "P",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "proofSha256": "05973c799366de4f95e05cb0e0e24694e4df36728c1cd7292c01b63a398a892b",
+      "independentReviewSha256": "df5bc685fac26b76f032f70cadbba35b6cf3283e8d8d8d679fb74a0869ac1665",
+      "rootTerminalAttestationSha256": "9a1dc8c16e8b6f87c273454d2b9be58ae2101e07b3293d7c652b6825dcfc8908",
+      "acceptedRunReceipt": false,
+      "limitations": [
+        "focused unit evidence",
+        "not product acceptance",
+        "not broader native runtime acceptance"
+      ]
+    },
+    {
+      "id": "pid1-readiness-focused-proof",
+      "scope": "focused local macOS PID1-readiness diagnostics only",
+      "reviewVerdict": "P",
+      "passed": 203,
+      "failed": 0,
+      "skipped": 0,
+      "proofSha256": "45dd218590108703cb230fb10d5dce83efa29ce7dbd78d853b067e2b00f5cefd",
+      "independentReviewSha256": "057a1b67db33fb6f75533dc8c3eb15393278f2404a6fd529d6b2ec38e6b0cb1f",
+      "rootTerminalAttestationSha256": "e75aaef020395510d3c0f65c32593aabcb9d3fd7606a978b7f645f57345aa75a",
+      "acceptedRunReceipt": false,
+      "limitations": [
+        "focused macOS proof",
+        "does not establish native Linux PID1/Docker/systemd",
+        "does not establish CI or release acceptance"
+      ]
+    },
+    {
+      "id": "r18-custody-regression-synthetic",
+      "scope": "synthetic-only custody regression tests; engine not started",
+      "reviewVerdict": "P for saved synthetic evidence",
+      "passed": 47,
+      "failed": 0,
+      "skipped": 0,
+      "receiptSha256": "1812286bfe005f4e42f37dd11978962a1211cd6a4d25d4904fff737935ae2551",
+      "independentReviewSha256": "21ce9ad87c15e28de260c53696f253f1f1231de7696b7735abb09698bbcc703d",
+      "rootTerminalAttestationSha256": "4b9f926eec548cb1cc7dfbadee5417b6b7af18ba4bec1e4abcea6b3ac0b6482d",
+      "engineStarted": false,
+      "acceptedRunReceipt": false,
+      "limitations": [
+        "synthetic only",
+        "does not substitute for native core acceptance"
+      ]
+    }
+  ],
+  "historicalUnacceptedEvidence": {
+    "fullCore": {
+      "passed": 24591,
+      "skipped": 1943,
+      "failed": 0,
+      "acceptedRunReceipt": false,
+      "refusalReason": "strict held-runner custody refused after orphan PID 64809",
+      "doNotPromote": true
+    },
+    "workerChildSettlement": {
+      "previousPreR5Run": {
+        "passed": 83,
+        "failed": 9,
+        "pending": 0,
+        "identities": 92,
+        "proofStatus": "refused; after-run source freeze absent",
+        "acceptedRunReceipt": false
+      },
+      "r5Attempt": {
+        "passed": 87,
+        "failed": 5,
+        "pending": 0,
+        "identities": 92,
+        "proofSha256": "72ca4e8aa0b569d78b50a654f9478dcd2fd2105db18eda849c425f4b6eb721e6",
+        "vitestReportSha256": "510f4cda5310130f20efef5571336d6716fd1ec2745637897348612b6ae6f81f",
+        "terminalProofStatus": "refused",
+        "failureCode": "held-proof-refused",
+        "acceptedRunReceipt": false,
+        "sourceReviewSha256": "0273e5826bd9c91e4033b62135716f5cfbc97e58166aaec64d3a54c7de03c567",
+        "doNotPromote": true
+      },
+      "wsetDiagnostic": {
+        "scope": "single WSET whole-file diagnostic only; not all 92 identities",
+        "passed": 0,
+        "failed": 4,
+        "pending": 0,
+        "proofSha256": "85a165bb564fa7aa18fd58302ff97effb155ad4c26f425c4002ff783c45e1185",
+        "vitestReportSha256": "a27bd720b5152899e6e005c49ab68d8371a135a1e360fa0febffebbde61642b4",
+        "terminalReviewSha256": "bff964d902933f54cb8bd251f5820c7e332a4f7463f7ea1a57138418137dfba7",
+        "sourceReviewSha256": "6f5f36b1c80342692d06d9eb303dd7e27746ecd2050ecec4ec5df2862cb14409",
+        "terminalObservation": "exit 2 / root session 39420",
+        "status": "failed diagnostic; custody settled",
+        "custodyLedgers": 13,
+        "allTelemetryComplete": true,
+        "allPendingResolvedAbsent": true,
+        "pendingLive": 0,
+        "finalAbsenceProven": true,
+        "afterRunSourceFreezePresent": false,
+        "acceptedRunReceipt": false,
+        "details": "Harness-close/timeout assertions failed; public traces show controlled and esbuild children settled, and real React TSX builder result ok=true/natural close 0. No cause inferred."
+      },
+      "latestStatus": "R9 focused strict 92/92 pass with paired source snapshots and 29 clean held-command ledgers; no accepted product receipt, broader CI or native acceptance",
+      "doNotInferAcceptance": true,
+      "laterRuns": [
+        {
+          "id": "R6",
+          "passed": 92,
+          "failed": 0,
+          "pending": 0,
+          "identities": 92,
+          "proofSha256": "e74b45b589833d3503954a7e1e8bf64f460c0546645b47f2b69f7fc7edebeb54",
+          "vitestReportSha256": "c526639ba3a53af467d87431e69a29f78a6d0db7b69625152619ff0039c717ca",
+          "terminalReviewSha256": "5e6e15c9fd51b09f3fd7bd485e20f3fb3554f048d24d318dcf7a24c21fba8a90",
+          "outerRefusalAnalysisSha256": "60310ebc5cc5b4285e2081cdef0d677c622d96bf0a61abab3d4b211a78263d12",
+          "custody": "refused; two parent quarantine reasons (parent_bracket_mismatch and parent_capture_mismatch); pending births resolved absent; 13 final-absence ledgers",
+          "afterRunSourceFreezePresent": false,
+          "acceptedRunReceipt": false,
+          "doNotPromote": true
+        },
+        {
+          "id": "R8",
+          "passed": 92,
+          "failed": 0,
+          "pending": 0,
+          "identities": 92,
+          "proofSha256": "8a66b4c59b25c5f9f5f043a50688973cc091dbc4c51a11d8973eb96e9bdbf72c",
+          "vitestReportSha256": "0759cee297127052e4a00ea77a557605384bb368fd84f1408f836058fdc50e47",
+          "terminalReviewSha256": "c05d07967a13c55335622f7b3c86fe1ce1d838446b167b1b69828bf9495219a1",
+          "independentTerminalAuditSha256": "955847970be4af0432ada36d7309252910c5da0cbef0198e20d770c6715cf542",
+          "custody": "refused; two parent quarantine reasons (parent_bracket_mismatch and parent_capture_mismatch); one pending birth resolved absent; 13 complete final-absence ledgers",
+          "afterRunSourceFreezePresent": false,
+          "acceptedRunReceipt": false,
+          "doNotPromote": true,
+          "terminalAuditStatus": "92 tests pass, wrapper custody refused; no accepted run receipt"
+        },
+        {
+          "id": "R9-strict-full92",
+          "passed": 92,
+          "failed": 0,
+          "skipped": 0,
+          "identities": 92,
+          "proofSha256": "7e27aa4a4c2334fec54e66aadf4f8889ba2c7ce68cb64a01ee7d90886781bfdc",
+          "vitestReportSha256": "768afb4c7943513e1eacf60c0ac9d37b2163e1c469cc7dfa76183e26e672e552",
+          "independentTerminalAuditSha256": "b076c1f3408e6f3cefb67a2346acceffaa26c74e368a07cf736c82c886fe4e52",
+          "independentTerminalAuditMarkdownSha256": "003ee669838033cd77d74d8614c505cc3352e188321e7f34b160e4debdf4b3c0",
+          "proofStatus": "pass",
+          "acceptedRunReceipt": false,
+          "acceptanceClaim": false,
+          "sourceFreeze": {
+            "beforeAfterFinalPairedInventoriesEqual": true,
+            "freezeFileSha256": "2e4619680d3bf2790191db7a6b95e68fca1397e34772d81da906dbe82be51dc4",
+            "filteredEntries": 5981,
+            "initialPrimaryEntries": 5987
+          },
+          "custody": {
+            "heldCommands": 29,
+            "finalAbsenceProven": true,
+            "activeIdentities": 0,
+            "quarantines": 0,
+            "overflow": false,
+            "floorWatcherJoined": true
+          },
+          "scope": "focused six-file / all 92 pinned identities only; no broader CI or native acceptance",
+          "doNotPromote": true
+        }
+      ]
+    },
+    "r18NativeR3Attempt": {
+      "passed": 91,
+      "failed": 1,
+      "pending": 0,
+      "proofSha256": "9bb22123786c70ce6c16c65200c624daa3d6781077ea1445141d69e45971a6a7",
+      "terminalReviewSha256": "02baeb7a77e650466196e8d8d014aabc03b86f67ba817f966bf3984986371a2d",
+      "cleanupIpcGuardTestSourceSha256": "04cba4c5195bd54344797c5f4cb4bba0a4e08299f8e3752a5c4e44256db47487",
+      "failure": "real React TSX worker test failed with IPC channel already disconnected at disconnect call",
+      "custody": {
+        "ledgers": 13,
+        "allFinalAbsenceProven": true,
+        "activeIdentities": 0,
+        "quarantines": 0,
+        "telemetryComplete": true
+      },
+      "afterRunSourceFreezePresent": false,
+      "acceptedRunReceipt": false,
+      "doNotPromote": true
+    }
+  },
+  "ledgerSnapshot": {
+    "rows": 78,
+    "verified": 10,
+    "inProgress": 66,
+    "planned": 2,
+    "verifiedPercent": 12.82,
+    "proposalApplied": false,
+    "releaseFlags": {
+      "implementationComplete": false,
+      "sandboxVerified": false,
+      "pilotReady": false,
+      "productionApproved": false
+    }
+  },
+  "requiredGates": [
+    "R16 current-source full run reaches terminal status with accepted custody, no unresolved orphan, and matching final source freeze.",
+    "Worker R5 reaches terminal status; resolve the prior 9 failures and provide a complete after-run source freeze and accepted proof before counting any worker result.",
+    "Keep native100 cleanup P separate from the unaccepted historical 100-test run; obtain a valid accepted native100 execution receipt if required by the canonical CI-08 gate.",
+    "Complete terminal exact-source CI reconciliation and any required native/runtime acceptance lanes; focused proofs and synthetic evidence remain scoped supplements.",
+    "Reconcile the ledger proposal only after root validates the evidence package; preserve all 78 requirement rows and keep all four release flags false until their independent gates pass.",
+    "The reviewed 24-section source patch is applied in root and all postimages were checked; a fresh exact-source CI run remains pending."
+  ],
+  "acceptance": {
+    "acceptedProductionRun": false,
+    "requirementPromotion": false,
+    "releaseApproval": false
+  },
+  "sanitization": {
+    "secretsIncluded": false,
+    "privateFullRawLogsIncluded": false,
+    "privateArtifactPathsIncluded": false,
+    "evidenceReferencedBySha256": true
+  },
+  "lineage": {
+    "evidenceDraftManifestSha256": "3428b321643f79363b90e6af18142a0abbc53f60a0c3be200f97bd250e1b3dbd",
+    "ledgerAddendumProposalSha256": "18cc58ffd92a3e4240cb4fe990a0fd6103ba9ef13d87a334f9d95be87061de4e",
+    "scope": "sanitized outside-only evidence supplement for root review; no canonical evidence or ledger changes"
+  },
+  "staticVerification": {
+    "id": "worker-static-held-R1",
+    "scope": "20-file ESLint and TypeScript static verification only",
+    "proofSha256": "51cd1d29d1c7db0f65a952d671af151743eded5bafe3c24e2b07dffd242ebb33",
+    "terminalReviewSha256": "78e614793bd1579ec64cfa32cba5e3986354dab3d0a6cea74907236eb4eac5fb",
+    "result": "pass",
+    "heldCommands": 30,
+    "finalAbsenceProven": true,
+    "sourceFreezeBeforeAfterFinalMatched": true,
+    "acceptedRunReceipt": false,
+    "limitations": [
+      "static checks only",
+      "not runtime or product acceptance"
+    ],
+    "r9": {
+      "proofSha256": "2dabe07b3699d23bd0ac459155a8d554a5a1583bc93f664587e1ba7d969af41f",
+      "rootTerminalObservation": {
+        "sessionId": 59540,
+        "exitCode": 0
+      },
+      "status": "pass",
+      "heldCommands": 30,
+      "staticCommands": 2,
+      "gitCommands": 28,
+      "sourceEntries": 5981,
+      "sourceFreezeInventoriesPairedBeforeAfterFinal": true,
+      "sourceInventorySha256": "6ae72ffedb383e5e9453b5e153bd214e6691f81bd8330c98f429bc7ba654ac8b",
+      "head": "f73da18901b38c94374b2a101c724c83874191c9",
+      "eslintTscCommandsPassed": true,
+      "custodyAllFinalAbsent": true,
+      "floorWatcherJoined": true,
+      "acceptedRunReceipt": false,
+      "acceptanceClaim": false,
+      "independentReview": "pass",
+      "independentReviewMarkdownSha256": "0d16c4547abdeee082b10a3dab563f01591edc0db4012dbfb587587fa14ded86",
+      "independentReviewJsonSha256": "5eab2ea095831a3f3ca9dd2e11089d122dccb15ff4b44ddad3b1c485d515150a",
+      "reviewScope": "ESLint exact 18 paths plus project-wide TypeScript no-emit; 28 Git and 2 static RC0; all 30 custody ledgers final absent, no drops/truncation/pending/quarantine/overflow; paired filtered snapshots and heads match; dependency link stable; floor watcher joined"
+    }
+  },
+  "r18NativeChain": {
+    "sourceReview": "P; source/API chain eligibility only",
+    "reviewSha256": "cb3662c18edc0fd6b0fee8220aa0afd259ba0fed89282fc52571ac195571b60b",
+    "nativeProbe": "pending",
+    "runtimeCompatibilityProven": false,
+    "productAcceptance": false
+  },
+  "rootIntegration": {
+    "reviewed24SectionPatchApplied": true,
+    "allPostimagesChecked": true,
+    "freshExactSourceCI": "pending",
+    "sourcePatchDigest": "not provided in this supplement"
+  }
+}

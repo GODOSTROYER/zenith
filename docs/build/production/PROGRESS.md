@@ -1,3 +1,95 @@
+# Integrated verification checkpoint — 12 October 2026
+
+The 24 reviewed source changes are committed as `35ef780463d1e43faa7da9cefabe9604f7cb4041`. Every integrated postimage matches its reviewed candidate. This evidence update will accompany that source before publication; fresh exact-source CI, source publishing and broader acceptance remain pending.
+
+The final worker overlay passed all 92 cases across six complete files (21 suites), zero failures/skips. The strict wrapper passed all 29 held commands with complete custody, final absence, no quarantines/overflow, stable dependency-link identity, matching before/after/final source snapshots and joined disk-floor monitoring. Proof SHA-256: `7e27aa4a4c2334fec54e66aadf4f8889ba2c7ce68cb64a01ee7d90886781bfdc`; independent terminal review: `003ee669838033cd77d74d8614c505cc3352e188321e7f34b160e4debdf4b3c0`.
+
+Final affected-file ESLint and full-project TypeScript no-emit both returned zero. All 30 held commands, source freezes, dependency-link and floor checks passed. Static proof SHA-256: `2dabe07b3699d23bd0ac459155a8d554a5a1583bc93f664587e1ba7d969af41f`; independent review: `0d16c4547abdeee082b10a3dab563f01591edc0db4012dbfb587587fa14ded86`.
+
+These are scoped native macOS ARM64 focused/static proofs on the recorded f73 base plus exact worker overlay, whose bytes are now integrated. They have no product accepted-run receipt and do not establish whole-suite, Linux, cloud or production acceptance. All four WSET identities are included in the passing 92 cases; the redundant IPC-disconnect cleanup race is repaired. Earlier 91/92, parent-quarantine refusals and diagnostic failures remain historical, not accepted by this later pass. Stop diagnostics 5/5 and PID1 readiness 203/203 remain separately scoped focused evidence.
+
+Next: publish the coherent source, capture a fresh H/N/F/C contract, bind reviewed runners, run native100/full Node/DOM and the authorized default-stack J1/J4/J2, browser, scheduling, runbook and recovery gates in their required order. One heavy local workload runs at a time; exact-pushed-SHA CI can run concurrently. The preceding f73 CI finished 23 successful jobs, 8 conditional skips and 1 Go/PID1 failure; no green claim transfers to this new source. Cloud/DNS/private-source and accountable release signoff remain externally gated.
+
+Ledger: 10 verified / 66 in progress / 2 planned (78 total; 12.82% verified). All four release flags remain false. [Scoped evidence](evidence/PROD-CI-08/2026-10-12-f73-worker92-static-focused-r9.json) retains exact hashes, limitations and failure history.
+
+### Previous f73 evidence update R5 (historical)
+
+
+#### Archived R5 checkpoint — historical, 12 October 2026
+
+Source remains frozen at `f73da18901b38c94374b2a101c724c83874191c9` (5,987 entries; content digest `f5466cbc4a945085787e30ff25f4ae4b5cffa613648802395ce941ace6c45b28`; freeze `a1aa925bd5f82807acad822f0cfd91a15cde34b80a6d29493fbdeb9adbfd6c53`). Final typed R8 worker overlay passed affected-file ESLint, full TypeScript no-emit, and 30 strict held commands; its terminal review passed source/custody/floor checks. It is a static-only proof with no accepted run receipt.
+
+Worker-child settlement has now reported 92/92 twice: once on the older typed R6 binding and once on final typed R8. Both held wrappers refused on parent-bracket/capture quarantines (one of each); neither created an accepted receipt. Earlier 83/9, 85/7, and 87/5 attempts are preserved as history. The latest test counts are not production acceptance.
+
+The R18 first startup refused on a source-allowlist mismatch against old held pins before launching tests. A corrected immutable-leaf/source-chain candidate has source review only; the native probe is still pending. The earlier R18 synthetic 47/47 proof remains synthetic-only. A 24-section integration patch is prepared outside the primary tree; no primary edits have been made.
+
+WSET remains blocked: all four selected diagnostic identities failed harness natural-exit closeout even though all children joined and the production React child exited 0 after a successful 25-module build. Map20 found one retained historical quarantine observation and no after-freeze source proof; the exact harness-close cause remains unresolved. R13 instrumentation is source-reviewed and awaiting a fresh actual run.
+
+Exact-source CI remains 23 success / 8 conditional skips / 1 Go failure of 32 jobs; Verify is 24,609/1,925/0 and both native workflows are 2/2 selected. Native100 cleanup is reviewed, historical tests remain unaccepted; focused stop 5/5 and PID1 203/203 remain bounded proofs. Source/CI coherence and full actual R16 acceptance are pending.
+
+Critical path: integrate reviewed changes only after the source chain is bound; run native R18 probe; resolve WSET harness closeout; complete worker settlement with clean custody and an accepted receipt; then full R16 and exact-source CI on the final tree. Ledger remains 10 verified / 66 in progress / 2 planned; all release flags remain false.
+
+### Previous f73 evidence update R4 (historical)
+
+#### Archived R4 checkpoint — historical, 12 October 2026
+
+The frozen source remains `f73da18901b38c94374b2a101c724c83874191c9` (5,987 entries; content digest `f5466cbc4a945085787e30ff25f4ae4b5cffa613648802395ce941ace6c45b28`; freeze `a1aa925bd5f82807acad822f0cfd91a15cde34b80a6d29493fbdeb9adbfd6c53`). Exact-source CI is still 23 successful / 8 conditional skips / 1 Go failure across 32 jobs. Verify passed 24,609 / skipped 1,925 / failed 0, and the two native workflows passed 2/2 selected jobs each. Coherent CI on the final candidate source remains pending.
+
+Native100 fixture and sticky-marker cleanup passed review; its historical tests remain unaccepted and were not rerun. Focused stop diagnostics passed 5/5 and PID1 diagnostics 203/203. Both remain bounded proofs.
+
+R18 synthetic regression passed 47/47 across four suites (9 ordinary, 10 failure-path, 24 quarantine diagnostics, 4 ownership inventory). It started no engine and has no accepted-run receipt. Worker-child settlement attempts progressed 83/9 → 85/7 → 87/5 out of 92; the latest proof remains refused. WSET diagnostic failed all four identities at harness closeout. Its 13 custody ledgers ended with final absence, with one historical quarantine observation retained; child and service settlement are visible, and the production React child exited code 0 after a successful 25-module build. The harness itself failed natural-exit closeout. The independent audit reports all assertions except the contaminated afterEach passed, but no after-freeze source proof was supplied and the exact harness-close cause remains undetermined. WSET R13 instrumentation is source-reviewed; its next actual diagnostic run remains pending.
+
+Critical path: rerun WSET with reviewed R13 instrumentation and obtain natural harness exit plus after-freeze proof; resolve the five remaining worker-child failures; run full R16 with strict custody and final source freeze; execute source-reviewed fixture/lifecycle/Docker changes; then establish exact-source CI coherence. These diagnostic, synthetic, focused, and cleanup results do not establish feature completion.
+
+Ledger remains 10 verified / 66 in progress / 2 planned. All release flags remain false; no requirement promotion is proposed.
+
+### Previous f73 evidence update R3 (historical)
+
+#### Archived R3 checkpoint — historical, 12 October 2026
+
+The frozen source remains `f73da18901b38c94374b2a101c724c83874191c9` (5,987 entries; content digest `f5466cbc4a945085787e30ff25f4ae4b5cffa613648802395ce941ace6c45b28`; canonical freeze `a1aa925bd5f82807acad822f0cfd91a15cde34b80a6d29493fbdeb9adbfd6c53`). The current candidate and test results are source-bound to this snapshot only.
+
+The full R16 result and native100 recovery status are unchanged: R16 remains held after the orphan PID 64809 custody refusal; native100 fixture cleanup and sticky-marker recovery passed review, but the original 100/0/0 test result remains unaccepted and was not rerun. Focused stop diagnostics (5/5) and PID1 diagnostics (203/203) remain bounded candidate proofs only.
+
+New worker-child settlement evidence reports 83 passed and 9 failed across 92 identities. The independent custody/absence review passed its bounded scope, but the held proof refused because it did not establish an after-run source freeze. This is not accepted worker verification. The combined R18 R4 synthetic run reports the ordinary recapture suite passed 9/9; the failure-path suite had 9 passes and one test error out of 10 (`IndexError: list index out of range` in `test_preexisting_sticky_refusal_does_not_refresh_or_clear`); the producer refused. Its before/after source freezes matched, all 11 custody ledgers completed with terminal absence, and floor watching joined; the synthetic-only refusal still does not accept a full R16 run. Combined R5 is still running and has no result to report.
+
+Source-reviewed candidate compatibility corrections are available for the J4 fixture (R6), lifecycle (R3), Docker (R3), and WSET (R9). Their runtime verification remains pending. The exact-source CI snapshot is unchanged: 23 successful jobs, 8 conditional skips, 1 Go failure out of 32. Verify passed 24,609 / skipped 1,925 / failed 0; native worker and platform workflows each passed 2/2 selected jobs. The Go PID1 cause remains unproven.
+
+The remaining build blockers are verification and runtime evidence: resolve the R18 failure-path fixture/index error, obtain an accepted full-suite run with final source freeze and custody, correct and rerun the 9 worker-child failures with after-freeze proof, execute the source-reviewed fixture/lifecycle/Docker/WSET candidates, and resolve the Go baseline before claiming whole-CI success. These statuses do not imply feature completion.
+
+Ledger remains 10 verified / 66 in progress / 2 planned (78 total; 12.82% verified). All release flags remain false, and no requirement state promotion is proposed.
+
+### Prior f73 evidence update R2 (historical)
+
+## Current source f73da189 checkpoint — 12 October 2026 (evidence update R2)
+
+The frozen source is `f73da18901b38c94374b2a101c724c83874191c9` (5,987 entries; source-content digest `f5466cbc4a945085787e30ff25f4ae4b5cffa613648802395ce941ace6c45b28`; canonical freeze `a1aa925bd5f82807acad822f0cfd91a15cde34b80a6d29493fbdeb9adbfd6c53`). The independent freeze review covers source identity only.
+
+The full R16 Vitest report remains 24,591 passed / 1,943 skipped / 0 failed across 26,534 identities, but the held runner refused acceptance after orphan PID 64809 violated strict process custody. Its origin remains unproven. There is no accepted full-suite receipt, so these results remain held.
+
+Native100 recovery has now completed for the exact owned fixture: the recovery receipt records its container absent, the sticky marker cleared under exclusive flock after terminal proof, host and VM observers joined, and source stable. The recovery terminal review passed cleanup scope. The original native100 report still has 100 passed / 0 failed, but its runner refused after two child-capture mismatches; recovery did not rerun those tests or issue an accepted run receipt. Historical test acceptance remains on hold.
+
+Two focused f73 diagnostic proofs have terminal reviews: stop diagnostics passed 5/5 and PID1 diagnostics passed 203/203. Both are focused candidate proofs with acceptance false. PID1 evidence is a local focused proof and does not establish native Linux/container/systemd acceptance.
+
+The synthetic custody-regression attempt did not reach assertions: its test setup failed while the candidate loader denied the `__future__.annotations` import; 0 methods ran. The producer refused with exit 2 after proving custody, source stability, and resource floors. A narrow correction remains pending. The worker R4 source review passed, while its tests and exit fixes are still pending.
+
+The exact-source CI snapshot remains terminal with 32 jobs: 23 successful, 8 conditional skips, and 1 Go failure. The Go guest reported PID 1 `comm=init`; the startup cause is unproven. The Verify job passed 24,609 tests, skipped 1,925, failed 0; both native workflows passed their selected 2/2 jobs. These scoped results do not make the whole CI green. The snapshot supplies no numeric skip ceiling.
+
+The ledger remains 10 verified / 66 in progress / 2 planned across 78 requirements (12.82% verified). All release flags remain false. This candidate proposes no requirement-state promotion.
+
+
+### Prior-source history
+
+The following dated source sections are preserved as historical records; their earlier “current” states and next steps do not describe this f73da189 update.
+
+### Prior-source history
+
+The original 685fb836 and older sections below are preserved as source-bound history; their “current” status and next steps do not describe f73da189.
+
+### Evidence references for this draft
+
+The saved reports are outside the repository and are not copied or published by this candidate. Their exact paths and hashes are listed in the candidate manifest. The CI numbers above are an as-of snapshot; replace or supplement them only with a later complete inventory for the exact f73 SHA.
+
 ## Current source 685fb836 checkpoint — R5 evidence update, 12 October 2026
 
 The tested source is `685fb836a4d1342a4ce3ca07cb217a3fe3428c24` (5,985 entries; source content digest `d7e59d7f3664d7f6b801e85a437cf0f36259ad479f99cf556841baad4633c0a1`; canonical freeze `5bb9cffc31c8dbde43f42a76df1321339064e2da0acc7f36198299113868782e`). Full-core R16 passed **24,590 / 1,943 skipped / 0 failed** across 26,533 identities. Exact-source CI is terminal green: 3 successful workflows, 24 passed / 8 conditional skips / 0 failed across 32 jobs. The completed Verify job separately reports **24,608 passed / 1,925 skipped / 0 failed** across 26,533 tests; these remote counts are distinct from local R16.

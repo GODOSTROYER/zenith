@@ -1,3 +1,7 @@
+## Verifier update — 12 October 2026
+
+Reviewed local verification fixes are integrated in `35ef780463d1e43faa7da9cefabe9604f7cb4041`. Worker focused92/92 and final lint/typecheck pass with strict custody and unchanged source. Fresh combined-source CI, native100/full-core and default-stack acceptance remain pending. No milestone or release flag was promoted. See [current verifier progress](../PROGRESS.md) and [current local blockers](../BUILD-BLOCKERS-2026-10-10.md); older entries below remain historical or separately open.
+
 ## PID-1 and cleanup follow-up status, 12 October 2026
 
 The isolated PID-1 diagnostic candidate passed its 201-identity full-file focused run, with independent terminal PASS for the focused diagnostic proof, but its wrapper records `acceptedFocusedProof:false`. Its three-file change adds bounded comm/state diagnosis only; the `systemd` hard gate is unchanged. No Go acceptance rerun or failure resolution is established.

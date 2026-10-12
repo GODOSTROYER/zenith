@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 12
     env:
       NODE_OPTIONS: --max-old-space-size=4096
-      ZENITH_DATA: ${{ runner.temp }}/zenith-independent-mixed
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-independent-mixed
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:

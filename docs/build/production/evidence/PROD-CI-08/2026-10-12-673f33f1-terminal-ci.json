@@ -1,0 +1,343 @@
+{
+  "acceptance": false,
+  "commit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+  "fixture2RepairComparison": {
+    "currentMainRunId": 38234751430,
+    "currentVerifyJob": "success",
+    "interpretation": "The previously in-progress fixture2 verify job is now terminal-success at the same exact source SHA; status evidence is job-level only and makes no individual test assertion claim.",
+    "priorSnapshot": {
+      "mainRunInProgress": 2,
+      "mainRunSkipped": 8,
+      "mainRunSuccess": 22,
+      "path": "/tmp/zenith-673f33f1-ci-monitor-r2/snapshot.json",
+      "sameExpectedHeadSha": true,
+      "sha256": "450eb307f16f47873f6cc97769a5f752619b81b0511ef407f26745377c16129b",
+      "verifyJobStatus": "in_progress"
+    }
+  },
+  "jobs": [
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762562139,
+      "name": "linux-systemd",
+      "runId": 38234751339,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762562357,
+      "name": "windows-acl",
+      "runId": 38234751339,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762562469,
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "runId": 38234751363,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762562775,
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "runId": 38234751363,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563644,
+      "name": "verify",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563881,
+      "name": "agent",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563904,
+      "name": "workflow-history-replay",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563930,
+      "name": "hosted",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563950,
+      "name": "ledger",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563974,
+      "name": "operation-gates (reconciliation)",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762563982,
+      "name": "generated",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564019,
+      "name": "recovery",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564047,
+      "name": "build",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564081,
+      "name": "operation-gates (workflow-intents)",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564122,
+      "name": "docker",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564201,
+      "name": "postgres",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564285,
+      "name": "adversarial",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564306,
+      "name": "platform-postgres",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564349,
+      "name": "policy",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564371,
+      "name": "tofu",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564389,
+      "name": "supply-chain",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564390,
+      "name": "go",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564414,
+      "name": "wave5-contract",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564520,
+      "name": "workflows",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564718,
+      "name": "j15-operated-restore",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564793,
+      "name": "drivers-d4-export",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564905,
+      "name": "drv2-crash-partition",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762565068,
+      "name": "j15-operated-upgrade",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762565347,
+      "name": "drivers-d4-two-tenants",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762565462,
+      "name": "drv2-drift-repair",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762565590,
+      "name": "drv1-private-source",
+      "runId": 38234751430,
+      "status": "completed"
+    },
+    {
+      "conclusion": "skipped",
+      "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762565656,
+      "name": "drv1-update-rollback",
+      "runId": 38234751430,
+      "status": "completed"
+    }
+  ],
+  "kind": "673f33f1_exact_source_terminal_ci_evidence",
+  "ledgerEntryProposal": {
+    "additionalNativeRunIds": [
+      38234751339,
+      38234751363
+    ],
+    "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-673f33f1-terminal-ci.json",
+    "commit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+    "level": "remote_ci",
+    "result": "Exact-source terminal CI: 24 success, 8 skipped, 0 failed across 32 jobs; native/packaged architectures 4/4 pass.",
+    "runId": 38234751430,
+    "snapshotSha256": "83207ba3fdb741e8e56b10c3302c7e118826e63a245e06168459d2d21e585ad8"
+  },
+  "level": "remote_ci",
+  "limitations": [
+    "The eight skipped jobs remain skipped, not successful.",
+    "Do not infer test-level success from the green verify job summary.",
+    "This is exact-source CI evidence only; it does not change PROD-CI-08 acceptance or release status."
+  ],
+  "milestonePromotion": false,
+  "nativeArchitectures": {
+    "jobs": [
+      "linux-systemd",
+      "windows-acl",
+      "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "packaged-worker (amd64, ubuntu-24.04)"
+    ],
+    "scope": "CI native/packaged jobs; no local macOS native claim",
+    "success": 4,
+    "total": 4
+  },
+  "releaseFlagsChanged": false,
+  "requirement": "PROD-CI-08",
+  "schemaVersion": 1,
+  "snapshot": {
+    "counts": {
+      "failure": 0,
+      "skipped": 8,
+      "success": 24,
+      "total": 32
+    },
+    "expectedHeadSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+    "observedAt": "2026-10-12T10:42:49Z",
+    "path": "/private/tmp/zenith-673f33f1-ci-monitor-r3/snapshot.json",
+    "runs": [
+      {
+        "conclusion": "success",
+        "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+        "name": "Native skipped platforms",
+        "runId": 38234751339
+      },
+      {
+        "conclusion": "success",
+        "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+        "name": "Native packaged workers",
+        "runId": 38234751363
+      },
+      {
+        "conclusion": "success",
+        "headSha": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+        "name": "CI",
+        "runId": 38234751430
+      }
+    ],
+    "sha256": "83207ba3fdb741e8e56b10c3302c7e118826e63a245e06168459d2d21e585ad8",
+    "terminal": true
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "allSixCurrentInputHashesMatchReceipt": true,
+  "cleanInstall": {
+    "path": "docs/build/production/evidence/PROD-CI-07/2026-10-11-local-clean-install-94d60798.json",
+    "receiptSha256": "b64d6c5fde2b01ee0ef7ada5ef3e63c42f1a93edbf6a1ddde3333fa584c195b0",
+    "result": "private-cache script-free clean install; complete audit zero known findings, zero exceptions; 18/18 commands closed; time-bound Darwin/arm64 local observation",
+    "sha256": "e6b73790d428b24b36b1f0caa8ecd0158c6cac3f2b9ae865ea9c91fc57fde041",
+    "sourceCommit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+    "sourceFreezeSha256": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a"
+  },
+  "contractInventory": {
+    "advisoryIds": [
+      "GHSA-2gqq-gqf2-x968",
+      "GHSA-2jfj-6hjv-fm6j",
+      "GHSA-3wwx-pv8p-q78v",
+      "GHSA-3xpg-4rpp-hhhm",
+      "GHSA-6g55-p6wh-862q",
+      "GHSA-6j4f-fj2g-mc7p",
+      "GHSA-6vj9-mwq6-2f5v",
+      "GHSA-82fw-gwwq-j7x9",
+      "GHSA-8436-99hf-9mmv",
+      "GHSA-8vvx-rff5-p5rq",
+      "GHSA-fxqj-rqcc-2cmp",
+      "GHSA-g57g-f23g-4646",
+      "GHSA-pmjh-fq2x-6v4x",
+      "GHSA-prgh-xp8r-p3m5",
+      "GHSA-q2hr-2g5m-vwhr",
+      "GHSA-qhr7-859c-m2p7",
+      "GHSA-qx2v-qp2m-jg93",
+      "GHSA-r28c-9q8g-f849",
+      "GHSA-r53p-7pc4-xj5r",
+      "GHSA-rfgv-xxqx-mfg5",
+      "GHSA-rx4f-c7p8-82vq",
+      "GHSA-v53p-9fqp-m79j",
+      "GHSA-vp8m-p9jh-q5pm",
+      "GHSA-w293-vg96-wgc3"
+    ],
+    "auditSource": {
+      "historicalFindingEntries": 8,
+      "historicalUniqueAdvisoryIds": 24,
+      "path": "docs/build/production/dependency-audit-2026-10-02.json",
+      "sha256": "d12afba722815d6d0c9c1a73d03ae71a360c27df9f3745b2511f90d3914a732b"
+    },
+    "baselineIdsExactlyEqual": true,
+    "classification": "retained advisory inventory includes package versions, platform/OS-CPU fields, and production/build/dev/test reachability",
+    "remediationSource": {
+      "exceptions": [],
+      "knownFindingsRemaining": 0,
+      "path": "docs/build/production/dependency-remediation-2026-10-02.json",
+      "remediatedBaselineIdCount": 24,
+      "sha256": "d0b3fdb6b165f4b5e8a729c8ce753e3b0877a24bec6480d7e48fcbb75ec1a606"
+    }
+  },
+  "currentCommit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+  "currentInputHashes": {
+    "package-lock.json": "2b52b2cbac18db7d858567378856427e4ae8bf27ee819d203aa1f528745325c6",
+    "package.json": "aa3a63d1f9638254c5755019e791567344fbfea58d8770a51534b2cb8beee783",
+    "scripts/ci/lockfile-integrity.mjs": "7407fdea352749e1c6473b121eed1f75f5379f7ef168cffb4db1016c982a72df",
+    "scripts/ci/security-audit.mjs": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941",
+    "scripts/ci/security-exceptions.json": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4",
+    "scripts/ci/security-exceptions.mjs": "14c237e203b81aade75024c0d35bb62e0d05ddcb9423bee27ff6cdaed214730e"
+  },
+  "currentRemoteGate": {
+    "assessmentPath": "/tmp/zenith-673f33f1-ci07-ci-evidence-r1/assessment.json",
+    "assessmentSha256": "b25673ddde54a72edafcb7f055a50ef150b6b835211a9511ace9f37a2b5ac9c0",
+    "auditLogSha256": "1389f49b39dd5f92d3c2a3935fd951598ac41cc23f3fdee8517dcb103713aed4",
+    "auditMessage": "No known dependency findings in the complete locked audit.",
+    "bundledPackages": 6,
+    "conclusion": "success",
+    "job": "supply-chain",
+    "jobId": 114762564389,
+    "lockedPackageCount": 924,
+    "rawAuditArtifactPresent": false,
+    "runId": 38234751430,
+    "sourceSha256": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+    "steps": [
+      "lockfile pins only registry tarballs with integrity hashes: success",
+      "known dependency findings block release: success"
+    ]
+  },
+  "decisionLimits": {
+    "globalSourceEquivalenceClaim": false,
+    "historicalEightVersusSevenRawInputDiscrepancyResolved": false,
+    "noExceptionsGranted": true,
+    "noGateWeakened": true,
+    "timeBoundCurrentClearance": true,
+    "unavailableOldRawReportsRetainedAsHistoricalProvenance": true
+  },
+  "dependencyRelevantInputsByteEqualTo94dCleanInstall": true,
+  "kind": "673f33f1-current-dependency-input-equivalence",
+  "privateArchive": {
+    "byteEqualToCurrent": true,
+    "member": "scripts/ci/security-exceptions.mjs",
+    "memberBytes": 25262,
+    "memberSha256": "14c237e203b81aade75024c0d35bb62e0d05ddcb9423bee27ff6cdaed214730e",
+    "path": "/private/tmp/zenith-ci07-local-held-r1-yudmwssh/source-94.tar",
+    "sha256": "891c05d8840272af5a9d540e6b850181112a08dfa08b8d76999f2958c3072702"
+  },
+  "schemaVersion": 1,
+  "scope": "PROD-CI-07 security gate inputs only"
+}

@@ -15,20 +15,67 @@ let resourceGuard;
 export function setResourceGuard(guard) { resourceGuard = guard; }
 // Capture privately in memory. Commands, stderr and bodies may contain credentials;
 // errors expose a trusted operation identifier only. Never invoke a shell.
+const outstandingShutdownDiagnosticChildren = new Set();
+const isShutdownCustodyUncertain = error => error?.message === 'default-stack:shutdown-custody-uncertain';
+
 export function run(command, args, options = {}) {
+  const diagnosticCapture = options.captureStderr === true || options.maxOutputBytes !== undefined;
+  const maxOutputBytes = options.maxOutputBytes === undefined ? 16 * 1024 * 1024 : options.maxOutputBytes;
+  if (diagnosticCapture && (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes <= 0 || maxOutputBytes > 16 * 1024 * 1024)) {
+    return Promise.reject(new Error('default-stack:diagnostic-output-limit-invalid'));
+  }
+  if (outstandingShutdownDiagnosticChildren.size > 0) {
+    return Promise.reject(new Error('default-stack:shutdown-custody-uncertain'));
+  }
   return new Promise((resolve, reject) => {
     resourceGuard?.();
     const child = spawn(command, args, { cwd: options.cwd ?? root,
       env: { ...composeEnvironment(), ...options.env }, stdio: ['pipe', 'pipe', 'pipe'] });
-    let output = '', size = 0, done = false, aborted = false, failureId = options.id ?? 'command-failed';
-    const abort = () => { aborted = true; child.kill('SIGTERM'); };
+    if (diagnosticCapture) outstandingShutdownDiagnosticChildren.add(child);
+    let output = '', stderrOutput = '', size = 0, done = false, aborted = false, closed = false,
+      failureId = options.id ?? 'command-failed';
+    const captureStderr = options.captureStderr === true;
+    let escalationTimer, custodyTimer;
+    const abort = () => {
+      if (aborted) return;
+      aborted = true;
+      child.kill('SIGTERM');
+      if (diagnosticCapture) {
+        escalationTimer = setTimeout(() => { if (!closed) child.kill('SIGKILL'); }, 250);
+        custodyTimer = setTimeout(() => {
+          if (!closed && !done) {
+            done = true;
+            clearTimeout(timer); clearTimeout(escalationTimer); clearTimeout(custodyTimer); clearInterval(monitor);
+            reject(new Error('default-stack:shutdown-custody-uncertain'));
+          }
+        }, 1000);
+      }
+    };
     const timer = setTimeout(abort, options.timeout ?? 300_000);
     const monitor = setInterval(() => { try { resourceGuard?.(); } catch { failureId = 'disk-headroom'; abort(); } }, 5000);
-    const settle = ok => { if (done) return; done = true; clearTimeout(timer); clearInterval(monitor); if (ok && !aborted) resolve(output.trim()); else reject(new Error(`default-stack:${failureId}`)); };
-    child.on('error', () => settle(false));
-    child.stdout.on('data', data => { size += data.length; if (size > 16 * 1024 * 1024) abort(); else output += data; });
-    child.stderr.on('data', () => {});
-    child.on('close', code => settle(code === 0));
+    const settle = ok => {
+      if (done) return;
+      done = true; clearTimeout(timer); clearTimeout(escalationTimer); clearTimeout(custodyTimer); clearInterval(monitor);
+      if (ok && !aborted) resolve(captureStderr ? { stdout: output.trim(), stderr: stderrOutput.trim() } : output.trim());
+      else reject(new Error(`default-stack:${failureId}`));
+    };
+    const collect = (data, stream) => {
+      size += data.length;
+      if (size > maxOutputBytes) { if (diagnosticCapture) failureId = 'diagnostic-output-limit'; abort(); return; }
+      if (stream === 'stderr') stderrOutput += data;
+      else output += data;
+    };
+    child.on('error', () => {
+      if (diagnosticCapture) abort();
+      else settle(false);
+    });
+    child.stdout.on('data', data => collect(data, 'stdout'));
+    child.stderr.on('data', data => { if (captureStderr) collect(data, 'stderr'); });
+    child.on('close', code => {
+      closed = true;
+      outstandingShutdownDiagnosticChildren.delete(child);
+      settle(code === 0);
+    });
     child.stdin.end(options.input);
   });
 }
@@ -36,10 +83,10 @@ export const docker = (args, options = {}) => run('docker', args, options);
 export const save = (file, value) => fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 
 const CLEANUP_STOP_SIGNALS = new Set(['SIGTERM', 'SIGINT', 'SIGQUIT']);
-export function cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs, phase, stopResolved }) {
+export function cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs, phase, stopResolved, lifecycle = undefined }) {
   const configuredSignal = current.Config?.StopSignal ?? 'SIGTERM';
   const state = stopped?.State;
-  return {
+  const diagnostic = {
     id: resource.id,
     name: typeof current.Name === 'string' ? current.Name : null,
     graceSeconds,
@@ -53,6 +100,8 @@ export function cleanupStopDiagnostic({ resource, current, stopped, graceSeconds
     exitCode: Number.isInteger(state?.ExitCode) ? state.ExitCode : null,
     oomKilled: state ? state.OOMKilled === true : null,
   };
+  if (lifecycle !== undefined) diagnostic.lifecycle = lifecycle;
+  return diagnostic;
 }
 
 export function writeCleanupStopDiagnosticFile(directory, filename, value) {
@@ -97,6 +146,109 @@ const INFRA_COMPOSE_SERVICES = new Set(['temporal', 'supabase-edge']);
 const SUPABASE_INFRA_SERVICES = new Set(['auth', 'db', 'kong', 'pooler', 'rest']);
 const INFRA_STOP_GRACE_SECONDS = 60;
 const WORKER_STOP_GRACE_SECONDS = 660;
+const SHUTDOWN_DIAGNOSTIC_SERVICES = new Set(['db', 'kong']);
+const SHUTDOWN_DIAGNOSTIC_MAX_BYTES = 128 * 1024;
+const SHUTDOWN_DIAGNOSTIC_TIMEOUT_MS = 3000;
+
+function boundedDiagnosticStrings(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 32).map(item => typeof item === 'string' ? item.slice(0, 2048) : '');
+}
+
+function shutdownInspectProjection(item) {
+  if (!item || typeof item !== 'object') return null;
+  const config = item.Config ?? {};
+  const host = item.HostConfig ?? {};
+  const state = item.State ?? {};
+  const labels = config.Labels ?? item.Labels ?? {};
+  return {
+    id: typeof item.Id === 'string' ? item.Id : null,
+    name: typeof item.Name === 'string' ? item.Name : null,
+    imageId: typeof item.Image === 'string' ? item.Image : null,
+    config: {
+      image: typeof config.Image === 'string' ? config.Image.slice(0, 512) : null,
+      entrypoint: boundedDiagnosticStrings(config.Entrypoint),
+      command: boundedDiagnosticStrings(config.Cmd),
+      stopSignal: typeof config.StopSignal === 'string' ? config.StopSignal.slice(0, 64) : null,
+      labels: {
+        project: typeof labels[projectLabel] === 'string' ? labels[projectLabel].slice(0, 128) : null,
+        service: typeof labels['com.docker.compose.service'] === 'string' ? labels['com.docker.compose.service'].slice(0, 64) : null,
+      },
+    },
+    host: {
+      init: typeof host.Init === 'boolean' ? host.Init : null,
+      memory: Number.isSafeInteger(host.Memory) ? host.Memory : null,
+      nanoCpus: Number.isSafeInteger(host.NanoCpus) ? host.NanoCpus : null,
+      pidsLimit: Number.isSafeInteger(host.PidsLimit) ? host.PidsLimit : null,
+    },
+    state: {
+      status: typeof state.Status === 'string' ? state.Status.slice(0, 32) : null,
+      running: typeof state.Running === 'boolean' ? state.Running : null,
+      restarting: typeof state.Restarting === 'boolean' ? state.Restarting : null,
+      oomKilled: typeof state.OOMKilled === 'boolean' ? state.OOMKilled : null,
+      exitCode: Number.isInteger(state.ExitCode) ? state.ExitCode : null,
+      pid: Number.isSafeInteger(state.Pid) ? state.Pid : null,
+      startedAt: typeof state.StartedAt === 'string' ? state.StartedAt.slice(0, 64) : null,
+      finishedAt: typeof state.FinishedAt === 'string' ? state.FinishedAt.slice(0, 64) : null,
+    },
+  };
+}
+
+function isShutdownDiagnosticTarget(resource, current, state) {
+  if (resource?.kind !== 'container' || !state?.projectId) return null;
+  const labels = current?.Config?.Labels ?? current?.Labels ?? {};
+  if (labels[projectLabel] !== state.projectId || !owns(labels, state)
+    || !/^[a-f0-9]{64}$/.test(resource.id ?? '') || current?.Id !== resource.id) return null;
+  for (const service of SHUTDOWN_DIAGNOSTIC_SERVICES) {
+    if (current?.Name === `/supabase_${service}_${state.projectId}`) return service;
+  }
+  return null;
+}
+
+async function captureShutdownCommand(dockerCommand, operation, args) {
+  try {
+    const result = await dockerCommand(args, {
+      timeout: SHUTDOWN_DIAGNOSTIC_TIMEOUT_MS,
+      maxOutputBytes: SHUTDOWN_DIAGNOSTIC_MAX_BYTES,
+      captureStderr: true,
+      id: `shutdown-${operation}`,
+    });
+    if (typeof result === 'string') return { status: 'ok', stdout: result, stderr: '' };
+    if (result && typeof result.stdout === 'string' && typeof result.stderr === 'string') {
+      return { status: 'ok', stdout: result.stdout, stderr: result.stderr };
+    }
+    return { status: 'failed', code: `capture-${operation}-result-invalid` };
+  } catch (error) {
+    if (isShutdownCustodyUncertain(error)) throw error;
+    return { status: 'failed', code: `capture-${operation}-failed` };
+  }
+}
+
+/** Capture raw but strictly bounded lifecycle evidence for exact owned Supabase DB/Kong only. */
+export async function captureShutdownLifecycle({ state, resource, current, stopped = undefined, phase, dockerCommand = docker }) {
+  const service = isShutdownDiagnosticTarget(resource, current, state);
+  if (!service) return null;
+  let inspected = phase === 'pre-stop' ? current : stopped;
+  let inspectStatus = inspected ? 'available' : 'unavailable';
+  if (!inspected) {
+    const result = await captureShutdownCommand(dockerCommand, 'inspect', ['container', 'inspect', resource.id]);
+    if (result.status === 'ok') {
+      try { [inspected] = JSON.parse(result.stdout); inspectStatus = inspected ? 'captured' : 'empty'; }
+      catch { inspectStatus = 'parse-failed'; }
+    } else inspectStatus = result.code;
+  }
+  const top = await captureShutdownCommand(dockerCommand, 'top', ['top', resource.id, '-eo', 'pid,ppid,user,stat,comm']);
+  const logs = await captureShutdownCommand(dockerCommand, 'logs', ['logs', '--timestamps', '--tail', '100', resource.id]);
+  return {
+    phase,
+    capturedAt: new Date().toISOString(),
+    service,
+    inspectStatus,
+    inspect: shutdownInspectProjection(inspected),
+    processTable: top,
+    logs,
+  };
+}
 
 /** Shorten only exact known disposable infrastructure with its expected owner labels. */
 export function containerStopGraceSeconds(item, state) {
@@ -227,6 +379,17 @@ export async function cleanup(state) {
       // Preserve the shipped worker drain. Only positively identified disposable
       // infrastructure gets the shorter stop window; unknown roles remain conservative.
       const graceSeconds = containerStopGraceSeconds(current, state);
+      const shutdownService = isShutdownDiagnosticTarget(resource, current, state);
+      let lifecycle;
+      if (shutdownService) {
+        try {
+          const preStop = await captureShutdownLifecycle({ state, resource, current, phase: 'pre-stop' });
+          lifecycle = { schemaVersion: 1, service: shutdownService, preStop };
+        } catch (error) {
+          if (isShutdownCustodyUncertain(error)) throw error;
+          lifecycle = { schemaVersion: 1, service: shutdownService, preStop: { status: 'capture-failed' } };
+        }
+      }
       const started = process.hrtime.bigint();
       let stopResolved = false;
       let elapsedMs = 0;
@@ -238,12 +401,35 @@ export async function cleanup(state) {
         [stopped] = JSON.parse(await docker(['container', 'inspect', resource.id]));
       } catch (error) {
         if (elapsedMs === 0) elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+        let custodyError;
+        if (shutdownService) {
+          try { lifecycle.postStop = await captureShutdownLifecycle({ state, resource, current, stopped, phase: 'post-stop' }); }
+          catch (captureError) {
+            if (isShutdownCustodyUncertain(captureError)) {
+              custodyError = captureError;
+              lifecycle.postStop = { phase: 'post-stop', status: 'custody-uncertain' };
+            } else lifecycle.postStop = { phase: 'post-stop', status: 'capture-failed' };
+          }
+        }
+        if (custodyError) lifecycle.canonicalFailure = 'stop-or-post-stop-inspect-failed';
         persistCleanupStopDiagnostic(state.directory, cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs,
-          phase: stopResolved ? 'post-stop-inspect' : 'stop', stopResolved }));
+          phase: stopResolved ? 'post-stop-inspect' : 'stop', stopResolved, ...(lifecycle ? { lifecycle } : {}) }));
+        if (custodyError) throw new Error('default-stack:shutdown-custody-uncertain', { cause: error });
         throw error;
       }
+      let custodyError;
+      if (shutdownService) {
+        try { lifecycle.postStop = await captureShutdownLifecycle({ state, resource, current, stopped, phase: 'post-stop' }); }
+        catch (captureError) {
+          if (isShutdownCustodyUncertain(captureError)) {
+            custodyError = captureError;
+            lifecycle.postStop = { phase: 'post-stop', status: 'custody-uncertain' };
+          } else lifecycle.postStop = { phase: 'post-stop', status: 'capture-failed' };
+        }
+      }
       persistCleanupStopDiagnostic(state.directory, cleanupStopDiagnostic({ resource, current, stopped, graceSeconds, elapsedMs,
-        phase: 'observed', stopResolved }));
+        phase: 'observed', stopResolved, ...(lifecycle ? { lifecycle } : {}) }));
+      if (custodyError) throw custodyError;
       if (current.State?.Running && (stopped.State?.ExitCode === 137 || stopped.State?.OOMKilled)) forcedStops++;
       await docker(['rm', '-v', resource.id]);
     } else if (resource.kind === 'image') {

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { Client, Connection, ScheduleNotFoundError } from "@temporalio/client";
+import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { openPlatformDb, repos } from "@/lib/controlplane/db";
 import { withLease } from "@/lib/controlplane/leases";
 import { CRITICAL_JOBS } from "@/lib/platform/critical-jobs";
@@ -65,6 +66,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
   assert(process.env.ZENITH_TEST_MAINTENANCE === "1", "Not run: needs the Mac default stack and ZENITH_TEST_MAINTENANCE=1.");
   localUrl(process.env.ZENITH_PLATFORM_DB_URL ?? "", ["postgres:", "postgresql:"]);
   localUrl(process.env.ZENITH_J4_API_ORIGIN ?? "", ["http:", "https:"]);
+  const dataConverter = temporalDataConverterFromEnv(process.env);
   const db = await openPlatformDb({ kind: "postgres", url: process.env.ZENITH_PLATFORM_DB_URL!, migrate: false, max: 2 });
   let connection: Connection | undefined, worker: ChildProcess | undefined;
   let restartOrdinal = 0;
@@ -81,7 +83,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     const epoch = await assertMaintenancePreconditions(db, process.env);
     phase = "temporal_setup";
     connection = await Connection.connect({ address: process.env.ZENITH_TEMPORAL_ADDRESS });
-    const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE });
+    const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, dataConverter });
     for (const id of [CRITICAL_SCHEDULE_ID, RECONCILE_SCHEDULE_ID]) await assert.rejects(client.schedule.getHandle(id).describe(), ScheduleNotFoundError);
     for (const taskQueueType of [1, 2]) {
       const queue = await client.workflowService.describeTaskQueue({ namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, taskQueue: { name: TASK_QUEUE }, taskQueueType });
@@ -216,7 +218,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     // Drain while our worker is still alive. A cleanup failure never prevents stopping our child.
     if (connection && worker && worker.exitCode === null && worker.signalCode === null) {
       try {
-        const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE });
+        const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, dataConverter });
         for (const id of ownedSchedules) {
           try { await client.schedule.getHandle(id).pause("J4 owned cleanup drain."); }
           catch (error) { if (!(error instanceof ScheduleNotFoundError)) throw error; }
@@ -240,7 +242,7 @@ export async function defaultMaintenanceAcceptance(): Promise<Record<string, unk
     if (connection) {
       try {
         if (!errors.length) {
-          const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE });
+          const client = new Client({ connection, namespace: process.env.ZENITH_TEMPORAL_NAMESPACE, dataConverter });
           for (const id of ownedSchedules) {
             const handle = client.schedule.getHandle(id);
             try { await handle.pause("J4 owned rehearsal cleanup."); }

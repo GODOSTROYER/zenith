@@ -22,7 +22,19 @@ export function declaredProfile(raw: unknown, ctx: { workspaceId: string; enviro
   // Runtime probes and custody checks remain owned by the actual J6 worker.
   return readBuildProfiles({ ZENITH_ISOLATED_BUILD_PROFILES: JSON.stringify([profile]) });
 }
-export async function githubFixture(ctx: Operated, built?: { profile: TenantBuildProfile; app: string; dockerfile: string }) {
+export async function githubFixture(ctx: Operated, built?: {
+  profile: TenantBuildProfile; app?: string; dockerfile: string; sourceFixture?: { appC: string; migrationSql: string };
+}) {
+  const sourceFixtureInput = built?.sourceFixture;
+  ensure(!built || (sourceFixtureInput === undefined ? typeof built.app === "string"
+    : built.app === undefined && sourceFixtureInput !== null && typeof sourceFixtureInput === "object" && !Array.isArray(sourceFixtureInput)
+      && Object.keys(sourceFixtureInput).sort().join(",") === "appC,migrationSql"
+      && typeof sourceFixtureInput.appC === "string" && typeof sourceFixtureInput.migrationSql === "string"), "source-fixture-archive-shape");
+  const sourceFixture = sourceFixtureInput === undefined ? undefined
+    : Object.freeze({ appC: sourceFixtureInput!.appC, migrationSql: sourceFixtureInput!.migrationSql });
+  const sourceFixtureDockerfile = sourceFixture === undefined ? undefined : built!.dockerfile;
+  const sourceFixtureExpectedArchive = sourceFixture === undefined ? undefined
+    : hash(sourceArchive(sourceFixtureDockerfile!, "", undefined, sourceFixture));
   const state = ctx.stack!.state, modules = ctx.stack!.modules;
   const declarationFile = ctx.env.ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE;
   ensure(declarationFile && path.isAbsolute(declarationFile), "source-build-declaration-file");
@@ -42,7 +54,12 @@ export async function githubFixture(ctx: Operated, built?: { profile: TenantBuil
   const fixture = { appId: "815", installationId: 816, repositoryId: 817, repository: "zenith-local/private-source", clientId: "zenith-local-drv1",
     clientSecret: random(), installationToken: random(), userToken: random(), code: random(), publicKey: keys.publicKey,
     callback: ctx.stack!.apiUrl + "/api/platform/v1/github/callback", commit: randomBytes(20).toString("hex"), movedCommit: randomBytes(20).toString("hex"),
-    dockerfile: built?.dockerfile ?? "FROM " + ctx.config!.kind.image + "\n", ...(built ? { app: built.app } : {}) };
+    dockerfile: sourceFixture === undefined ? (built?.dockerfile ?? "FROM " + ctx.config!.kind.image + "\n") : sourceFixtureDockerfile!,
+    ...(built?.app ? { app: built.app } : {}),
+    ...(sourceFixture === undefined ? {} : { sourceFixture }) };
+  // Validate and pin the exact archive bytes before the emulator is started. The emulator and
+  // this stripped-name canonical digest consume this same immutable fixture object.
+  const expectedArchive = sourceFixtureExpectedArchive ?? hash(sourceArchive(fixture.dockerfile, "", built?.app));
   const keyFile = path.join(directory, "tls.key"), csr = path.join(directory, "tls.csr"), cert = path.join(directory, "tls.crt"), ext = path.join(directory, "tls.ext");
   let overlayAttempted = false;
   const overlay = path.join(directory, "source.compose.json"), base = path.join(state.directory, "installation");
@@ -127,7 +144,7 @@ export async function githubFixture(ctx: Operated, built?: { profile: TenantBuil
     await route.fulfill({ status: result.status, headers: result.headers, body: result.body });
   });
   return {
-    fixture, expectedArchive: hash(sourceArchive(fixture.dockerfile, "", built?.app)),
+    fixture, expectedArchive,
     control: async (moved: boolean, revoked: boolean) => { await modules.docker(["exec", name, "node", "-e",
       "const fs=require('fs');const p=JSON.parse(fs.readFileSync('/fixture/control.json'));p.moved=process.argv[1]==='true';p.revoked=process.argv[2]==='true';fs.writeFileSync('/fixture/control.json',JSON.stringify(p))", String(moved), String(revoked)]); },
     stats: async () => JSON.parse(await modules.docker(["exec", name, "node", "-p", "require('fs').readFileSync('/fixture/stats.json','utf8')"])) as { minted: number; authenticated: number; archiveReads: number; movedArchiveReads: number },

@@ -5,9 +5,25 @@ import { createHash, verify } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
-export function sourceArchive(dockerfile, prefix = '', app) {
+export function sourceArchive(dockerfile, prefix = '', app, sourceFixture) {
   const blocks = [];
-  for (const [name, bytes] of [['Dockerfile', Buffer.from(dockerfile)], ...(app ? [['app', Buffer.from(app, 'base64')]] : [])]) {
+  let files;
+  if (sourceFixture !== undefined) {
+    if (app !== undefined && app !== null) throw new TypeError('source fixture cannot include the legacy executable');
+    if (!sourceFixture || typeof sourceFixture !== 'object' || Array.isArray(sourceFixture)
+      || Object.keys(sourceFixture).sort().join(',') !== 'appC,migrationSql'
+      || typeof dockerfile !== 'string' || typeof sourceFixture.appC !== 'string' || typeof sourceFixture.migrationSql !== 'string'
+      || !['', 'fixture-/'].includes(prefix)) throw new TypeError('invalid bounded source fixture');
+    const named = [['Dockerfile', dockerfile], ['app.c', sourceFixture.appC], ['migration.sql', sourceFixture.migrationSql]];
+    if (named.some(([, text]) => text.length > 64 * 1024)) throw new TypeError('source fixture exceeds archive bounds');
+    const sizes = named.map(([, text]) => Buffer.byteLength(text, 'utf8'));
+    if (named.some(([, text]) => text.length === 0 || text.includes('\0'))
+      || sizes.some(size => size > 64 * 1024) || sizes.reduce((sum, size) => sum + size, 0) > 128 * 1024
+      || named.some(([name]) => Buffer.byteLength(prefix + name, 'utf8') > 100))
+      throw new TypeError('source fixture exceeds archive bounds');
+    files = named.map(([name, text]) => [name, Buffer.from(text, 'utf8')]);
+  } else files = [['Dockerfile', Buffer.from(dockerfile)], ...(app ? [['app', Buffer.from(app, 'base64')]] : [])];
+  for (const [name, bytes] of files) {
   const header = Buffer.alloc(512);
   header.write(prefix + name);
   for (const [at, width, value] of [[100, 8, 0o644], [108, 8, 0], [116, 8, 0], [124, 12, bytes.length], [136, 12, 0]])
@@ -83,7 +99,7 @@ export function fixtureResponse(config, state, req) {
     const ref = url.pathname.slice(archive.length);
     if (ref !== config.commit && ref !== config.movedCommit) return reply(404, {});
     state.archiveReads++; if (ref === config.movedCommit) state.movedArchiveReads++;
-    return { status: 200, headers: { 'content-type': 'application/gzip' }, body: sourceArchive(config.dockerfile, 'fixture-/', config.app) };
+    return { status: 200, headers: { 'content-type': 'application/gzip' }, body: sourceArchive(config.dockerfile, 'fixture-/', config.app, config.sourceFixture) };
   }
   return reply(404, {});
 }

@@ -1,0 +1,47 @@
+{
+  "acceptanceCriterionSatisfiedForCurrentKnownFindings": true,
+  "evidence": [
+    {
+      "artifact": "docs/build/production/evidence/PROD-CI-07/2026-10-12-673f33f1-current-closure.json",
+      "commit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "inputEquivalence": "docs/build/production/evidence/PROD-CI-07/2026-10-12-673f33f1-current-input-equivalence.json",
+      "level": "contract",
+      "result": "24 baseline advisory IDs reconciled to reviewed remediated IDs; package/version/platform/reachability inventory retained; current dependency inputs match the reviewed clean-install inputs; registry is empty; no exceptions or gate weakening.",
+      "review": {
+        "path": "/tmp/zenith-673f33f1-ci07-critical-closure-review-r1.md",
+        "sha256": "630f169fb13f0546ef856a5444e2128de24e77828932fcbd128ea999f36fe004"
+      }
+    },
+    {
+      "artifact": "docs/build/production/evidence/PROD-CI-07/2026-10-11-local-clean-install-94d60798.json",
+      "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+      "level": "local_engine",
+      "result": "Fresh private-cache clean install and complete locked audit passed with zero known findings/exceptions; exact six dependency-input byte matches are recorded in docs/build/production/evidence/PROD-CI-07/2026-10-12-673f33f1-current-input-equivalence.json. Scope is dependency gate, not whole application install at 673f."
+    },
+    {
+      "artifact": "docs/build/production/evidence/PROD-CI-07/2026-10-12-673f33f1-current-closure.json",
+      "commit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+      "jobId": 114762564389,
+      "level": "remote_ci",
+      "result": "Exact673f supply-chain job completed success; both mandatory steps passed; 924 registry-pinned packages with6 bundled; zero-known-findings message. Log did not expose raw audit or explicit advisory counts.",
+      "runId": 38234751430
+    }
+  ],
+  "historicalLimits": [
+    "The old Linux seven versus Darwin eight finding count is not reconciled to original raw reports; preserve as historical provenance.",
+    "This current clearance is time-bound, applies to inspected current inputs and does not guarantee future advisories.",
+    "No exception approval, forced upgrade, gate weakening, or release promotion."
+  ],
+  "kind": "673f33f1-prod-ci07-current-closure-evidence",
+  "milestonePromotion": false,
+  "releaseFlagsChanged": false,
+  "requiredEvidenceLevels": [
+    "contract",
+    "local_engine"
+  ],
+  "requirement": "PROD-CI-07",
+  "reviewDisposition": "P-current-time-bound-closure-eligible",
+  "schemaVersion": 1,
+  "sourceCommit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+  "statusProposal": "verified"
+}

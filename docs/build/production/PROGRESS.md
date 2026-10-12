@@ -1,10 +1,62 @@
-## Integrated worker fixture and verifier regression checkpoint — 12 October 2026
+## Current 673f candidate status — 12 October 2026
+
+This candidate records PROD-CI-07 as **verified** for the current, time-bound known-finding scope after the reviewed input-equivalence and exact-source supply-chain evidence were joined. The historical 8-versus-7 raw audit discrepancy remains unresolved and preserved as provenance. The ledger is **11 verified / 65 in progress / 2 planned** across 78 requirements; all four release flags remain false.
+
+PROD-CI-08 remains **in progress / HOLD**. Current exact-source full-core Node/DOM evidence is 24,624 passed / 0 failed / 1,943 skipped across 26,567 identities. Exact-source CI is 24 successful / 8 skipped / 0 failed jobs of 32; skipped jobs and incomplete gate families remain open. This scoped evidence does not establish full PROD-CI-08 acceptance.
+
+Cleanup remains pending with three owned images under source-proof review. The latest J4 cleanup R5 failed validation: 19 resources removed, 0 owned resources remaining, 2 forced stops; the engine lock remains sticky. Independent terminal custody review is P for the canonical-down process-tree absence (34 events, 9 pending births resolved absent, two final confirmations); this does not convert the cleanup into an accepted receipt. The historical J6 R2 27-case source-availability incident remains an incident, not a passed test run or retained source snapshot. Fresh exact-673f J6 R8 pure/model plus pinned-module interop passed 30/30 with zero errors, failures, or skips on the unchanged 6,012-entry freeze. This scoped result does not establish native-kernel, broker-runtime, accepted-run, or product acceptance; the historical R6 failure remains refused.
+
+Evidence in this candidate: [CI07 closure](evidence/PROD-CI-07/2026-10-12-673f33f1-current-closure.json), [CI07 input equivalence](evidence/PROD-CI-07/2026-10-12-673f33f1-current-input-equivalence.json), [CI08 full-core execution](evidence/PROD-CI-08/2026-10-12-673f33f1-full-core-r16.json), [terminal CI](evidence/PROD-CI-08/2026-10-12-673f33f1-terminal-ci.json), and [CI08 HOLD assessment](evidence/PROD-CI-08/2026-10-12-673f33f1-ci08-hold-assessment.json); [J6 R8 pure terminal review](evidence/PROD-CI-08/2026-10-12-673f33f1-j6-pure-r8-terminal-review.json), [failed cleanup R5 terminal review](evidence/PROD-CI-08/2026-10-12-673f33f1-cleanup-r5-failed-terminal-review.json).
+
+## Current focused evidence update — 12 October 2026, source 673f33f1
+
+The candidate ledger has CI07 integrated as **verified** for current time-bound dependency findings and stands at **11 verified / 65 in progress / 2 planned**. The primary ledger remains **10/66/2** pending root integration; all four release flags remain false. The historical 8-versus-7 audit discrepancy remains unresolved provenance, and new advisories require fresh review.
+
+Current exact-source full-core R16 passed **24,624 / 0 failed / 1,943 skipped** across 26,567 identities; terminal CI has **24 successful / 8 skipped / 0 failed** jobs of 32. Skips remain skips, and this scoped execution does not close CI08. CI08 remains **in progress / HOLD** for missing exact-count gate families, including the unexecuted browser/default-stack path.
+
+Focused evidence includes the seven-test candidate run (7/7), the R8 parent-order synthetic run (12 methods / 51 declared alias cases), and fresh exact-673f J6 R8 pure/model plus pinned-module interop (30/30, zero errors/failures/skips, unchanged 6,012-entry freeze). J6 R8 is scoped pure proof, not native-kernel, broker-runtime, accepted-run, or product acceptance. Keep the historical R2 27-case source-availability event as an incident rather than a passed run or retained source snapshot; the R6 failure remains refused.
+
+J4’s read-only Temporal R5 probe found both schedules paused and payload projections consistent with the codec candidate. The subsequent cleanup R5 reached canonical down but failed validation: **19 resources removed, 0 owned resources remaining, 2 forced stops**; outer exit was 2 and the engine lock remains sticky. Independent process-custody review is P for terminal process-tree absence (34 events; 9 pending births resolved absent; two final absence confirmations). That proves process absence only; cleanup remains unaccepted and lock-clearance is pending read-only parity recovery. Three owned images remain under source-proof review.
+
+Next: complete read-only parity recovery for the sticky lock and source review for the three owned images, then continue the ordered R19 J-default and J2 OBS/MACH gates. The primary ledger and release flags remain frozen as noted above; this candidate records no CI08 or product acceptance.
+
+Evidence: [CI07 closure](evidence/PROD-CI-07/2026-10-12-673f33f1-current-closure.json), [CI07 input equivalence](evidence/PROD-CI-07/2026-10-12-673f33f1-current-input-equivalence.json), [full-core R16](evidence/PROD-CI-08/2026-10-12-673f33f1-full-core-r16.json), [terminal CI](evidence/PROD-CI-08/2026-10-12-673f33f1-terminal-ci.json), [CI08 HOLD](evidence/PROD-CI-08/2026-10-12-673f33f1-ci08-hold-assessment.json), [J6 R8 terminal review](evidence/PROD-CI-08/2026-10-12-673f33f1-j6-pure-r8-terminal-review.json), [cleanup R5 failed terminal review](evidence/PROD-CI-08/2026-10-12-673f33f1-cleanup-r5-failed-terminal-review.json).
+---
+
+### Prior R2 checkpoint (superseded by this update; preserved for history)
+
+## Current evidence update — 12 October 2026, source 673f33f1
+
+The strict full-core R16 review is P: **24,624 passed, 0 failed, 1,943 skipped (26,567 total)**. It binds 6,012 source entries, identical before/after freezes, settled custody, no active/quarantined identities, and a minimum free-space sample of 257,468,084,224 bytes above the 23,622,320,128-byte floor. This is test-execution evidence, not application acceptance.
+
+Exact-source CI is terminal: **24 passed, 8 conditionally skipped, 0 failed of 32 jobs**, across three runs; native workflows report 4/4 passed across their two workflows. The eight conditional skips remain skips. CI07 is independently reviewed as eligible for closure after root integrates its evidence; it is not counted as closed here.
+
+R19’s R6 downstream J/K/U/A graph has a P source/binding review and actual published graph; this is source-graph evidence only. R19 runtime/default-stack acceptance remains pending. The J4 Temporal read-only R5 probe passed on the pinned source and found both schedules paused, with payload projections matching the codec-fix candidate; it ran no tests and is not J4 acceptance. J4 cleanup remains **unconfirmed**: the owned stack at `/private/tmp/zenith-j1-j4-ox3elyru` is retained after `critical_schedule_contract` failure. The codec fix has not yet been tested.
+
+Ledger remains **10 verified / 66 in progress / 2 planned (12.82%)**; implementationComplete, sandboxVerified, pilotReady, and productionApproved remain false. No requirement status or release flag is promoted.
+
+Next: integrate the CI07 closure decision without changing unrelated statuses; finish the J4 codec tests and safely resolve the retained J4 stack; then complete builder rotation/build, R19 J-default runtime acceptance, and J2 OBS/MACH. No ETA is asserted.
+
+Evidence: [full-core terminal review](file:///tmp/zenith-673f33f1-fullcore-terminal-review-r1/review.json) (`a6afde82f9aa23e8f206707eb42658adce3a243e5b640cc245fb18f316d5a718`); [terminal CI bundle](file:///tmp/zenith-673f33f1-ci-terminal-evidence-r1/terminal-ci-evidence.json) (`22a209195e552094c27f02d6d9057fd4e1b8275298a0b4ef98e210fc17df9eba`); [R19 R6 source review](file:///tmp/zenith-core-r19-downstream-binder-critical-review-r1/r6-review.md) (`969f2063b0360a707efa6f3d76c539e38f5a706238dc38292285f21c63386ec0`) and [published graph review](file:///tmp/zenith-core-r19-downstream-binder-critical-review-r1/actual-output-review.md) (`468ad979c0a71a6bfee323cb03d080a826b12e2cdb48662c34425cf5005b2b09`); [Temporal R5 receipt](file:///private/tmp/zenith-673f33f1-j4-temporal-readonly-diagnostic-r5/source-freeze-result.private.json) (`7474a4240ec652b5026aa8adb1602c9a8ec96c8057cfa231589e08bbf9e52855`); [J4 cleanup source diagnosis](file:///tmp/zenith-673f33f1-j4-cleanup-source-diagnosis-r1/diagnosis.md) (`4750c19f006bdac065a68f15e865399f1083d3c98e72f0f16063ad587f8c611d`).
+
+---
+
+The full-core execution passed on frozen source `673f33f1b714df9f22a0ebae301bbb9f32c0cff5`: 24,624 passed, 0 failed, 1,943 skipped out of 26,567. The strict wrapper passed; review confirms 6,012 source entries, matching before/after freezes, complete custody, zero active or quarantined identities, and floor minimum 257,468,084,224 bytes against 23,622,320,128. This establishes the recorded test execution only, not separate application acceptance. The earlier 6aed full-core refusal remains historical.
+
+Exact-source CI is still active: 22 successful jobs, 8 conditional skips, 2 active, 0 failures across 32 jobs. Both native workflows passed 2/2 each; the main workflow has 18 successes, 8 skips, and 2 active jobs. Skips are not passes.
+
+Next: builder rotation/build, then R19 J-default acceptance, then J2 OBS/MACH. Ledger remains 10 verified / 66 in progress / 2 planned (12.82%); all four release flags remain false. No requirement or application acceptance promotion is proposed.
+
+### Previous integrated-worker checkpoint (historical, before the 673f full-core run)
+
+### Previous integrated-worker checkpoint (historical, before the 673f full-core run)
 
 The real React worker fixture now lets natural peer IPC EOF complete Node 22 child-close accounting. The real close event, 10-second deadline, assertions and cleanup IPC remain strict. Fresh post-change full Node/DOM and exact-source CI are pending.
 
 The process-tracker ordering repair passed independently reviewed held synthetic checks: 7 methods/21 subcases, the 47-method/61-case custody regression suite, and 6 additional methods/33 subcases, each with zero failures or skips. These separate overlapping results do not replace full native acceptance or erase the refused 6aed run. Native100100/100 and actual Temporal10/10 remain scoped evidence at 6aed.
 
 Ledger: 10 verified / 66 in progress / 2 planned (12.82%); all release flags remain false. Next: publish this checkpoint, bind the fresh clean source, run full I/O acceptance, then continue default-stack J1/J4/J2 and natural maintenance verification.
+
 
 ## Historical source 6aed3a99 checkpoint — 12 October 2026 (R4)
 

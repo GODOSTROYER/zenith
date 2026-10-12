@@ -1,3 +1,14 @@
+## Current 27c01268 build and verification blockers — 12 October 2026
+
+- **Push and source binding:** five code files are integrated in commit `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3`, not yet pushed. Fresh source publisher and coherent CI remain pending.
+- **Full validation:** R9, full Node/DOM, default J1/J4/J2 and final exact-source CI remain open. Previous 068 CI had 3 failures and is not evidence for the current commit.
+- **Linux React natural close:** successful worker build is known, but the cause of missing natural close is unresolved.
+- **Acceptance:** Native100 100/100 and Go 204/204 passed focused runs with independent terminal review; these bounded results do not substitute for the remaining release gates.
+
+Ledger remains 10 verified / 66 in progress / 2 planned; all release flags remain false. No requirement promotion or production acceptance is claimed.
+
+### Prior blocker history
+
 # Integrated verification checkpoint — 12 October 2026
 
 The 24 reviewed source changes are committed as `35ef780463d1e43faa7da9cefabe9604f7cb4041`. Every integrated postimage matches its reviewed candidate. This evidence update will accompany that source before publication; fresh exact-source CI, source publishing and broader acceptance remain pending.

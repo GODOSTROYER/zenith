@@ -1,3 +1,15 @@
+## Current source 27c01268 checkpoint — 12 October 2026
+
+Commit `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3` integrates five code files and has not yet been pushed. The source publisher, final CI, default-stack, and full-core checks remain pending.
+
+The 068 CI baseline remains terminal at 21 passed, 8 conditional skips, and 3 failed of 32; both separate native workflows passed 2/2 selected jobs. Current focused successors passed their bounded checks: Native100 reports 100/100 with cleanup, lock clear, observer join, source checkpoints and secret removal independently reviewed P; Go retry-stream/PID1 focused verification reports 204/204 with complete custody and source freezes. The earlier retained Native100 recovery also has a separate cleanup review P. These are scoped results, not full milestone acceptance.
+
+The Linux React worker natural-close issue remains unresolved after a successful build; its diagnostic has not established the cause. Current-source publisher, R9, full Node/DOM, default J1/J4/J2, and coherent final CI remain pending.
+
+Ledger remains 10 verified / 66 in progress / 2 planned (78 total; 12.82%). All four release flags remain false. No acceptance promotion is proposed.
+
+### Prior source checkpoints
+
 # Integrated verification checkpoint — 12 October 2026
 
 The 24 reviewed source changes are committed as `35ef780463d1e43faa7da9cefabe9604f7cb4041`. Every integrated postimage matches its reviewed candidate. This evidence update will accompany that source before publication; fresh exact-source CI, source publishing and broader acceptance remain pending.

@@ -1,3 +1,13 @@
+## Current 27c01268 results — 12 October 2026
+
+Commit `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3` integrates five code files and is not pushed. The prior exact-source 068 CI remains 21 success / 8 conditional skips / 3 failures of 32; both separate native workflows passed 2/2 selected jobs. It is not CI evidence for the 27c candidate.
+
+Focused Native100 passed 100/100; independent terminal review confirms cleanup complete, lock clear, observer joined, source checkpoints equal, and secret files absent. The Go retry-stream/PID1 focused run passed 204/204 with all 29 custody ledgers settled, 28 held Git commands successful, and before/after/final source freezes identical. The earlier retained Native100 recovery has a separate cleanup review P. These results remain focused evidence and do not establish milestone acceptance or Linux PID1 acceptance.
+
+The Linux React worker natural-close cause remains unresolved. Fresh source publisher, R9, full Node/DOM, default J1/J4/J2, and full coherent CI remain pending. Ledger remains 10 verified / 66 in progress / 2 planned; all four release flags remain false.
+
+### Prior October results
+
 # Integrated verification checkpoint — 12 October 2026
 
 The 24 reviewed source changes are committed as `35ef780463d1e43faa7da9cefabe9604f7cb4041`. Every integrated postimage matches its reviewed candidate. This evidence update will accompany that source before publication; fresh exact-source CI, source publishing and broader acceptance remain pending.

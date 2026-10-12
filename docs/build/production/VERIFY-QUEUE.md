@@ -1,3 +1,18 @@
+## Current source 27c01268 verification queue — 12 October 2026
+
+| Gate | Latest evidence | Remaining gate |
+| --- | --- | --- |
+| Integrated code | Five code files are committed at `27c0126888a3f5cbafabb6ca8e3033eeaa96aed3`; not pushed. | Push and bind a fresh source publisher receipt. |
+| Native100 | 100/100 focused tests; independent review confirms cleanup, lock clear, observer join, source checkpoints and secret removal. | Scoped proof only; no milestone acceptance. |
+| Go retry/PID1 | 204/204 focused checks passed; terminal review confirms 29 settled custody ledgers, 28 held Git commands and matching freezes. | Darwin-focused evidence; no Linux systemd/PID1 acceptance. |
+| Exact-source CI | Previous 068 baseline: 21 passed / 8 conditional skips / 3 failed of 32; separate native workflows 2/2 each. | Fresh full CI on pushed source. |
+| React worker close | Linux React build succeeds but natural close remains unresolved. | Establish the cause and verify natural close. |
+| Remaining gates | Current publisher, R9, full Node/DOM, default J1/J4/J2 pending. | Complete in the required order and preserve scoped result limits. |
+
+Ledger remains 10/66/2; all release flags remain false. No acceptance promotion is proposed.
+
+### Prior verification queue
+
 # Integrated verification checkpoint — 12 October 2026
 
 The 24 reviewed source changes are committed as `35ef780463d1e43faa7da9cefabe9604f7cb4041`. Every integrated postimage matches its reviewed candidate. This evidence update will accompany that source before publication; fresh exact-source CI, source publishing and broader acceptance remain pending.

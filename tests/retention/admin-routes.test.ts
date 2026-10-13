@@ -81,7 +81,7 @@ describe("operator authorization", () => {
 });
 
 describe("overview and preview", () => {
-  it("shows the retain-everything default with deletion off and the protected tables listed", async () => {
+  it("shows the approved baseline, per-class counts, the minimizer gate, the honest gaps and the protected tables, with deletion off", async () => {
     asOperator();
     vi.stubEnv("ZENITH_RETENTION_POLICY", "");
     vi.stubEnv("ZENITH_RETENTION_POLICY_FILE", "");
@@ -89,9 +89,16 @@ describe("overview and preview", () => {
     const res = await overview.GET(req("GET", "/api/admin/ops/retention"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.policy).toMatchObject({ valid: true, source: "default", retainsEverything: true, approved: false });
-    // the apply flag alone never opens the delete gate
-    expect(body.gate.enabled).toBe(false);
+    expect(body.policy).toMatchObject({ valid: true, source: "default", retainsEverything: false, approved: true, approvedBy: "Arnav Bule" });
+    expect(body.baseline).toMatchObject({ decision: "DEC-RETENTION", logDays: 30, payloadHours: 72, auditMinimumDays: 365, approvedBy: "Arnav Bule" });
+    expect(body.baseline.notices.join(" ")).toMatch(/does not expire archive objects/);
+    expect(body.baseline.notices.join(" ")).toMatch(/does not track backup expiry/);
+    expect(body.payloadMinimizer).toMatchObject({ hours: 72, gate: { enabled: false } });
+    expect(body.payloadMinimizer.eligible).toEqual(expect.any(Number));
+    expect(body.payloadMinimizer.held).toEqual(expect.any(Number));
+    for (const c of body.preview.classes) expect(c).toMatchObject({ archivedRows: expect.any(Number), prunedRows: expect.any(Number), totals: { archiveEligible: expect.any(Number), pruneEligible: expect.any(Number), heldRows: expect.any(Number) } });
+    // the built-in approval is real, so the operator switch is what opens the gate (and only that)
+    expect(body.gate.enabled).toBe(true);
     expect(body.preview.dryRun).toBe(true);
     expect(body.preview.classes.map((c: { class: string }) => c.class)).toEqual(["runner_job_logs", "machine_request_logs", "resource_observations", "drift_reports"]);
     expect(JSON.stringify(body.preview.neverPrunable)).toContain("platform.agent_effect_receipts");
@@ -157,13 +164,13 @@ describe("archives, verify and restore routes", () => {
 });
 
 describe("critical job wiring", () => {
-  it("registers data-retention on the durable maintenance schedule and it is a no-op without a policy", async () => {
+  it("registers data-retention on the durable maintenance schedule; with no archive storage it copies and deletes nothing", async () => {
     expect(CRITICAL_JOBS["data-retention"]).toMatchObject({ durableOnly: true });
     expect(typeof MAINTENANCE_JOBS["data-retention"]).toBe("function");
     vi.stubEnv("ZENITH_RETENTION_POLICY", "");
     vi.stubEnv("ZENITH_RETENTION_POLICY_FILE", "");
     const outcome = await MAINTENANCE_JOBS["data-retention"](handle);
-    expect(outcome.value).toMatchObject({ policyActive: 0, archiveBatches: 0, prunedRows: 0, applied: false });
+    expect(outcome.value).toMatchObject({ policyActive: 1, archiveBatches: 0, prunedRows: 0, applied: false });
     expect(outcome.counts).toMatchObject({ archivedRows: 0, prunedRows: 0 });
   });
 });

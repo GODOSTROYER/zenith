@@ -1,7 +1,9 @@
 # PROD-OPS-07 Configurable non-destructive retention
 
 Status: built and typechecked, NOT run (build-only worker). Branch `prod/ops-07-w5`, migration 45.
-DEC-RETENTION is pending: nothing is deleted by default, and the default policy retains everything forever.
+Approved baseline (DEC-RETENTION, Arnav Bule, 2026-10-13): production logs are kept 30 days; sensitive execution payloads are deleted within 72 hours after an operation finishes; essential audit records (approvals, infrastructure changes, outcomes) are kept at least one year and are not auto-deleted. These periods ship as the default policy. Approved does not mean running: nothing is deleted on an installation until its operator switches deletion on (`ZENITH_RETENTION_APPLY=1` for logs, `ZENITH_DATA_MINIMIZE_APPLY=1` for payloads).
+
+**Update 2026-10-13 (DEC-RETENTION decision implemented).** The built-in default policy is now: `runner_job_logs` and `machine_request_logs` archive and prune at 30 days; `resource_observations` and `drift_reports` retain (they record infrastructure changes and outcomes); the built-in approval covers only the built-in default, so an operator policy file without its own `approval` is still dry-run/copy-only. The policy loader refuses a `pruneAfterDays` below 365 on `resource_observations` and `drift_reports` (class or workspace override). Legal holds now also stop archive copies: `archiveBatch` reads its candidates and their hold flags under the holds lock and stops before the first held row, so the watermark never passes a held row and the row is archived normally after release (outcome `{ status: "blocked", reason: "legal_hold" }` when the first candidate is held). A hold placed while a copy is already in flight applies from the next batch. Pruning waits behind holds as before and only deletes archived rows. The payload minimizer (OPS-06) now sits behind the same approval gate and honours holds (see [PROD-OPS-05-06](PROD-OPS-05-06.md)). The admin page and `GET /api/admin/ops/retention` show the approved baseline, per-class eligible, held, archived and pruned counts, the minimizer gate with its eligible and held counts, and two fixed notices. Honest gaps: Zenith does not expire archive objects (the destination bucket lifecycle governs them), and backups taken before a deletion still contain the rows until the backup expires; backup expiry is not tracked. Count-based trims of observations and drift reports in the repositories are unchanged. Sections below describe the original build; where they say default retain forever or deletion pending, this update supersedes them.
 
 ## 1. What was built
 
@@ -49,7 +51,7 @@ Live check (manual, not counted): `ZENITH_RETENTION_ARCHIVE_TARGET=s3` against L
 
 Known gaps:
 - "Tenant-owned object storage" is one operator-configured bucket/directory per install with workspace-prefixed keys, sealed with the install backup key. Per-tenant buckets and per-tenant keys are not implemented.
-- Archive restore tooling is not built (objects are sealed JSON with a manifest and can be opened with the backup crypto helper). Archiving is not a backup of the protected tables.
+- Archive restore tooling is built (section 6: `verifyArchive`, `restoreArchive`, `scripts/retention-archive.ts`). Archiving is not a backup of the protected tables.
 - The dry-run preview counts with full-table scans per workspace (bounded to 100 workspaces) and recorded-time columns are not all indexed; acceptable for operator use, would need indexes at large scale.
 - Archive coverage is a per-(workspace, class) watermark; a row committed late with an older recorded time than the watermark is never archived and therefore never pruned (safe failure).
 - Archive key rotation: pruning refuses an archive sealed under a different key id than the current `ZENITH_BACKUP_KEY` (it stays unpruned).
@@ -69,7 +71,7 @@ Example policy file (provisional windows, for evaluation only; a real policy nee
   "classes": { "runner_job_logs": { "archiveAfterDays": 30, "pruneAfterDays": 90 } },
   "approval": { "decision": "DEC-RETENTION", "approvedBy": "<decider>", "approvedAt": "<ISO time>" } }
 ```
-Omit `approval` (or leave `ZENITH_RETENTION_APPLY` unset) to archive without ever deleting.
+Omit `approval` (or leave `ZENITH_RETENTION_APPLY` unset) to archive without ever deleting. With no policy configured the approved baseline above applies.
 
 ## 5. Suggested ledger implementationStatus
 

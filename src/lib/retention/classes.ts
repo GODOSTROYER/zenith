@@ -9,7 +9,8 @@
  * module is built from this registry (table names are constants, never config), and `assertPrunableClass` is called
  * before any delete is built.
  *
- * DEC-RETENTION is pending: the default policy retains everything forever.
+ * DEC-RETENTION is approved (2026-10-13): the default policy archives and prunes the two log classes at 30 days and retains the
+ * other two (they are audit evidence, kept at least a year). Nothing is deleted until the operator switches deletion on.
  */
 export const RETENTION_CLASSES = ["runner_job_logs", "machine_request_logs", "resource_observations", "drift_reports"] as const;
 export type RetentionClass = (typeof RETENTION_CLASSES)[number];

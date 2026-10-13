@@ -1,8 +1,9 @@
 /**
  * `GET /api/admin/ops/retention` - the retention overview and dry-run preview (PROD-OPS-07).
  *
- * Answers the policy in force (default: retain everything forever), whether deletion is possible at all (it needs an
- * approved DEC-RETENTION policy and ZENITH_RETENTION_APPLY=1), the archive storage status, active legal holds, recent
+ * Answers the approved DEC-RETENTION baseline, the policy in force (default: logs 30 days), whether deletion is possible at
+ * all (it needs an approved policy and ZENITH_RETENTION_APPLY=1), the payload minimizer gate and its eligible and held
+ * counts, the archive storage status, active legal holds, recent
  * archives, and per-class counts of what would be archived and pruned. Read-only: nothing here changes data.
  * Platform operators only (ZENITH_OPS_ADMIN_IDS).
  */

@@ -2,7 +2,8 @@
  * The durable archive step and the bounded, archive-gated prune (PROD-OPS-07).
  *
  * Archive (copy only, never touches the source): select a bounded batch of cold rows of one workspace and class
- * beyond the last archived row, serialize them with an integrity manifest, SEAL the bytes (AES-256-GCM under
+ * beyond the last archived row (stopping BEFORE the first row under a legal hold: a held row is never copied and the
+ * watermark never passes it, so it is archived normally after the hold is released), serialize them with an integrity manifest, SEAL the bytes (AES-256-GCM under
  * ZENITH_BACKUP_KEY, the existing backup crypto), write them under a workspace-prefixed key, READ THEM BACK, unseal,
  * recompute the rows digest and compare it with the one computed from the database. Only then is the archive recorded.
  * A failed write, a failed readback or a digest mismatch records nothing and the next tick retries the same batch
@@ -90,8 +91,10 @@ export interface ArchiveContext {
 }
 
 export type ArchiveOutcome =
-  | { status: "archived"; archive: ArchiveRecord; rows: number }
+  | { status: "archived"; archive: ArchiveRecord; rows: number; /** the batch stopped before a row under a legal hold */ stoppedAtHold?: true }
   | { status: "nothing_to_archive" }
+  /** the next row to archive is under an active legal hold, so nothing is copied for this workspace and class */
+  | { status: "blocked"; reason: "legal_hold" }
   | { status: "failed"; reason: "key_unavailable" | "write_failed" | "readback_failed" | "digest_mismatch" };
 
 /** Read the archive object back and prove it holds exactly the expected rows. */
@@ -113,13 +116,23 @@ export async function archiveBatch(db: Sql, workspaceId: string, cls: RetentionC
   const limit = Math.max(1, Math.min(ARCHIVE_BATCH_ROWS, Math.trunc(ctx.batchRows ?? ARCHIVE_BATCH_ROWS)));
   const s = classSql(cls);
   const wm = await archiveWatermark(db, workspaceId, cls);
-  const rows = await db.query<{ row: Record<string, unknown>; id: string; ts: string }>(
-    `select to_jsonb(l) as row, l.id::text as id, ${s.time}::text as ts from ${s.from}
-      where l.workspace_id = $1 and ${s.cold} and ${s.time} < $2::timestamptz - make_interval(days => $3::int)
-        and ($4::timestamptz is null or (${s.time}, l.id) > ($4::timestamptz, $5::${s.idType}))
-      order by ${s.time}, l.id limit $6::int`,
-    [workspaceId, now.toISOString(), archiveAfterDays, wm?.ts ?? null, wm?.id ?? null, limit]);
-  if (!rows.length) return { status: "nothing_to_archive" };
+  // The candidate batch and its hold flags are read under the holds advisory lock, so a hold cannot be created between
+  // the check and the selection. The object write below happens outside the lock: a hold placed while a copy is in
+  // flight applies from the next batch (the copy only adds a sealed duplicate; the source rows are never touched here).
+  const candidates = await db.tx(async (tx) => {
+    await acquireHoldLock(tx);
+    return tx.query<{ row: Record<string, unknown>; id: string; ts: string; held: boolean }>(
+      `select to_jsonb(l) as row, l.id::text as id, ${s.time}::text as ts, ${s.held} as held from ${s.from}
+        where l.workspace_id = $1 and ${s.cold} and ${s.time} < $2::timestamptz - make_interval(days => $3::int)
+          and ($4::timestamptz is null or (${s.time}, l.id) > ($4::timestamptz, $5::${s.idType}))
+        order by ${s.time}, l.id limit $6::int`,
+      [workspaceId, now.toISOString(), archiveAfterDays, wm?.ts ?? null, wm?.id ?? null, limit]);
+  });
+  if (!candidates.length) return { status: "nothing_to_archive" };
+  // Stop at the first held row: it is never copied and the watermark (the last archived row) never passes it.
+  const firstHeld = candidates.findIndex((r) => r.held === true);
+  if (firstHeld === 0) return { status: "blocked", reason: "legal_hold" };
+  const rows = firstHeld === -1 ? candidates : candidates.slice(0, firstHeld);
   let key: Buffer;
   try { key = ctx.key ?? archiveKey(); } catch { return { status: "failed", reason: "key_unavailable" }; }
 
@@ -144,7 +157,7 @@ export async function archiveBatch(db: Sql, workspaceId: string, cls: RetentionC
     lastRecordedAt: last.ts, keyId: sealed.keyId, policyDigest: policyDigest(ctx.policy),
     destinationId: ctx.destination?.id ?? null, destinationLabel: ctx.destination?.label ?? ctx.target.label,
   });
-  return { status: "archived", archive, rows: data.length };
+  return { status: "archived", archive, rows: data.length, ...(firstHeld > 0 ? { stoppedAtHold: true as const } : {}) };
 }
 
 export type PruneOutcome =

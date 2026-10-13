@@ -1,8 +1,8 @@
 /**
  * The `data-retention` critical job (PROD-OPS-07): one bounded pass over the configured retention policy.
  *
- * DEC-RETENTION is pending, so with no configuration this does nothing (every default window is "retain forever").
- * With a policy it ARCHIVES (copies to object storage, verified by readback; the source is untouched). It PRUNES
+ * DEC-RETENTION is approved (2026-10-13) and its baseline (logs 30 days) is the default policy, so wherever archive
+ * storage and the sealing key are configured this ARCHIVES the two log classes by default. It ARCHIVES (copies to object storage, verified by readback; the source is untouched). It PRUNES
  * only when `retentionApplyGate` is open (ZENITH_RETENTION_APPLY=1 AND the policy carries a DEC-RETENTION approval),
  * and then only rows of a verified archive. Runs on the durable critical-maintenance schedule under the
  * `critical-job:data-retention` lease (the operator CLI scripts/data-retention.ts uses the same lease and record).
@@ -17,6 +17,8 @@ import { resolveDestination, type DestinationResolution, type ResolveDeps } from
 
 export const RETENTION_WORKSPACES_PER_CLASS = 10;
 export const RETENTION_BATCHES_PER_TICK = 5;
+/** Pages of workspaces scanned per class per tick, so workspaces that are blocked (legal hold, unavailable destination) cannot starve the rest; bounded so a tick never loops unboundedly. */
+export const RETENTION_WORKSPACE_PAGES_PER_CLASS = 5;
 
 export interface RetentionOptions {
   env?: Readonly<Record<string, string | undefined>>;
@@ -34,6 +36,8 @@ export interface RetentionOptions {
   maxBatches?: number;
   /** archives examined for pruning per tick (default 5) */
   maxPrunes?: number;
+  /** workspaces per candidate page (default 10); tests only */
+  workspacesPerPage?: number;
 }
 
 export interface RetentionResult {
@@ -48,6 +52,8 @@ export interface RetentionResult {
   archiveFailed: number;
   /** workspaces skipped because their own configured archive destination could not be opened (never falls back to the operator bucket) */
   destinationUnavailable: number;
+  /** workspace and class pairs where archiving stopped at a row under an active legal hold this tick */
+  archiveHeld: number;
   /** archives whose object could not be re-verified at prune time; nothing was deleted for them */
   pruneSkipped: number;
   /** true only when the delete gate was open this tick; otherwise archiving (if any) is copy-only */
@@ -61,7 +67,7 @@ export async function retentionPass(db: Sql, options: RetentionOptions = {}): Pr
   const now = options.now ?? new Date();
   const load = options.load ?? loadRetentionPolicy(env);
   const gate = retentionApplyGate(env, load);
-  const out: RetentionResult = { policyActive: 0, policyInvalid: load.ok ? 0 : 1, archiveBatches: 0, archivedRows: 0, prunedRows: 0, archiveFailed: 0, destinationUnavailable: 0, pruneSkipped: 0, applied: gate.enabled, note: gate.reason };
+  const out: RetentionResult = { policyActive: 0, policyInvalid: load.ok ? 0 : 1, archiveBatches: 0, archivedRows: 0, prunedRows: 0, archiveFailed: 0, archiveHeld: 0, destinationUnavailable: 0, pruneSkipped: 0, applied: gate.enabled, note: gate.reason };
   if (!load.ok) return out;
   const policy = load.policy;
   const classesInUse = RETENTION_CLASSES.filter((c) => widestScan(policy, c, "archiveAfterDays") !== null);
@@ -90,14 +96,20 @@ export async function retentionPass(db: Sql, options: RetentionOptions = {}): Pr
     const defaultDays = policy.classes[cls]?.archiveAfterDays ?? null;
     const overrides: Record<string, number | null> = {};
     for (const ws of Object.keys(policy.workspaces)) overrides[ws] = resolveWindow(policy, ws, cls).archiveAfterDays;
-    const candidates = await db.query<{ workspace_id: string }>(
-      `select l.workspace_id from ${s.from}
+    const pageSize = Math.max(1, Math.trunc(options.workspacesPerPage ?? RETENTION_WORKSPACES_PER_CLASS));
+    let cursor: { ts: string; ws: string } | null = null;
+    for (let page = 0; page < RETENTION_WORKSPACE_PAGES_PER_CLASS && budget > 0; page++) {
+    // Keyset paging on (oldest candidate time, workspace id): blocked workspaces stay first in order, so later pages reach the rest.
+    const candidates: { workspace_id: string; first_ts: string }[] = await db.query<{ workspace_id: string; first_ts: string }>(
+      `select l.workspace_id, min(${s.time})::text as first_ts from ${s.from}
         where ${s.cold}
           and ${s.time} < $1::timestamptz - make_interval(days => case when jsonb_exists($3::jsonb, l.workspace_id) then ($3::jsonb ->> l.workspace_id)::int else $2::int end)
           and not exists (select 1 from platform.retention_archives a where a.workspace_id = l.workspace_id and a.data_class = '${cls}'
                            and (a.last_recorded_at, a.last_row_id::${s.idType}) >= (${s.time}, l.id))
-        group by l.workspace_id order by min(${s.time}) limit $4::int`,
-      [now.toISOString(), defaultDays, JSON.stringify(overrides), RETENTION_WORKSPACES_PER_CLASS]);
+        group by l.workspace_id
+        having ($5::timestamptz is null or (min(${s.time}), l.workspace_id) > ($5::timestamptz, $6::text))
+        order by min(${s.time}), l.workspace_id limit $4::int`,
+      [now.toISOString(), defaultDays, JSON.stringify(overrides), pageSize, cursor?.ts ?? null, cursor?.ws ?? null]);
     for (const { workspace_id: ws } of candidates) {
       if (budget <= 0) break;
       const w = resolveWindow(policy, ws, cls);
@@ -109,8 +121,13 @@ export async function retentionPass(db: Sql, options: RetentionOptions = {}): Pr
         continue;
       }
       const r = await archiveBatch(db, ws, cls, w.archiveAfterDays, { target: dest.destination.target, destination: { id: dest.destination.id, label: dest.destination.label }, key: options.key, now, policy, batchRows: options.batchRows });
-      if (r.status === "archived") { budget--; out.archiveBatches++; out.archivedRows += r.rows; }
+      if (r.status === "archived") { budget--; out.archiveBatches++; out.archivedRows += r.rows; if (r.stoppedAtHold) out.archiveHeld++; }
+      else if (r.status === "blocked") out.archiveHeld++;
       else if (r.status === "failed") { budget--; out.archiveFailed++; if (r.reason === "key_unavailable") { out.note = "ZENITH_BACKUP_KEY is not usable, so archives cannot be sealed."; return out; } }
+    }
+    if (candidates.length < pageSize) break;
+    const lastRow = candidates[candidates.length - 1];
+    cursor = { ts: lastRow.first_ts, ws: lastRow.workspace_id };
     }
   }
 

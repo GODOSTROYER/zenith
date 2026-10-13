@@ -35,7 +35,7 @@ export default async function RetentionPage() {
         <header className={styles.heading}>
           <h1>Data retention</h1>
           <p>
-            What would be archived and pruned under the retention policy, without changing anything. Active operations, approvals, audit,
+            What is archived and pruned under the retention policy, and what is held back. This page changes nothing. Active operations, approvals, audit,
             receipts, the effect ledger and replay-prevention records are never removed, whatever the policy says.
           </p>
         </header>
@@ -44,14 +44,24 @@ export default async function RetentionPage() {
           <p className={styles.empty}>The platform control store is not reachable, so retention cannot be shown. Check the platform database configuration and try again.</p>
         ) : (
           <>
+            <section className={styles.section} aria-labelledby="baseline-heading">
+              <h2 id="baseline-heading">Approved baseline</h2>
+              <p>
+                Approved by {overview.baseline.approvedBy} on {overview.baseline.approvedAt.slice(0, 10)} ({overview.baseline.decision}). Production logs are kept {overview.baseline.logDays} days.
+                Sensitive execution payloads are deleted within {overview.baseline.payloadHours} hours after an operation finishes. Essential audit records (approvals,
+                infrastructure changes and outcomes) are kept at least {overview.baseline.auditMinimumDays} days and are never deleted automatically.
+                Approval does not start deletion: nothing is removed until the operator of this installation turns deletion on.
+              </p>
+            </section>
+
             <section className={styles.status} aria-label="Retention status">
               <div className={styles.card}>
                 <h2>Policy</h2>
                 <strong className={overview.policy.valid ? (overview.policy.retainsEverything ? styles.ok : undefined) : styles.warn}>
-                  {!overview.policy.valid ? "Invalid, keeping everything" : overview.policy.retainsEverything ? "Keeping everything forever" : "Windows configured"}
+                  {!overview.policy.valid ? "Invalid, nothing is removed" : overview.policy.retainsEverything ? "Keeping everything forever" : overview.policy.source === "default" ? "Approved baseline" : "Windows configured"}
                 </strong>
                 <p>
-                  {overview.policy.source === "default" ? "No policy is configured, so the default applies." : `Loaded from ${overview.policy.source === "file" ? "a policy file" : "inline configuration"}.`}
+                  {overview.policy.source === "default" ? "No policy is configured, so the approved baseline applies." : `Loaded from ${overview.policy.source === "file" ? "a policy file" : "inline configuration"}.`}
                   {overview.policy.problems.length ? ` ${overview.policy.problems.slice(0, 3).join(" ")}` : ""}
                 </p>
               </div>
@@ -61,6 +71,14 @@ export default async function RetentionPage() {
                 <p>{overview.gate.reason}</p>
               </div>
               <div className={styles.card}>
+                <h2>Payload minimizer</h2>
+                <strong className={overview.payloadMinimizer.gate.enabled ? styles.warn : styles.ok}>{overview.payloadMinimizer.gate.enabled ? "Enabled" : "Off (dry run)"}</strong>
+                <p>
+                  {overview.payloadMinimizer.gate.reason} Window: {overview.payloadMinimizer.hours} hours. Results ready to remove: {n(overview.payloadMinimizer.eligible)}.
+                  Held back by a legal hold: {n(overview.payloadMinimizer.held)}.
+                </p>
+              </div>
+              <div className={styles.card}>
                 <h2>Archive storage</h2>
                 <strong className={overview.archiveStorage.configured ? styles.ok : styles.warn}>{overview.archiveStorage.configured ? "Configured" : "Not configured"}</strong>
                 <p>{overview.archiveStorage.detail}{overview.archiveStorage.sealingKeyConfigured ? "" : " The sealing key (ZENITH_BACKUP_KEY) is not set, so archives cannot be written."}</p>
@@ -68,9 +86,9 @@ export default async function RetentionPage() {
             </section>
 
             <section className={styles.section} aria-labelledby="preview-heading">
-              <h2 id="preview-heading">Dry-run preview</h2>
+              <h2 id="preview-heading">Per data class</h2>
               <p>
-                Counts per data class under the policy in force. Rows are archived to storage first and pruned only after a verified copy exists.
+                Counts per data class under the policy in force; the first columns are a dry run. Rows are archived to storage first and pruned only after a verified copy exists.
                 The latest observation or report of each resource, rows of unsettled jobs and rows under a hold are always kept.
               </p>
               <div className={styles.tableWrap}>
@@ -81,10 +99,11 @@ export default async function RetentionPage() {
                       <th scope="col">Rows now</th>
                       <th scope="col">Would archive</th>
                       <th scope="col">Already archived</th>
+                      <th scope="col">Already pruned</th>
                       <th scope="col">Would prune</th>
                       <th scope="col">Prune waits for archive</th>
                       <th scope="col">Kept (latest)</th>
-                      <th scope="col">Held</th>
+                      <th scope="col">Blocked by legal hold</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -94,6 +113,7 @@ export default async function RetentionPage() {
                         <td>{n(c.totals.totalRows)}</td>
                         <td>{n(c.totals.archiveEligible)}</td>
                         <td>{n(c.archivedRows)}</td>
+                        <td>{n(c.prunedRows)}</td>
                         <td>{n(c.totals.pruneEligible)}</td>
                         <td>{n(c.totals.pruneWaitingForArchive)}</td>
                         <td>{n(c.totals.keptAsLatest)}</td>
@@ -114,7 +134,7 @@ export default async function RetentionPage() {
 
             <section className={styles.section} aria-labelledby="holds-heading">
               <h2 id="holds-heading">Legal holds</h2>
-              <p>A hold blocks archive-then-delete and pruning for a workspace, narrowed by data class, resource or time range. Releasing a hold never deletes anything.</p>
+              <p>A hold blocks archiving, pruning and payload removal for a workspace, narrowed by data class, resource or time range. Archiving stops before the first held row and continues from there once the hold is released. Releasing a hold never deletes anything.</p>
               <HoldsPanel
                 classes={RETENTION_CLASSES.map((value) => ({ value, label: CLASS_SPECS[value].label }))}
                 holds={overview.holds.map((h) => ({
@@ -140,6 +160,13 @@ export default async function RetentionPage() {
                   ))}
                 </ul>
               )}
+            </section>
+
+            <section className={styles.section} aria-labelledby="limits-heading">
+              <h2 id="limits-heading">What retention does not cover</h2>
+              <ul className={styles.protected}>
+                {overview.baseline.notices.map((notice) => <li key={notice}>{notice}</li>)}
+              </ul>
             </section>
 
             <section className={styles.section} aria-labelledby="protected-heading">

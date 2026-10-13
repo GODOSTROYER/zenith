@@ -52,6 +52,22 @@ export function classSql(cls: RetentionClass): ClassSql {
 }
 
 /**
+ * The hold predicate for a PARENT row (alias `t`: platform.runner_jobs or platform.machine_requests) of a log class, for
+ * the payload minimizer. It mirrors `classSql(cls).held` through the parent: the class's resource expressions with the
+ * log row's foreign key replaced by the parent id, and the hold's time range tested against the parent's `settled_at`.
+ */
+export function parentHeldSql(cls: "runner_job_logs" | "machine_request_logs"): string {
+  assertPrunableClass(cls);
+  const spec = CLASS_SPECS[cls];
+  if (!spec.parent) throw new Error(`${cls} has no parent table.`);
+  const exprs = spec.resourceExprs.map((e) => (e === `l.${spec.parent!.fk}` ? "t.id" : e.replace(/^p\./, "t.")));
+  return `exists (select 1 from platform.legal_holds h where h.workspace_id = t.workspace_id and h.released_at is null
+    and (h.data_class is null or h.data_class = '${cls}')
+    and (h.resource_ref is null or h.resource_ref in (${exprs.join(", ")}))
+    and (h.time_from is null or t.settled_at >= h.time_from) and (h.time_to is null or t.settled_at <= h.time_to))`;
+}
+
+/**
  * The only DELETE this module issues. Parameters: $1 workspace, $2 JSON array of row ids from a verified archive,
  * $3 now, $4 prune days. Re-checks every invariant at delete time: settled parent, not the latest of its group, no
  * hold, old enough, and listed in the verified manifest.
@@ -282,6 +298,8 @@ export interface ClassPreview {
   description: string;
   totals: Omit<WorkspacePreview, "workspaceId" | "archiveAfterDays" | "pruneAfterDays">;
   archivedRows: number;
+  /** rows removed from the source after a verified archive, across all archives of the class */
+  prunedRows: number;
   workspaces: WorkspacePreview[];
   /** a bounded sample of rows that the policy would prune once archived (ids and times only) */
   samplePrune: { workspaceId: string; rowId: string; recordedAt: string }[];
@@ -342,11 +360,11 @@ export async function previewRetention(sql: Sql, policy: RetentionPolicy, now: D
       }
     }
     const sum = (key: keyof ClassPreview["totals"]) => workspaces.reduce((n, w) => n + w[key], 0);
-    const archived = await sql.query<{ n: number }>("select coalesce(sum(row_count), 0)::int as n from platform.retention_archives where data_class = $1", [cls]);
+    const archived = await sql.query<{ n: number; p: number }>("select coalesce(sum(row_count), 0)::int as n, coalesce(sum(pruned_rows), 0)::int as p from platform.retention_archives where data_class = $1", [cls]);
     classes.push({
       class: cls, label: spec.label, description: spec.description,
       totals: { totalRows: sum("totalRows"), archiveEligible: sum("archiveEligible"), pruneEligible: sum("pruneEligible"), pruneWaitingForArchive: sum("pruneWaitingForArchive"), keptAsLatest: sum("keptAsLatest"), heldRows: sum("heldRows") },
-      archivedRows: Number(archived[0]?.n ?? 0), workspaces, samplePrune, truncated,
+      archivedRows: Number(archived[0]?.n ?? 0), prunedRows: Number(archived[0]?.p ?? 0), workspaces, samplePrune, truncated,
     });
   }
   return { generatedAt: nowIso, dryRun: true, classes, neverPrunable: Object.entries(NEVER_PRUNABLE).map(([table, reason]) => ({ table, reason })) };

@@ -7,7 +7,7 @@
  *     --recorded-by rehearsal-runner --reference rehearsal-2026-10-07
  *
  * The server derives RPO (failure minus newest recovered write) and RTO (restore minus failure) from the three
- * instants and records both, append-only, against the provisional targets. Use `--dry-run` to print the derived
+ * instants and records both, append-only, against the current targets. Use `--dry-run` to print the derived
  * numbers locally without contacting anything. A restore rehearsal (PROD-OPS-04) calls the same endpoint, or
  * `reportRecoveryRehearsal` in src/lib/slo/recovery.ts when it runs inside the app.
  *

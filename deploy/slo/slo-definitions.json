@@ -1,32 +1,67 @@
 {
   "schemaVersion": 1,
-  "definitionVersion": "2026-10-07.1",
+  "definitionVersion": "2026-10-13.1",
   "approval": {
-    "status": "not_approved",
-    "pendingDecision": "DEC-BUSINESS",
-    "note": "Every target in this file is a provisional engineering default. No accountable owner has approved any of them, and this file deliberately has no field that could record accountable sign-off. Approval is a business decision made outside this repository; until it is made, no report, page or alert may describe these as commitments."
+    "status": "approved_targets",
+    "decision": "DEC-BUSINESS",
+    "approvedBy": "Arnav Bule",
+    "approvedAt": "2026-10-13",
+    "commitment": "engineering_target",
+    "note": "Approved as launch service-level TARGETS: engineering targets that Zenith measures and works to meet, the same on every plan. They are not a contractual SLA and no service credits are offered. A contractual Enterprise SLA with service credits is a later, separate decision that follows production verification."
   },
   "budgetWindowDays": 30,
   "burnAlerts": [
-    { "name": "fast", "severity": "critical", "longWindow": "1h", "shortWindow": "5m", "factor": 14.4 },
-    { "name": "slow", "severity": "warning", "longWindow": "6h", "shortWindow": "30m", "factor": 6 },
-    { "name": "ticket", "severity": "info", "longWindow": "3d", "shortWindow": "6h", "factor": 1 }
+    {
+      "name": "fast",
+      "severity": "critical",
+      "longWindow": "1h",
+      "shortWindow": "5m",
+      "factor": 14.4
+    },
+    {
+      "name": "slow",
+      "severity": "warning",
+      "longWindow": "6h",
+      "shortWindow": "30m",
+      "factor": 6
+    },
+    {
+      "name": "ticket",
+      "severity": "info",
+      "longWindow": "3d",
+      "shortWindow": "6h",
+      "factor": 1
+    }
   ],
+  "nextMilestone": {
+    "objective": "control_plane_availability",
+    "target": 0.9999,
+    "status": "aspiration"
+  },
   "objectives": [
     {
       "id": "control_plane_availability",
-      "title": "Control-plane availability",
+      "title": "Control-plane availability (monthly)",
       "category": "availability",
-      "status": "provisional",
+      "status": "target",
       "kind": "ratio",
-      "target": 0.995,
-      "sli": "API requests that did not fail with a 5xx status, over all API requests (zenith_api_requests_total). 429 answers are the caller's own quota and count as served."
+      "target": 0.999,
+      "sli": "Control-plane requests that did not fail with a 5xx status, over all control-plane requests, measured two ways: from customer API requests (zenith_api_requests_total; 429 answers are the caller's own quota and count as served) and from an external probe that calls the control plane from outside (reported to the SLO measurements hook). When both report, the lower ratio is the figure. For customer-cloud (BYOC) deployments this covers Zenith's API and orchestration."
+    },
+    {
+      "id": "managed_runtime_availability",
+      "title": "Managed runtime availability (monthly)",
+      "category": "availability",
+      "status": "target",
+      "kind": "ratio",
+      "target": 0.999,
+      "sli": "Observations of workloads on Zenith-hosted (fully managed) deployments in supported production configurations in which all desired replicas were ready, over all such observations whose health was known (readiness read from the managed cluster on each reconcile pass). Customer-cloud (BYOC) workloads are outside this objective."
     },
     {
       "id": "api_latency",
       "title": "API latency (p95 under 500 ms)",
       "category": "latency",
-      "status": "provisional",
+      "status": "target",
       "kind": "latency_ratio",
       "target": 0.95,
       "thresholdSeconds": 0.5,
@@ -34,19 +69,19 @@
     },
     {
       "id": "dispatch_latency",
-      "title": "Dispatch latency (p95 under 30 s)",
+      "title": "Dispatch latency (95% within 30 s after approval)",
       "category": "dispatch",
-      "status": "provisional",
+      "status": "target",
       "kind": "latency_ratio",
       "target": 0.95,
       "thresholdSeconds": 30,
-      "sli": "Operations that needed no human approval and started running within 30 s of being created, over all such operations that started (platform.operations created_at to started_at)."
+      "sli": "Eligible operations that started running within 30 s, over all eligible operations that started (platform.operations). The clock starts at the last required approval, or at creation when no approval is required; time spent waiting for a human is not counted."
     },
     {
       "id": "workflow_completion",
       "title": "Workflow completion",
       "category": "workflow",
-      "status": "provisional",
+      "status": "target",
       "kind": "ratio",
       "target": 0.95,
       "sli": "Operations that finished as succeeded, over operations that finished as succeeded, failed or uncertain (platform.operations). Failures caused by a tenant's own configuration are included: the indicator does not yet separate them."
@@ -55,7 +90,7 @@
       "id": "scheduler_health",
       "title": "Scheduler health",
       "category": "scheduler",
-      "status": "provisional",
+      "status": "target",
       "kind": "ratio",
       "target": 0.99,
       "sli": "Critical periodic jobs that are healthy (recent success, not failing) at each sample, over all critical jobs sampled (platform.scheduled_job_runs, PROD-OBS-04). Durable-only jobs that have never run are not sampled."
@@ -64,7 +99,7 @@
       "id": "capacity",
       "title": "Sustained capacity",
       "category": "capacity",
-      "status": "provisional",
+      "status": "target",
       "kind": "capacity",
       "minRequestsPerSecond": 25,
       "maxP95Ms": 500,
@@ -75,19 +110,19 @@
       "id": "rpo",
       "title": "Recovery point objective",
       "category": "rpo",
-      "status": "provisional",
+      "status": "target",
       "kind": "recovery_seconds",
       "maxSeconds": 900,
-      "sli": "Seconds between the last data recovered by a restore rehearsal and the moment of the simulated failure."
+      "sli": "Seconds between the last data recovered by a restore rehearsal and the moment of the simulated failure, for explicitly covered data."
     },
     {
       "id": "rto",
       "title": "Recovery time objective",
       "category": "rto",
-      "status": "provisional",
+      "status": "target",
       "kind": "recovery_seconds",
       "maxSeconds": 14400,
-      "sli": "Seconds between the simulated failure and the moment a restore rehearsal reports the service answering again."
+      "sli": "Seconds between the simulated failure and the moment a restore rehearsal reports the service answering again, for explicitly covered data. This disaster-recovery objective is not an allowance under the monthly availability targets."
     }
   ]
 }

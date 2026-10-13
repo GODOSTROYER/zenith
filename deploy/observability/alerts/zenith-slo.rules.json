@@ -82,49 +82,49 @@
       "rules": [
         {
           "alert": "ZenithSloAvailabilityBurnFast",
-          "expr": "zenith:slo_api_availability:error_ratio_rate1h > 0.072 and zenith:slo_api_availability:error_ratio_rate5m > 0.072 and sum(increase(zenith_api_requests_total[1h])) >= 20",
+          "expr": "zenith:slo_api_availability:error_ratio_rate1h > 0.0144 and zenith:slo_api_availability:error_ratio_rate5m > 0.0144 and sum(increase(zenith_api_requests_total[1h])) >= 20",
           "for": "2m",
           "labels": {
             "severity": "critical",
             "service": "zenith-control-plane",
             "slo": "control_plane_availability",
-            "provisional": "true"
+            "commitment": "engineering_target"
           },
           "annotations": {
-            "summary": "Control-plane availability error budget burning 14.4x too fast (provisional SLO, not approved)",
-            "description": "Both the 1h and 5m error ratios exceed 0.072, which is 14.4x the allowed rate for the provisional 99.5% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "summary": "Control-plane availability error budget burning 14.4x too fast (launch engineering target, not a contractual SLA)",
+            "description": "Both the 1h and 5m error ratios exceed 0.0144, which is 14.4x the allowed rate for the 99.9% launch target in deploy/slo/slo-definitions.json. The target is an approved engineering target (DEC-BUSINESS, 2026-10-13), not a contractual SLA.",
             "runbook_url": "docs/platform/operations/SLO.md#zenithsloavailabilityburnfast"
           }
         },
         {
           "alert": "ZenithSloAvailabilityBurnSlow",
-          "expr": "zenith:slo_api_availability:error_ratio_rate6h > 0.03 and zenith:slo_api_availability:error_ratio_rate30m > 0.03 and sum(increase(zenith_api_requests_total[6h])) >= 20",
+          "expr": "zenith:slo_api_availability:error_ratio_rate6h > 0.006 and zenith:slo_api_availability:error_ratio_rate30m > 0.006 and sum(increase(zenith_api_requests_total[6h])) >= 20",
           "for": "15m",
           "labels": {
             "severity": "warning",
             "service": "zenith-control-plane",
             "slo": "control_plane_availability",
-            "provisional": "true"
+            "commitment": "engineering_target"
           },
           "annotations": {
-            "summary": "Control-plane availability error budget burning 6x too fast (provisional SLO, not approved)",
-            "description": "Both the 6h and 30m error ratios exceed 0.03, which is 6x the allowed rate for the provisional 99.5% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "summary": "Control-plane availability error budget burning 6x too fast (launch engineering target, not a contractual SLA)",
+            "description": "Both the 6h and 30m error ratios exceed 0.006, which is 6x the allowed rate for the 99.9% launch target in deploy/slo/slo-definitions.json. The target is an approved engineering target (DEC-BUSINESS, 2026-10-13), not a contractual SLA.",
             "runbook_url": "docs/platform/operations/SLO.md#zenithsloavailabilityburnslow"
           }
         },
         {
           "alert": "ZenithSloAvailabilityBurnTicket",
-          "expr": "zenith:slo_api_availability:error_ratio_rate3d > 0.005 and zenith:slo_api_availability:error_ratio_rate6h > 0.005 and sum(increase(zenith_api_requests_total[3d])) >= 20",
+          "expr": "zenith:slo_api_availability:error_ratio_rate3d > 0.001 and zenith:slo_api_availability:error_ratio_rate6h > 0.001 and sum(increase(zenith_api_requests_total[3d])) >= 20",
           "for": "1h",
           "labels": {
             "severity": "info",
             "service": "zenith-control-plane",
             "slo": "control_plane_availability",
-            "provisional": "true"
+            "commitment": "engineering_target"
           },
           "annotations": {
-            "summary": "Control-plane availability error budget burning 1x too fast (provisional SLO, not approved)",
-            "description": "Both the 3d and 6h error ratios exceed 0.005, which is 1x the allowed rate for the provisional 99.5% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "summary": "Control-plane availability error budget burning 1x too fast (launch engineering target, not a contractual SLA)",
+            "description": "Both the 3d and 6h error ratios exceed 0.001, which is 1x the allowed rate for the 99.9% launch target in deploy/slo/slo-definitions.json. The target is an approved engineering target (DEC-BUSINESS, 2026-10-13), not a contractual SLA.",
             "runbook_url": "docs/platform/operations/SLO.md#zenithsloavailabilityburnticket"
           }
         },
@@ -136,11 +136,11 @@
             "severity": "critical",
             "service": "zenith-control-plane",
             "slo": "api_latency",
-            "provisional": "true"
+            "commitment": "engineering_target"
           },
           "annotations": {
-            "summary": "API latency (p95 under 500 ms) error budget burning 14.4x too fast (provisional SLO, not approved)",
-            "description": "Both the 1h and 5m error ratios exceed 0.72, which is 14.4x the allowed rate for the provisional 95% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "summary": "API latency (p95 under 500 ms) error budget burning 14.4x too fast (launch engineering target, not a contractual SLA)",
+            "description": "Both the 1h and 5m error ratios exceed 0.72, which is 14.4x the allowed rate for the 95% launch target in deploy/slo/slo-definitions.json. The target is an approved engineering target (DEC-BUSINESS, 2026-10-13), not a contractual SLA.",
             "runbook_url": "docs/platform/operations/SLO.md#zenithslolatencyburnfast"
           }
         },
@@ -152,11 +152,11 @@
             "severity": "warning",
             "service": "zenith-control-plane",
             "slo": "api_latency",
-            "provisional": "true"
+            "commitment": "engineering_target"
           },
           "annotations": {
-            "summary": "API latency (p95 under 500 ms) error budget burning 6x too fast (provisional SLO, not approved)",
-            "description": "Both the 6h and 30m error ratios exceed 0.3, which is 6x the allowed rate for the provisional 95% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "summary": "API latency (p95 under 500 ms) error budget burning 6x too fast (launch engineering target, not a contractual SLA)",
+            "description": "Both the 6h and 30m error ratios exceed 0.3, which is 6x the allowed rate for the 95% launch target in deploy/slo/slo-definitions.json. The target is an approved engineering target (DEC-BUSINESS, 2026-10-13), not a contractual SLA.",
             "runbook_url": "docs/platform/operations/SLO.md#zenithslolatencyburnslow"
           }
         },
@@ -168,11 +168,11 @@
             "severity": "info",
             "service": "zenith-control-plane",
             "slo": "api_latency",
-            "provisional": "true"
+            "commitment": "engineering_target"
           },
           "annotations": {
-            "summary": "API latency (p95 under 500 ms) error budget burning 1x too fast (provisional SLO, not approved)",
-            "description": "Both the 3d and 6h error ratios exceed 0.05, which is 1x the allowed rate for the provisional 95% target in deploy/slo/slo-definitions.json. The target is an engineering default awaiting DEC-BUSINESS, not a commitment.",
+            "summary": "API latency (p95 under 500 ms) error budget burning 1x too fast (launch engineering target, not a contractual SLA)",
+            "description": "Both the 3d and 6h error ratios exceed 0.05, which is 1x the allowed rate for the 95% launch target in deploy/slo/slo-definitions.json. The target is an approved engineering target (DEC-BUSINESS, 2026-10-13), not a contractual SLA.",
             "runbook_url": "docs/platform/operations/SLO.md#zenithslolatencyburnticket"
           }
         }

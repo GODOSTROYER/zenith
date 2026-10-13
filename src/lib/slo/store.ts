@@ -5,8 +5,10 @@
  * `controlplane/db/repos`, callers pass the platform `Sql`):
  *   addSamples / sampleWindows / pruneSamples     SYSTEM: `slo_samples` holds only good/total counts per SLI name
  *   recordMeasurement / listMeasurements          SYSTEM: `slo_measurements` is append-only platform evidence (no workspace)
+ *   setBucketSample                               SYSTEM: replaces (not adds to) one five-minute bucket of one SLI; used by the external probe hook
  *   workflowCompletionWindows / dispatchLatencyWindows
- *                                                 SYSTEM aggregate reads over platform.operations across all workspaces:
+ *                                                 SYSTEM aggregate reads over platform.operations (and, for dispatch, the
+ *                                                 approvals of the SAME workspace and operation) across all workspaces:
  *                                                 counts only, no workspace id, payload or principal leaves the query
  *
  * Time is the database's clock for every window and bucket.
@@ -56,6 +58,27 @@ export async function addSamples(sql: Sql, entries: readonly SampleInput[]): Pro
   return written;
 }
 
+/**
+ * Replace one five-minute bucket of one SLI with the given counts (set, not add). Idempotent: a resubmitted probe
+ * window leaves the same row. `bucketStart` must be aligned to SAMPLE_BUCKET_SECONDS, not in the future (beyond
+ * a small clock skew) and inside the retention.
+ */
+export async function setBucketSample(sql: Sql, sli: string, bucketStart: Date, good: number, total: number): Promise<void> {
+  if (!SLI.test(sli)) throw new ControlStoreError("invalid_input", "sli must be a lowercase identifier.", { field: "sli" });
+  if (!Number.isSafeInteger(good) || !Number.isSafeInteger(total) || good < 0 || total < 1 || good > total) {
+    throw new ControlStoreError("invalid_input", "good and total must be integers with 0 <= good <= total and total >= 1.", { field: "total" });
+  }
+  const ms = bucketStart.getTime();
+  if (Number.isNaN(ms) || ms % (SAMPLE_BUCKET_SECONDS * 1000) !== 0) throw new ControlStoreError("invalid_input", `windowStart must be aligned to ${SAMPLE_BUCKET_SECONDS / 60} minutes.`, { field: "windowStart" });
+  if (ms + SAMPLE_BUCKET_SECONDS * 1000 > Date.now() + 5 * 60_000) throw new ControlStoreError("invalid_input", "The probe window ends in the future.", { field: "windowStart" });
+  if (ms < Date.now() - SAMPLE_RETENTION_DAYS * 86_400_000) throw new ControlStoreError("invalid_input", "The probe window is older than the retention.", { field: "windowStart" });
+  await sql.query(
+    `insert into platform.slo_samples as s (sli, bucket_start, good, total)
+     values ($1, $2::timestamptz, $3::bigint, $4::bigint)
+     on conflict (sli, bucket_start) do update set good = excluded.good, total = excluded.total, updated_at = clock_timestamp()`,
+    [sli, bucketStart.toISOString(), good, total]);
+}
+
 /** Whole buckets overlapping each window, summed per SLI. */
 export async function sampleWindows(sql: Sql, sli: string, budgetDays: number): Promise<Record<WindowKey, GoodTotal>> {
   if (!SLI.test(sli)) throw new ControlStoreError("invalid_input", "sli must be a lowercase identifier.", { field: "sli" });
@@ -101,19 +124,41 @@ export async function workflowCompletionWindows(sql: Sql, budgetDays: number): P
 }
 
 /**
- * Dispatch latency: among operations that required no approval and have started, those that started within
- * `thresholdSeconds` of being created. Operations that waited for a human are excluded (their wait is not the
- * platform's latency). Operations that have not started yet are not counted until they do.
+ * Dispatch latency over ELIGIBLE operations. The clock starts when an operation became eligible to run: the time of
+ * the last required approval (platform.approvals, decision 'approve', of the same workspace and operation, any round)
+ * when the operation required approval, otherwise its creation. An operation that required approval but has no
+ * recorded approval has no eligibility instant and is not counted. Human waiting before that instant is not the
+ * platform's latency.
+ *
+ * Counted events: operations that started in the window (good when started within `thresholdSeconds` of becoming
+ * eligible), plus operations still waiting (status approved or queued, never started) that have already waited longer
+ * than `thresholdSeconds` since eligibility; those are misses dated at the instant they became late, so a stuck
+ * dispatch shows up without waiting for it to start. Once such an operation starts it is counted by its start
+ * instead, never twice. Operations that were never started (cancelled, expired) are not counted.
  */
 export async function dispatchLatencyWindows(sql: Sql, thresholdSeconds: number, budgetDays: number): Promise<Record<WindowKey, GoodTotal>> {
   if (!(thresholdSeconds > 0)) throw new ControlStoreError("invalid_input", "thresholdSeconds must be positive.", { field: "thresholdSeconds" });
   const secs = windowSeconds(budgetDays);
-  const cols = KEYS.map((k, i) => `count(*) filter (where started_at - created_at <= make_interval(secs => $1::double precision) and started_at > clock_timestamp() - make_interval(secs => $${i + 2}::int))::text as g_${i},
-       count(*) filter (where started_at > clock_timestamp() - make_interval(secs => $${i + 2}::int))::text as t_${i}`).join(",\n       ");
+  const cols = KEYS.map((k, i) => `count(*) filter (where good and event_at > clock_timestamp() - make_interval(secs => $${i + 2}::int))::text as g_${i},
+       count(*) filter (where event_at > clock_timestamp() - make_interval(secs => $${i + 2}::int))::text as t_${i}`).join(",\n       ");
   const rows = await sql.query<Record<string, string>>(
-    `select ${cols} from platform.operations
-      where approval_required = false and started_at is not null
-        and started_at > clock_timestamp() - make_interval(secs => $${KEYS.length + 2}::int)`,
+    `select ${cols} from (
+       select e.started_at is not null and e.started_at - e.eligible_at <= make_interval(secs => $1::double precision) as good,
+              case when e.started_at is not null then e.started_at else e.eligible_at + make_interval(secs => $1::double precision) end as event_at
+         from (
+           select o.started_at, o.status,
+                  case when o.approval_required then ap.approved_at else o.created_at end as eligible_at
+             from platform.operations o
+             left join lateral (
+               select max(a.created_at) as approved_at from platform.approvals a
+                where a.workspace_id = o.workspace_id and a.operation_id = o.id and a.decision = 'approve'
+             ) ap on o.approval_required
+            where o.started_at is not null or o.status in ('approved','queued')
+         ) e
+        where e.eligible_at is not null
+          and (e.started_at is not null or e.eligible_at + make_interval(secs => $1::double precision) < clock_timestamp())
+     ) x
+     where event_at > clock_timestamp() - make_interval(secs => $${KEYS.length + 2}::int)`,
     [thresholdSeconds, ...KEYS.map((k) => secs[k]), secs.budget]);
   const r = rows[0] ?? {};
   const out = {} as Record<WindowKey, GoodTotal>;

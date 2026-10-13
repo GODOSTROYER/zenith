@@ -13,6 +13,7 @@ import {
   type BackupManifest, type ComponentId, type ManifestComponent,
 } from "@/lib/ops/recovery/manifest";
 import { RecoveryToolError, mustRun, pgArgs, scrub, toolsFromEnv, type CommandRunner } from "@/lib/ops/recovery/process";
+import { sloDefinitions } from "@/lib/slo/definitions";
 import { deliverReport, measureRecovery, registerRecoveryMeasurementSink, targetsFromEnv } from "@/lib/ops/recovery/report";
 import { runRestore, terminateOpenTemporalWorkflows, type RestoreOptions } from "@/lib/ops/recovery/restore";
 
@@ -275,13 +276,31 @@ describe("RPO / RTO measurement", () => {
   });
 
   it("never uses database duration to claim an RTO target with an unknown incident time", () => {
-    const m = measureRecovery({ ...times, applicationHealthyAt: "2026-10-07T13:00:00.000Z", targets: targetsFromEnv({ ZENITH_RTO_TARGET_SECONDS: "900" }) });
+    const m = measureRecovery({ ...times, applicationHealthyAt: "2026-10-07T13:00:00.000Z", targets: targetsFromEnv({ ZENITH_RPO_TARGET_SECONDS: "86400", ZENITH_RTO_TARGET_SECONDS: "900" }) });
     expect(m.rtoSeconds).toBeNull();
     expect(m.verdict).toBe("incomplete_measurement");
   });
 
-  it("compares against provisional targets only when they are configured", () => {
-    expect(targetsFromEnv({})).toEqual({ rpoSeconds: null, rtoSeconds: null, status: "unset" });
+  it("with unapproved definitions and no environment value there are no targets", () => {
+    const unapproved = { ...sloDefinitions(), approval: { status: "not_approved" as const, pendingDecision: "DEC-BUSINESS" as const, note: "custom" } };
+    expect(targetsFromEnv({}, unapproved)).toEqual({ rpoSeconds: null, rtoSeconds: null, status: "unset" });
+    expect(measureRecovery({ ...times, targets: targetsFromEnv({}, unapproved) }).verdict).toBe("no_targets");
+    expect(targetsFromEnv({ ZENITH_RTO_TARGET_SECONDS: "900" }, unapproved)).toEqual({ rpoSeconds: null, rtoSeconds: 900, status: "provisional" });
+  });
+
+  it("with approved definitions the targets default to the SLO RPO and RTO, and the environment still wins", () => {
+    expect(targetsFromEnv({})).toEqual({ rpoSeconds: 900, rtoSeconds: 14_400, status: "target" });
+    expect(targetsFromEnv({ ZENITH_RPO_TARGET_SECONDS: "  " })).toEqual({ rpoSeconds: 900, rtoSeconds: 14_400, status: "target" });
+    expect(targetsFromEnv({ ZENITH_RTO_TARGET_SECONDS: "600" })).toEqual({ rpoSeconds: 900, rtoSeconds: 600, status: "provisional" });
+    const both = targetsFromEnv({ ZENITH_RPO_TARGET_SECONDS: "60", ZENITH_RTO_TARGET_SECONDS: "120" });
+    expect(both).toEqual({ rpoSeconds: 60, rtoSeconds: 120, status: "provisional" });
+    // the restore verdict and the SLO objectives agree: 1 h of backup age breaches the 15 minute RPO with no environment at all
+    const m = measureRecovery({ ...times, incidentAt: "2026-10-07T11:30:00.000Z", targets: targetsFromEnv({}) });
+    expect(m.targets).toMatchObject({ rpoSeconds: 900, rtoSeconds: 14_400 });
+    expect(m.verdict).toBe("exceeds_targets");
+  });
+
+  it("compares against operator-supplied targets when they are configured", () => {
     const targets = targetsFromEnv({ ZENITH_RPO_TARGET_SECONDS: "3600", ZENITH_RTO_TARGET_SECONDS: "900" });
     expect(targets.status).toBe("provisional");
     expect(measureRecovery({ ...times, incidentAt: "2026-10-07T11:30:00.000Z", targets }).verdict).toBe("exceeds_targets");

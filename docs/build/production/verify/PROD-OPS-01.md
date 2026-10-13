@@ -149,3 +149,19 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-01 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+
+## Service-level decision (DEC-BUSINESS, 2026-10-13)
+
+Branch `prod/dec-slo`. Build only; no live deployment was touched. Owner decision: launch service-level TARGETS, engineering targets and not a contractual SLA (no service credits; a contractual Enterprise SLA is later, after production verification).
+
+What changed:
+
+- Approval model: `deploy/slo/slo-definitions.json` is `definitionVersion 2026-10-13.1`, `approval.status: approved_targets` (approvedBy Arnav Bule, approvedAt 2026-10-13, `commitment: engineering_target`), every objective `status: target`. `src/lib/slo/definitions.ts` still accepts the old `not_approved` plus `provisional` shape, refuses mixed files, per-objective approval fields and objective text that claims a service credit, contract or guarantee, and accepts an optional `nextMilestone` (99.99%, aspiration, never evaluated).
+- Targets: control-plane availability 0.999 (request-based AND external probe, lower of the two); new `managed_runtime_availability` 0.999; dispatch latency measured from the last required approval; RPO and RTO "for explicitly covered data", RTO not an allowance under availability. Burn alert thresholds are now 0.0144 / 0.006 / 0.001.
+- External probe: `POST /api/internal/slo/measurements` accepts `kind: external_probe` (five-minute aligned window, good, total; bucket replaced so it is idempotent) stored as SLI `external_probe_availability`. No platform migration. The report names both ratios and says "External probe not reporting; request-based measurement cannot see outages that stop requests arriving." while no probe sample exists.
+- Managed runtime: `onRuntimeObserved` reconcile port (`src/lib/reconcile/core.ts`, called after the pass commits) is wired in `src/lib/reconcile/platform/index.ts` to `recordManagedRuntimeHealth` (`src/lib/slo/recorder.ts`): one sample per zenith `k8s:Deployment` in a production environment; unknown health is counted under `managed_runtime_unknown`, not in the ratio.
+- Dispatch latency: `dispatchLatencyWindows` joins the last approve decision in `platform.approvals` (same workspace and operation); approved or queued operations already late by more than 30 s count as misses.
+- Restore tooling: `targetsFromEnv` defaults to the approved RPO/RTO (900 / 14400); env values override and are labelled provisional.
+
+The Mac verifier should run, sequentially on Node 22: `npx tsc --noEmit -p .`; `npx vitest run tests/slo tests/ops/recovery-manifest.test.ts tests/ops/data-plane-independence.test.ts tests/docs/operator-docs.test.ts tests/ci/packaged-workers.test.ts --no-file-parallelism --maxWorkers=2`; `ZENITH_TEST_PLATFORM_PG_URL=postgres://... npx vitest run tests/slo/slo.engine.test.ts` (real PostgreSQL lane for the dispatch join); the reconcile suites that build ports (`npx vitest run tests/reconcile`). Then, on a deployment: wire an external probe per SLO.md, confirm `/admin/slo` shows both availability sources, and confirm a managed production environment accumulates `managed_runtime_availability` samples after a reconcile pass. Status stays `implementation_complete_verification_pending`.

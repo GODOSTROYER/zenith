@@ -320,6 +320,20 @@ export interface ReconcilePorts {
   driverFor?(node: ResourceNode): ResourceDriver | undefined;
   /** Receives driver log lines; default discards them. Never persisted by the controller. */
   log?: DriverLog;
+  /**
+   * Optional: told which runtime health this pass observed, after the pass committed. The production adapter uses it
+   * to sample managed-runtime availability for the SLO report (src/lib/slo/recorder.ts). A failure here is swallowed:
+   * a metrics write must never fail an observation.
+   */
+  onRuntimeObserved?(environment: ReconcileEnvironment, observed: readonly ObservedRuntimeHealth[]): Promise<void> | void;
+}
+
+/** What a pass learned about one node's runtime: provider, native type and the normalised health with replica counts. */
+export interface ObservedRuntimeHealth {
+  provider: string;
+  nativeType: string;
+  health: "healthy" | "degraded" | "unhealthy" | "unknown";
+  counts: Readonly<Record<string, number>>;
 }
 
 /* --------------------------------- options --------------------------------- */

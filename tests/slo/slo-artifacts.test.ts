@@ -1,5 +1,5 @@
 /**
- * PROD-OPS-01: the exported Prometheus rules stay in step with the definition file and the metric catalog, the
+ * PROD-OPS-01 / DEC-BUSINESS: the exported Prometheus rules stay in step with the definition file and the metric catalog, the
  * runbook headings the alerts link to exist, and the two scripts do their own arithmetic correctly.
  */
 import { readFileSync } from "node:fs";
@@ -56,12 +56,14 @@ describe("zenith-slo.rules.json", () => {
     expect(records.find((r) => r.record?.includes("slo_api_latency"))?.expr).toContain('le="0.5"');
   });
 
-  it("has one alert per burn definition per SLI, and every alert says provisional", () => {
+  it("has one alert per burn definition per SLI, and every alert says engineering target, not a contractual SLA", () => {
     expect(alerts.length).toBe(defs.burnAlerts.length * Object.keys(SLI_RULE_PREFIX).length);
     for (const a of alerts) {
-      expect(a.labels.provisional, a.alert).toBe("true");
-      expect(a.annotations?.summary, a.alert).toContain("provisional SLO, not approved");
+      expect(a.labels.commitment, a.alert).toBe("engineering_target");
+      expect(a.labels.provisional, a.alert).toBeUndefined();
+      expect(a.annotations?.summary, a.alert).toContain("launch engineering target, not a contractual SLA");
       expect(a.annotations?.description, a.alert).toContain("DEC-BUSINESS");
+      expect(a.annotations?.description, a.alert).toContain("not a contractual SLA");
       expect(["critical", "warning", "info"]).toContain(a.labels.severity);
     }
   });
@@ -85,6 +87,11 @@ describe("zenith-slo.rules.json", () => {
     }
   });
 
+  it("availability thresholds are the 0.1% budget times 14.4, 6 and 1", () => {
+    const thresholds = Object.fromEntries(["Fast", "Slow", "Ticket"].map((n) => [n, [...alerts.find((a) => a.alert === `ZenithSloAvailabilityBurn${n}`)!.expr.matchAll(/> ([0-9.]+)/g)].map((m) => Number(m[1])).slice(0, 2)]));
+    expect(thresholds).toEqual({ Fast: [0.0144, 0.0144], Slow: [0.006, 0.006], Ticket: [0.001, 0.001] });
+  });
+
   it("every alert links to a runbook heading that exists", () => {
     for (const a of alerts) {
       const anchor = a.annotations!.runbook_url.split("#")[1];
@@ -101,10 +108,28 @@ describe("zenith-slo.rules.json", () => {
 });
 
 describe("the guide", () => {
-  it("states the provisional status and the pending decision", () => {
-    expect(runbook).toContain("provisional and unapproved");
+  it("states the approved launch targets, that they are not a contractual SLA, and the scope rules", () => {
     expect(runbook).toContain("DEC-BUSINESS");
-    for (const target of ["99.5%", "500 ms", "15 minutes", "4 hours"]) expect(runbook).toContain(target);
+    expect(runbook).toContain("Arnav Bule on 2026-10-13");
+    expect(runbook).toContain("They are not a contractual SLA, and no service credits are offered.");
+    expect(runbook).toContain("Enterprise SLA with service credits is a later");
+    for (const target of ["99.9%", "500 ms", "15 minutes", "4 hours", "30 s", "explicitly covered data", "Managed runtime availability", "BYOC", "NOT an allowance", "99.99%", "aspiration", "0.0144"]) expect(runbook, target).toContain(target);
+    expect(runbook).not.toContain("99.5%");
+    expect(runbook).not.toMatch(/provisional and unapproved/);
+  });
+
+  it("documents the external probe hook with a curl example using placeholder credentials", () => {
+    expect(runbook).toContain('"kind":"external_probe"');
+    expect(runbook).toContain("Authorization: Bearer <CRON_SECRET>");
+    expect(runbook).toContain("/api/internal/slo/measurements");
+    expect(runbook).toContain("External probe not reporting");
+  });
+
+  it("no product-facing artifact offers service credits or a contract", () => {
+    for (const rel of ["deploy/slo/slo-definitions.json", "deploy/observability/alerts/zenith-slo.rules.json"]) {
+      const text = read(rel);
+      for (const m of text.matchAll(/[^.\n]*(service[\s-]*credit|contractual|guarantee)[^.\n]*/gi)) expect(m[0], rel).toMatch(/not (a )?contractual|no service credits|a contractual (Enterprise )?SLA with service credits is a later|not offered/i);
+    }
   });
 });
 

@@ -237,6 +237,13 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
     findingSince,
   });
 
+  // Runtime health is on the record. Tell the optional sink (SLO sampling); it can never fail or slow-fail the pass.
+  if (ports.onRuntimeObserved) {
+    try {
+      await ports.onRuntimeObserved(environment, observed.flatMap((o) => (o.runtime && !o.runtime.simulated ? [{ provider: o.node.provider, nativeType: o.node.nativeType, health: o.runtime.health, counts: o.runtime.counts }] : [])));
+    } catch { /* best effort */ }
+  }
+
   // From here on the drift is on the record; only now may a repair be proposed.
   const previousKeys = new Set((previous?.report.findings ?? []).map(findingKey));
   const selection = selectRepairCandidates({

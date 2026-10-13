@@ -201,7 +201,7 @@ export async function recoveryMain(
         ...(namespace ? { temporal: { namespace, ...(one(p, "--temporal-address") ? { address: one(p, "--temporal-address") } : {}), terminate: p.bools.has("--terminate-temporal") } } : {}),
       }).finally(unregister);
       for (const s of result.steps) output(`${s.status.toUpperCase().padEnd(10)} ${s.id.padEnd(10)} ${s.detail}`);
-      if (result.measurement) output(`RPO ${result.measurement.rpoSeconds ?? `<= ${result.measurement.backupAgeAtRestoreStartSeconds}`}s, restore ${result.measurement.restoreDurationSeconds}s, verdict ${result.measurement.verdict} (targets are provisional).`);
+      if (result.measurement) output(`RPO ${result.measurement.rpoSeconds ?? `<= ${result.measurement.backupAgeAtRestoreStartSeconds}`}s, restore ${result.measurement.restoreDurationSeconds}s, verdict ${result.measurement.verdict} (targets: see the SLO definitions).`);
       for (const line of result.needsPerson) output(`NEEDS A PERSON: ${line}`);
       output(`Report written to ${path.resolve(report)}.`);
       return result.ok ? 0 : 1;

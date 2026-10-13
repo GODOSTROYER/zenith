@@ -4,7 +4,7 @@ Written against branch `prod/compose`, guide input at `443bfeaf537dd5d5324d33c84
 
 PROD-OPS-04. Built, not rehearsed against production: the rehearsal below runs on real PostgreSQL and a Temporal dev
 server on one machine, and nothing here has been run against a hosted cluster, Temporal Cloud or a customer cloud.
-Not verified live. Targets quoted anywhere in this page are provisional until PROD-OPS-01 records an accountable approval.
+Not verified live. Targets quoted anywhere in this page are the approved launch engineering targets (RPO 15 minutes, RTO 4 hours, for explicitly covered data; DEC-BUSINESS, 2026-10-13). They are not a contractual SLA.
 
 This page replaces the "restoring to an earlier point in time is not free" warning in [RECOVERY.md](RECOVERY.md) section
 4.6 with a mechanism. RECOVERY.md still describes the stores, the crash model and key rotation; read it for those.
@@ -118,7 +118,7 @@ the operator's break-glass with database credentials and is recorded as `operato
 Measured from recorded instants, never asserted. RPO = loss time minus `platform.snapshotAt` (without `--incident-at` the
 report gives the backup age at restore start, an upper bound, and says so). RTO = fenced-and-verified time minus the loss
 time (or the restore duration alone). `status` reports continuation: how long the person took to decide every item. Targets
-(`ZENITH_RPO_TARGET_SECONDS`, `ZENITH_RTO_TARGET_SECONDS`) are compared and labelled provisional; with none set the verdict
+default to the RPO and RTO objectives in `deploy/slo/slo-definitions.json` (900 s and 14400 s) so this tool and the SLO page agree. `ZENITH_RPO_TARGET_SECONDS` and `ZENITH_RTO_TARGET_SECONDS` override them and are then labelled provisional (an operator choice); with unapproved custom definitions and none set the verdict
 is `no_targets`. PROD-OPS-01 hooks attach through `registerRecoveryMeasurementSink`; absent, the plain JSON report is the
 record.
 

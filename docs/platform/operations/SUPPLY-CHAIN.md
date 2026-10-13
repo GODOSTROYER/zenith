@@ -29,6 +29,10 @@ Push a version tag (`v1.2.3`, `v1.2.3-rc.1`) whose commit is on the default bran
    `ZENITH_RELEASE_PUBLIC_KEYS` (a JSON array of pinned `{"kid","publicKey"}` entries), optionally
    `ZENITH_UPDATE_BASE_URL` (an https prefix under which you host `<version>/<os>-<arch>/<component>`).
 
+Current release key (public half, safe to publish): kid `release-2026-10`, publicKey
+`QCz_edVf623L2xc3D9dRRytU25iMBVd3npdz-c2GOaY`, created 2026-10-13. The `release` environment exists with a required
+reviewer and both variables set. Pin this entry in each agent's `update.publicKeys` before its first signed update.
+
 Without the secret the run still builds and uploads an artifact named `release-UNSIGNED-<tag>`, labelled unsigned, and
 publishes nothing. With it, the run builds, generates the SBOM, signs, then verifies its own output offline against the
 pinned public keys before publishing; a failed verification publishes nothing.

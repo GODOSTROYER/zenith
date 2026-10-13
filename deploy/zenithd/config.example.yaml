@@ -62,8 +62,8 @@ update:
   # channel: stable
   # manifestUrl: https://downloads.example.com/zenithd/stable.json
   # publicKeys:
-  #   - kid: release-2026-1
-  #     publicKey: REPLACE_WITH_BASE64URL_ED25519_PUBLIC_KEY
+  #   - kid: release-2026-10
+  #     publicKey: QCz_edVf623L2xc3D9dRRytU25iMBVd3npdz-c2GOaY
   # checkIntervalSec: 3600
   # healthWindowSec: 300
 

@@ -10,7 +10,9 @@ import * as repos from "@/lib/controlplane/db/repos";
 import { createMachineRequestQueue } from "@/lib/runners/db/machine-requests";
 import { createAesResultSealer, isSealedBox } from "@/lib/runners/seal";
 import { verifyResultEnvelope } from "@/lib/sensitivedata/at-rest";
-import { DEFAULT_RESULT_RETENTION_HOURS, minimizeApplyEnabled, minimizePass, resultRetentionHours } from "@/lib/sensitivedata/minimize";
+import { createHold, releaseHold } from "@/lib/retention/store";
+import { DEFAULT_RETENTION_POLICY, parseRetentionPolicy, type PolicyLoad } from "@/lib/retention/policy";
+import { DEFAULT_RESULT_RETENTION_HOURS, minimizeApplyEnabled, minimizeGate, minimizePass, resultRetentionHours } from "@/lib/sensitivedata/minimize";
 import { newWorkspace, seedApprovedOperation, uid } from "../controlplane/_support/harness";
 
 const KEY = "A".repeat(43);
@@ -44,13 +46,30 @@ const resultOf = async (table: "runner_jobs" | "machine_requests", id: string): 
   (await db.query<{ result: Record<string, unknown> | null }>(`select result from platform.${table} where id = $1`, [id]))[0].result;
 
 describe("retention window", () => {
-  it("deletion needs the apply flag AND an explicit valid window (DEC-RETENTION is pending)", () => {
+  it("deletion needs the apply flag, an approved policy and a valid window (explicit, or the approved 72 hours)", () => {
     expect(minimizeApplyEnabled({})).toBe(false);
-    expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1" })).toBe(false);
+    // DEC-RETENTION is approved and 72 hours is the approved window, so the flag alone is enough with the built-in policy
+    expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1" })).toBe(true);
+    expect(minimizeGate({ ZENITH_DATA_MINIMIZE_APPLY: "1" })).toMatchObject({ enabled: true, hours: 72 });
     expect(minimizeApplyEnabled({ ZENITH_RESULT_RETENTION_HOURS: "24" })).toBe(false);
     expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "true", ZENITH_RESULT_RETENTION_HOURS: "24" })).toBe(false);
     expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RESULT_RETENTION_HOURS: "0" })).toBe(false);
     expect(minimizeApplyEnabled({ ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RESULT_RETENTION_HOURS: "24" })).toBe(true);
+    for (const bad of ["721", "1.5", "soon"]) expect(minimizeGate({ ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RESULT_RETENTION_HOURS: bad }).enabled).toBe(false);
+  });
+
+  it("refuses without a DEC-RETENTION approval in the loaded policy, or with an invalid policy", () => {
+    const apply = { ZENITH_DATA_MINIMIZE_APPLY: "1" };
+    const operatorPolicy = parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 30 } } });
+    const unapproved: PolicyLoad = { ok: true, policy: operatorPolicy, source: "inline", digest: "0".repeat(64) };
+    expect(minimizeGate(apply, unapproved)).toMatchObject({ enabled: false, reason: expect.stringMatching(/no DEC-RETENTION approval/) });
+    const approved: PolicyLoad = { ok: true, policy: { ...operatorPolicy, approval: DEFAULT_RETENTION_POLICY.approval }, source: "inline", digest: "0".repeat(64) };
+    expect(minimizeGate(apply, approved).enabled).toBe(true);
+    const invalid: PolicyLoad = { ok: false, policy: DEFAULT_RETENTION_POLICY, source: "inline", digest: "", problems: ["bad"] };
+    expect(minimizeGate(apply, invalid)).toMatchObject({ enabled: false, reason: expect.stringMatching(/invalid/) });
+    // the same through the environment: an inline operator policy without approval turns removal off
+    const env = { ...apply, ZENITH_RETENTION_POLICY: JSON.stringify({ version: 1, classes: {} }) };
+    expect(minimizeGate(env).enabled).toBe(false);
   });
 
   it("defaults to 72 hours and ignores an invalid override rather than erasing at once or never", () => {
@@ -62,6 +81,20 @@ describe("retention window", () => {
 });
 
 describe("sealed result minimization", () => {
+  it("applies with only the switch and the approved default policy, using the approved 72 hours", async () => {
+    const ws = newWorkspace();
+    const { id: runnerId } = await runner(ws);
+    const old = await settledRunnerJob(ws, runnerId, 80, secretBody());
+    const recent = await settledRunnerJob(ws, runnerId, 60, secretBody());
+    const outcome = await minimizePass(db, { env: { ZENITH_DATA_MINIMIZE_APPLY: "1" } });
+    expect(outcome).toMatchObject({ applied: true, retentionHours: 72, retry: 0 });
+    expect((await resultOf("runner_jobs", old))?.minimized).toBe(true);
+    expect(isSealedBox(((await resultOf("runner_jobs", recent)) as { sealed: unknown }).sealed)).toBe(true);
+    // leave no sealed leftovers for the window-specific tests below
+    await minimizePass(db, { env: { ...APPLY, ZENITH_RESULT_RETENTION_HOURS: "24" } });
+    expect((await resultOf("runner_jobs", recent))?.minimized).toBe(true);
+  });
+
   it("removes the sealed body of settled jobs past the window, and only those", async () => {
     const ws = newWorkspace();
     const { id: runnerId } = await runner(ws);
@@ -79,9 +112,9 @@ describe("sealed result minimization", () => {
     expect(dry).toMatchObject({ applied: false, retry: 0 });
     expect(dry.runnerResults).toBeGreaterThanOrEqual(2);
     expect(isSealedBox(((await resultOf("runner_jobs", old)) as { sealed: unknown }).sealed)).toBe(true);
-    // apply without an explicit window, or the window without the apply flag, still deletes nothing
-    expect((await minimizePass(db, { env: { ZENITH_DATA_MINIMIZE_APPLY: "1" } })).applied).toBe(false);
+    // the window without the apply flag, or the flag with an operator policy that has no approval, still deletes nothing
     expect((await minimizePass(db, { env: { ZENITH_RESULT_RETENTION_HOURS: "72" } })).applied).toBe(false);
+    expect((await minimizePass(db, { env: { ZENITH_DATA_MINIMIZE_APPLY: "1", ZENITH_RETENTION_POLICY: JSON.stringify({ version: 1 }) } })).applied).toBe(false);
     expect(isSealedBox(((await resultOf("runner_jobs", old)) as { sealed: unknown }).sealed)).toBe(true);
     const outcome = await minimizePass(db, { env: APPLY });
     expect(outcome).toMatchObject({ retentionHours: 72, applied: true, retry: 0 });
@@ -165,5 +198,57 @@ describe("agent upload sweep", () => {
     const result = await minimizePass(db, { env: {}, product: async () => { throw new Error("password=hunter2 postgres://u:p@h/db"); } });
     expect(result.retry).toBeGreaterThan(0);
     expect(JSON.stringify(result)).not.toContain("hunter2");
+  });
+});
+
+describe("legal holds stop payload minimization", () => {
+  const hasSealed = async (id: string): Promise<boolean> => isSealedBox(((await resultOf("runner_jobs", id)) as { sealed: unknown }).sealed);
+  const opOf = async (id: string) => (await db.query<{ operation_id: string }>("select operation_id from platform.runner_jobs where id = $1", [id]))[0].operation_id;
+  const env = { ZENITH_DATA_MINIMIZE_APPLY: "1" };
+
+  it("skips held jobs for the resource, operation and time-range shapes, reports them, and processes them after release", async () => {
+    const ws = newWorkspace();
+    const { id: runnerId } = await runner(ws);
+    const byResource = await settledRunnerJob(ws, runnerId, 100, secretBody());
+    const byOperation = await settledRunnerJob(ws, runnerId, 100, secretBody());
+    const byTime = await settledRunnerJob(ws, runnerId, 100, secretBody());
+    const free = await settledRunnerJob(ws, runnerId, 100, secretBody());
+    await db.query("update platform.runner_jobs set settled_at = clock_timestamp() - interval '300 hours' where id = $1", [byTime]);
+    const otherWs = newWorkspace();
+    const { id: otherRunner } = await runner(otherWs);
+    const otherJob = await settledRunnerJob(otherWs, otherRunner, 100, secretBody());
+
+    const holds = [
+      await createHold(db, { workspaceId: ws, dataClass: "runner_job_logs", resourceRef: byResource, reason: "job", actor: "op" }),
+      await createHold(db, { workspaceId: ws, resourceRef: await opOf(byOperation), reason: "operation", actor: "op" }),
+      await createHold(db, { workspaceId: ws, timeFrom: new Date(Date.now() - 310 * 3_600_000).toISOString(), timeTo: new Date(Date.now() - 290 * 3_600_000).toISOString(), reason: "window", actor: "op" }),
+    ];
+    expect((await minimizePass(db, { env: {} })).held).toBeGreaterThanOrEqual(3);
+    expect((await minimizePass(db, { env })).held).toBeGreaterThanOrEqual(3);
+    for (const id of [byResource, byOperation, byTime]) expect(await hasSealed(id)).toBe(true);
+    expect(await hasSealed(free)).toBe(false);
+    expect(await hasSealed(otherJob)).toBe(false);
+
+    for (const h of holds) await releaseHold(db, { id: h.id, workspaceId: ws, actor: "op" });
+    await minimizePass(db, { env });
+    for (const id of [byResource, byOperation, byTime]) expect(await hasSealed(id)).toBe(false);
+  });
+
+  it("a workspace-wide hold and a hold on the log class stop removal; a hold on another class does not", async () => {
+    const ws = newWorkspace();
+    const { id: runnerId } = await runner(ws);
+    const a = await settledRunnerJob(ws, runnerId, 100, secretBody());
+    const other = await createHold(db, { workspaceId: ws, dataClass: "drift_reports", reason: "drift only", actor: "op" });
+    const wide = await createHold(db, { workspaceId: ws, reason: "everything", actor: "op" });
+    const cls = await createHold(db, { workspaceId: ws, dataClass: "runner_job_logs", reason: "logs", actor: "op" });
+    await minimizePass(db, { env });
+    expect(await hasSealed(a)).toBe(true);
+    await releaseHold(db, { id: wide.id, workspaceId: ws, actor: "op" });
+    await minimizePass(db, { env });
+    expect(await hasSealed(a)).toBe(true);
+    await releaseHold(db, { id: cls.id, workspaceId: ws, actor: "op" });
+    await minimizePass(db, { env });
+    expect(await hasSealed(a)).toBe(false);
+    await releaseHold(db, { id: other.id, workspaceId: ws, actor: "op" });
   });
 });

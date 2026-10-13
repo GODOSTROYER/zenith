@@ -9,7 +9,9 @@ redactors and sealers).
 
 ## DEC-RETENTION gate
 
-No retention policy is approved. `data-minimize` is a **dry run by default** (counts of candidates only). Deleting sealed result bodies needs `ZENITH_DATA_MINIMIZE_APPLY=1` plus an explicit `ZENITH_RESULT_RETENTION_HOURS`; no default window applies. Only `result` bodies are removed, never rows that DUR-07/08 receipts, the external-effect ledger, approvals or audit evidence depend on (receipts and the job row stay). The one-hour temporary `agent.agent_uploads` sweep stays active (no receipts or evidence exist for them). Wherever this document says results are removed or default 72 hours, read it as apply mode only.
+Approved baseline (DEC-RETENTION, Arnav Bule, 2026-10-13): production logs are kept 30 days; sensitive execution payloads are deleted within 72 hours after an operation finishes; essential audit records (approvals, infrastructure changes, outcomes) are kept at least one year and are not auto-deleted. These periods ship as the default policy. Approved does not mean running: nothing is deleted on an installation until its operator switches deletion on (`ZENITH_RETENTION_APPLY=1` for logs, `ZENITH_DATA_MINIMIZE_APPLY=1` for payloads).
+
+So `data-minimize` is still a **dry run by default** (counts of candidates only). Deleting sealed result bodies needs `ZENITH_DATA_MINIMIZE_APPLY=1`, a loaded retention policy carrying a DEC-RETENTION approval (the built-in default does; an operator policy needs its own `approval`) and a valid window: `ZENITH_RESULT_RETENTION_HOURS` (1 to 720) when set, otherwise the approved 72 hours. An invalid hours value turns removal off. A legal hold (workspace-wide, log class, resource or operation id, or settle-time range) stops removal for the held job or request; held rows are counted separately and removed after release. Honest gaps: Zenith does not expire archive objects (the destination bucket lifecycle governs them), and backups taken before a deletion still hold the rows until the backup expires; backup expiry is not tracked. Only `result` bodies are removed, never rows that DUR-07/08 receipts, the external-effect ledger, approvals or audit evidence depend on (receipts and the job row stay). The one-hour temporary `agent.agent_uploads` sweep stays active (no receipts or evidence exist for them). Wherever this document says results are removed, read it as apply mode only; 72 hours is now the approved default window.
 
 ## 1. What was built
 
@@ -44,9 +46,9 @@ overlap (short-lived, fail closed), hosted backups have no decrypt-only list, pl
 | Docs | `docs/platform/operations/SENSITIVE-DATA.md` |
 
 Unnecessary persistence removed: sealed result bodies in `runner_jobs` and `machine_requests` after
-`ZENITH_RESULT_RETENTION_HOURS` (default 72); expired `agent.agent_uploads` swept every tick; log fields and error
+`ZENITH_RESULT_RETENTION_HOURS` (default: the approved 72); expired `agent.agent_uploads` swept every tick; log fields and error
 stacks now redacted before the sink. Not removed (reasons in `SENSITIVE-DATA.md`): immutable effect receipts,
-plan custody tables, job and request log lines, evidence, events (retention is PROD-OPS-07, deletion awaits policy).
+plan custody tables, job and request log lines, evidence, events (retention is PROD-OPS-07; logs follow the approved 30-day baseline once deletion is switched on).
 
 ### Behaviour changes to verified code (explicit)
 
@@ -132,7 +134,7 @@ Hooks needed from plan-artifacts / custody internals (wave 3 DUR-C; not edited h
 - `planArtifactCipherFromEnv` may call `vaultCipherFromEnv(process.env, { purpose: "enc:plan-artifacts" })` instead of mapping its variables onto `ZENITH_SECRET_KEY`, so the registry owns the parsing and the previous-key overlap for plan custody. Its own separation checks can then be replaced by `KeyRing.violations()`.
 - `platform.plan_artifacts.manifest` is plaintext next to the ciphertext (addresses and digests); the inventory marks it `unreviewed`. DUR-C should confirm it holds no values.
 - A plan rewrap job kind (`enc:plan-artifacts`) is not implemented: `key_rewrap_jobs.purpose` is restricted to `enc:vault` in migration 39. Extending it needs a later migration owned by plan custody.
-- The agent effect receipts (`sealed`, immutable by trigger) keep a sealed copy of every outcome forever under the result key; the retention policy (PROD-OPS-07) must decide how receipts age out, and removing a result key makes old receipts unreadable.
+- The agent effect receipts (`sealed`, immutable by trigger) keep a sealed copy of every outcome under the result key; DEC-RETENTION keeps essential audit records at least one year and does not auto-delete them, and no pruning exists for receipts, and removing a result key makes old receipts unreadable.
 
 Things that may break first:
 

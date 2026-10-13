@@ -15,11 +15,11 @@ import { FilesystemTarget } from "@/lib/hosted/backup/targets";
 import { unseal } from "@/lib/hosted/backup/crypto";
 import { archiveBatch, archiveTargetFromEnv, pruneArchive, rowsDigestOf, type ArchiveTarget } from "@/lib/retention/archive";
 import { CLASS_SPECS, NEVER_PRUNABLE, RETENTION_CLASSES, RetentionInvariantError, assertPrunableClass, refusalFor } from "@/lib/retention/classes";
-import { retentionPass, type RetentionOptions } from "@/lib/retention/job";
+import { RETENTION_WORKSPACE_PAGES_PER_CLASS, retentionPass, type RetentionOptions } from "@/lib/retention/job";
 import {
-  DEFAULT_RETENTION_POLICY, loadRetentionPolicy, parseRetentionPolicy, resolveWindow, retentionApplyGate, RetentionPolicyError, type PolicyLoad, type RetentionPolicy,
+  APPROVED_LOG_RETENTION_DAYS, APPROVED_PAYLOAD_RETENTION_HOURS, AUDIT_MINIMUM_RETENTION_DAYS, DEFAULT_RETENTION_POLICY, loadRetentionPolicy, parseRetentionPolicy, resolveWindow, retentionApplyGate, RetentionPolicyError, type PolicyLoad, type RetentionPolicy,
 } from "@/lib/retention/policy";
-import { classSql, createHold, listArchives, listHolds, previewRetention, pruneSql, releaseHold } from "@/lib/retention/store";
+import { archiveWatermark, classSql, createHold, listArchives, listHolds, previewRetention, pruneSql, releaseHold } from "@/lib/retention/store";
 import { newWorkspace, seedApprovedOperation, uid } from "../controlplane/_support/harness";
 
 const PUBKEY = "A".repeat(43);
@@ -42,6 +42,8 @@ const policyOf = (classes: RetentionPolicy["classes"], approved = true, workspac
 const loadOf = (policy: RetentionPolicy): PolicyLoad => ({ ok: true, policy, source: "inline", digest: "0".repeat(64) });
 const run = (o: RetentionOptions) => retentionPass(db, { maxBatches: 100, maxPrunes: 100, ...o });
 const LOGS = { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90 } } as const;
+/** A policy with no windows at all, for tests that need "retain everything". */
+const RETAIN_ALL: RetentionPolicy = parseRetentionPolicy({ version: 1, classes: {}, workspaces: {}, approval: APPROVAL });
 
 async function runner(ws: string) {
   const { tokenHash } = repos.runners.generateRegistrationToken("runner");
@@ -77,10 +79,39 @@ const protectedCounts = async (): Promise<Record<string, number>> => {
 };
 
 describe("policy schema and gate", () => {
-  it("defaults to retaining everything forever", () => {
+  it("ships the approved DEC-RETENTION baseline as the default: logs 30 days, audit-evidence classes retained, approval recorded", () => {
     expect(loadRetentionPolicy({}).ok).toBe(true);
     expect(loadRetentionPolicy({}).policy).toEqual(DEFAULT_RETENTION_POLICY);
-    for (const cls of RETENTION_CLASSES) expect(resolveWindow(DEFAULT_RETENTION_POLICY, "ws", cls)).toEqual({ archiveAfterDays: null, pruneAfterDays: null });
+    expect(APPROVED_LOG_RETENTION_DAYS).toBe(30);
+    expect(APPROVED_PAYLOAD_RETENTION_HOURS).toBe(72);
+    expect(AUDIT_MINIMUM_RETENTION_DAYS).toBe(365);
+    for (const cls of ["runner_job_logs", "machine_request_logs"] as const) expect(resolveWindow(DEFAULT_RETENTION_POLICY, "ws", cls)).toEqual({ archiveAfterDays: 30, pruneAfterDays: 30 });
+    for (const cls of ["resource_observations", "drift_reports"] as const) expect(resolveWindow(DEFAULT_RETENTION_POLICY, "ws", cls)).toEqual({ archiveAfterDays: null, pruneAfterDays: null });
+    expect(DEFAULT_RETENTION_POLICY.workspaces).toEqual({});
+    expect(DEFAULT_RETENTION_POLICY.approval).toMatchObject({ decision: "DEC-RETENTION", approvedBy: "Arnav Bule", approvedAt: "2026-10-13T00:00:00.000Z" });
+    // the built-in policy is itself a valid policy
+    expect(parseRetentionPolicy(JSON.parse(JSON.stringify(DEFAULT_RETENTION_POLICY)))).toEqual(DEFAULT_RETENTION_POLICY);
+    // approved is not running: deletion still needs the operator switch, and an operator policy needs its own approval
+    expect(retentionApplyGate({}, loadRetentionPolicy({})).enabled).toBe(false);
+    expect(retentionApplyGate(APPLY_ENV, loadRetentionPolicy({})).enabled).toBe(true);
+    const operator = loadRetentionPolicy({ ZENITH_RETENTION_POLICY: JSON.stringify({ version: 1, classes: LOGS }) });
+    expect(retentionApplyGate(APPLY_ENV, operator).enabled).toBe(false);
+  });
+
+  it("refuses a prune window shorter than one year on audit-evidence classes, at class and workspace level", () => {
+    for (const cls of ["resource_observations", "drift_reports"]) {
+      expect(() => parseRetentionPolicy({ version: 1, classes: { [cls]: { archiveAfterDays: 30, pruneAfterDays: 90 } } })).toThrow(/at least 365 days/);
+      expect(() => parseRetentionPolicy({ version: 1, classes: { [cls]: { archiveAfterDays: 30, pruneAfterDays: 364 } } })).toThrow(RetentionPolicyError);
+      expect(() => parseRetentionPolicy({ version: 1, workspaces: { ws_a: { [cls]: { archiveAfterDays: 30, pruneAfterDays: 30 } } } })).toThrow(/at least 365 days/);
+      expect(parseRetentionPolicy({ version: 1, classes: { [cls]: { archiveAfterDays: 30, pruneAfterDays: 365 } } }).classes).toBeTruthy();
+      expect(parseRetentionPolicy({ version: 1, classes: { [cls]: { archiveAfterDays: 30 } } }).classes).toBeTruthy();
+    }
+    // logs are not audit evidence
+    expect(() => parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 1, pruneAfterDays: 1 } } })).not.toThrow();
+    // a bad file never half-applies: the loader reports it and nothing is deleted
+    const bad = loadRetentionPolicy({ ZENITH_RETENTION_POLICY: JSON.stringify({ version: 1, classes: { drift_reports: { archiveAfterDays: 1, pruneAfterDays: 2 } }, approval: APPROVAL }) });
+    expect(bad.ok).toBe(false);
+    expect(retentionApplyGate(APPLY_ENV, bad).enabled).toBe(false);
   });
 
   it("applies workspace overrides over class defaults", () => {
@@ -253,7 +284,7 @@ describe("archive: copy only, sealed, read back", () => {
     expect(noStorage.note).toMatch(/archive storage/i);
     const invalid = await run({ env: APPLY_ENV, load: { ok: false, policy: DEFAULT_RETENTION_POLICY, source: "inline", digest: "", problems: ["bad"] }, target, key: KEY });
     expect(invalid).toMatchObject({ policyInvalid: 1, applied: false, archiveBatches: 0, prunedRows: 0 });
-    const none = await run({ env: APPLY_ENV, load: loadOf(DEFAULT_RETENTION_POLICY), target, key: KEY });
+    const none = await run({ env: APPLY_ENV, load: loadOf(RETAIN_ALL), target, key: KEY });
     expect(none).toMatchObject({ policyActive: 0, archiveBatches: 0, prunedRows: 0 });
   });
 });
@@ -321,9 +352,9 @@ describe("prune: archive-gated, bounded, gated", () => {
       `insert into platform.drift_reports (id, workspace_id, environment_id, graph_digest, computed_at, simulated, recorded_at)
        values ($1, $2, $3, $4, clock_timestamp() - ($5::int * interval '1 day'), true, clock_timestamp() - ($5::int * interval '1 day'))`,
       [uid("drift"), ws, env, "d".repeat(64), ageDays]);
-    await ins("env_a", 300); await ins("env_a", 250); await ins("env_a", 200); // newest of env_a is 200 days old
+    await ins("env_a", 900); await ins("env_a", 800); await ins("env_a", 700); // newest of env_a is 700 days old
     await ins("env_b", 10);
-    const policy = policyOf({ drift_reports: { archiveAfterDays: 30, pruneAfterDays: 60 } });
+    const policy = policyOf({ drift_reports: { archiveAfterDays: 365, pruneAfterDays: 400 } });
     await run({ env: APPLY_ENV, load: loadOf(policy), target, key: KEY });
     await run({ env: APPLY_ENV, load: loadOf(policy), target, key: KEY, recheckMs: 0 });
     const left = await db.query<{ environment_id: string }>("select environment_id from platform.drift_reports where workspace_id = $1 order by environment_id, computed_at", [ws]);
@@ -341,7 +372,7 @@ describe("legal holds", () => {
   }
   const prune = () => run({ env: APPLY_ENV, load: loadOf(policyOf(LOGS)), target, key: KEY, recheckMs: 0 });
 
-  it("a tenant hold blocks pruning, copying still works, other tenants are unaffected, release lets pruning proceed", async () => {
+  it("a tenant hold blocks pruning, other tenants are unaffected, release lets pruning proceed", async () => {
     const held = newWorkspace();
     const other = newWorkspace();
     const [h] = await archived(held, [150]);
@@ -377,11 +408,96 @@ describe("legal holds", () => {
     expect(await logCount(ws, late.jobId)).toBe(2);
   });
 
-  it("a hold on another data class does not protect log lines", async () => {
+  it("a hold stops archive copies, the watermark never passes a held row, and release resumes without skipping it", async () => {
+    const ws = newWorkspace();
+    const { id: runnerId } = await runner(ws);
+    const early = await jobWithLogs(ws, runnerId, 300, 2);
+    const heldJob = await jobWithLogs(ws, runnerId, 200, 2);
+    const late = await jobWithLogs(ws, runnerId, 100, 2);
+    const policy = policyOf(LOGS, false);
+    const hold = await createHold(db, { workspaceId: ws, dataClass: "runner_job_logs", resourceRef: heldJob.jobId, reason: "case", actor: "op" });
+    const first = await run({ env: {}, load: loadOf(policy), target, key: KEY });
+    expect(first.archiveHeld).toBeGreaterThanOrEqual(1);
+    const archivedFirst = (await listArchives(db, { workspaceId: ws })).filter((a) => a.dataClass === "runner_job_logs");
+    // only the rows strictly before the held job were copied
+    expect(archivedFirst).toHaveLength(1);
+    expect(archivedFirst[0].rowCount).toBe(2);
+    const copied = JSON.parse(unseal((await target.get(archivedFirst[0].objectKey))!, KEY).plain.toString("utf8"));
+    expect(copied.rows.every((r: { job_id: string }) => r.job_id === early.jobId)).toBe(true);
+    const wm = await archiveWatermark(db, ws, "runner_job_logs");
+    expect(wm).not.toBeNull();
+    // nothing further is copied while the first remaining row is held, and the later job is not skipped ahead to
+    const again = await archiveBatch(db, ws, "runner_job_logs", 30, { target, key: KEY, policy });
+    expect(again).toEqual({ status: "blocked", reason: "legal_hold" });
+    expect(await archiveWatermark(db, ws, "runner_job_logs")).toEqual(wm);
+    expect((await listArchives(db, { workspaceId: ws })).filter((a) => a.dataClass === "runner_job_logs")).toHaveLength(1);
+    // a prune pass cannot delete the held or the not-yet-archived rows
+    await run({ env: APPLY_ENV, load: loadOf(policyOf(LOGS)), target, key: KEY, recheckMs: 0 });
+    expect(await logCount(ws, heldJob.jobId)).toBe(2);
+    expect(await logCount(ws, late.jobId)).toBe(2);
+
+    await releaseHold(db, { id: hold.id, workspaceId: ws, actor: "op" });
+    await run({ env: {}, load: loadOf(policy), target, key: KEY });
+    const archived = (await listArchives(db, { workspaceId: ws })).filter((a) => a.dataClass === "runner_job_logs");
+    const ids = new Set<string>();
+    for (const a of archived) for (const r of JSON.parse(unseal((await target.get(a.objectKey))!, KEY).plain.toString("utf8")).rows as { job_id: string }[]) ids.add(r.job_id);
+    expect([...ids].sort()).toEqual([early.jobId, heldJob.jobId, late.jobId].sort());
+  });
+
+  describe("workspace paging", () => {
+    /** `n` workspaces whose only (very old) rows are under a workspace-wide hold, plus helpers to release them. */
+    async function blockedWorkspaces(n: number, ageDays: number) {
+      const holds: { id: string; workspaceId: string }[] = [];
+      for (let i = 0; i < n; i++) {
+        const ws = newWorkspace();
+        await jobWithLogs(ws, (await runner(ws)).id, ageDays, 1);
+        holds.push(await createHold(db, { workspaceId: ws, reason: "paging", actor: "op" }));
+      }
+      return { holds, release: async () => { for (const h of holds) await releaseHold(db, { id: h.id, workspaceId: h.workspaceId, actor: "op" }); } };
+    }
+    const archivedFor = async (ws: string) => (await listArchives(db, { workspaceId: ws })).filter((a) => a.dataClass === "runner_job_logs").length;
+
+    it("an unblocked workspace behind a full page of held workspaces is still archived in the same pass", async () => {
+      const blocked = await blockedWorkspaces(3, 2000);
+      const free = newWorkspace();
+      await jobWithLogs(free, (await runner(free)).id, 1500, 2);
+      try {
+        const out = await run({ env: {}, load: loadOf(policyOf(LOGS, false)), target, key: KEY, workspacesPerPage: 2 });
+        expect(out.archiveHeld).toBeGreaterThanOrEqual(3);
+        expect(await archivedFor(free)).toBe(1);
+        for (const h of blocked.holds) expect(await archivedFor(h.workspaceId)).toBe(0);
+      } finally { await blocked.release(); }
+      // archive the released workspaces now so they do not count as candidates in the next test
+      await run({ env: {}, load: loadOf(policyOf(LOGS, false)), target, key: KEY });
+      for (const h of blocked.holds) expect(await archivedFor(h.workspaceId)).toBe(1);
+    });
+
+    it("scans a bounded number of pages per class per tick", async () => {
+      expect(RETENTION_WORKSPACE_PAGES_PER_CLASS).toBeGreaterThan(0);
+      const pageSize = 2;
+      const blocked = await blockedWorkspaces(RETENTION_WORKSPACE_PAGES_PER_CLASS * pageSize, 2000);
+      const free = newWorkspace();
+      await jobWithLogs(free, (await runner(free)).id, 1500, 1);
+      try {
+        const out = await run({ env: {}, load: loadOf(policyOf(LOGS, false)), target, key: KEY, workspacesPerPage: pageSize });
+        // every page was full of held workspaces, so the scan stopped at the bound and never reached the free one
+        expect(out.archiveHeld).toBe(RETENTION_WORKSPACE_PAGES_PER_CLASS * pageSize);
+        expect(await archivedFor(free)).toBe(0);
+      } finally { await blocked.release(); }
+      const after = await run({ env: {}, load: loadOf(policyOf(LOGS, false)), target, key: KEY });
+      expect(after.archiveFailed).toBe(0);
+      expect(await archivedFor(free)).toBe(1);
+    });
+  });
+
+  it("a hold on another data class does not stop archiving or protect log lines", async () => {
     const ws = newWorkspace();
     const [a] = await archived(ws, [150]);
     await createHold(db, { workspaceId: ws, dataClass: "drift_reports", reason: "drift only", actor: "op" });
+    const [b] = await archived(ws, [150]);
+    expect((await listArchives(db, { workspaceId: ws })).filter((x) => x.dataClass === "runner_job_logs")).toHaveLength(2);
     await prune();
+    expect(await logCount(ws, b.jobId)).toBe(0);
     expect(await logCount(ws, a.jobId)).toBe(0);
   });
 
@@ -420,7 +536,7 @@ describe("dry-run preview", () => {
     await jobWithLogs(ws, runnerId, 5, 4);
     await jobWithLogs(ws, runnerId, 150, 1, false);
     const before = await logCount(ws);
-    const retainAll = await previewRetention(db, DEFAULT_RETENTION_POLICY);
+    const retainAll = await previewRetention(db, RETAIN_ALL);
     const none = retainAll.classes.find((c) => c.class === "runner_job_logs")!.workspaces.find((w) => w.workspaceId === ws)!;
     expect(none).toMatchObject({ totalRows: before, archiveEligible: 0, pruneEligible: 0, pruneWaitingForArchive: 0 });
 

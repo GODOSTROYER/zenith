@@ -52,7 +52,11 @@ nothing plain-looking sits in a column that must be ciphertext; it is a sample a
 The `data-minimize` critical job (Temporal critical-maintenance schedule, cron fallback with the same lease
 and run record) removes three things that outlived their need:
 
-**DEC-RETENTION is pending, so this job is a dry run by default.** It reports candidate counts and deletes nothing unless the operator sets both `ZENITH_DATA_MINIMIZE_APPLY=1` and an explicit `ZENITH_RESULT_RETENTION_HOURS` (1 to 720; there is no default window for deletion). Only the sealed result body may go; receipts, the effect ledger, approvals and audit evidence are never touched.
+**DEC-RETENTION is approved (2026-10-13): sealed results go 72 hours after the job or request settles. The job is still a dry run until the operator switches it on.** It reports candidate counts and deletes nothing unless ALL of these hold: `ZENITH_DATA_MINIMIZE_APPLY=1`; the retention policy in force carries a DEC-RETENTION approval (the built-in default does; an operator policy loaded from `ZENITH_RETENTION_POLICY_FILE` or `ZENITH_RETENTION_POLICY` needs its own `approval`, otherwise removal stays off); and the window is valid. The window is `ZENITH_RESULT_RETENTION_HOURS` when set (a whole number from 1 to 720; an invalid value turns removal off) and otherwise the approved 72. Only the sealed result body may go; receipts, the effect ledger, approvals and audit evidence are never touched.
+
+**Legal holds apply here too.** A job or request is skipped while an active hold covers it: a workspace-wide hold, a hold on the matching log class (`runner_job_logs` for runner jobs, `machine_request_logs` for zenithd requests), a hold whose resource reference is the job or request id or its operation id, and a hold whose time range contains the settle time. Holds are checked under the same lock as hold changes. Held rows are reported separately (`held`) and are scrubbed on a later tick once the hold is released.
+
+**Honest gaps.** Zenith does not expire archive objects; the lifecycle rules of the destination bucket decide how long archive copies live. Backups taken before a deletion still contain the deleted rows until the backup itself expires, and Zenith does not track backup expiry yet.
 
 1. The sealed result body in `platform.runner_jobs.result` and `platform.machine_requests.result` once the
    job settled and the configured window passed (apply mode only). The row, status, signed
@@ -66,7 +70,7 @@ and run record) removes three things that outlived their need:
 Deliberately not touched: `agent_effect_receipts` (immutable by trigger; they keep a sealed copy of the
 outcome, so the sealed body still exists once, under the result key), plan custody tables, job and request
 log lines, evidence, events and the operation ledger. Their retention is PROD-OPS-07, and deletion there
-awaits an approved policy.
+runs under the approved policy (30 days for logs) once the operator turns deletion on.
 
 ## Leak tests
 

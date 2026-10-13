@@ -1,3 +1,56 @@
+## Owner decisions 2026-10-13
+
+Three owner decisions were approved by Arnav Bule on 2026-10-13 and implemented on the build machine (typecheck and unit and PGlite tests only). Nothing below has run on the verifier. Run each block on Node 22, sequentially, one heavy workload at a time. Record each result with its exact commit SHA, and keep pending, failed and passed distinct. Real PostgreSQL, object store, Temporal, browser and Stripe test-mode checks are required, and a skipped check is not a pass.
+
+### Retention (DEC-RETENTION)
+
+Doc: [verify/PROD-OPS-07.md](verify/PROD-OPS-07.md) and [verify/PROD-OPS-05-06.md](verify/PROD-OPS-05-06.md).
+
+Commands (PROD-OPS-07): `npx vitest run tests/retention`; `npx vitest run tests/platform/critical-jobs.test.ts tests/sensitivedata tests/security tests/controlplane/migrations.test.ts`; `npx tsc --noEmit -p . && npx eslint src/lib/retention src/app/api/admin/ops/retention src/app/admin/retention scripts/data-retention.ts tests/retention`. Manual live check, not counted: `ZENITH_RETENTION_ARCHIVE_TARGET=s3` against LocalStack with a policy file, then `npx tsx --env-file-if-exists=.env.local scripts/data-retention.ts`.
+
+Commands (PROD-OPS-05-06): `npx vitest run tests/keycustody tests/sensitivedata tests/security/sensitive-inventory.test.ts tests/security/persistence-leaks.test.ts`; `ZENITH_TEST_PLATFORM_PG_URL=postgres://... npx vitest run tests/security/persistence-leaks.test.ts`; `npx vitest run tests/secrets tests/runners tests/machines tests/workflows/codec.test.ts tests/workflows/codec-wiring.test.ts tests/workflows/critical-schedule.test.ts tests/platform tests/server tests/security tests/controlplane tests/capabilities`; `npx vitest run tests/docs/operator-docs.test.ts` (expected to fail until the DEPLOYING.md rows in PROD-OPS-05-06 section 4 are added); `npx tsx scripts/key-custody.ts diagnose --no-db`; `npx tsx scripts/sensitive-inventory.ts --only unreviewed`. With a Postgres platform store and migration 39 applied: `npx tsx --env-file-if-exists=.env.local scripts/key-custody.ts sync`; `npx tsx --env-file-if-exists=.env.local scripts/key-custody.ts rewrap --workspace <id> --run`; `npx tsx --env-file-if-exists=.env.local scripts/sensitive-data-census.ts`; `npx tsx --env-file-if-exists=.env.local scripts/data-minimize.ts`.
+
+Services: real PostgreSQL (migrations 39 and 45, the PostgreSQL lane of the leak suite, and the sync, rewrap, census and minimize commands); object store (LocalStack or MinIO) for the S3 archive check; Temporal (the `data-retention`, `key-rewrap` and `data-minimize` critical jobs on the critical-maintenance schedule, and the payload codec); browser (`/admin/retention`, operator only). The offline commands need none of these. Stripe is not used.
+
+Confirm on the verifier:
+
+1. Real PostgreSQL for `tests/retention`. The builder added no PostgreSQL lane for it (PROD-OPS-07 section 3). Check the SQL that PGlite may accept differently: tuple comparisons and `make_interval(days => case ...)` in `job.ts` and `store.ts`; `delete ... using` and `pg_advisory_xact_lock` in `store.ts`; and `insert ... overriding system value ... jsonb_populate_recordset` plus the staging `create table ... (like ...)` in `restore.ts`.
+2. Legal holds on a real engine: a held first candidate returns `{ status: "blocked", reason: "legal_hold" }`, held rows are not archived, pruned or minimized, and the row is archived normally after release.
+3. S3 archive against LocalStack or MinIO: sealed objects appear under `retention/<workspace>/<class>/`, `verifyArchive` passes, `restoreArchive` into a staging schema works, and prune deletes only verified manifest ids.
+4. With `ZENITH_RETENTION_APPLY` and `ZENITH_DATA_MINIMIZE_APPLY` unset, nothing is deleted or pruned, and the `data-minimize` pass only counts candidates.
+
+### Service levels (DEC-BUSINESS)
+
+Doc: [verify/PROD-OPS-01.md](verify/PROD-OPS-01.md) and [SLO.md](../../platform/operations/SLO.md).
+
+Commands (PROD-OPS-01, decision section): `npx tsc --noEmit -p .`; `npx vitest run tests/slo tests/ops/recovery-manifest.test.ts tests/ops/data-plane-independence.test.ts tests/docs/operator-docs.test.ts tests/ci/packaged-workers.test.ts --no-file-parallelism --maxWorkers=2`; `ZENITH_TEST_PLATFORM_PG_URL=postgres://... npx vitest run tests/slo/slo.engine.test.ts`; `npx vitest run tests/reconcile`. Commands (PROD-OPS-01, earlier sections): `npx eslint src/lib/slo src/app/admin/slo src/app/api/admin/ops/slo src/app/api/internal/slo src/lib/ops/sampler.ts tests/slo`; `npx vitest run tests/slo/definitions.test.ts tests/slo/sli-budget.test.ts tests/slo/slo-artifacts.test.ts`; `npx vitest run tests/slo/slo.engine.test.ts`; `npx vitest run tests/docs/operator-docs.test.ts tests/ops`; `node scripts/slo/capacity-test.mjs --self-test`; `node scripts/slo/report-recovery.mjs --dry-run --failure-at 2026-10-07T10:00:00Z --data-through 2026-10-07T09:56:30Z --restored-at 2026-10-07T10:42:10Z`; optional `promtool check rules deploy/observability/alerts/zenith-slo.rules.json`; manual capacity run on loopback: `node scripts/slo/capacity-test.mjs --url http://127.0.0.1:3000 --path / --concurrency 16 --duration 20`.
+
+Services: real PostgreSQL (the PostgreSQL lane of `slo.engine`, including the dispatch approval join); a deployed environment with an external uptime probe; a managed production environment with reconcile running; a restore rehearsal for RPO and RTO; a running `next start` for the capacity run; browser for `/admin/slo`.
+
+Confirm on the verifier:
+
+1. The dispatch latency join on real PostgreSQL starts the clock at the last required approval from `platform.approvals`, and approved or queued operations already waiting more than 30 s count as misses.
+2. An external probe is wired per SLO.md (five-minute aligned windows, the `CRON_SECRET` bearer, idempotent replacement). `/admin/slo` shows both availability sources and uses the lower ratio, and says "External probe not reporting" until the probe reports.
+3. A managed production environment accumulates `managed_runtime_availability` samples after a reconcile pass, and observations with unknown health stay out of the ratio.
+4. RPO and RTO show "Not measured yet" until a real restore rehearsal reports through `scripts/slo/report-recovery.mjs`. The capacity figure describes only the machine that ran the test.
+
+### Pricing (DEC-BUSINESS)
+
+Doc: [verify/PROD-MAN-06.md](verify/PROD-MAN-06.md) (section "Pricing decision update") and [verify/PROD-MAN-07.md](verify/PROD-MAN-07.md).
+
+Commands: `npx vitest run tests/billing tests/platform/billing-schedule.test.ts --no-file-parallelism --maxWorkers=2`; `npx vitest run tests/capabilities/autonomy.test.ts tests/managed-serving/catalog.test.ts --no-file-parallelism --maxWorkers=2`. Stripe test mode, by hand, on a disposable workspace: `export ZENITH_BILLING=managed`; `export ZENITH_BILLING_STRIPE_SECRET_KEY="$STRIPE_TEST_SECRET_KEY"` (an `sk_test_` key from the Stripe test-mode dashboard); `curl -s -X PUT "$ZENITH_ORIGIN/api/admin/billing/assignment" -H "content-type: application/json" -d '{"workspaceId":"<ws>","planId":"builder"}'`; `curl -s -X POST "$ZENITH_ORIGIN/api/admin/billing/invoices" -H "content-type: application/json" -d '{"workspaceId":"<ws>","period":"YYYY-MM"}'`. PROD-MAN-06 section 3 describes the PostgreSQL lane (set `ZENITH_TEST_PLATFORM_PG_URL`) but gives no exact command, so record the exact command you use.
+
+Services: real PostgreSQL (billing engine PostgreSQL lane; the two `assertDispatchAdmitted` cases skip there unless `ZENITH_TEST_OPS_EXCLUSIVE_PG=1`); Stripe test mode (an `sk_test_` key and a disposable workspace, never a live key); a running app at `$ZENITH_ORIGIN` with an operator session for the admin routes; browser for the comparison table. No object store or Temporal is needed: the billing pass is an HTTP tick at `/api/internal/tick/billing`, not a Temporal schedule.
+
+Confirm on the verifier:
+
+1. In Stripe test mode, the Builder invoice has a "Builder monthly minimum" item of 2900 cents with no "(provisional pricing)" suffix. An Enterprise assignment creates no invoice, and the admin route returns `contract_billed`.
+2. On a seeded period, Builder at 1,933 ZCU-hours bills $29.00, Builder at 1,934 bills $29.01, and Team at 13,267 bills $199.01, with the charged lines summing to the amount due.
+3. Entitlements apply only with `ZENITH_BILLING=managed`: Explore deploy dispatch returns 402 `plan_feature_unavailable`, a Builder policy edit returns 402 with `details.feature` `org_policies`, and a Team policy edit succeeds. A live key is refused and invoicing stays off.
+4. Before billing is enabled, reassign legacy `free_provisional` accounts that were deploying, since they now fall to Explore and lose deploy. Check the comparison table in the browser, which the builder did not run.
+
+Separate item, not a decision: `tests/ops/route-wiring.test.ts` showed 6 failures on the build machine, with an import-order error in `registerAllActions` (`src/lib/server/boot.ts`). This predates the owner-decision work. Confirm it on the verifier.
+
 ## Current shutdown/recovery gates — 12 October 2026, integrated commit 6410def1
 
 1. Run a fresh coherent full test and post-push exact-source CI after commit `6410def173ff03a160be1d5200c3543325e8c283` receives its evidence update and source freeze.

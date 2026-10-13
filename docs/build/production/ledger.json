@@ -5508,7 +5508,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (pricing) approved 2026-10-13: plans explore, builder, team, enterprise; total = max(minimum, ZCU-hours x 1.5 cents); Enterprise is billed by contract (no auto-invoice); live charging remains off.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -5537,7 +5537,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (pricing) approved 2026-10-13: plan entitlements enforced in managed billing mode only: Explore cannot dispatch work (plan_feature_unavailable); organizational policy edits need Team or Enterprise; existing policies stay enforced after a downgrade. Terms and payment account still pending.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -5560,7 +5560,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (service levels) approved 2026-10-13 as engineering targets: control-plane availability 99.9% (lower of request-based and external probe), new managed_runtime_availability objective 99.9%, dispatch latency measured from the last required approval, restore targets default to the approved RPO/RTO. Not a contractual SLA.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -5719,7 +5719,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: the payload minimizer now requires an approved retention policy plus ZENITH_DATA_MINIMIZE_APPLY=1, defaults to the approved 72 hours, and skips results under a legal hold.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -5742,7 +5742,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: default policy ships logs at 30 days with a built-in approval; audit-evidence classes cannot be pruned before 365 days; legal holds now stop archive copies (the watermark never passes a held row); the job pages through workspaces so held workspaces cannot starve others. Deletion still needs ZENITH_RETENTION_APPLY=1.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -6793,20 +6793,40 @@
     {
       "id": "DEC-RETENTION",
       "scope": "Retention/archive/legal holds/pruning configuration; implementation/dry-run continues, deletion disabled pending approval",
-      "state": "not_requested",
+      "state": "approved",
       "blocks": [
         "PROD-OPS-07"
-      ]
+      ],
+      "requested": "2026-10-13",
+      "status": "approved",
+      "approved": "2026-10-13",
+      "approvedBy": "Arnav Bule",
+      "description": "Retention baseline approved 2026-10-13 by Arnav Bule: production logs 30 days, sensitive execution payloads 72 hours after settlement, essential audit records kept at least one year and not auto-deleted. Deletion stays off on each installation until its operator sets the apply switches.",
+      "approvalScope": "Default policy windows for runner_job_logs and machine_request_logs (archive and prune at 30 days); payload minimizer window 72 hours; audit-evidence classes may not be pruned before 365 days; legal holds stop archive copies, pruning and the minimizer. Not approved: automatic deletion of audit records, archive object expiry, backup expiry tracking.",
+      "acceptance": "Implemented in code and unit/PGlite tested on the build machine; real PostgreSQL and object-store verification pending on the verifier."
     },
     {
       "id": "DEC-BUSINESS",
       "scope": "Managed pricing, terms, payment accounts and final SLO/RPO/RTO signoff",
-      "state": "not_requested",
+      "state": "partially_approved",
       "blocks": [
         "PROD-MAN-07",
         "PROD-OPS-01",
         "PROD-REL-03"
-      ]
+      ],
+      "requested": "2026-10-13",
+      "status": "partially_approved",
+      "approved": "2026-10-13",
+      "approvedBy": "Arnav Bule",
+      "description": "Partly approved 2026-10-13 by Arnav Bule: launch packages and prices (Explore free; Builder $29 minimum; Team $199 minimum; $0.015 per ZCU-hour; Enterprise by contract) and launch service-level engineering targets (99.9% control-plane and managed-runtime availability, p95 500 ms, 95% dispatch within 30 s after approvals, RPO 15 minutes, RTO 4 hours). Still pending: terms and legal review, live payment account, contractual Enterprise SLA and service credits.",
+      "approvalScope": "Prices, plan entitlements and the ZCU definition (1 ZCU-hour = one managed resource-hour; build minutes and storage included under carried-forward fair-use caps). Service-level targets as engineering targets only, not a contractual SLA.",
+      "pending": [
+        "Terms of service, privacy policy and DPA legal review",
+        "Live payment account (Stripe live keys remain refused; test mode only)",
+        "Contractual Enterprise SLA and service credits (after production verification)",
+        "Tax handling and currency beyond USD"
+      ],
+      "acceptance": "Implemented in code and unit tested on the build machine; operated and Stripe test-mode verification pending on the verifier."
     }
   ],
   "integrations": [

@@ -98,5 +98,5 @@ Operator decisions:
 
 - DEC-STARTUP: Disposable default API/browser installation startup; approve concrete isolated topology before dependent startup if existing startup restriction still applies
 - DEC-CLOUD: Dedicated cloud accounts, owned DNS/private GitHub fixtures, explicit regions and approved test budget; credential file references only, no secrets in chat
-- DEC-RETENTION: Retention/archive/legal holds/pruning configuration; implementation/dry-run continues, deletion disabled pending approval
-- DEC-BUSINESS: Managed pricing, terms, payment accounts and final SLO/RPO/RTO signoff
+- DEC-RETENTION: Retention baseline approved 2026-10-13 by Arnav Bule: production logs 30 days, sensitive execution payloads 72 hours after settlement, essential audit records kept at least one year and not auto-deleted. Deletion stays off on each installation until its operator sets the apply switches.
+- DEC-BUSINESS: Partly approved 2026-10-13 by Arnav Bule: launch packages and prices (Explore free; Builder $29 minimum; Team $199 minimum; $0.015 per ZCU-hour; Enterprise by contract) and launch service-level engineering targets (99.9% control-plane and managed-runtime availability, p95 500 ms, 95% dispatch within 30 s after approvals, RPO 15 minutes, RTO 4 hours). Still pending: terms and legal review, live payment account, contractual Enterprise SLA and service credits.

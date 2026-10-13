@@ -1,3 +1,42 @@
+## Owner decisions 2026-10-13: retention, service levels, pricing
+
+Arnav Bule, the owner, approved three decisions on 2026-10-13. They are implemented on the Windows build machine. Build-machine checks were typecheck and unit and PGlite tests only. Real PostgreSQL, object store, Temporal, browser and Stripe test-mode verification is pending on the Mac verifier. The verifier commands and checks are in [VERIFY-QUEUE.md](VERIFY-QUEUE.md) under "Owner decisions 2026-10-13".
+
+**Retention (DEC-RETENTION, approved by Arnav Bule, 2026-10-13).** Production logs are kept 30 days. Sensitive execution payloads are deleted within 72 hours after an operation finishes. Essential audit records (approvals, infrastructure changes, outcomes) are kept at least one year and are never auto-deleted. Sources: [PROD-OPS-07](verify/PROD-OPS-07.md), [PROD-OPS-05-06](verify/PROD-OPS-05-06.md).
+
+- The built-in default policy archives and prunes runner job logs and machine request logs at 30 days. Resource observations and drift reports are retained, and the policy loader refuses a prune window under 365 days for them.
+- Legal holds stop archive copies and the payload minimizer, not only pruning.
+- Deletion stays off until the operator sets `ZENITH_RETENTION_APPLY=1` (logs) or `ZENITH_DATA_MINIMIZE_APPLY=1` (payloads). An operator policy file without its own approval stays copy-only.
+
+**Service levels (DEC-BUSINESS, approved by Arnav Bule, 2026-10-13).** These are launch engineering targets, not a contractual SLA, and no service credits are offered. Sources: [PROD-OPS-01](verify/PROD-OPS-01.md), [SLO.md](../../platform/operations/SLO.md).
+
+- Control-plane availability target is 99.9%, using the lower of the request-based and external probe ratios. Managed runtime availability has its own 99.9% target, measured separately.
+- Dispatch latency is measured from the last required approval. RPO of 15 minutes and RTO of 4 hours apply to explicitly covered data.
+- The definition file records `approved_targets`. The internal measurements route accepts `kind: external_probe`, and the burn-rate thresholds were updated to match.
+
+**Pricing (DEC-BUSINESS, approved by Arnav Bule, 2026-10-13).** Plans are Explore (free), Builder ($29 per month minimum), Team ($199 per month minimum) and Enterprise (by contract). Usage above the minimum is $0.015 per ZCU-hour, where one ZCU-hour is one resource managed by Zenith for one hour. Sources: [PROD-MAN-06](verify/PROD-MAN-06.md), [PROD-MAN-07](verify/PROD-MAN-07.md).
+
+- Invoice total is the larger of the plan minimum and ZCU-hours x 1.5 cents, computed in integer cents with one rounding step. Enterprise is billed by contract outside Zenith and creates no invoice.
+- Plan entitlements are enforced only when `ZENITH_BILLING=managed`. Explore cannot dispatch deploys. Explore and Builder cannot edit organizational policies.
+- Build minutes and storage are included, with fair-use hard caps that refuse new work at the cap and never charge. Stripe is test mode only, and the adapter refuses live keys.
+
+**Ledger changes.**
+
+- DEC-RETENTION is recorded as approved.
+- DEC-BUSINESS is recorded as partially approved. Launch targets and launch pricing are approved. The terms review, the live payment account and a contractual Enterprise SLA are still pending.
+- These decisions do not promote any requirement to verified.
+
+**Not built.**
+
+- Archive object expiry. The destination bucket lifecycle governs archive objects.
+- Backup expiry tracking. Backups taken before a deletion still hold the deleted rows.
+- A public pricing page.
+- Automatic deletion of audit records.
+
+**Verification status.** Typecheck and unit and PGlite tests on the build machine only. Pending on the Mac verifier: real PostgreSQL, object store, Temporal, browser and Stripe test-mode checks.
+
+**Release signing.** The release signing key `release-2026-10` was created on 2026-10-13, and its public key is pinned: `QCz_edVf623L2xc3D9dRRytU25iMBVd3npdz-c2GOaY` (see [SUPPLY-CHAIN.md](../../platform/operations/SUPPLY-CHAIN.md)). No release tag was pushed.
+
 ## Current shutdown and recovery evidence — 12 October 2026, integrated commit 6410def1
 
 The focused shutdown diagnostic fixture passed **13/13** with 0 failures or skips. It recorded 37 child processes closed, a stable 6,012-entry freeze, owned-link removal, and a minimum free-space reading above 22 GiB. Final runtime R4 and test R5 hashes were verified against the integrated candidate; the type-only validation receipt records eight-file lint, full TypeScript at 5 GiB, and ledger validation as passed. A fresh coherent full test and post-push exact-source CI for the final evidence successor of integration commit `6410def173ff03a160be1d5200c3543325e8c283` remain pending. [Shutdown and validation evidence](evidence/PROD-CI-08/2026-10-12-673f33f1-shutdown-focused-r3.json).

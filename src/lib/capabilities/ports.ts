@@ -384,4 +384,6 @@ export interface BrokerDeps {
   issuer?: string;
   /** id minting; injectable for deterministic tests. Default `<prefix>_<uuid>`. */
   newId?: (prefix: string) => string;
+  /** Test seam for the managed-billing entitlement read (plan-gated workspace policy edits). Production uses the defaults. */
+  billing?: import("@/lib/billing/admission").BillingAdmissionOptions;
 }

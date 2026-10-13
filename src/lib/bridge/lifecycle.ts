@@ -100,7 +100,7 @@ async function start(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
     // A failed initial authority read cannot prove that an earlier start was
     // absent. Do not settle the operation or release its product writer here.
     if (authorityRead && !claimed && isBackpressureError(error)) {
-      return { ok: false, summary: "Workflow start is deferred.", error: `${error.message} Retry in about ${error.retryAfterSec} seconds; the operation stays approved and nothing was started.`, data: deploymentData(d, op) };
+      return { ok: false, summary: "Workflow start is deferred.", error: error.detail?.fix ? `${error.message} ${error.detail.fix} The operation stays approved and nothing was started.` : `${error.message} Retry in about ${error.retryAfterSec} seconds; the operation stays approved and nothing was started.`, data: deploymentData(d, op) };
     }
     if (!authorityRead) return unconfirmed("The platform operation could not be inspected. Its outcome is unconfirmed; restore access and inspect it before retrying or proposing another change. No new workflow start was attempted.");
     if (!startAttempted && isBrokerError(error) && error.code === "already_claimed") return bridgeFailure(error);

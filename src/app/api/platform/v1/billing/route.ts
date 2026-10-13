@@ -1,6 +1,6 @@
 /**
  * `GET /api/platform/v1/billing` - the workspace's plan, standing, current-period usage against its allowances and recent
- * invoices (PROD-MAN-06). Any workspace member. Plans are provisional placeholders (DEC-BUSINESS) and every response says so.
+ * invoices (PROD-MAN-06). Any workspace member. Plans are the decided launch packages (DEC-BUSINESS, 2026-10-13); charging itself is not live and every response says so.
  *
  * With `ZENITH_BILLING` unset or `disabled` (BYOC and self-hosted) this answers `{ mode: "disabled" }` without reading the
  * store. Suspension never affects this route: reads are always served.

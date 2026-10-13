@@ -59,7 +59,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
     await seedCostEstimate(db(), ws, "env_b", 20, "2026-04-01T00:00:00Z");
   }
 
-  async function openInvoice(planId = "team_provisional"): Promise<{ ws: string; invoice: Invoice; provider: FakeInvoiceProvider }> {
+  async function openInvoice(planId = "builder"): Promise<{ ws: string; invoice: Invoice; provider: FakeInvoiceProvider }> {
     const ws = newWorkspace();
     await assignPlan(db(), { workspaceId: ws, planId, actor: "op_1" });
     await seedMarch(ws);
@@ -131,35 +131,40 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
   describe("plan assignment", () => {
     it("assigns a known plan, audits the change and versions it", async () => {
       const ws = newWorkspace();
-      const a = await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op_1", reason: "initial" });
-      expect(a).toMatchObject({ planId: "free_provisional", status: "active", version: 1 });
-      const b = await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op_2", expectedVersion: 1 });
-      expect(b).toMatchObject({ planId: "team_provisional", version: 2, assignedBy: "op_2" });
+      const a = await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op_1", reason: "initial" });
+      expect(a).toMatchObject({ planId: "explore", status: "active", version: 1 });
+      const b = await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op_2", expectedVersion: 1 });
+      expect(b).toMatchObject({ planId: "builder", version: 2, assignedBy: "op_2" });
       const events = await listAccountEvents(db(), ws);
       expect(events.map((e) => e.kind)).toEqual(["plan_assigned", "plan_assigned"]);
-      expect(events[0].detail).toEqual({ from: "free_provisional", to: "team_provisional" });
+      expect(events[0].detail).toEqual({ from: "explore", to: "builder" });
       expect(events[1].reason).toBe("initial");
     });
 
-    it("refuses an unknown plan and a stale writer", async () => {
+    it("refuses an unknown plan, every legacy plan id, and a stale writer", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
-      await expectCode(assignPlan(db(), { workspaceId: ws, planId: "enterprise", actor: "op" }), "invalid_input");
-      await expectCode(assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op", expectedVersion: 7 }), "conflict");
-      expect((await getAccount(db(), ws))?.planId).toBe("free_provisional");
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
+      await expectCode(assignPlan(db(), { workspaceId: ws, planId: "pro", actor: "op" }), "invalid_input");
+      for (const legacy of ["free_provisional", "team_provisional", "scale_provisional"]) {
+        await expectCode(assignPlan(db(), { workspaceId: ws, planId: legacy, actor: "op" }), "invalid_input");
+      }
+      await assignPlan(db(), { workspaceId: ws, planId: "enterprise", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
+      await expectCode(assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op", expectedVersion: 7 }), "conflict");
+      expect((await getAccount(db(), ws))?.planId).toBe("explore");
     });
 
     it("never lifts a suspension by changing the plan", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: ws, actor: "op", reason: "abuse review", now: NOW });
-      await assignPlan(db(), { workspaceId: ws, planId: "scale_provisional", actor: "op" });
-      expect(await getAccount(db(), ws)).toMatchObject({ planId: "scale_provisional", status: "suspended", suspensionReason: "operator" });
+      await assignPlan(db(), { workspaceId: ws, planId: "team", actor: "op" });
+      expect(await getAccount(db(), ws)).toMatchObject({ planId: "team", status: "suspended", suspensionReason: "operator" });
     });
 
     it("keeps a single provider customer per account", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       const cus = `cus_${hex(6)}`;
       await setStripeCustomer(db(), ws, cus);
       await setStripeCustomer(db(), ws, cus);
@@ -172,9 +177,10 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
   describe("invoice generation behind the provider adapter", () => {
     it("invoices an ended period once, from collected usage, with the lines it was priced with", async () => {
       const { ws, invoice, provider } = await openInvoice();
-      expect(invoice).toMatchObject({ period: PERIOD, planId: "team_provisional", planProvisional: true, currency: "usd", subtotalCents: 2900, status: "open" });
+      expect(invoice).toMatchObject({ period: PERIOD, planId: "builder", planProvisional: false, currency: "usd", subtotalCents: 2900, status: "open" });
       expect(invoice.stripeInvoiceId).toMatch(/^in_/);
-      expect(invoice.lines.find((l) => l.key === "base")?.amountCents).toBe(2900);
+      expect(invoice.lines.find((l) => l.key === "minimum")?.amountCents).toBe(2900);
+      expect(invoice.lines.find((l) => l.key === "zcu_hours")).toMatchObject({ amountCents: 0, unit: "ZCU-hour" });
       expect(invoice.lines.find((l) => l.key === "egress_gb_estimated")).toMatchObject({ amountCents: 0, quantity: 80 });
       expect(new Date(invoice.dueAt!).getTime()).toBe(NOW.getTime() + 14 * DAY);
       expect((await getAccount(db(), ws))?.stripeCustomerId).toMatch(/^cus_/);
@@ -194,13 +200,13 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
     it("refuses a period that has not ended, a workspace without an account, and an unassigned plan", async () => {
       const ws = newWorkspace();
       expect(await generateInvoice(db(), { now: NOW, netDays: 14 }, ws, PERIOD)).toEqual({ status: "not_ready", reason: "no_account" });
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       expect(await generateInvoice(db(), { now: NOW, netDays: 14 }, ws, periodOf(NOW))).toEqual({ status: "not_ready", reason: "period_open" });
     });
 
     it("never sends a zero total to the provider", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
       await seedMarch(ws);
       const provider = new FakeInvoiceProvider();
       const r = await generateInvoice(db(), { provider, now: NOW, netDays: 14 }, ws, PERIOD);
@@ -209,9 +215,31 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       expect(provider.calls).toHaveLength(0);
     });
 
+    it("never invoices an Enterprise (contract) account: an explicit contract_billed outcome, no row, no provider call", async () => {
+      const ws = newWorkspace();
+      await assignPlan(db(), { workspaceId: ws, planId: "enterprise", actor: "op" });
+      await seedMarch(ws);
+      const provider = new FakeInvoiceProvider();
+      expect(await generateInvoice(db(), { provider, now: NOW, netDays: 14 }, ws, PERIOD)).toEqual({ status: "contract_billed", planId: "enterprise" });
+      expect(await getInvoiceByPeriod(db(), ws, PERIOD)).toBeNull();
+      expect(provider.calls).toHaveLength(0);
+      const tick = await runBillingTick(db(), { env: STUB_BILLING, provider, now: NOW });
+      expect(tick).toMatchObject({ enabled: true, contractBilledAccounts: 1 });
+      expect(await listInvoices(db(), ws)).toHaveLength(0);
+    });
+
+    it("prices a stored legacy plan id as the plan it maps to, and records the resolved plan id", async () => {
+      const ws = newWorkspace();
+      await db().query("insert into platform.billing_accounts (workspace_id, plan_id, assigned_by) values ($1, 'scale_provisional', 'legacy')", [ws]);
+      await seedMarch(ws);
+      const r = await generateInvoice(db(), { provider: new FakeInvoiceProvider(), now: NOW, netDays: 14 }, ws, PERIOD);
+      expect(r).toMatchObject({ status: "ok" });
+      if (r.status === "ok") expect(r.invoice).toMatchObject({ planId: "team", planProvisional: false, subtotalCents: 19900 });
+    });
+
     it("leaves a draft with its exact lines when the provider is down, and a retry reuses the same idempotency keys", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await seedMarch(ws);
       const provider = new FakeInvoiceProvider();
       provider.failNext = 1;
@@ -230,7 +258,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("keeps a draft when no provider is configured", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       const r = await generateInvoice(db(), { now: NOW, netDays: 14 }, ws, PERIOD);
       expect(r).toMatchObject({ status: "ok", providerCalled: false, note: "provider_not_configured" });
     });
@@ -397,7 +425,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("adopts a provider invoice whose id our draft never recorded (crash between the provider call and the update)", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await seedMarch(ws);
       const r = await generateInvoice(db(), { now: NOW, netDays: 14 }, ws, PERIOD);
       expect(r).toMatchObject({ note: "provider_not_configured" });
@@ -471,7 +499,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("starts the grace clock at the oldest unpaid due date, and a partly settled account drops back to past due", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await seedMarch(ws);
       const provider = new FakeInvoiceProvider();
       await generateInvoice(db(), { provider, now: NOW, netDays: 14 }, ws, PERIOD);
@@ -506,7 +534,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("writes nothing for a no-op standing change and nothing for a workspace without an account", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
       const before = (await listAccountEvents(db(), ws)).length;
       const r = await applyStanding(db(), { workspaceId: ws, target: { status: "active" }, actor: "x", eventKind: "reinstated", now: NOW });
       expect(r).toMatchObject({ changed: false });
@@ -551,7 +579,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("refuses new provisioning work for a suspended workspace with 402, but never export or destroy", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: ws, actor: "op", reason: "x", now: NOW });
       for (const kind of ["deploy", "dayTwo", "remediation", "runner_job"]) {
         const e = await refused(ws, kind);
@@ -573,8 +601,8 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
     it("lets work through again after reinstatement and never touches another workspace", async () => {
       const a = newWorkspace();
       const b = newWorkspace();
-      await assignPlan(db(), { workspaceId: a, planId: "team_provisional", actor: "op" });
-      await assignPlan(db(), { workspaceId: b, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: a, planId: "builder", actor: "op" });
+      await assignPlan(db(), { workspaceId: b, planId: "builder", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: a, actor: "op", reason: "x", now: NOW });
       expect(await refused(a, "deploy")).toBeInstanceOf(BackpressureError);
       expect(await refused(b, "deploy")).toBeUndefined();
@@ -591,9 +619,9 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("holds a workspace to its plan's cap on queued and running operations, excluding the one being started", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       const ops: Awaited<ReturnType<typeof seedOperation>>[] = [];
-      for (let i = 0; i < 3; i++) ops.push(await seedOperation(db(), ws, { status: "queued" }));
+      for (let i = 0; i < 15; i++) ops.push(await seedOperation(db(), ws, { status: "queued" }));
       const e = await refused(ws, "deploy");
       expect(e).toMatchObject({ code: "plan_quota_exceeded", status: 429, layer: "billing" });
       expect(await assertBillingAdmitted({ workspaceId: ws, kind: "deploy", operationId: ops[0].id }, opts())).toBeUndefined();
@@ -601,23 +629,71 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       expect(await refused(ws, "export")).toBeUndefined();
     });
 
-    it("refuses new work once a plan's hard usage cap is reached, and a plan without a cap keeps going", async () => {
-      const free = newWorkspace();
+    it("refuses new work once a plan's hard usage cap is reached, without any charge, and a plan without a cap keeps going", async () => {
+      const builder = newWorkspace();
       const team = newWorkspace();
-      await assignPlan(db(), { workspaceId: free, planId: "free_provisional", actor: "op" });
-      await assignPlan(db(), { workspaceId: team, planId: "team_provisional", actor: "op" });
+      const enterprise = newWorkspace();
+      await assignPlan(db(), { workspaceId: builder, planId: "builder", actor: "op" });
+      await assignPlan(db(), { workspaceId: team, planId: "team", actor: "op" });
+      await assignPlan(db(), { workspaceId: enterprise, planId: "enterprise", actor: "op" });
       const period = periodOf(new Date());
-      for (const ws of [free, team]) await upsertUsage(db(), { workspaceId: ws, meter: "build_minutes", sourceId: "b", period, quantity: 301, unit: "minute", estimated: false });
-      const e = await refused(free, "deploy");
+      for (const ws of [builder, team, enterprise]) await upsertUsage(db(), { workspaceId: ws, meter: "build_minutes", sourceId: "b", period, quantity: 1001, unit: "minute", estimated: false });
+      const e = await refused(builder, "deploy");
       expect(e).toMatchObject({ code: "plan_quota_exceeded", status: 429 });
       expect((e as BackpressureError).message).toMatch(/build minutes/);
       expect(await refused(team, "deploy")).toBeUndefined();
-      expect(await refused(free, "export")).toBeUndefined();
+      expect(await refused(enterprise, "deploy")).toBeUndefined();
+      expect(await refused(builder, "export")).toBeUndefined();
+      expect(await refused(builder, "destroy")).toBeUndefined();
+      // a cap is an admission refusal, never a charge: the period's invoice for that usage is still just the minimum
+      await upsertUsage(db(), { workspaceId: builder, meter: "storage_gb_month", sourceId: "s", period: PERIOD, quantity: 49, unit: "GB", estimated: false });
+      await upsertUsage(db(), { workspaceId: builder, meter: "build_minutes", sourceId: "b2", period: PERIOD, quantity: 5000, unit: "minute", estimated: false });
+      const r = await generateInvoice(db(), { now: NOW, netDays: 14 }, builder, PERIOD);
+      expect(r).toMatchObject({ status: "ok" });
+      if (r.status === "ok") expect(r.invoice.subtotalCents).toBe(2900);
+    });
+
+    it("refuses Explore every non-exempt kind with plan_feature_unavailable (402, feature deploy) and still allows export and destroy", async () => {
+      const ws = newWorkspace();
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
+      for (const kind of ["deploy", "dayTwo", "remediation", "runner_job"]) {
+        const e = await refused(ws, kind);
+        expect(e, kind).toBeInstanceOf(BackpressureError);
+        expect(e).toMatchObject({ code: "plan_feature_unavailable", status: 402, layer: "billing", tenant: ws, detail: { feature: "deploy" } });
+        expect((e as BackpressureError).message).toMatch(/Explore does not include application deployment/);
+        expect((e as BackpressureError).message).toMatch(/Builder includes it/);
+      }
+      for (const kind of ["export", "destroy"]) expect(await refused(ws, kind), kind).toBeUndefined();
+      // an unassigned workspace keeps today's fail-closed answer rather than a guess at its plan
+      expect(await refused(newWorkspace(), "deploy")).toMatchObject({ code: "billing_unavailable", status: 503 });
+    });
+
+    it("admits Builder, Team and Enterprise, and a stored legacy id gets the entitlements of the plan it maps to", async () => {
+      for (const planId of ["builder", "team", "enterprise"]) {
+        const ws = newWorkspace();
+        await assignPlan(db(), { workspaceId: ws, planId, actor: "op" });
+        for (const kind of ["deploy", "dayTwo", "remediation", "runner_job", "export", "destroy"]) expect(await refused(ws, kind), `${planId} ${kind}`).toBeUndefined();
+      }
+      const legacyFree = newWorkspace();
+      const legacyTeam = newWorkspace();
+      await db().query("insert into platform.billing_accounts (workspace_id, plan_id, assigned_by) values ($1, 'free_provisional', 'legacy'), ($2, 'team_provisional', 'legacy')", [legacyFree, legacyTeam]);
+      expect(await refused(legacyFree, "deploy")).toMatchObject({ code: "plan_feature_unavailable" });
+      expect(await refused(legacyTeam, "deploy")).toBeUndefined();
+    });
+
+    it("applies no entitlement check at all while billing is disabled", async () => {
+      const ws = newWorkspace();
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
+      for (const env of [{}, { ZENITH_BILLING: "disabled" }]) {
+        for (const kind of ["deploy", "dayTwo", "remediation", "runner_job"]) {
+          await expect(assertBillingAdmitted({ workspaceId: ws, kind }, { env, store: async () => { throw new Error("store touched"); } })).resolves.toBeUndefined();
+        }
+      }
     });
 
     it("never counts an estimated or informational meter against a quota", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       const period = periodOf(new Date());
       await upsertUsage(db(), { workspaceId: ws, meter: "egress_gb_estimated", sourceId: "env", period, quantity: 1e9, unit: "GB", estimated: true });
       await upsertUsage(db(), { workspaceId: ws, meter: "operations_executed", sourceId: "ops", period, quantity: 1e9, unit: "operation", estimated: false });
@@ -630,7 +706,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       expect(await refused(fresh, "deploy", opts({ store: outage }))).toMatchObject({ code: "billing_unavailable", status: 503 });
       for (const kind of ["destroy", "export"]) expect(await refused(fresh, kind, opts({ store: outage }))).toBeUndefined();
       const held = newWorkspace();
-      await assignPlan(db(), { workspaceId: held, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: held, planId: "builder", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: held, actor: "op", reason: "x", now: NOW });
       expect(await refused(held, "deploy")).toBeInstanceOf(BackpressureError);
       expect(await refused(held, "deploy", opts({ store: outage }))).toBeInstanceOf(BackpressureError);
@@ -641,7 +717,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       vi.stubEnv("ZENITH_BILLING", "managed");
       setOpsRuntimeForTests(buildRuntime(opsLimitsFromEnv({ ZENITH_OPS_MAINTENANCE_CACHE_MS: "0" }), async () => db()));
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: ws, actor: "op", reason: "x", now: NOW });
       await expect(assertDispatchAdmitted({ workspaceId: ws, kind: "deploy", operationId: "op_1" })).rejects.toMatchObject({ code: "billing_suspended", status: 402 });
       await expect(assertDispatchAdmitted({ workspaceId: ws, kind: "dayTwo", operationId: "op_2" })).rejects.toMatchObject({ code: "billing_suspended" });
@@ -655,7 +731,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
   describe("billing: disabled bypasses every billing path", () => {
     it("admits everything with no store access, even for a workspace the store says is suspended", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: ws, actor: "op", reason: "x", now: NOW });
       for (const env of [{}, { ZENITH_BILLING: "disabled" }, { ZENITH_BILLING: "typo" }]) {
         for (const kind of ["deploy", "dayTwo", "remediation", "runner_job", "export", "destroy"]) {
@@ -674,7 +750,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       vi.stubEnv("ZENITH_BILLING", "");
       setOpsRuntimeForTests(buildRuntime(opsLimitsFromEnv({ ZENITH_OPS_MAINTENANCE_CACHE_MS: "0" }), async () => db()));
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "free_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "explore", actor: "op" });
       await suspendWorkspace(db(), { workspaceId: ws, actor: "op", reason: "x", now: NOW });
       invalidateBillingState();
       await expect(assertDispatchAdmitted({ workspaceId: ws, kind: "deploy", operationId: "op_1" })).resolves.toBeUndefined();
@@ -696,7 +772,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
     it("is complete, scrubbed, tenant-scoped, bounded and digest-checked, and works while suspended", async () => {
       const ws = newWorkspace();
       const other = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await seedMarch(ws);
       const otherResource = await seedResource(db(), other, { createdAt: "2026-03-01T00:00:00Z" });
       const akia = `AKIA${"A".repeat(16)}`;
@@ -713,7 +789,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       const text = JSON.stringify(bundle);
       expect(bundle.manifest).toMatchObject({ kind: "zenith_tenant_export", version: 1, workspaceId: ws, billing: "managed" });
       expect(bundle.manifest.digest).toMatch(/^[0-9a-f]{64}$/);
-      expect(bundle.manifest.notice).toMatch(/provisional/i);
+      expect(bundle.manifest.notice).toMatch(/launch pricing.*not live/i);
       expect(bundle.sections.resources).toHaveLength(7);
       expect(bundle.sections.billing_invoices).toHaveLength(1);
       expect((bundle.sections.billing_account as { status: string }[])[0].status).toBe("suspended");
@@ -740,23 +816,26 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
   /* ------------------------------ read model and tick ------------------------------ */
 
   describe("billing view and scheduled pass", () => {
-    it("shows the plan as provisional, usage against allowances and invoices; an unassigned workspace sees the default plan", async () => {
+    it("shows the decided plan and all four packages, usage against allowances and invoices; an unassigned workspace sees the default plan", async () => {
       const { ws } = await openInvoice();
       const view = await billingView(db(), ws, NOW);
-      expect(view).toMatchObject({ mode: "managed", provisional: true, assigned: true, period: "2026-04", account: { planId: "team_provisional", status: "active" } });
-      expect(view.plan).toMatchObject({ provisional: true, id: "team_provisional" });
-      expect(view.notice).toMatch(/not decided/i);
-      expect(view.usage.find((u) => u.meter === "build_minutes")).toMatchObject({ included: 1000, charged: true });
+      expect(view).toMatchObject({ mode: "managed", provisional: false, pricingDecision: { decision: "DEC-BUSINESS", approvedAt: "2026-10-13" }, assigned: true, period: "2026-04", account: { planId: "builder", status: "active" } });
+      expect(view.plan).toMatchObject({ provisional: false, id: "builder" });
+      expect(view.packages.map((p) => p.id)).toEqual(["explore", "builder", "team", "enterprise"]);
+      expect(view.zcuDefinition).toMatch(/one resource managed by Zenith for one hour/);
+      expect(view.notice).toMatch(/not live/i);
+      expect(view.usage.find((u) => u.meter === "build_minutes")).toMatchObject({ included: 1000, hardCap: 1000, charged: false });
+      expect(view.usage.find((u) => u.meter === "managed_resource_hours")).toMatchObject({ unit: "ZCU-hour", charged: true });
       expect(view.usage.find((u) => u.meter === "egress_gb_estimated")).toMatchObject({ charged: false, estimated: true });
       expect(view.invoices).toHaveLength(1);
       expect(view.whatSuspensionMeans).toMatch(/never deletes/i);
       const unassigned = await billingView(db(), newWorkspace(), NOW);
-      expect(unassigned).toMatchObject({ assigned: false, account: null, plan: { id: "free_provisional" } });
+      expect(unassigned).toMatchObject({ assigned: false, account: null, plan: { id: "explore" } });
     });
 
     it("collects, invoices the ended period once and runs dunning, repeatably", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await seedMarch(ws);
       const provider = new FakeInvoiceProvider();
       const deps = { env: { ...STUB_BILLING, ZENITH_BILLING_GRACE_DAYS: "14" }, provider, now: NOW };
@@ -777,7 +856,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
 
     it("waits out the settle window before invoicing a period that just ended", async () => {
       const ws = newWorkspace();
-      await assignPlan(db(), { workspaceId: ws, planId: "team_provisional", actor: "op" });
+      await assignPlan(db(), { workspaceId: ws, planId: "builder", actor: "op" });
       await runBillingTick(db(), { env: STUB_BILLING, provider: new FakeInvoiceProvider(), now: new Date("2026-04-01T01:00:00Z") });
       expect(await getInvoiceByPeriod(db(), ws, PERIOD)).toBeNull();
       await runBillingTick(db(), { env: STUB_BILLING, provider: new FakeInvoiceProvider(), now: new Date("2026-04-01T07:00:00Z") });

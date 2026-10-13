@@ -56,6 +56,10 @@ export async function POST(request: NextRequest): Promise<Response> {
         result.reason === "period_open" ? "That period has not ended, so it cannot be invoiced yet." : result.reason === "no_account" ? "That workspace has no billing account; assign a plan first." : "That account's plan is not in the catalog.",
         result.reason === "period_open" ? 409 : 404);
     }
+    if (result.status === "contract_billed") {
+      log.info("billing invoice skipped: contract plan", { scope: "billing", workspaceId: parsed.data.workspaceId, period: parsed.data.period, planId: result.planId, actor: operator.id });
+      return json({ status: "contract_billed", planId: result.planId, invoice: null, message: "This account is on a contract plan. Zenith creates no automatic invoice for it; billing happens by contract outside Zenith.", notice: PLAN_NOTICE });
+    }
     log.info("billing invoice generated", { scope: "billing", workspaceId: parsed.data.workspaceId, period: parsed.data.period, status: result.invoice.status, actor: operator.id });
     return json({ invoice: result.invoice, created: result.created, providerCalled: result.providerCalled, ...(result.note ? { note: result.note } : {}), notice: PLAN_NOTICE });
   } catch (error) { return errorResponse(error); }

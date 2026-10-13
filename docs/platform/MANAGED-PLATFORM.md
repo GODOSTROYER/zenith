@@ -512,6 +512,27 @@ design intention backed by contract tests.
 
 ## Billing assignment and tier changes (W5-GAPS)
 
-With `ZENITH_BILLING=managed`, `free_provisional`, `team_provisional`, and `scale_provisional` map explicitly to the managed `free`, `starter`, and `pro` capacity tiers. Every tenant resolution reads that workspace's current billing assignment. Missing, unknown, or unavailable billing state refuses before credentials; it never selects the operator tier. New-work dispatch also reads standing afresh and fails closed on a billing-store outage. Billing remains disabled by default, with no billing reads or charges, and the operator-configured tier is shown honestly in project settings and `GET /api/platform/v1/billing`.
+With `ZENITH_BILLING=managed`, the launch plans `explore`, `builder`, `team` and `enterprise` map explicitly to the managed `free`, `starter`, `pro` and `pro` capacity tiers (the earlier ids `free_provisional`, `team_provisional` and `scale_provisional` still resolve on read to `explore`, `builder` and `team`, and are never accepted for a new assignment). Every tenant resolution reads that workspace's current billing assignment. Missing, unknown, or unavailable billing state refuses before credentials; it never selects the operator tier. New-work dispatch also reads standing afresh and fails closed on a billing-store outage. Billing remains disabled by default, with no billing reads or charges, and the operator-configured tier is shown honestly in project settings and `GET /api/platform/v1/billing`.
 
 Upgrades and downgrades govern subsequent reviewed plans; billing assignment alone never applies quotas, deletes data, or stops workloads. Session readiness verifies the exact capacity bundle already applied to the namespace against its recorded tier, so a changed assignment does not invalidate observation or teardown credentials. Desired resource limits still use the current billing tier. Suspension blocks new provisioning/build/deploy/scale work; reads, export and destroy retain their existing authorization paths. The dedicated first-deploy isolation and isolated-build jobs remain separate. See [W5-GAPS](../build/production/verify/W5-GAPS.md).
+
+### Launch packages and entitlements (decided 2026-10-13)
+
+Owner-approved launch packages (DEC-BUSINESS, Arnav Bule, 2026-10-13). Live charging is NOT on: billing is disabled by default, only Stripe test mode is accepted, and no payment account or terms review exists yet.
+
+| | Explore | Builder | Team | Enterprise |
+|---|---|---|---|---|
+| Best for | Exploring Zenith | Individuals and small teams | Teams managing multiple environments | Organizations with custom requirements |
+| Monthly price | Free | $29/month minimum | $199/month minimum | Custom pricing |
+| Included management usage | Limited evaluation | $29/month | $199/month | Custom commitment |
+| Additional management usage | None | $0.015 per ZCU-hour | $0.015 per ZCU-hour | Negotiated rate |
+| Architecture planning and cost estimates | Limited | Included | Included | Included |
+| Application deployment and ongoing management | Not available | Included | Included | Included |
+| Deployment approvals and audit records | Preview only | Included | Included | Included |
+| Organizational policies and team approval workflows | Not available | Not available | Included | Custom configuration |
+| Deployment options | Planning and previews | Your cloud or Zenith-hosted | Your cloud or Zenith-hosted | Agreed deployment model |
+| Support | Documentation | Email support | Priority email support | Contracted support |
+
+1 ZCU-hour = one resource managed by Zenith for one hour (the `managed_resource_hours` meter). Builder and Team bill `max(minimum, ZCU-hours x $0.015)` in integer cents, rounded half-up once. Build minutes and storage are included and are never billed; fair-use hard caps (build minutes 300 / 1000 / 10000, storage 20 / 50 / 500 GB, active operations 3 / 15 / 60) refuse new work at the cap and never charge. These fair-use limits are carried forward from the earlier catalog and are adjustable. Enterprise is billed by contract outside Zenith: Zenith creates no automatic invoice for it.
+
+Entitlements apply only in managed billing mode. A plan without deployment (Explore) refuses deploy, day-two, remediation and runner dispatch with `plan_feature_unavailable` (HTTP 402); export, destroy, planning, previews, estimates and reads are never blocked. Editing workspace policy (organizational policies and team approval workflows) is refused on Explore and Builder with the same code; an existing policy keeps being enforced and readable after a downgrade. Details, formula examples and enforcement locations: [PROD-MAN-06](../build/production/verify/PROD-MAN-06.md#pricing-decision-update-2026-10-13).

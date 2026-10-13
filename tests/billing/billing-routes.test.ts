@@ -68,7 +68,7 @@ describe("operator routes: authorization and the disabled mode", () => {
     if (state === "removed-factor") mocks.authUser.mockResolvedValue({ data: { user: { id: OPERATOR, email_confirmed_at: new Date().toISOString(), factors: [] } }, error: null });
     const id = ws();
     const responses = [
-      await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "free_provisional" })),
+      await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "explore" })),
       await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" })),
       await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "suspend", reason: "contract" })),
     ];
@@ -80,12 +80,12 @@ describe("operator routes: authorization and the disabled mode", () => {
   it("refuses an anonymous caller (401) and a signed-in non-operator (403) on every route and method", async () => {
     mocks.session.mockResolvedValue(null);
     expect((await assignment.GET(json("GET", "/api/admin/billing/assignment"))).status).toBe(401);
-    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: "ws_x", planId: "free_provisional" }))).status).toBe(401);
+    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: "ws_x", planId: "explore" }))).status).toBe(401);
     expect((await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: "ws_x", period: "2026-03" }))).status).toBe(401);
     expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: "ws_x", action: "suspend", reason: "x" }))).status).toBe(401);
     mocks.session.mockResolvedValue({ id: STRANGER, email: "x@example.com" });
     expect((await assignment.GET(json("GET", "/api/admin/billing/assignment"))).status).toBe(403);
-    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: "ws_x", planId: "free_provisional" }))).status).toBe(403);
+    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: "ws_x", planId: "explore" }))).status).toBe(403);
     expect((await invoices.GET(json("GET", "/api/admin/billing/invoices?workspaceId=ws_x"))).status).toBe(403);
     expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: "ws_x", action: "reinstate", reason: "x" }))).status).toBe(403);
   });
@@ -94,7 +94,7 @@ describe("operator routes: authorization and the disabled mode", () => {
     asOperator();
     const res = await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: "ws_x", action: "suspend", reason: "csrf" }, { origin: "https://evil.example" }));
     expect(res.status).toBe(403);
-    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: "ws_x", planId: "free_provisional" }, { "sec-fetch-site": "cross-site" }))).status).toBe(403);
+    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: "ws_x", planId: "explore" }, { "sec-fetch-site": "cross-site" }))).status).toBe(403);
   });
 
   it("answers 404 on a host where billing is not managed, and writes nothing", async () => {
@@ -102,7 +102,7 @@ describe("operator routes: authorization and the disabled mode", () => {
     for (const mode of ["", "disabled", "typo"]) {
       vi.stubEnv("ZENITH_BILLING", mode);
       const id = ws();
-      expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "free_provisional" }))).status).toBe(404);
+      expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "explore" }))).status).toBe(404);
       expect((await assignment.GET(json("GET", "/api/admin/billing/assignment"))).status).toBe(404);
       expect((await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" }))).status).toBe(404);
       expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "suspend", reason: "x" }))).status).toBe(404);
@@ -112,24 +112,29 @@ describe("operator routes: authorization and the disabled mode", () => {
 });
 
 describe("plan assignment, suspension and invoice routes", () => {
-  it("assigns a provisional plan, shows the catalog, versions the account and refuses an unknown plan or a stale writer", async () => {
+  it("assigns a plan, shows the catalog, versions the account and refuses an unknown plan or a stale writer", async () => {
     asOperator();
     const id = ws();
-    const put = await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "team_provisional", reason: "pilot" }));
+    const put = await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "builder", reason: "pilot" }));
     expect(put.status).toBe(200);
     const body = (await put.json()) as { account: { planId: string; version: number; assignedBy: string }; notice: string };
-    expect(body.account).toMatchObject({ planId: "team_provisional", version: 1, assignedBy: OPERATOR });
-    expect(body.notice).toMatch(/not decided/i);
-    const catalog = (await (await assignment.GET(json("GET", "/api/admin/billing/assignment"))).json()) as { plans: { id: string; provisional: boolean }[]; accounts: { workspaceId: string }[]; defaultPlanId: string };
-    expect(catalog.plans.length).toBeGreaterThanOrEqual(3);
-    expect(catalog.plans.every((p) => p.provisional && p.id.endsWith("_provisional"))).toBe(true);
+    expect(body.account).toMatchObject({ planId: "builder", version: 1, assignedBy: OPERATOR });
+    expect(body.notice).toMatch(/not live/i);
+    const catalog = (await (await assignment.GET(json("GET", "/api/admin/billing/assignment"))).json()) as { plans: { id: string; provisional: boolean; display: { monthlyPrice: string } }[]; accounts: { workspaceId: string }[]; defaultPlanId: string };
+    expect(catalog.plans.map((p) => p.id)).toEqual(["explore", "builder", "team", "enterprise"]);
+    expect(catalog.plans.every((p) => !p.provisional)).toBe(true);
+    expect(catalog.plans.map((p) => p.display.monthlyPrice)).toEqual(["Free", "$29/month minimum", "$199/month minimum", "Custom pricing"]);
+    expect(catalog.defaultPlanId).toBe("explore");
     expect(catalog.accounts.map((a) => a.workspaceId)).toContain(id);
     const one = (await (await assignment.GET(json("GET", `/api/admin/billing/assignment?workspaceId=${id}`))).json()) as { account: { planId: string }; events: { kind: string; reason?: string }[] };
-    expect(one.account.planId).toBe("team_provisional");
+    expect(one.account.planId).toBe("builder");
     expect(one.events[0]).toMatchObject({ kind: "plan_assigned", reason: "pilot" });
-    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "enterprise" }))).status).toBe(400);
-    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "free_provisional", extra: 1 }))).status).toBe(400);
-    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "free_provisional", expectedVersion: 9 }))).status).toBe(409);
+    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "enterprise" }))).status).toBe(200);
+    for (const legacy of ["free_provisional", "team_provisional", "scale_provisional", "pro"]) {
+      expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: legacy }))).status, legacy).toBe(400);
+    }
+    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "explore", extra: 1 }))).status).toBe(400);
+    expect((await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "explore", expectedVersion: 9 }))).status).toBe(409);
     expect((await assignment.GET(json("GET", "/api/admin/billing/assignment?workspaceId=bad%20id"))).status).toBe(400);
   });
 
@@ -137,7 +142,7 @@ describe("plan assignment, suspension and invoice routes", () => {
     asOperator();
     const id = ws();
     expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "suspend", reason: "x" }))).status).toBe(404); // no account yet
-    await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "team_provisional" }));
+    await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "builder" }));
     expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "suspend" }))).status).toBe(400); // reason required
     expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "suspend", reason: "   " }))).status).toBe(400);
     expect((await suspension.POST(json("POST", "/api/admin/billing/suspension", { workspaceId: id, action: "delete", reason: "x" }))).status).toBe(400);
@@ -161,7 +166,7 @@ describe("plan assignment, suspension and invoice routes", () => {
     vi.stubEnv("ZENITH_BILLING_STRIPE_SECRET_KEY", "");
     const id = ws();
     expect((await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" }))).status).toBe(404); // no account
-    await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "team_provisional" }));
+    await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "builder" }));
     await seedResource(handle, id, { createdAt: "2026-03-01T00:00:00Z", status: "deleted", updatedAt: "2026-03-02T00:00:00Z" });
     const future = `${new Date().getUTCFullYear() + 1}-01`;
     expect((await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: future }))).status).toBe(409);
@@ -169,12 +174,25 @@ describe("plan assignment, suspension and invoice routes", () => {
     const first = await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" }));
     expect(first.status).toBe(200);
     const created = (await first.json()) as { invoice: { id: string; status: string; planProvisional: boolean; subtotalCents: number }; created: boolean; note: string; notice: string };
-    expect(created).toMatchObject({ created: true, note: "provider_not_configured", invoice: { status: "draft", planProvisional: true, subtotalCents: 2900 } });
-    expect(created.notice).toMatch(/not decided/i);
+    expect(created).toMatchObject({ created: true, note: "provider_not_configured", invoice: { status: "draft", planProvisional: false, subtotalCents: 2900 } });
+    expect(created.notice).toMatch(/not live/i);
     const again = (await (await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" }))).json()) as { invoice: { id: string }; created: boolean };
     expect(again).toMatchObject({ created: false, invoice: { id: created.invoice.id } });
     const list = (await (await invoices.GET(json("GET", `/api/admin/billing/invoices?workspaceId=${id}`))).json()) as { invoices: { id: string }[] };
     expect(list.invoices.map((i) => i.id)).toEqual([created.invoice.id]);
+  });
+});
+
+describe("invoice route for a contract plan", () => {
+  it("answers with an explicit contract_billed outcome and creates no invoice", async () => {
+    asOperator();
+    const id = ws();
+    await assignment.PUT(json("PUT", "/api/admin/billing/assignment", { workspaceId: id, planId: "enterprise" }));
+    const res = await invoices.POST(json("POST", "/api/admin/billing/invoices", { workspaceId: id, period: "2026-03" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: "contract_billed", planId: "enterprise", invoice: null });
+    const list = (await (await invoices.GET(json("GET", `/api/admin/billing/invoices?workspaceId=${id}`))).json()) as { invoices: unknown[] };
+    expect(list.invoices).toEqual([]);
   });
 });
 
@@ -184,7 +202,7 @@ describe("signed webhook route", () => {
 
   async function openInvoice() {
     const id = ws();
-    await handle.query("insert into platform.billing_accounts (workspace_id, plan_id, assigned_by) values ($1, 'team_provisional', 'op')", [id]);
+    await handle.query("insert into platform.billing_accounts (workspace_id, plan_id, assigned_by) values ($1, 'builder', 'op')", [id]);
     const r = await generateInvoice(handle, { provider: new FakeInvoiceProvider(), now: new Date(), netDays: 14 }, id, "2026-03");
     if (r.status !== "ok" || r.invoice.status !== "open") throw new Error("setup");
     return r.invoice;

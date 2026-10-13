@@ -1,5 +1,5 @@
 /**
- * PROD-MAN-06 unit and contract tests that need no database: the provisional plan catalog, configuration (the
+ * PROD-MAN-06 unit and contract tests that need no database: the launch plan catalog and entitlements, configuration (the
  * `billing: disabled` default), pure invoice pricing, the Stripe TEST-mode adapter's request shapes (injected fetch,
  * contract-level) and webhook signature verification with a run-time generated secret.
  */
@@ -8,33 +8,100 @@ import type { Sql } from "@/lib/controlplane/types";
 import { createHmac, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { STRIPE_API_BASE, billingConfigFromEnv, billingEnabled, isStripeTestKey } from "@/lib/billing/config";
-import { priceInvoice } from "@/lib/billing/invoice";
+import { priceInvoice, usageMinimumTotalCents, zcuUsageCents } from "@/lib/billing/invoice";
 import { periodBounds, periodEnded, periodOf, previousPeriod } from "@/lib/billing/period";
-import { BILLABLE_METERS, DEFAULT_PLAN_ID, PLANS, PLAN_NOTICE, getPlan, isPlanId, listPlanViews, type PlanDefinition } from "@/lib/billing/plans";
+import { BILLABLE_METERS, DEFAULT_PLAN_ID, LEGACY_PLAN_ALIASES, PACKAGE_ROWS, PLANS, PLAN_NOTICE, PRICING_DECISION, getPlan, isKnownPlanId, isPlanId, listPlanViews } from "@/lib/billing/plans";
 import { BillingProviderError } from "@/lib/billing/provider";
 import { SIGNATURE_TOLERANCE_SEC, StripeTestInvoiceProvider, signStripePayload, verifyStripeSignature, type FetchLike } from "@/lib/billing/stripe";
+import { BrokerError, BROKER_HTTP_STATUS } from "@/lib/capabilities/errors";
+import { BACKPRESSURE_STATUS, BackpressureError, backpressureBody, backpressureResponse } from "@/lib/ops/errors";
+import { errorBody } from "@/app/api/platform/v1/_lib/http";
 import { hex, liveLookingKey, testSecretKey, webhookSecret } from "./_support";
 
-describe("provisional plan catalog", () => {
-  it("marks every plan provisional, names it as such and ties it to the undecided business decision", () => {
-    expect(Object.keys(PLANS).length).toBeGreaterThanOrEqual(3);
+describe("launch plan catalog", () => {
+  it("has exactly the four decided packages, none provisional, tied to the recorded decision", () => {
+    expect(Object.keys(PLANS)).toEqual(["explore", "builder", "team", "enterprise"]);
+    expect(PRICING_DECISION).toEqual({ decision: "DEC-BUSINESS", approvedBy: "Arnav Bule", approvedAt: "2026-10-13" });
+    expect(Object.isFrozen(PRICING_DECISION)).toBe(true);
     for (const plan of Object.values(PLANS)) {
-      expect(plan.provisional).toBe(true);
+      expect(plan.provisional).toBe(false);
       expect(plan.decision).toBe("DEC-BUSINESS");
-      expect(plan.id).toMatch(/_provisional$/);
-      expect(plan.name).toMatch(/provisional/i);
+      expect(plan.id).not.toMatch(/_provisional$/);
+      expect(plan.name).not.toMatch(/provisional/i);
       for (const meter of BILLABLE_METERS) expect(plan.meters[meter].included).toBeGreaterThanOrEqual(0);
     }
-    expect(PLAN_NOTICE).toMatch(/not decided/i);
+    expect(PLAN_NOTICE).toMatch(/2026-10-13/);
+    expect(PLAN_NOTICE).toMatch(/not live/i);
     for (const view of listPlanViews()) expect(view.notice).toBe(PLAN_NOTICE);
+    expect(DEFAULT_PLAN_ID).toBe("explore");
+  });
+
+  it("models prices explicitly and maps each plan to its managed tier", () => {
+    expect(PLANS.explore.pricing).toEqual({ kind: "free" });
+    expect(PLANS.builder.pricing).toEqual({ kind: "usage_minimum", minimumCents: 2900, zcuRateMillicents: 1500 });
+    expect(PLANS.team.pricing).toEqual({ kind: "usage_minimum", minimumCents: 19900, zcuRateMillicents: 1500 });
+    expect(PLANS.enterprise.pricing).toEqual({ kind: "contract" });
+    expect(Object.values(PLANS).map((p) => [p.id, p.managedTier])).toEqual([["explore", "free"], ["builder", "starter"], ["team", "pro"], ["enterprise", "pro"]]);
+    expect(Object.values(PLANS).map((p) => p.maxActiveOperations)).toEqual([3, 15, 60, null]);
+  });
+
+  it("carries build minutes and storage as fair-use hard caps with no rate", () => {
+    for (const plan of Object.values(PLANS)) {
+      expect(plan.meters.build_minutes.rateCents).toBe(0);
+      expect(plan.meters.storage_gb_month.rateCents).toBe(0);
+    }
+    expect([PLANS.explore, PLANS.builder, PLANS.team].map((p) => [p.meters.build_minutes.hardCap, p.meters.storage_gb_month.hardCap])).toEqual([[300, 20], [1000, 50], [10000, 500]]);
+    expect(PLANS.enterprise.meters.build_minutes.hardCap).toBeUndefined();
+    expect(PLANS.enterprise.meters.storage_gb_month.hardCap).toBeUndefined();
+    for (const plan of Object.values(PLANS)) expect(plan.meters.managed_resource_hours.hardCap).toBeUndefined();
+  });
+
+  it("has entitlements exactly as the decision table states", () => {
+    expect(PLANS.explore.entitlements).toEqual({ deploy: false, approvals: "preview", orgPolicies: false, deploymentOptions: ["planning"], support: "docs" });
+    expect(PLANS.builder.entitlements).toEqual({ deploy: true, approvals: "full", orgPolicies: false, deploymentOptions: ["customer_cloud", "zenith_hosted"], support: "email" });
+    expect(PLANS.team.entitlements).toEqual({ deploy: true, approvals: "full", orgPolicies: true, deploymentOptions: ["customer_cloud", "zenith_hosted"], support: "priority_email" });
+    expect(PLANS.enterprise.entitlements).toEqual({ deploy: true, approvals: "full", orgPolicies: true, deploymentOptions: ["contract"], support: "contract" });
+    for (const plan of Object.values(PLANS)) {
+      expect(Object.isFrozen(plan.entitlements)).toBe(true);
+      expect(Object.isFrozen(plan.entitlements.deploymentOptions)).toBe(true);
+    }
+  });
+
+  it("renders the decision table verbatim, one string per row and package", () => {
+    expect(PACKAGE_ROWS.map((r) => r.label)).toEqual([
+      "Best for", "Monthly price", "Included management usage", "Additional management usage", "Architecture planning and cost estimates",
+      "Application deployment and ongoing management", "Deployment approvals and audit records", "Organizational policies and team approval workflows",
+      "Deployment options", "Support",
+    ]);
+    const column = (id: string) => PACKAGE_ROWS.map((r) => PLANS[id].display[r.key]);
+    expect(column("explore")).toEqual(["Exploring Zenith", "Free", "Limited evaluation", "None", "Limited", "Not available", "Preview only", "Not available", "Planning and previews", "Documentation"]);
+    expect(column("builder")).toEqual(["Individuals and small teams", "$29/month minimum", "$29/month", "$0.015 per ZCU-hour", "Included", "Included", "Included", "Not available", "Your cloud or Zenith-hosted", "Email support"]);
+    expect(column("team")).toEqual(["Teams managing multiple environments", "$199/month minimum", "$199/month", "$0.015 per ZCU-hour", "Included", "Included", "Included", "Included", "Your cloud or Zenith-hosted", "Priority email support"]);
+    expect(column("enterprise")).toEqual(["Organizations with custom requirements", "Custom pricing", "Custom commitment", "Negotiated rate", "Included", "Included", "Included", "Custom configuration", "Agreed deployment model", "Contracted support"]);
+    for (const view of listPlanViews()) expect(view.zcu).toMatchObject({ meter: "managed_resource_hours", unit: "ZCU-hour" });
   });
 
   it("is frozen and rejects unknown plan ids, including prototype names", () => {
     expect(isPlanId(DEFAULT_PLAN_ID)).toBe(true);
-    for (const bad of ["enterprise", "", "__proto__", "constructor", "toString", undefined, 7]) expect(isPlanId(bad)).toBe(false);
-    expect(() => getPlan("enterprise")).toThrow(RangeError);
+    for (const bad of ["pro", "", "__proto__", "constructor", "toString", undefined, 7]) expect(isPlanId(bad)).toBe(false);
+    expect(() => getPlan("pro")).toThrow(RangeError);
+    expect(() => getPlan("__proto__")).toThrow(RangeError);
     expect(Object.isFrozen(PLANS)).toBe(true);
-    expect(Object.isFrozen(PLANS.team_provisional)).toBe(true);
+    expect(Object.isFrozen(PLANS.team)).toBe(true);
+    expect(Object.isFrozen(PLANS.team.meters)).toBe(true);
+    expect(Object.isFrozen(PLANS.team.pricing)).toBe(true);
+    expect(Object.isFrozen(LEGACY_PLAN_ALIASES)).toBe(true);
+  });
+
+  it("resolves legacy ids to the current plans on read but never accepts them as current ids", () => {
+    expect(LEGACY_PLAN_ALIASES).toEqual({ free_provisional: "explore", team_provisional: "builder", scale_provisional: "team" });
+    for (const [legacy, current] of Object.entries(LEGACY_PLAN_ALIASES)) {
+      expect(isPlanId(legacy)).toBe(false);
+      expect(isKnownPlanId(legacy)).toBe(true);
+      expect(getPlan(legacy)).toBe(PLANS[current]);
+    }
+    expect(isKnownPlanId("enterprise")).toBe(true);
+    expect(isKnownPlanId("__proto__")).toBe(false);
   });
 });
 
@@ -92,47 +159,101 @@ describe("periods", () => {
   });
 });
 
-describe("invoice pricing", () => {
-  const plan: PlanDefinition = {
-    id: "test_provisional", managedTier: "starter", name: "Test (provisional)", provisional: true, decision: "DEC-BUSINESS", baseCents: 1000, maxActiveOperations: 5,
-    meters: {
-      managed_resource_hours: { included: 100, rateCents: 0.5 },
-      build_minutes: { included: 10, rateCents: 2 },
-      storage_gb_month: { included: 1, rateCents: 10 },
-    },
-  };
+const hours = (quantity: number) => [{ meter: "managed_resource_hours" as const, quantity, estimated: false, sources: 1 }];
 
-  it("charges the base fee plus overage beyond the included allowance, rounded once per line", () => {
-    const priced = priceInvoice(plan, [
-      { meter: "managed_resource_hours", quantity: 250, estimated: false, sources: 3 },
-      { meter: "build_minutes", quantity: 4, estimated: false, sources: 1 },
-      { meter: "storage_gb_month", quantity: 3.5, estimated: false, sources: 1 },
+describe("invoice pricing", () => {
+  it("rounds the usage charge half-up once, exactly, at 1.5 cents per ZCU-hour", () => {
+    expect(zcuUsageCents(0, 1500)).toBe(0);
+    expect(zcuUsageCents(-3, 1500)).toBe(0);
+    expect(zcuUsageCents(1, 1500)).toBe(2); // 1.5 rounds half up
+    expect(zcuUsageCents(2, 1500)).toBe(3);
+    expect(zcuUsageCents(3, 1500)).toBe(5); // 4.5 rounds half up
+    expect(zcuUsageCents(0.333333, 1500)).toBe(0); // 0.4999995 cents rounds down
+    expect(zcuUsageCents(0.333334, 1500)).toBe(1); // 0.500001 cents rounds up
+    expect(zcuUsageCents(0.000001, 1500)).toBe(0);
+    expect(zcuUsageCents(1_000_000_000, 1500)).toBe(1_500_000_000);
+    expect(usageMinimumTotalCents(2900, 100)).toBe(2900);
+    expect(usageMinimumTotalCents(2900, 2900)).toBe(2900);
+    expect(usageMinimumTotalCents(2900, 2901)).toBe(2901);
+  });
+
+  it("Builder: zero usage costs the $29 minimum, never less", () => {
+    const priced = priceInvoice(PLANS.builder, [], "2026-03");
+    expect(priced.subtotalCents).toBe(2900);
+    expect(priced.lines.map((l) => [l.key, l.amountCents])).toEqual([["zcu_hours", 0], ["minimum", 2900]]);
+    expect(priceInvoice(PLANS.builder, hours(0), "2026-03").subtotalCents).toBe(2900);
+  });
+
+  it("Builder: stays at the minimum up to exactly the included amount and charges usage only above it", () => {
+    // $29.00 / $0.015 = 1933.33 ZCU-hours. 1933 -> 2899.5 -> 2900 (half-up) = minimum; 1934 -> 2901.
+    expect(priceInvoice(PLANS.builder, hours(1000), "2026-03").subtotalCents).toBe(2900);
+    expect(priceInvoice(PLANS.builder, hours(1932), "2026-03").subtotalCents).toBe(2900); // 2898
+    expect(priceInvoice(PLANS.builder, hours(1933), "2026-03").subtotalCents).toBe(2900); // 2899.5 -> 2900, equal to the minimum
+    const above = priceInvoice(PLANS.builder, hours(1934), "2026-03");
+    expect(above.subtotalCents).toBe(2901); // one ZCU-hour above the included amount
+    expect(above.lines.map((l) => [l.key, l.amountCents])).toEqual([["zcu_hours", 0], ["minimum", 2900], ["usage_above_minimum", 1]]);
+    expect(above.lines.reduce((n, l) => n + l.amountCents, 0)).toBe(above.subtotalCents);
+  });
+
+  it("Team: $199 minimum, boundary at 13266.67 ZCU-hours, large usage billed in full", () => {
+    expect(priceInvoice(PLANS.team, hours(0), "2026-03").subtotalCents).toBe(19900);
+    expect(priceInvoice(PLANS.team, hours(13266), "2026-03").subtotalCents).toBe(19900); // 198.99 -> 19899 < minimum
+    expect(priceInvoice(PLANS.team, hours(13267), "2026-03").subtotalCents).toBe(19901); // 199.005 -> 19900.5 -> 19901
+    expect(priceInvoice(PLANS.team, hours(100_000), "2026-03").subtotalCents).toBe(150_000);
+    expect(priceInvoice(PLANS.team, hours(2_000_000), "2026-03").subtotalCents).toBe(3_000_000);
+  });
+
+  it("shows ZCU-hours, the rate, the usage charge, the minimum and the amount due on the invoice", () => {
+    const priced = priceInvoice(PLANS.builder, hours(4000), "2026-03");
+    expect(priced.subtotalCents).toBe(6000);
+    const info = priced.lines.find((l) => l.key === "zcu_hours")!;
+    expect(info).toMatchObject({ quantity: 4000, unit: "ZCU-hour", unitCents: 1.5, amountCents: 0 });
+    expect(info.description).toContain("4000 ZCU-hours");
+    expect(info.description).toContain("$0.015 per ZCU-hour");
+    expect(info.description).toContain("$60.00 usage charge");
+    expect(info.description).toContain("minimum $29.00");
+    expect(info.description).toContain("Amount due $60.00");
+  });
+
+  it("never charges build minutes or storage: they are listed at zero with their fair-use cap", () => {
+    const priced = priceInvoice(PLANS.builder, [
+      { meter: "managed_resource_hours", quantity: 10, estimated: false, sources: 1 },
+      { meter: "build_minutes", quantity: 9999, estimated: false, sources: 1 },
+      { meter: "storage_gb_month", quantity: 9999, estimated: false, sources: 1 },
     ], "2026-03");
-    const by = Object.fromEntries(priced.lines.map((l) => [l.key, l.amountCents]));
-    expect(by).toMatchObject({ base: 1000, managed_resource_hours: 75, build_minutes: 0, storage_gb_month: 25 });
-    expect(priced.subtotalCents).toBe(1100);
-    expect(priced.digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(priced.subtotalCents).toBe(2900);
+    expect(priced.lines.find((l) => l.key === "build_minutes")).toMatchObject({ amountCents: 0 });
+    expect(priced.lines.find((l) => l.key === "build_minutes")!.description).toMatch(/included in the plan.*fair-use cap 1000/);
+  });
+
+  it("prices Explore at zero whatever the usage, and refuses to price a contract plan", () => {
+    const priced = priceInvoice(PLANS.explore, hours(5000), "2026-03");
+    expect(priced.subtotalCents).toBe(0);
+    expect(priced.lines.every((l) => l.amountCents === 0)).toBe(true);
+    expect(() => priceInvoice(PLANS.enterprise, hours(5000), "2026-03")).toThrow(/billed by contract/);
   });
 
   it("lists estimated and informational meters at zero: an estimate is never charged", () => {
-    const priced = priceInvoice(plan, [
+    const priced = priceInvoice(PLANS.builder, [
       { meter: "egress_gb_estimated", quantity: 80, estimated: true, sources: 1 },
       { meter: "operations_executed", quantity: 12, estimated: false, sources: 1 },
     ], "2026-03");
-    expect(priced.lines.filter((l) => l.key !== "base").every((l) => l.amountCents === 0)).toBe(true);
+    expect(priced.lines.filter((l) => l.key !== "minimum").every((l) => l.amountCents === 0)).toBe(true);
     expect(priced.lines.find((l) => l.key === "egress_gb_estimated")?.description).toMatch(/estimate, not charged/);
-    expect(priced.subtotalCents).toBe(1000);
+    expect(priced.subtotalCents).toBe(2900);
   });
 
   it("is deterministic: the same inputs give the same digest, and a changed quantity changes it", () => {
-    const totals = [{ meter: "build_minutes" as const, quantity: 50, estimated: false, sources: 1 }];
-    expect(priceInvoice(plan, totals, "2026-03").digest).toBe(priceInvoice(plan, totals, "2026-03").digest);
-    expect(priceInvoice(plan, [{ ...totals[0], quantity: 51 }], "2026-03").digest).not.toBe(priceInvoice(plan, totals, "2026-03").digest);
+    const totals = hours(5000);
+    const d = priceInvoice(PLANS.builder, totals, "2026-03").digest;
+    expect(d).toMatch(/^[0-9a-f]{64}$/);
+    expect(priceInvoice(PLANS.builder, totals, "2026-03").digest).toBe(d);
+    expect(priceInvoice(PLANS.builder, hours(5001), "2026-03").digest).not.toBe(d);
   });
 
-  it("prices the free provisional plan at zero when usage is within its allowance", () => {
-    const priced = priceInvoice(getPlan("free_provisional"), [{ meter: "managed_resource_hours", quantity: 100, estimated: false, sources: 1 }], "2026-03");
-    expect(priced.subtotalCents).toBe(0);
+  it("resolves a legacy plan id to the current plan's price", () => {
+    expect(priceInvoice(getPlan("team_provisional"), hours(0), "2026-03").subtotalCents).toBe(2900);
+    expect(priceInvoice(getPlan("scale_provisional"), hours(0), "2026-03").subtotalCents).toBe(19900);
   });
 });
 
@@ -169,7 +290,7 @@ describe("Stripe test-mode adapter (contract level, injected fetch)", () => {
     const out = await provider.createInvoice({
       invoiceId: "inv_1", workspaceId: "ws_1", customerId, period: "2026-03", currency: "usd", dueDays: 14, idempotencyKey: "inv-key",
       lines: [
-        { key: "base", description: "Team base fee", quantity: 1, unit: "period", unitCents: 2900, amountCents: 2900 },
+        { key: "minimum", description: "Builder monthly minimum", quantity: 1, unit: "period", unitCents: 2900, amountCents: 2900 },
         { key: "egress_gb_estimated", description: "egress (estimate, not charged)", quantity: 80, unit: "GB (estimate)", unitCents: 0, amountCents: 0 },
       ],
     });
@@ -187,7 +308,8 @@ describe("Stripe test-mode adapter (contract level, injected fetch)", () => {
     expect(seen[1].form.get("metadata[zenith_invoice_id]")).toBe("inv_1");
     expect(seen[2].form.get("amount")).toBe("2900");
     expect(seen[2].form.get("invoice")).toBe(ids.inv);
-    expect(seen[2].form.get("description")).toMatch(/provisional pricing/);
+    expect(seen[2].form.get("description")).toBe("Builder monthly minimum");
+    expect(seen[2].form.get("description")).not.toMatch(/provisional/i);
     expect(new Set(seen.map((s) => s.headers["idempotency-key"])).size).toBe(seen.length);
     // no personal data and no payment method is ever sent
     expect(seen.map((s) => s.form.toString()).join("&")).not.toMatch(/email|name=|payment_method|card|source/i);
@@ -278,5 +400,24 @@ describe("billing diagnostic persistence", () => {
     const token = `Bearer ${randomBytes(24).toString("base64url")}`;
     expect(() => recordInvoiceError(sql,"ws-guard","invoice-guard",token)).toThrow();
     expect(calls).toBe(0);
+  });
+});
+
+describe("plan_feature_unavailable mapping", () => {
+  it("is a 402 on both error systems, with a machine-readable feature and a fix that does not say to retry", async () => {
+    expect(BACKPRESSURE_STATUS.plan_feature_unavailable).toBe(402);
+    expect(BROKER_HTTP_STATUS.plan_feature_unavailable).toBe(402);
+    const refusal = new BackpressureError("plan_feature_unavailable", "billing", "Explore does not include deployment.", 3600, "ws_1", { feature: "deploy", fix: "Move this workspace to Builder or a higher plan to deploy." });
+    expect(refusal.status).toBe(402);
+    expect(backpressureBody(refusal).error).toMatchObject({ code: "plan_feature_unavailable", feature: "deploy", fix: "Move this workspace to Builder or a higher plan to deploy." });
+    const res = backpressureResponse(refusal);
+    expect(res.status).toBe(402);
+    expect(await res.json()).toMatchObject({ error: { code: "plan_feature_unavailable", feature: "deploy" } });
+    // the other billing refusals keep their statuses and their generic retry hint
+    expect(BACKPRESSURE_STATUS).toMatchObject({ billing_suspended: 402, plan_quota_exceeded: 429, billing_unavailable: 503 });
+    expect(backpressureBody(new BackpressureError("plan_quota_exceeded", "billing", "x", 30)).error.fix).toMatch(/retry/);
+    const broker = new BrokerError("plan_feature_unavailable", "No org policies.", "Move to Team.", { feature: "org_policies" });
+    expect(broker.status).toBe(402);
+    expect(errorBody(broker).error).toMatchObject({ code: "plan_feature_unavailable", details: { feature: "org_policies" } });
   });
 });

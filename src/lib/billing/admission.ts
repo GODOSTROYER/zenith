@@ -10,6 +10,9 @@
  * `billing: disabled` (the default, and every BYOC or self-hosted install) returns before ANY I/O: no store read, no
  * cache, no import of the store module.
  *
+ * Entitlements (PROD-MAN-06): a plan without `deploy` (Explore) refuses every non-exempt kind with `plan_feature_unavailable`.
+ * Planning, previews, estimates and reads are not dispatch and are never gated here.
+ *
  * Unknown billing standing, assignment or quota refuses NEW work. Running workloads and data are never changed.
  */
 import { billingConfigFromEnv, type Env } from "./config";
@@ -60,14 +63,7 @@ export async function assertBillingAdmitted(input: BillingAdmissionInput, option
   const plans = await import("./plans");
 
   // Re-read at every dispatch: neither a cached upgrade nor an outage may lift a restriction.
-  let snap: Snapshot;
-  try {
-    const account = await store.getAccount(await getStore(), input.workspaceId);
-    if (!account || !plans.isPlanId(account.planId) || !["active", "past_due", "suspended"].includes(account.status)) throw new Error("unknown assignment");
-    snap = { standing: account.status, planId: account.planId, reason: account.suspensionReason, at: now() };
-  } catch {
-    throw new BackpressureError("billing_unavailable", "billing", "Billing standing or plan assignment is unknown. New work is refused; reads, running workloads, export and user-requested destroy remain available.", 30, input.workspaceId);
-  }
+  const snap = await readSnapshot(input.workspaceId, getStore, now, store, plans);
 
   if (snap.standing === "suspended") {
     throw new BackpressureError(
@@ -79,13 +75,21 @@ export async function assertBillingAdmitted(input: BillingAdmissionInput, option
     );
   }
 
-  const plan = plans.isPlanId(snap.planId) ? plans.getPlan(snap.planId) : plans.getPlan(plans.DEFAULT_PLAN_ID);
+  const plan = plans.isKnownPlanId(snap.planId) ? plans.getPlan(snap.planId) : plans.getPlan(plans.DEFAULT_PLAN_ID);
+  if (!plan.entitlements.deploy) {
+    const includedIn = plans.firstPlanWith("deploy");
+    throw new BackpressureError(
+      "plan_feature_unavailable", "billing",
+      `${plan.name} does not include application deployment and ongoing management, so this ${input.kind} was not started. Planning, previews, cost estimates, reads and data export keep working. ${includedIn ? `${includedIn.name} includes it.` : ""}`.trim(),
+      3600, input.workspaceId, { feature: "deploy", fix: includedIn ? `Move this workspace to ${includedIn.name} or a higher plan to deploy.` : "Move this workspace to a plan that includes deployment." }
+    );
+  }
   // The plan's own cap on queued + running operations (the platform's OPS-02 quota applies independently).
   try {
     const sql = await getStore();
     const { activeOperationCount } = await import("@/lib/ops/store");
     const active = await activeOperationCount(sql, input.workspaceId, input.operationId);
-    if (active >= plan.maxActiveOperations) {
+    if (plan.maxActiveOperations !== null && active >= plan.maxActiveOperations) {
       throw new BackpressureError("plan_quota_exceeded", "billing", `This workspace's plan (${plan.name}) allows ${plan.maxActiveOperations} operations at once and has ${active}. The operation was not claimed; retry when some finish.`, 30, input.workspaceId);
     }
     const exceeded = await hardCapExceeded(sql, input.workspaceId, plan, now, store);
@@ -96,6 +100,33 @@ export async function assertBillingAdmitted(input: BillingAdmissionInput, option
     if (error instanceof BackpressureError) throw error;
     throw new BackpressureError("billing_unavailable", "billing", "Billing quota state is unavailable. New work is refused; reads, export and user-requested destroy remain available.", 30, input.workspaceId);
   }
+}
+
+/** The workspace's standing and plan, read afresh. Unknown or unreadable refuses (`billing_unavailable`). */
+async function readSnapshot(
+  workspaceId: string, getStore: () => Promise<Sql>, now: () => number, store: typeof import("./store"), plans: typeof import("./plans")
+): Promise<Snapshot> {
+  try {
+    const account = await store.getAccount(await getStore(), workspaceId);
+    if (!account || !plans.isKnownPlanId(account.planId) || !["active", "past_due", "suspended"].includes(account.status)) throw new Error("unknown assignment");
+    return { standing: account.status, planId: account.planId, reason: account.suspensionReason, at: now() };
+  } catch {
+    throw new BackpressureError("billing_unavailable", "billing", "Billing standing or plan assignment is unknown. New work is refused; reads, running workloads, export and user-requested destroy remain available.", 30, workspaceId);
+  }
+}
+
+/**
+ * The plan whose entitlements apply to `workspaceId`, or `null` when billing is not `managed` (no entitlement exists then:
+ * self-hosted and BYOC installs are never gated, and this returns before ANY I/O). An unassigned or unreadable assignment
+ * throws `billing_unavailable`, exactly as at dispatch (fail closed). Standing is irrelevant
+ * here: a suspended workspace keeps the entitlements of its plan, suspension only stops new provisioning work.
+ */
+export async function entitlementPlanFor(workspaceId: string, options: BillingAdmissionOptions = {}): Promise<import("./plans").PlanDefinition | null> {
+  if (billingConfigFromEnv(options.env ?? process.env).mode !== "managed") return null;
+  const store = await import("./store");
+  const plans = await import("./plans");
+  const snap = await readSnapshot(workspaceId, options.store ?? defaultStore, options.now ?? Date.now, store, plans);
+  return plans.getPlan(snap.planId!);
 }
 
 async function hardCapExceeded(

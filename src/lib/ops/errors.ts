@@ -19,7 +19,9 @@ export type BackpressureCode =
   // PROD-MAN-06: only ever raised in `billing: managed` mode; BYOC and self-hosted installs never see them.
   | "billing_unavailable"
   | "billing_suspended"
-  | "plan_quota_exceeded";
+  | "plan_quota_exceeded"
+  // The workspace's plan does not include the feature (deploy, organizational policies). Not retryable; carries `feature`.
+  | "plan_feature_unavailable";
 
 export type BackpressureLayer = "edge" | "api" | "dispatch" | "runner_queue" | "worker" | "maintenance" | "billing";
 
@@ -34,6 +36,7 @@ export const BACKPRESSURE_STATUS: Readonly<Record<BackpressureCode, 402 | 429 | 
   billing_unavailable: 503,
   billing_suspended: 402,
   plan_quota_exceeded: 429,
+  plan_feature_unavailable: 402,
 };
 
 export const MIN_RETRY_AFTER_SEC = 1;
@@ -52,7 +55,9 @@ export class BackpressureError extends Error {
     message: string,
     retryAfterSec: number,
     /** workspace id when the refusal is tenant-scoped; never a credential */
-    readonly tenant?: string
+    readonly tenant?: string,
+    /** machine-readable extras: the gated `feature` and a `fix` that replaces the generic retry hint (a refusal retrying cannot cure) */
+    readonly detail?: { feature?: string; fix?: string }
   ) {
     super(message);
     this.status = BACKPRESSURE_STATUS[code];
@@ -66,13 +71,14 @@ export const isBackpressureError = (value: unknown): value is BackpressureError 
     && typeof (value as { retryAfterSec?: unknown }).retryAfterSec === "number");
 
 /** `{ error: { code, message, fix, retryAfterSec } }` - the platform error shape plus the retry hint. */
-export function backpressureBody(error: BackpressureError): { error: { code: string; message: string; fix: string; retryAfterSec: number } } {
+export function backpressureBody(error: BackpressureError): { error: { code: string; message: string; fix: string; retryAfterSec: number; feature?: string } } {
   return {
     error: {
       code: error.code,
       message: error.message,
-      fix: `Wait ${error.retryAfterSec} second${error.retryAfterSec === 1 ? "" : "s"} and retry the same request.`,
+      fix: error.detail?.fix ?? `Wait ${error.retryAfterSec} second${error.retryAfterSec === 1 ? "" : "s"} and retry the same request.`,
       retryAfterSec: error.retryAfterSec,
+      ...(error.detail?.feature ? { feature: error.detail.feature } : {}),
     },
   };
 }

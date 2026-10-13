@@ -90,7 +90,7 @@ export class StripeTestInvoiceProvider implements InvoiceProvider {
     for (const line of input.lines) {
       if (line.amountCents <= 0) continue;
       await this.call("/v1/invoiceitems", new URLSearchParams({
-        customer: input.customerId, invoice: id, currency: input.currency, amount: String(line.amountCents), description: `${line.description} (provisional pricing)`.slice(0, 500), ...meta,
+        customer: input.customerId, invoice: id, currency: input.currency, amount: String(line.amountCents), description: line.description.slice(0, 500), ...meta,
       }), `${input.idempotencyKey}:item:${i}`);
       i += 1;
     }

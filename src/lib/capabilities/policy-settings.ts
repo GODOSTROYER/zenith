@@ -9,6 +9,8 @@
  * Only the OVERRIDES are stored (what the workspace changed); the response also
  * carries the fully resolved parameters the policy input will contain.
  */
+import { entitlementPlanFor } from "@/lib/billing/admission";
+import { firstPlanWith } from "@/lib/billing/plans";
 import type { Principal } from "@/lib/controlplane/types";
 import { PolicyConfigError, resolveWorkspacePolicy, type WorkspacePolicyOverrides, type WorkspacePolicyParams } from "@/lib/policy";
 import { BrokerError } from "./errors";
@@ -65,6 +67,18 @@ export async function setWorkspacePolicy(
       throw new BrokerError("invalid_request", `Invalid workspace policy: ${error.issues.join("; ").slice(0, 600)}`, "Fix the listed fields and save again.", { issues: error.issues.slice(0, 20) });
     }
     throw error;
+  }
+  // Managed billing only: organizational policies and team approval workflows belong to Team and Enterprise. Only EDITS are
+  // refused; an existing policy stays fully enforced and readable after a downgrade (getWorkspacePolicy is not gated).
+  const plan = await entitlementPlanFor(input.workspaceId, deps.billing);
+  if (plan && !plan.entitlements.orgPolicies) {
+    const includedIn = firstPlanWith("orgPolicies");
+    throw new BrokerError(
+      "plan_feature_unavailable",
+      `${plan.name} does not include organizational policies and team approval workflows, so the workspace policy was not changed. Any policy already saved stays enforced.`,
+      includedIn ? `Move this workspace to ${includedIn.name} or a higher plan to edit workspace policy.` : "Move this workspace to a plan that includes organizational policies.",
+      { feature: "org_policies", plan: plan.id }
+    );
   }
   const before = await deps.store.getWorkspacePolicy(input.workspaceId);
   const saved = await deps.store.putWorkspacePolicy({

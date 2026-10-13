@@ -63,3 +63,22 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-07 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Pricing decision recorded (2026-10-13)
+
+Owner Arnav Bule decided launch pricing under DEC-BUSINESS on 2026-10-13. What is decided and what remains open:
+
+| Item | Status |
+|---|---|
+| Launch packages and prices: Explore (free), Builder ($29/month minimum), Team ($199/month minimum), Enterprise (custom, by contract); $0.015 per ZCU-hour above the included usage | DECIDED, implemented in `src/lib/billing/plans.ts` and `invoice.ts` |
+| ZCU definition: one resource managed by Zenith for one hour (the `managed_resource_hours` meter); build minutes and storage included, bounded by fair-use caps | DECIDED |
+| Payment account, live Stripe keys, terms of service, tax handling | NOT decided. Live charging stays off; the adapter refuses live keys |
+| Fair-use limits (active operations 3 / 15 / 60, build and storage caps) | carried forward from the earlier catalog, adjustable |
+| Destructive retention (DEC-RETENTION) | unchanged, still pending |
+
+Nonpayment still never silently destroys data: suspension stops NEW provisioning work only, and export and destroy stay available.
+
+The formula with worked examples, the entitlements and where each is enforced, and the Mac verifier commands (including Stripe TEST mode) are in
+[PROD-MAN-06](PROD-MAN-06.md#pricing-decision-update-2026-10-13). Verifier summary: run `npx vitest run tests/billing tests/platform/billing-schedule.test.ts --no-file-parallelism --maxWorkers=2`
+and the Stripe test-mode steps there; confirm no live key is accepted and that an Enterprise account yields `contract_billed` rather than an invoice.
+This requirement stays pending until the payment account and terms review exist.

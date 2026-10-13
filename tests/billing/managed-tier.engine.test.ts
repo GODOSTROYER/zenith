@@ -15,12 +15,20 @@ describe.each(LANES)("billing assignment selects managed capacity [$name]", lane
   it("re-reads upgrades and downgrades without changing running workloads or suspending the account", async () => {
     const ws = newWorkspace();
     const managed = createDefaultManagedSubstrate({ env: { ...FULL_ENV, ZENITH_BILLING: "managed", ZENITH_MANAGED_DEFAULT_PLAN: "invalid-ignored" }, product, db: ctx.db });
-    for (const [planId, tier] of [["free_provisional", "free"], ["scale_provisional", "pro"], ["team_provisional", "starter"], ["free_provisional", "free"]]) {
+    for (const [planId, tier] of [["explore", "free"], ["team", "pro"], ["builder", "starter"], ["enterprise", "pro"], ["explore", "free"]]) {
       await assignPlan(ctx.db, { workspaceId: ws, planId, actor: "operator" });
       expect((await managed.tenants.resolve({ workspaceId: ws, environmentId: "env-billing" })).planTier).toBe(tier);
       expect((await getAccount(ctx.db, ws))?.status).toBe("active");
     }
     expect((await ctx.db.query<{ n: number }>("select count(*)::int as n from platform.resources where workspace_id = $1", [ws]))[0].n).toBe(0);
+  });
+  it("resolves a stored legacy plan id to the tier of the plan it maps to", async () => {
+    const managed = createDefaultManagedSubstrate({ env: { ...FULL_ENV, ZENITH_BILLING: "managed" }, product, db: ctx.db });
+    for (const [legacy, tier] of [["free_provisional", "free"], ["team_provisional", "starter"], ["scale_provisional", "pro"]]) {
+      const ws = newWorkspace();
+      await ctx.db.query("insert into platform.billing_accounts (workspace_id, plan_id, assigned_by) values ($1, $2, 'legacy')", [ws, legacy]);
+      expect((await managed.tenants.resolve({ workspaceId: ws, environmentId: "env-billing" })).planTier, legacy).toBe(tier);
+    }
   });
   it("refuses absent or unreadable billing assignments before any platform credential read", async () => {
     let reads = 0;
@@ -32,7 +40,7 @@ describe.each(LANES)("billing assignment selects managed capacity [$name]", lane
   });
   it("keeps tenant resolution, reads and destroy available during suspension while refusing new work", async () => {
     const ws = newWorkspace();
-    await assignPlan(ctx.db, { workspaceId: ws, planId: "team_provisional", actor: "operator" });
+    await assignPlan(ctx.db, { workspaceId: ws, planId: "builder", actor: "operator" });
     await suspendWorkspace(ctx.db, { workspaceId: ws, actor: "operator", reason: "review", now: new Date() });
     const managed = createDefaultManagedSubstrate({ env: { ...FULL_ENV, ZENITH_BILLING: "managed" }, product, db: ctx.db });
     expect((await managed.tenants.resolve({ workspaceId: ws, environmentId: "env-billing" })).planTier).toBe("starter");

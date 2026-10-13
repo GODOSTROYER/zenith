@@ -6,7 +6,10 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_AUTONOMY_BY_CLASS, AUTONOMY_LEVELS, defaultAutonomyFor, describeAutonomy, isAutonomyLevel, levelFromNavigator, navigatorFromLevel } from "@/lib/capabilities/autonomy";
 import { AutonomyLevel as NavigatorAutonomy } from "@/lib/domain/types";
-import { STORE_KINDS, closeSharedPgliteAfterAll, expectBrokerError, integrationOf, makeHarness, navigator, requestFor, sessionFor, user } from "./support";
+import { assignPlan } from "@/lib/billing/store";
+import { createBroker } from "@/lib/capabilities/platform";
+import { BackpressureError } from "@/lib/ops/errors";
+import { STORE_KINDS, closeSharedPgliteAfterAll, expectBrokerError, integrationOf, makeHarness, navigator, requestFor, sessionFor, sharedDatabase, user } from "./support";
 
 closeSharedPgliteAfterAll();
 
@@ -161,5 +164,63 @@ describe.each(STORE_KINDS)("workspace policy [%s]", (kind) => {
     await h.broker.setWorkspacePolicy({ workspaceId: h.ids.wsA, overrides: { twoPersonProduction: true }, actor: user("alice"), session: sessionFor("alice") });
     const change = (await h.store.listEvents(h.ids.wsA)).find((e) => (e.data as { kind?: string }).kind === "workspace_policy_changed");
     expect(change?.data).toMatchObject({ fromVersion: 0, toVersion: 1, keys: ["twoPersonProduction"] });
+  });
+});
+
+describe("workspace policy edits and the plan entitlement (managed billing only)", () => {
+  const MANAGED = { ZENITH_BILLING: "managed" };
+  async function managedHarness(planId?: string) {
+    const h = await makeHarness({ kind: "memory" });
+    const db = await sharedDatabase("pglite");
+    if (planId) await assignPlan(db, { workspaceId: h.ids.wsA, planId, actor: "operator" });
+    const broker = createBroker({ ...h.deps, billing: { env: MANAGED, store: async () => db } });
+    const set = (overrides: unknown = { twoPersonProduction: true }) => broker.setWorkspacePolicy({ workspaceId: h.ids.wsA, overrides, actor: user("alice"), session: sessionFor("alice") });
+    return { h, db, broker, set };
+  }
+
+  it.each(["explore", "builder"])("refuses every edit on %s with plan_feature_unavailable (402, feature org_policies) and stores nothing", async (planId) => {
+    const { h, broker, set } = await managedHarness(planId);
+    for (const overrides of [{ twoPersonProduction: true }, { costApprovalThresholdUsd: 10 }, { deniedCapabilities: ["service.restart"] }, {}]) {
+      const e = await expectBrokerError(set(overrides), "plan_feature_unavailable");
+      expect(e.status).toBe(402);
+      expect(e.details).toMatchObject({ feature: "org_policies", plan: planId });
+      expect(e.message).toMatch(/does not include organizational policies and team approval workflows/);
+      expect(e.fix).toMatch(/Team/);
+    }
+    expect((await broker.getWorkspacePolicy({ workspaceId: h.ids.wsA, principal: user("alice") })).isDefault).toBe(true);
+  });
+
+  it.each(["team", "enterprise"])("allows edits on %s", async (planId) => {
+    const { set } = await managedHarness(planId);
+    expect(await set()).toMatchObject({ version: 1, effective: { twoPersonProduction: true } });
+  });
+
+  it("allows edits on every plan, and reads no billing state at all, while billing is disabled", async () => {
+    const h = await makeHarness({ kind: "memory" });
+    const broker = createBroker({ ...h.deps, billing: { env: {}, store: async () => { throw new Error("store touched"); } } });
+    expect(await broker.setWorkspacePolicy({ workspaceId: h.ids.wsA, overrides: { twoPersonProduction: true }, actor: user("alice"), session: sessionFor("alice") })).toMatchObject({ version: 1 });
+  });
+
+  it("fails closed when the workspace has no readable billing assignment", async () => {
+    const { set } = await managedHarness();
+    await expect(set()).rejects.toBeInstanceOf(BackpressureError);
+    await expect(set()).rejects.toMatchObject({ code: "billing_unavailable", status: 503 });
+  });
+
+  it("keeps an existing policy enforced and readable after a downgrade; only edits are refused", async () => {
+    const { h, db, broker, set } = await managedHarness("team");
+    await set();
+    await assignPlan(db, { workspaceId: h.ids.wsA, planId: "builder", actor: "operator" });
+    await expectBrokerError(set({}), "plan_feature_unavailable");
+    const view = await broker.getWorkspacePolicy({ workspaceId: h.ids.wsA, principal: user("carol") });
+    expect(view).toMatchObject({ isDefault: false, version: 1, effective: { twoPersonProduction: true } });
+    // and it still changes decisions: production still needs a second person
+    const d = (await broker.check(requestFor(h, "service.restart", "prod"), user("bob"))).decision;
+    expect(d.approval).toMatchObject({ separationOfDuties: true });
+  });
+
+  it("answers the role check first: a non-admin sees admin_required, not a plan refusal", async () => {
+    const { h, broker } = await managedHarness("explore");
+    await expectBrokerError(broker.setWorkspacePolicy({ workspaceId: h.ids.wsA, overrides: {}, actor: user("bob"), session: sessionFor("bob") }), "admin_required");
   });
 });

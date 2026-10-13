@@ -10,7 +10,7 @@ import { billingConfigFromEnv, type BillingConfig, type Env } from "./config";
 import { generateInvoice } from "./invoice";
 import { activePeriods, collectUsage } from "./metering";
 import { periodBounds, periodOf } from "./period";
-import { BILLABLE_METERS, DEFAULT_PLAN_ID, INFORMATIONAL_METERS, METER_UNITS, PLAN_NOTICE, getPlan, isPlanId, planView, type PlanView } from "./plans";
+import { BILLABLE_METERS, DEFAULT_PLAN_ID, INFORMATIONAL_METERS, METER_UNITS, PACKAGE_ROWS, PLAN_NOTICE, PRICING_DECISION, ZCU_DEFINITION, ZCU_METER, getPlan, isKnownPlanId, listPlanViews, planView, type PlanView } from "./plans";
 import type { InvoiceProvider } from "./provider";
 import { runDunning } from "./standing";
 import { StripeTestInvoiceProvider, type FetchLike } from "./stripe";
@@ -27,7 +27,7 @@ export function invoiceProviderFromEnv(env: Env = process.env, fetchImpl?: Fetch
 
 export type BillingTickResult =
   | { enabled: false }
-  | { enabled: true; accounts: number; usageRowsWritten: number; invoicesCreated: number; invoicesOpened: number; invoiceErrors: number; invoicing: string; dunning: { examined: number; changed: number; suspended: number } };
+  | { enabled: true; accounts: number; usageRowsWritten: number; invoicesCreated: number; invoicesOpened: number; invoiceErrors: number; contractBilledAccounts: number; invoicing: string; dunning: { examined: number; changed: number; suspended: number } };
 
 export async function runBillingTick(sql: Sql, deps: { env?: Env; provider?: InvoiceProvider; now: Date; config?: BillingConfig }): Promise<BillingTickResult> {
   const cfg = deps.config ?? billingConfigFromEnv(deps.env ?? process.env);
@@ -38,11 +38,13 @@ export async function runBillingTick(sql: Sql, deps: { env?: Env; provider?: Inv
   let invoicesCreated = 0;
   let invoicesOpened = 0;
   let invoiceErrors = 0;
+  let contractBilledAccounts = 0;
   const [previous, current] = activePeriods(deps.now);
   for (const account of accounts) {
     for (const period of [previous, current]) usageRowsWritten += (await collectUsage(sql, account.workspaceId, period, deps.now)).written;
     if (deps.now.getTime() >= periodBounds(previous).end.getTime() + INVOICE_SETTLE_MS) {
       const r = await generateInvoice(sql, { provider, now: deps.now, netDays: cfg.netDays }, account.workspaceId, previous);
+      if (r.status === "contract_billed") contractBilledAccounts += 1;
       if (r.status === "ok") {
         if (r.created) invoicesCreated += 1;
         if (r.providerCalled && r.invoice.status === "open") invoicesOpened += 1;
@@ -51,7 +53,7 @@ export async function runBillingTick(sql: Sql, deps: { env?: Env; provider?: Inv
     }
   }
   const dunning = await runDunning(sql, { graceDays: cfg.graceDays }, deps.now);
-  return { enabled: true, accounts: accounts.length, usageRowsWritten, invoicesCreated, invoicesOpened, invoiceErrors, invoicing: provider?.kind ?? "not_configured", dunning };
+  return { enabled: true, accounts: accounts.length, usageRowsWritten, invoicesCreated, invoicesOpened, invoiceErrors, contractBilledAccounts, invoicing: provider?.kind ?? "not_configured", dunning };
 }
 
 /* -------------------------------- read model -------------------------------- */
@@ -68,10 +70,16 @@ export interface MeterView {
 
 export interface BillingView {
   mode: "managed";
-  provisional: true;
+  /** false: the launch prices are decided (see pricingDecision). Charging itself is not live. */
+  provisional: boolean;
+  pricingDecision: typeof PRICING_DECISION;
+  zcuDefinition: string;
   notice: string;
   account: Pick<BillingAccount, "planId" | "status" | "suspensionReason" | "pastDueSince" | "suspendedAt"> | null;
   plan: PlanView;
+  /** all four launch packages, for the comparison table; `packageRows` gives the row labels in order */
+  packages: PlanView[];
+  packageRows: readonly { key: string; label: string }[];
   assigned: boolean;
   managedTier: import("@/lib/providers/zenith/types").PlanTier | null;
   managedTierSource: "billing_assignment" | "unknown";
@@ -85,20 +93,20 @@ export const SUSPENSION_MEANING = "Suspension only stops NEW provisioning work. 
 
 export async function billingView(sql: Sql, workspaceId: string, now: Date): Promise<BillingView> {
   const account = await getAccount(sql, workspaceId);
-  const plan = getPlan(account && isPlanId(account.planId) ? account.planId : DEFAULT_PLAN_ID);
+  const plan = getPlan(account && isKnownPlanId(account.planId) ? account.planId : DEFAULT_PLAN_ID);
   const period = periodOf(now);
   const totals = await aggregateUsage(sql, workspaceId, period);
   const usage: MeterView[] = [
     ...BILLABLE_METERS.map((meter) => ({
       meter, unit: METER_UNITS[meter], used: totals.find((t) => t.meter === meter)?.quantity ?? 0,
-      included: plan.meters[meter].included, ...(plan.meters[meter].hardCap !== undefined ? { hardCap: plan.meters[meter].hardCap } : {}), estimated: false, charged: true,
+      ...(meter === ZCU_METER && plan.pricing.kind !== "usage_minimum" ? {} : { included: plan.meters[meter].included }), ...(plan.meters[meter].hardCap !== undefined ? { hardCap: plan.meters[meter].hardCap } : {}), estimated: false, charged: meter === ZCU_METER && plan.pricing.kind === "usage_minimum",
     })),
     ...INFORMATIONAL_METERS.map((meter) => ({ meter, unit: METER_UNITS[meter], used: totals.find((t) => t.meter === meter)?.quantity ?? 0, estimated: totals.find((t) => t.meter === meter)?.estimated ?? meter === "egress_gb_estimated", charged: false })),
   ];
   const invoices = (await listInvoices(sql, workspaceId, 12)).map((i) => ({ id: i.id, period: i.period, status: i.status, subtotalCents: i.subtotalCents, currency: i.currency, ...(i.dueAt ? { dueAt: i.dueAt } : {}), ...(i.paidAt ? { paidAt: i.paidAt } : {}), planProvisional: i.planProvisional }));
   return {
-    mode: "managed", provisional: true, notice: PLAN_NOTICE,
+    mode: "managed", provisional: false, pricingDecision: PRICING_DECISION, zcuDefinition: ZCU_DEFINITION, notice: PLAN_NOTICE,
     account: account ? { planId: account.planId, status: account.status, ...(account.suspensionReason ? { suspensionReason: account.suspensionReason } : {}), ...(account.pastDueSince ? { pastDueSince: account.pastDueSince } : {}), ...(account.suspendedAt ? { suspendedAt: account.suspendedAt } : {}) } : null,
-    plan: planView(plan), assigned: Boolean(account), managedTier: account && isPlanId(account.planId) ? plan.managedTier : null, managedTierSource: account && isPlanId(account.planId) ? "billing_assignment" : "unknown", period, usage, invoices, whatSuspensionMeans: SUSPENSION_MEANING,
+    plan: planView(plan), packages: listPlanViews(), packageRows: PACKAGE_ROWS, assigned: Boolean(account), managedTier: account && isKnownPlanId(account.planId) ? plan.managedTier : null, managedTierSource: account && isKnownPlanId(account.planId) ? "billing_assignment" : "unknown", period, usage, invoices, whatSuspensionMeans: SUSPENSION_MEANING,
   };
 }

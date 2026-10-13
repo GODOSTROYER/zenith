@@ -32,6 +32,8 @@ export type BrokerErrorCode =
   | "approver_role_insufficient"
   | "separation_of_duties"
   | "policy_denied"
+  /* the workspace plan does not include the feature (details.feature); managed billing only */
+  | "plan_feature_unavailable"
   /* lifecycle */
   | "invalid_state"
   | "digest_mismatch"
@@ -67,6 +69,7 @@ export const BROKER_HTTP_STATUS: Readonly<Record<BrokerErrorCode, number>> = {
   approver_role_insufficient: 403,
   separation_of_duties: 403,
   policy_denied: 403,
+  plan_feature_unavailable: 402,
   invalid_state: 409,
   digest_mismatch: 409,
   operation_expired: 409,

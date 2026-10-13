@@ -131,8 +131,8 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
     } catch (error) {
       if (!isBackpressureError(error)) throw error;
       throw new McpToolError("dispatch_backpressure", error.message, error.status,
-        `Retry the same call in about ${error.retryAfterSec} seconds; this call did not claim the operation.`,
-        { operationStatus: op.status, reason: error.code, retryAfterSec: error.retryAfterSec }, true);
+        error.detail?.fix ? `${error.detail.fix} This call did not claim the operation.` : `Retry the same call in about ${error.retryAfterSec} seconds; this call did not claim the operation.`,
+        { operationStatus: op.status, reason: error.code, retryAfterSec: error.retryAfterSec, ...(error.detail?.feature ? { feature: error.detail.feature } : {}) }, error.code !== "plan_feature_unavailable");
     }
     try {
       // The returned grant is deliberately not kept: it is a bearer for executing surfaces and has no business in a model-visible process.

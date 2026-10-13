@@ -38,7 +38,7 @@ export interface TenantExport {
   sections: Record<string, unknown[]>;
 }
 
-export const EXPORT_NOTICE = "Platform records only. Data inside your own databases and buckets is exported with data.export (portability), which stays available while a workspace is suspended. Billing figures, where present, are provisional placeholders.";
+export const EXPORT_NOTICE = "Platform records only. Data inside your own databases and buckets is exported with data.export (portability), which stays available while a workspace is suspended. Billing figures, where present, follow the approved launch pricing; charging is not live.";
 
 const iso = (v: unknown): string | null => (v === null || v === undefined ? null : new Date(v as string).toISOString());
 

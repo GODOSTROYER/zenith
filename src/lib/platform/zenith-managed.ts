@@ -28,7 +28,7 @@
  */
 import { billingConfigFromEnv } from "@/lib/billing/config";
 import { getAccount } from "@/lib/billing/store";
-import { getPlan, isPlanId } from "@/lib/billing/plans";
+import { getPlan, isKnownPlanId } from "@/lib/billing/plans";
 import { createBuildCustody, readBuildProfiles } from "@/lib/providers/kubernetes/build/custody";
 import { readSecretValueAsync } from "@/lib/secrets";
 import { isVaultRef } from "@/lib/secrets/refs";
@@ -152,7 +152,7 @@ export function createDefaultManagedSubstrate(options: DefaultManagedSubstrateOp
       async loadPlanTier(workspaceId) {
         try {
           const account = await getAccount(options.db ?? await platformDb(), workspaceId);
-          if (!account || !isPlanId(account.planId)) throw new Error("unknown assignment");
+          if (!account || !isKnownPlanId(account.planId)) throw new Error("unknown assignment");
           // Suspension is enforced at dispatch; reads and teardown still need a tenant session.
           return getPlan(account.planId).managedTier;
         } catch {

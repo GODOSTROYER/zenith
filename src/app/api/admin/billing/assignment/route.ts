@@ -1,8 +1,8 @@
 /**
  * `GET|PUT /api/admin/billing/assignment` - plan assignment (PROD-MAN-06). Platform operators only (ZENITH_OPS_ADMIN_IDS),
- * same-origin for writes, optimistic `expectedVersion`. Every plan is a provisional placeholder (DEC-BUSINESS).
+ * same-origin for writes, optimistic `expectedVersion`. The plans are the decided launch packages (DEC-BUSINESS, 2026-10-13); new assignments accept only the four current plan ids.
  *
- *   GET                       the provisional plan catalog and the accounts (bounded)
+ *   GET                       the plan catalog and the accounts (bounded)
  *   GET ?workspaceId=ID       one account with its recent audit events
  *   PUT { workspaceId, planId, reason?, expectedVersion? }
  *

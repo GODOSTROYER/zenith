@@ -6,8 +6,8 @@ builder except `tsc --noEmit -p .` and `eslint` on every changed and new file (b
 Requirement: "Metering/quotas/plan assignment/invoice/payment-webhook reconciliation and safe suspension/export operate; BYOC/self-hosted do
 not require Zenith billing."
 
-Commercial status: DEC-BUSINESS (pricing, terms, payment accounts) is NOT decided and PROD-MAN-07 is separate. Every plan is a placeholder
-marked `provisional` (`provisional: true`, ids end in `_provisional`, every view carries `PLAN_NOTICE`). Stripe is TEST mode only: the adapter
+Commercial status (updated 2026-10-13, see "Pricing decision update" at the end): launch pricing is DECIDED; terms and payment accounts are not. The original text follows for history: every plan was a placeholder
+marked `provisional` (`provisional: true`, ids ended in `_provisional`, every view carried `PLAN_NOTICE`). Stripe is TEST mode only: the adapter
 refuses any key that is not `sk_test_`/`rk_test_`. No key, webhook secret or provider id is committed; every test generates its own at run time.
 
 Audit of existing billing/Stripe code before building: there was none in `src`. "Stripe" appeared only as secret-shape detectors
@@ -22,7 +22,7 @@ New module `src/lib/billing/` (all reachable from real callers):
 | File | Role |
 |---|---|
 | `config.ts` | `ZENITH_BILLING` = `disabled` (default) or `managed`; an unknown value is `disabled` and reported. Stripe test-key check, grace/net days, loopback-only API base seam |
-| `plans.ts` | The provisional plan catalog (`free_/team_/scale_provisional`), meters (3 billable, 2 informational), quotas (`maxActiveOperations`, per-meter `included`/`rateCents`/`hardCap`), `PLAN_NOTICE` |
+| `plans.ts` | The plan catalog (originally `free_/team_/scale_provisional`; now `explore`/`builder`/`team`/`enterprise`, see the pricing decision update), meters (3 billable, 2 informational), quotas (`maxActiveOperations`, per-meter `included`/`rateCents`/`hardCap`), `PLAN_NOTICE` |
 | `period.ts` | UTC calendar-month periods |
 | `store.ts` | All SQL (accounts, account events, usage, invoices, webhook events). No delete anywhere. Tenancy classification in the file header |
 | `metering.ts` | Usage from durable records: managed resource hours (`platform.resources`), build minutes (`platform.build_launches`, terminal), storage GB (`platform.portability_exports`), operations executed (`platform.operations`), egress GB ESTIMATE from `platform.cost_estimates` (flagged `estimated`, never charged). Idempotent, level-triggered, bounded, closed once invoiced |
@@ -79,7 +79,7 @@ invoiced period are closed; a recorded webhook event is final. Nothing in these 
 | Suspend new dispatch, keep serving read/export | `assertBillingAdmitted` (402 for deploy/dayTwo/remediation/runner_job; `export`/`destroy` never refused), `portability/start.ts` kind, billing route/export route have no billing gate | engine admission tests, and through the real `assertDispatchAdmitted` (suspended deploy/dayTwo refused, export/destroy admitted) |
 | Tenant data export available while suspended | `export.ts` + `GET /api/platform/v1/billing/export` | engine "tenant export": suspended workspace exports resources/operations/exports/estimates/billing sections, secret-scrubbed, tenant-scoped, bounded with `truncated`, stable digest |
 | `billing: disabled` for BYOC/self-hosted bypasses all billing paths | `config.ts` default; every entry point checks mode first | engine "billing: disabled": admission with a store that throws for `{}`, `disabled` and a typo, for every dispatch kind, even for a workspace the store says is suspended; tick with a store that throws; through `assertDispatchAdmitted`; webhook/operator/tick routes 404/`enabled:false`; export still works with no billing section |
-| Provisional plans clearly marked | `plans.ts` | unit "provisional plan catalog"; routes test (every returned plan `provisional` and `_provisional`) |
+| Plans carry their decision status | `plans.ts` | unit "launch plan catalog"; routes test (four plans, none provisional, prices as decided) |
 | Stripe test mode only, keys from env | `config.ts`, `StripeTestInvoiceProvider` ctor | unit config + adapter tests; all secrets generated at run time (`_support.ts`) |
 
 ## 3. Verification commands (other machine)
@@ -219,3 +219,86 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-MAN-06 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Pricing decision update (2026-10-13)
+
+DEC-BUSINESS pricing is now DECIDED by the owner (Arnav Bule, 2026-10-13). This section supersedes the earlier "every plan is a provisional
+placeholder" statements above. Live charging stays OFF: billing is disabled by default, the Stripe adapter still refuses any key that is not
+`sk_test_`/`rk_test_`, and no payment account or terms review exists yet. `PLAN_NOTICE` says so on every view.
+
+### What changed
+
+| Area | Before | Now |
+|---|---|---|
+| Plan ids | `free_provisional`, `team_provisional`, `scale_provisional` | `explore`, `builder`, `team`, `enterprise` (`src/lib/billing/plans.ts`) |
+| Legacy rows | n/a | resolved on read: `free_provisional` to `explore`, `team_provisional` to `builder`, `scale_provisional` to `team` (`LEGACY_PLAN_ALIASES`, `getPlan`, `isKnownPlanId`). New assignments accept ONLY the four current ids (`assignPlan`, admin route) |
+| Price model | base fee plus per-meter overage rates | `pricing`: `free` (Explore), `usage_minimum` (Builder $29, Team $199, $0.015 per ZCU-hour), `contract` (Enterprise) |
+| `provisional` | always true | false for all four; `PRICING_DECISION = { DEC-BUSINESS, Arnav Bule, 2026-10-13 }` |
+| Build minutes, storage | billed with overage rates | included, never billed; fair-use hard caps refuse NEW work at the cap and never charge |
+| Features | none | per-plan `entitlements`, enforced only when `ZENITH_BILLING=managed` |
+| Stripe item text | `... (provisional pricing)` suffix | no suffix; invoice rows record `plan_provisional = false` |
+
+ZCU: 1 ZCU-hour = one resource managed by Zenith for one hour. It is exactly the existing `managed_resource_hours` meter.
+
+### Invoice formula (Builder and Team), exact integer cents, one rounding step
+
+```
+usageCents = round-half-up(ZCU-hours x 1500 / 1000)      1500 thousandths of a cent = 1.5 cents = $0.015
+totalCents = max(minimumCents, usageCents)                minimum: Builder 2900, Team 19900
+```
+
+ZCU-hours are taken to micro-hour precision (the meter's own) and multiplied in BigInt, so there is no floating point drift. Worked examples:
+
+| Plan | ZCU-hours | Usage charge | Amount due |
+|---|---|---|---|
+| Builder | 0 | $0.00 | $29.00 (minimum) |
+| Builder | 1,933 | 2899.5 cents rounds to $29.00 | $29.00 (equal to the minimum) |
+| Builder | 1,934 (one above) | 2901 cents = $29.01 | $29.01 |
+| Builder | 4,000 | $60.00 | $60.00 |
+| Team | 13,266 | $198.99 | $199.00 (minimum) |
+| Team | 13,267 | 19900.5 cents rounds to $199.01 | $199.01 |
+| Team | 100,000 | $1,500.00 | $1,500.00 |
+
+Invoice lines: an informational `zcu_hours` line (ZCU-hours, rate, usage charge, minimum, amount due, amount 0), a `minimum` line (the plan
+minimum), and a `usage_above_minimum` line only when the usage charge exceeds the minimum. The charged lines sum to the amount due. Build
+minutes and storage appear at zero as included. Egress and operations stay informational at zero. A zero total (Explore) is `no_charge` and never reaches the provider.
+
+Enterprise (`contract`): `priceInvoice` refuses to price it and `generateInvoice` returns `{ status: "contract_billed", planId }` without
+inserting an invoice row or calling the provider. The admin invoice route answers 200 with `status: "contract_billed"` and `invoice: null`;
+the billing tick counts these in `contractBilledAccounts`. Usage is still metered for them. Enterprise is billed by contract outside Zenith.
+
+### Entitlements and where they are enforced
+
+| Plan | deploy | approvals | orgPolicies | deploymentOptions | support |
+|---|---|---|---|---|---|
+| Explore | no | preview | no | planning | docs |
+| Builder | yes | full | no | customer cloud, Zenith-hosted | email |
+| Team | yes | full | yes | customer cloud, Zenith-hosted | priority email |
+| Enterprise | yes | full | yes | per contract | contracted |
+
+Enforcement happens only in managed billing mode; with billing disabled (default, every self-hosted and BYOC install) no entitlement is read.
+
+- `deploy`: `assertBillingAdmitted` (`src/lib/billing/admission.ts`, called from `assertDispatchAdmitted`). A plan without `deploy` refuses every non-exempt
+  dispatch kind (deploy, dayTwo, remediation, runner work) with `plan_feature_unavailable`, HTTP 402, `feature: "deploy"`. `export` and `destroy` stay exempt. Planning, previews, estimates and reads are not dispatch and are never gated. Order: unknown assignment, suspension, entitlement, operation cap, hard caps.
+- `orgPolicies`: `setWorkspacePolicy` (`src/lib/capabilities/policy-settings.ts`), the only writer of workspace policy (two-person production, approval thresholds, denied capabilities, regions, auto-remediation). On Explore and Builder every EDIT is refused with `plan_feature_unavailable`, HTTP 402, `details.feature: "org_policies"`. Reads are not gated, and a policy saved earlier stays fully enforced after a downgrade: only edits are refused.
+- Unknown plan or unreadable billing state keeps `billing_unavailable` (503) for both paths.
+- `approvals`, `deploymentOptions` and `support` are catalog facts shown in the comparison table; no separate runtime gate exists for them beyond the two above (Explore has no deploy path, so there is nothing to approve beyond previews).
+
+Fair-use limits carried forward and adjustable (the owner did not restate them): active operations 3 / 15 / 60 / none (contract); build-minute hard caps 300 / 1000 / 10000; storage hard caps 20 / 50 / 500 GB. Explore chargeable ZCU-hours are zero because Explore cannot deploy. Legacy `free_provisional` accounts that were deploying are now held to Explore and lose deploy; reassign them before enabling billing for such workspaces.
+
+### Verification commands (Mac verifier, Node 22, no network, no live Stripe)
+
+```bash
+export PATH="$ZENITH_NODE22_BIN:$PATH"
+npx vitest run tests/billing tests/platform/billing-schedule.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/capabilities/autonomy.test.ts tests/managed-serving/catalog.test.ts --no-file-parallelism --maxWorkers=2
+# Stripe TEST mode only, by hand, on a disposable workspace (never a live key; the adapter refuses one):
+export ZENITH_BILLING=managed
+export ZENITH_BILLING_STRIPE_SECRET_KEY="$STRIPE_TEST_SECRET_KEY"   # sk_test_... from the Stripe dashboard in test mode
+# Assign Builder (admin route), generate the ended period's invoice, then confirm in the Stripe TEST dashboard that the draft/open invoice
+# carries a "Builder monthly minimum" item of 2900 cents, no "(provisional pricing)" suffix, and that an Enterprise assignment creates no invoice.
+curl -s -X PUT "$ZENITH_ORIGIN/api/admin/billing/assignment" -H "content-type: application/json" -d '{"workspaceId":"<ws>","planId":"builder"}'
+curl -s -X POST "$ZENITH_ORIGIN/api/admin/billing/invoices" -H "content-type: application/json" -d '{"workspaceId":"<ws>","period":"YYYY-MM"}'
+```
+
+(The admin routes need the operator session; use the existing operator access path.) Expected: all tests pass; a live-looking key is refused; Explore deploy dispatch returns 402 `plan_feature_unavailable`; Builder policy PUT returns 402 with `details.feature` `org_policies`; Team policy PUT succeeds. Not run by this builder: any real Stripe call, PostgreSQL lane, browser check of the comparison table.

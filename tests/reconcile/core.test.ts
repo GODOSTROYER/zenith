@@ -192,6 +192,23 @@ describe("reconcileEnvironment: persistence and the happy path", () => {
     expect(h.backend.runtime.get(h.backend.resourceId("env-prod", "container_service/web") ?? "")).toMatchObject({ health: "unknown", signals: ["runtime_failed"] });
   });
 
+  it("tells the runtime sink what the pass observed, after the commit, and a failing sink never fails the pass", async () => {
+    const h = harness();
+    h.world.patch("container_service/web", { runtime: { health: "degraded", counts: { desired: 2, ready: 1 }, signals: [] } });
+    const seen: { provider: string; nativeType: string; health: string; counts: Record<string, number>; committed: boolean }[] = [];
+    h.ports.onRuntimeObserved = async (environment, observed) => {
+      expect(environment.class).toBe("production");
+      for (const o of observed) seen.push({ provider: o.provider, nativeType: o.nativeType, health: o.health, counts: { ...o.counts }, committed: h.backend.runtime.size > 0 });
+    };
+    await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports });
+    const web = seen.find((s) => s.counts.desired === 2);
+    expect(web).toMatchObject({ health: "degraded", counts: { desired: 2, ready: 1 }, committed: true });
+    expect(seen.length).toBeGreaterThan(1);
+    h.ports.onRuntimeObserved = async () => { throw new Error("slo store down"); };
+    const result = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports });
+    expect(result.report).toBeDefined();
+  });
+
   it("a driver's expectedAttributes decide what is compared", async () => {
     const h = harness();
     h.world.patch("container_service/web", { attrs: { replicas: 3 }, expected: { replicas: 2 } });

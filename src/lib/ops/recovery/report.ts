@@ -13,8 +13,10 @@
  *    "operationally recovered" only when nothing is pending, and the report shows the pending count rather than
  *    hiding it inside a single RTO number.
  *
- * Targets are PROVISIONAL: PROD-OPS-01 owns approved objectives and is not part of this base. A target given
- * through the environment is compared and labelled provisional; with none, the verdict is `no_targets`. The report
+ * Targets: when the SLO definitions (deploy/slo/slo-definitions.json) are the owner's approved launch targets, the
+ * RPO and RTO objectives are the default targets, so this tool and the SLO page agree. A value given through the
+ * environment overrides it and is labelled provisional (an operator choice, not the approved target). With
+ * unapproved definitions and no environment value the verdict is `no_targets`. The report
  * is plain JSON. A sink registered through `registerRecoveryMeasurementSink` (the extension point PROD-OPS-01
  * hooks use) receives every report in addition to the file.
  */
@@ -22,14 +24,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { requireText } from "@/lib/controlplane/db/errors";
 import type { Sql } from "@/lib/controlplane/types";
+import { sloDefinitions, type SloDefinitions } from "@/lib/slo/definitions";
 
 export const RECOVERY_REPORT_FORMAT = "zenith.recovery-report.v1";
 
 export interface RecoveryTargets {
   readonly rpoSeconds: number | null;
   readonly rtoSeconds: number | null;
-  /** always provisional until OPS-01 records an accountable approval */
-  readonly status: "provisional" | "unset";
+  /** target: both come from approved launch targets; provisional: at least one is an operator-supplied environment value; unset: none */
+  readonly status: "target" | "provisional" | "unset";
 }
 
 export interface RecoveryMeasurement {
@@ -53,16 +56,24 @@ export interface RecoveryMeasurement {
 
 const secondsBetween = (from: string, to: string): number => Math.round((Date.parse(to) - Date.parse(from)) / 100) / 10;
 
-export function targetsFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): RecoveryTargets {
+export function targetsFromEnv(env: Readonly<Record<string, string | undefined>> = process.env, defs: SloDefinitions = sloDefinitions()): RecoveryTargets {
   const read = (name: string): number | null => {
     const raw = env[name]?.trim();
     if (!raw) return null;
     const n = Number(raw);
     return Number.isFinite(n) && n > 0 ? n : null;
   };
-  const rpoSeconds = read("ZENITH_RPO_TARGET_SECONDS");
-  const rtoSeconds = read("ZENITH_RTO_TARGET_SECONDS");
-  return { rpoSeconds, rtoSeconds, status: rpoSeconds === null && rtoSeconds === null ? "unset" : "provisional" };
+  const approved = defs.approval.status === "approved_targets";
+  const fromDefinitions = (id: string): number | null => {
+    const o = approved ? defs.objectives.find((x) => x.id === id) : undefined;
+    return o?.kind === "recovery_seconds" ? o.maxSeconds : null;
+  };
+  const envRpo = read("ZENITH_RPO_TARGET_SECONDS");
+  const envRto = read("ZENITH_RTO_TARGET_SECONDS");
+  const rpoSeconds = envRpo ?? fromDefinitions("rpo");
+  const rtoSeconds = envRto ?? fromDefinitions("rto");
+  const status = rpoSeconds === null && rtoSeconds === null ? "unset" : envRpo !== null || envRto !== null ? "provisional" : "target";
+  return { rpoSeconds, rtoSeconds, status };
 }
 
 export function measureRecovery(input: {

@@ -33,6 +33,8 @@ function budgetText(o: ObjectiveReport): string {
   return r < 0 ? `Overspent by ${Math.round(-r * 100)}%` : `${Math.round(r * 100)}% left`;
 }
 
+const pctText = (x: number | null): string => (x === null ? "no data" : `${(x * 100).toFixed(3)}%`);
+
 function Row({ o }: { o: ObjectiveReport }) {
   const firing = o.alerts?.filter((a) => a.firing) ?? [];
   const tone = STATE_TONE[o.state];
@@ -42,6 +44,7 @@ function Row({ o }: { o: ObjectiveReport }) {
         <span className={styles.name}>{o.title}</span>
         <span className={styles.sli}>{o.sli}</span>
         {o.note ? <span className={styles.note}>{o.note}</span> : null}
+        {o.sources ? <span className={styles.note}>Requests: {pctText(o.sources.requestBased.current)}. External probe: {o.sources.probeReporting ? pctText(o.sources.externalProbe.current) : "not reporting"}. {o.sources.probeReporting ? "The lower of the two is shown." : "Shown value is request-based only."}</span> : null}
       </th>
       <td>{o.targetText}<span className={styles.provisional}>{o.label}</span></td>
       <td className={styles.num}>{valueText(o)}{o.processP95Seconds != null ? <span className={styles.sub}>This process p95 about {Math.round(o.processP95Seconds * 1000)} ms</span> : null}</td>
@@ -54,10 +57,19 @@ function Row({ o }: { o: ObjectiveReport }) {
 function Report({ report }: { report: SloReport }) {
   return (
     <>
-      <p className={styles.banner} role="note">
-        <strong>{report.label}.</strong> These targets are engineering defaults awaiting a business decision ({report.approval.pendingDecision}). Nobody has
-        approved them, and they are not commitments to customers.
-      </p>
+      {report.approval.status === "approved_targets" ? (
+        <p className={styles.banner} role="note">
+          <strong>{report.label}.</strong> These are the launch service-level targets approved by {report.approval.approvedBy} on {report.approval.approvedAt}
+          ({report.approval.decision}). They are engineering targets that Zenith measures and works to meet, the same on every plan. They are not a
+          contractual SLA, and no service credits are offered.
+        </p>
+      ) : (
+        <p className={styles.banner} role="note">
+          <strong>{report.label}.</strong> These targets are engineering defaults awaiting a business decision ({report.approval.pendingDecision}). Nobody has
+          approved them, and they are not commitments to customers.
+        </p>
+      )}
+      {report.nextMilestone ? <p className={styles.meta}>Next milestone, not a current target: {(report.nextMilestone.target * 100).toFixed(2)}% for {report.objectives.find((x) => x.id === report.nextMilestone?.objective)?.title ?? report.nextMilestone.objective}. This is an aspiration and nothing is measured against it.</p> : null}
       <p className={styles.meta}>Definitions {report.definitionVersion}. Error budget over {report.budgetWindowDays} days. Generated {report.generatedAt}.</p>
       {report.restoreMilestones ? <section aria-label="Restore milestones"><h2>Restore completion evidence</h2>
         <p>Database completion: {report.restoreMilestones.database[0] ? `${report.restoreMilestones.database[0].value} seconds after restore start` : "Not measured"}.</p>
@@ -65,7 +77,7 @@ function Report({ report }: { report: SloReport }) {
       </section> : null}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
-          <thead><tr><th scope="col">Objective</th><th scope="col">Provisional target</th><th scope="col">Current</th><th scope="col">Status</th><th scope="col">Error budget</th></tr></thead>
+          <thead><tr><th scope="col">Objective</th><th scope="col">Target</th><th scope="col">Current</th><th scope="col">Status</th><th scope="col">Error budget</th></tr></thead>
           <tbody>{report.objectives.map((o) => <Row key={o.id} o={o} />)}</tbody>
         </table>
       </div>

@@ -88,22 +88,22 @@ describe("delta accounting for the durable samples", () => {
 
 describe("error budget and burn rate", () => {
   it("burn rate is the error ratio over the budget fraction", () => {
-    // target 99.5% -> budget 0.5%; 1% errors burns at 2x; exactly 0.5% burns at 1x
-    expect(burnRate(availability, { good: 990, total: 1000 })).toBeCloseTo(2, 9);
-    expect(burnRate(availability, { good: 995, total: 1000 })).toBeCloseTo(1, 9);
+    // target 99.9% -> budget 0.1%; 0.2% errors burns at 2x; exactly 0.1% burns at 1x
+    expect(burnRate(availability, { good: 998, total: 1000 })).toBeCloseTo(2, 9);
+    expect(burnRate(availability, { good: 999, total: 1000 })).toBeCloseTo(1, 9);
     expect(burnRate(availability, { good: 0, total: 0 })).toBeNull();
   });
 
   it("budget remaining is negative when overspent and null without data", () => {
-    expect(budgetState(availability, { good: 9975, total: 10_000 }).remainingFraction).toBeCloseTo(0.5, 9);
-    expect(budgetState(availability, { good: 9900, total: 10_000 }).remainingFraction).toBeCloseTo(-1, 9);
+    expect(budgetState(availability, { good: 99_950, total: 100_000 }).remainingFraction).toBeCloseTo(0.5, 9);
+    expect(budgetState(availability, { good: 99_800, total: 100_000 }).remainingFraction).toBeCloseTo(-1, 9);
     expect(budgetState(availability, undefined)).toEqual({ remainingFraction: null, allowedBad: null, actualBad: 0 });
   });
 
   it("status needs data and compares the budget-window ratio to the target", () => {
     expect(ratioStatus(availability, { good: 0, total: 0 })).toBe("no_data");
-    expect(ratioStatus(availability, { good: 996, total: 1000 })).toBe("meeting");
-    expect(ratioStatus(availability, { good: 990, total: 1000 })).toBe("breaching");
+    expect(ratioStatus(availability, { good: 9995, total: 10_000 })).toBe("meeting");
+    expect(ratioStatus(availability, { good: 9980, total: 10_000 })).toBe("breaching");
   });
 
   const alerts = sloDefinitions().burnAlerts;
@@ -111,7 +111,7 @@ describe("error budget and burn rate", () => {
   const healthy = { "5m": w(100, 100), "30m": w(100, 100), "1h": w(1000, 1000), "6h": w(1000, 1000), "3d": w(1000, 1000) };
 
   it("fires the fast alert only when BOTH windows burn at 14.4x", () => {
-    // 10% errors = 20x of a 0.5% budget on both windows
+    // 10% errors = 100x of a 0.1% budget on both windows
     const burning = { ...healthy, "1h": w(900, 1000), "5m": w(90, 100) };
     expect(evaluateBurnAlerts(availability, alerts, burning).find((a) => a.name === "fast")?.firing).toBe(true);
     // recovered: the short window is clean, so the alert stops even though the hour still shows the damage

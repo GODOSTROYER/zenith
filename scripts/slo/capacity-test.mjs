@@ -20,9 +20,9 @@
  * recorded append-only and shown on the operator SLO page. Without it nothing leaves this machine.
  *
  * Honesty: the number is what THIS machine and THIS target sustained. It is not a production capacity claim, and
- * the target it is compared with is provisional and unapproved.
+ * the target it is compared with is an engineering target, not a contractual SLA.
  *
- * Exit codes: 0 within the provisional target, 1 below it, 2 usage error or a run that could not measure.
+ * Exit codes: 0 within the target, 1 below it, 2 usage error or a run that could not measure.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -65,7 +65,7 @@ export function loadObjective() {
   const defs = JSON.parse(readFileSync(DEFINITIONS, "utf8"));
   const o = defs.objectives.find((x) => x.id === "capacity");
   if (!o) throw new Error("deploy/slo/slo-definitions.json has no capacity objective.");
-  return { objective: o, definitionVersion: defs.definitionVersion };
+  return { objective: o, definitionVersion: defs.definitionVersion, label: defs.approval?.status === "approved_targets" ? "Approved launch target, not a contractual SLA" : "Provisional, not approved" };
 }
 
 const isLoopback = (host) => host === "localhost" || host === "::1" || host === "[::1]" || /^127\./.test(host) || host.endsWith(".localhost");
@@ -103,7 +103,7 @@ export function parseArgs(argv) {
 
 const HELP = `Usage: node scripts/slo/capacity-test.mjs [--self-test] [--url U] [--path P] [--concurrency N] [--duration S] [--warmup S]
   [--bearer-file F] [--min-rps N] [--max-p95-ms N] [--max-error-rate R] [--environment LABEL] [--out FILE] [--report] [--allow-remote]
-Defaults for the thresholds come from the provisional capacity objective in deploy/slo/slo-definitions.json.`;
+Defaults for the thresholds come from the capacity objective in deploy/slo/slo-definitions.json.`;
 
 /** Run the closed-loop load. Returns steady-phase samples only (warm-up discarded). */
 export async function runLoad({ target, concurrency, durationSeconds, warmupSeconds, timeoutMs, headers }) {
@@ -172,7 +172,7 @@ async function main() {
     headers.authorization = `Bearer ${secret}`;
   }
 
-  const { objective, definitionVersion } = loadObjective();
+  const { objective, definitionVersion, label } = loadObjective();
   const effective = {
     minRequestsPerSecond: opts.minRps ?? objective.minRequestsPerSecond,
     maxP95Ms: opts.maxP95Ms ?? objective.maxP95Ms,
@@ -186,13 +186,13 @@ async function main() {
   const summary = summarize(samples, seconds);
   const meets = meetsObjective(summary, effective);
   const result = {
-    label: "Provisional, not approved",
+    label,
     definitionVersion,
     target: { url: `${base.origin}${opts.path}`, concurrency: opts.concurrency, durationSeconds: opts.duration },
     objective: effective,
     thresholdsOverridden: opts.minRps !== undefined || opts.maxP95Ms !== undefined || opts.maxErrorRate !== undefined,
     summary,
-    meetsProvisionalTarget: meets,
+    meetsTarget: meets,
     measuredAt: measuredAt.toISOString(),
     environment: opts.environment,
   };

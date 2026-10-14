@@ -4,7 +4,9 @@
  * DEC-RETENTION is approved (2026-10-13) and its baseline (logs 30 days) is the default policy, so wherever archive
  * storage and the sealing key are configured this ARCHIVES the two log classes by default. It ARCHIVES (copies to object storage, verified by readback; the source is untouched). It PRUNES
  * only when `retentionApplyGate` is open (ZENITH_RETENTION_APPLY=1 AND the policy carries a DEC-RETENTION approval),
- * and then only rows of a verified archive. Runs on the durable critical-maintenance schedule under the
+ * and then only rows of a verified archive. Under the same gate it EXPIRES archive objects of the log classes (365 days after
+ * their newest row, operator bucket; tenant buckets only when the workspace opted in; never under a legal hold; see expiry.ts);
+ * with the gate closed it only reports what is due. Runs on the durable critical-maintenance schedule under the
  * `critical-job:data-retention` lease (the operator CLI scripts/data-retention.ts uses the same lease and record).
  * Counts only leave this module.
  */
@@ -13,6 +15,7 @@ import { RETENTION_CLASSES } from "./classes";
 import { loadRetentionPolicy, resolveWindow, retentionApplyGate, widestScan, type PolicyLoad } from "./policy";
 import { archiveBatch, archiveTargetFromEnv, pruneArchive, type ArchiveTarget } from "./archive";
 import { archivesToPrune, classSql, deferArchive } from "./store";
+import { expireArchives } from "./expiry";
 import { resolveDestination, type DestinationResolution, type ResolveDeps } from "./destination";
 
 export const RETENTION_WORKSPACES_PER_CLASS = 10;
@@ -36,6 +39,8 @@ export interface RetentionOptions {
   maxBatches?: number;
   /** archives examined for pruning per tick (default 5) */
   maxPrunes?: number;
+  /** archive objects deleted by expiry per tick (default 5) */
+  maxExpiries?: number;
   /** workspaces per candidate page (default 10); tests only */
   workspacesPerPage?: number;
 }
@@ -56,6 +61,18 @@ export interface RetentionResult {
   archiveHeld: number;
   /** archives whose object could not be re-verified at prune time; nothing was deleted for them */
   pruneSkipped: number;
+  /** archive objects deleted (or found already gone) by expiry this tick; the records stay */
+  archivesExpired: number;
+  /** archives due for expiry: old enough, fully pruned, not expired (reported even when the gate is closed) */
+  archiveExpiryDue: number;
+  /** dry run: of the archives examined, how many a live run would delete */
+  archiveExpiryWouldExpire: number;
+  /** due archives kept because an active legal hold overlaps them */
+  archiveExpiryHeld: number;
+  /** archives old enough to expire whose rows are not all pruned yet, so they are kept */
+  archiveExpiryBlockedUnpruned: number;
+  /** due archives that could not be checked or deleted (destination, key, unreadable contents, storage error) */
+  archiveExpiryFailed: number;
   /** true only when the delete gate was open this tick; otherwise archiving (if any) is copy-only */
   applied: boolean;
   /** why nothing was archived or deleted, when that is a configuration matter */
@@ -67,7 +84,7 @@ export async function retentionPass(db: Sql, options: RetentionOptions = {}): Pr
   const now = options.now ?? new Date();
   const load = options.load ?? loadRetentionPolicy(env);
   const gate = retentionApplyGate(env, load);
-  const out: RetentionResult = { policyActive: 0, policyInvalid: load.ok ? 0 : 1, archiveBatches: 0, archivedRows: 0, prunedRows: 0, archiveFailed: 0, archiveHeld: 0, destinationUnavailable: 0, pruneSkipped: 0, applied: gate.enabled, note: gate.reason };
+  const out: RetentionResult = { policyActive: 0, policyInvalid: load.ok ? 0 : 1, archiveBatches: 0, archivedRows: 0, prunedRows: 0, archiveFailed: 0, archiveHeld: 0, destinationUnavailable: 0, pruneSkipped: 0, archivesExpired: 0, archiveExpiryDue: 0, archiveExpiryWouldExpire: 0, archiveExpiryHeld: 0, archiveExpiryBlockedUnpruned: 0, archiveExpiryFailed: 0, applied: gate.enabled, note: gate.reason };
   if (!load.ok) return out;
   const policy = load.policy;
   const classesInUse = RETENTION_CLASSES.filter((c) => widestScan(policy, c, "archiveAfterDays") !== null);
@@ -103,11 +120,11 @@ export async function retentionPass(db: Sql, options: RetentionOptions = {}): Pr
     const candidates: { workspace_id: string; first_ts: string }[] = await db.query<{ workspace_id: string; first_ts: string }>(
       `select l.workspace_id, min(${s.time})::text as first_ts from ${s.from}
         where ${s.cold}
-          and ${s.time} < $1::timestamptz - make_interval(days => case when jsonb_exists($3::jsonb, l.workspace_id) then ($3::jsonb ->> l.workspace_id)::int else $2::int end)
+          and ${s.time} < $1::timestamptz - make_interval(days => case when jsonb_exists($3::text::jsonb, l.workspace_id) then ($3::text::jsonb ->> l.workspace_id)::int else $2::int end)
           and not exists (select 1 from platform.retention_archives a where a.workspace_id = l.workspace_id and a.data_class = '${cls}'
                            and (a.last_recorded_at, a.last_row_id::${s.idType}) >= (${s.time}, l.id))
         group by l.workspace_id
-        having ($5::timestamptz is null or (min(${s.time}), l.workspace_id) > ($5::timestamptz, $6::text))
+        having ($5::text::timestamptz is null or (min(${s.time}), l.workspace_id) > ($5::text::timestamptz, $6::text))
         order by min(${s.time}), l.workspace_id limit $4::int`,
       [now.toISOString(), defaultDays, JSON.stringify(overrides), pageSize, cursor?.ts ?? null, cursor?.ws ?? null]);
     for (const { workspace_id: ws } of candidates) {
@@ -143,5 +160,15 @@ export async function retentionPass(db: Sql, options: RetentionOptions = {}): Pr
       else { out.pruneSkipped++; await deferArchive(db, archive.id, archive.workspaceId, recheck); }
     }
   }
+
+  // Archive expiry: after pruning, under the same gate. Closed gate = report only (nothing is deleted).
+  const expiry = await expireArchives(db, { policy, apply: gate.enabled, deps, key: options.key, now, limit: options.maxExpiries });
+  out.archivesExpired = expiry.expired;
+  out.archiveExpiryDue = expiry.due;
+  out.archiveExpiryWouldExpire = expiry.wouldExpire;
+  out.archiveExpiryHeld = expiry.heldBack;
+  out.archiveExpiryBlockedUnpruned = expiry.blockedUnpruned;
+  out.archiveExpiryFailed = expiry.failed;
+  if (expiry.note && !out.note) out.note = expiry.note;
   return out;
 }

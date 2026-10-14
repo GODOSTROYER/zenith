@@ -103,6 +103,34 @@ export class FilesystemTarget implements BackupTarget {
     }
   }
 
+  /**
+   * Delete one object. Idempotent: a missing object is success. Only a regular file strictly inside the target
+   * directory is removed: a symlink (to anything), a directory, or a path whose real parent leaves the root is refused,
+   * so a planted link can never redirect a delete outside the target.
+   */
+  async delete(key: string): Promise<void> {
+    const file = this.resolve(key);
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(file);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") return;
+      throw error;
+    }
+    if (!stat.isFile())
+      throw new HostedError("invalid_input", `"${key}" is not a regular file inside the target, so it is not deleted.`, { fix: "Remove the link or directory by hand if it is not expected." });
+    const root = fs.realpathSync(this.dir);
+    const parent = fs.realpathSync(path.dirname(file));
+    if (parent !== root && !parent.startsWith(root + path.sep))
+      throw new HostedError("invalid_input", `"${key}" resolves outside the target directory, so it is not deleted.`, { fix: "Check the target directory for symlinks." });
+    try {
+      fs.unlinkSync(file);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+
   async list(prefix: string): Promise<string[]> {
     const out: string[] = [];
     const walk = (absolute: string, relative: string): void => {
@@ -260,6 +288,17 @@ export class S3Target implements BackupTarget {
     } catch (error) {
       if (isMissing(error)) return null;
       throw error;
+    }
+  }
+
+  /** Delete one object. Idempotent: S3 reports success for a missing key, and a 404 from a compatible endpoint is success too. */
+  async delete(key: string): Promise<void> {
+    const { DeleteObjectCommand } = await this.sdk();
+    const client = await this.connection();
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: assertKey(key) }));
+    } catch (error) {
+      if (!isMissing(error)) throw error;
     }
   }
 

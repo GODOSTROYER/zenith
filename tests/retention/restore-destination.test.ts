@@ -34,7 +34,7 @@ let db: PlatformDbHandle;
 let dir: string;
 let operator: FilesystemTarget;
 let operatorPuts = 0;
-const operatorTarget: ArchiveTarget = { label: "operator dir", put: async (k, b) => { operatorPuts++; await operator.put(k, b); }, get: (k) => operator.get(k) };
+const operatorTarget: ArchiveTarget = { label: "operator dir", put: async (k, b) => { operatorPuts++; await operator.put(k, b); }, get: (k) => operator.get(k), delete: (k) => operator.delete(k) };
 beforeAll(async () => {
   const pgUrl = process.env.ZENITH_TEST_PLATFORM_PG_URL;
   if (nativePostgres && !pgUrl) throw new Error("Explicit retention PostgreSQL gate requires an owned disposable ZENITH_TEST_PLATFORM_PG_URL.");
@@ -44,7 +44,7 @@ beforeAll(async () => {
 }, 60_000);
 afterAll(async () => { await db.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
-const run = (o: RetentionOptions) => retentionPass(db, { maxBatches: 100, maxPrunes: 100, key: KEY, recheckMs: 0, ...o });
+const run = (o: RetentionOptions) => retentionPass(db, { maxBatches: 100, maxPrunes: 100, maxExpiries: 100, key: KEY, recheckMs: 0, ...o });
 const deps: ResolveDeps = { operator: operatorTarget };
 
 async function runner(ws: string) {
@@ -214,6 +214,7 @@ function s3Double() {
         if (!hit) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
         return { Body: { transformToByteArray: async () => new Uint8Array(hit) } };
       }
+      if (name === "DeleteObjectCommand") { objects.delete(command.input.Key); return {}; }
       throw new Error(`unexpected ${name}`);
     },
   };
@@ -338,6 +339,94 @@ describe("tenant-owned archive destinations", () => {
   });
 });
 
+
+/* ------------------------------ archive expiry: restore, verify and tenant buckets ------------------------------ */
+
+describe("expired archives", () => {
+  // expiry window 100 days: shorter than the 150-day-old logs used by the helpers, not shorter than the 90-day prune window
+  const expiryLoad = (workspaces: Record<string, unknown> = {}): PolicyLoad => ({
+    ok: true, source: "inline", digest: "0".repeat(64),
+    policy: parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90, archiveExpireAfterDays: 100 } }, workspaces, approval: APPROVAL }),
+  });
+
+  it("verify and restore refuse an expired archive with a clear message, and the refusal is audited", async () => {
+    const { ws, archive } = await archivedAndPruned(2);
+    const res = await run({ env: GATE, load: expiryLoad(), target: operatorTarget });
+    expect(res.archivesExpired).toBeGreaterThanOrEqual(1);
+    expect(await operator.get(archive.objectKey)).toBeNull();
+    const expired = (await listArchives(db, { workspaceId: ws })).find((a) => a.id === archive.id)!;
+    expect(expired).toMatchObject({ expiryOutcome: "deleted", expiredBy: "system:data-retention" });
+    const day = expired.expiredAt!.slice(0, 10);
+
+    const verified = await verifyArchive(db, archive.id, { deps, key: KEY });
+    expect(verified.ok).toBe(false);
+    expect(verified.problems.join(" ")).toBe(`The archive record exists, but its object was deleted by retention expiry on ${day}, so it cannot be verified or restored.`);
+    for (const mode of ["staging", "source"] as const) {
+      const r = await restoreArchive(db, { archiveId: archive.id, mode, stagingSuffix: "gone", actor: "op" }, { deps, key: KEY });
+      expect(r.verdict).toBe("refused");
+      expect(r.detail).toContain(`deleted by retention expiry on ${day}`);
+      expect(r.auditId).toMatch(/^rrest_/);
+    }
+    expect(await logCount(ws)).toBe(0);
+  });
+
+  it("an archive in a tenant bucket is left alone by default and expired when the workspace opts in", async () => {
+    const ws = newWorkspace();
+    const env = uid("env");
+    const addr = await bucketResource(ws, env);
+    const s3 = s3Double();
+    const secret = async () => creds("tenant-archive-bucket");
+    const tenant = { secret, s3Client: s3.client };
+    await createDestination(db, { workspaceId: ws, environmentId: env, resourceAddress: addr, credentialsRef: "vault:tenant/archive", actor: "admin" }, tenant);
+    const { id: runnerId } = await runner(ws);
+    await jobWithLogs(ws, runnerId, 150, 2);
+
+    // default policy: archived and pruned, but the customer's bucket is not touched
+    const first = await run({ env: GATE, load: expiryLoad(), target: operatorTarget, tenant });
+    expect(first.archivesExpired).toBe(0);
+    const archive = (await listArchives(db, { workspaceId: ws }))[0];
+    expect(archive.destinationId).not.toBeNull();
+    expect(archive).toMatchObject({ prunedRows: 2, expiredAt: null });
+    const objectKey = `zenith-retention/${archive.objectKey}`;
+    expect(s3.objects.has(objectKey)).toBe(true);
+    const customer = (await retentionOverviewFor()).find((c) => c.class === "runner_job_logs")!;
+    expect(customer.customerControlled).toBeGreaterThanOrEqual(1);
+    // explicit customer_controlled behaves the same
+    await run({ env: GATE, load: expiryLoad({ [ws]: { tenantArchiveExpiry: "customer_controlled" } }), target: operatorTarget, tenant });
+    expect(s3.objects.has(objectKey)).toBe(true);
+    expect((await listArchives(db, { workspaceId: ws }))[0].expiredAt).toBeNull();
+
+    // opted in: the object in the customer's bucket is deleted, the record stays
+    const optedIn = await run({ env: GATE, load: expiryLoad({ [ws]: { tenantArchiveExpiry: "policy" } }), target: operatorTarget, tenant });
+    expect(optedIn.archivesExpired).toBeGreaterThanOrEqual(1);
+    expect(s3.objects.has(objectKey)).toBe(false);
+    expect((await listArchives(db, { workspaceId: ws }))[0]).toMatchObject({ id: archive.id, expiryOutcome: "deleted", expiredBy: "system:data-retention" });
+    // the operator bucket was never involved in the tenant's expiry
+    expect(await operator.get(archive.objectKey)).toBeNull();
+  });
+
+  it("a tenant bucket that cannot be opened is reported, never deleted blind, and never replaced by the operator bucket", async () => {
+    const ws = newWorkspace();
+    const env = uid("env");
+    const addr = await bucketResource(ws, env);
+    const s3 = s3Double();
+    const tenant = { secret: async () => creds("tenant-archive-bucket"), s3Client: s3.client };
+    await createDestination(db, { workspaceId: ws, environmentId: env, resourceAddress: addr, credentialsRef: "vault:tenant/archive", actor: "admin" }, tenant);
+    const { id: runnerId } = await runner(ws);
+    await jobWithLogs(ws, runnerId, 150, 2);
+    await run({ env: GATE, load: expiryLoad(), target: operatorTarget, tenant });
+    const archive = (await listArchives(db, { workspaceId: ws }))[0];
+    const res = await run({ env: GATE, load: expiryLoad({ [ws]: { tenantArchiveExpiry: "policy" } }), target: operatorTarget, tenant: { secret: async () => undefined, s3Client: s3.client } });
+    expect(res.archiveExpiryFailed).toBeGreaterThanOrEqual(1);
+    expect(s3.objects.has(`zenith-retention/${archive.objectKey}`)).toBe(true);
+    expect((await listArchives(db, { workspaceId: ws }))[0].expiredAt).toBeNull();
+  });
+});
+
+async function retentionOverviewFor() {
+  const { expiryOverview } = await import("@/lib/retention/store");
+  return expiryOverview(db, parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90, archiveExpireAfterDays: 100 } } }), new Date());
+}
 
 if (nativePostgres) describe("legacy archive CLI [real PostgreSQL]", () => {
   it("uses the real privileged CLI and original-purpose key, with independent row and audit readback", async () => {

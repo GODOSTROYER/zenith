@@ -76,6 +76,8 @@ export interface ObjectStorePort {
   list(prefix: string): Promise<{ key: string; size: number }[]>;
   get(key: string): Promise<{ bytes: Buffer; contentType?: string } | null>;
   put(key: string, bytes: Buffer, contentType?: string): Promise<void>;
+  /** remove one object; a missing object is success. Optional: only retention archive expiry needs it. */
+  delete?(key: string): Promise<void>;
 }
 
 /** Where an export artifact lives: storage the tenant owns. */
@@ -85,6 +87,8 @@ export interface ArtifactStore {
   put(key: string, bytes: Buffer): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   list(prefix: string): Promise<string[]>;
+  /** remove one object; a missing object is success. Optional: only retention archive expiry needs it. */
+  delete?(key: string): Promise<void>;
 }
 
 export type EmitFile = (name: string, bytes: Buffer) => Promise<void>;

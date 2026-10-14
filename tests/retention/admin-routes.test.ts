@@ -91,7 +91,9 @@ describe("overview and preview", () => {
     const body = await res.json();
     expect(body.policy).toMatchObject({ valid: true, source: "default", retainsEverything: false, approved: true, approvedBy: "Arnav Bule" });
     expect(body.baseline).toMatchObject({ decision: "DEC-RETENTION", logDays: 30, payloadHours: 72, auditMinimumDays: 365, approvedBy: "Arnav Bule" });
-    expect(body.baseline.notices.join(" ")).toMatch(/does not expire archive objects/);
+    expect(body.baseline.notices.join(" ")).toMatch(/only in the operator bucket \(365 days after their newest row\)/);
+    expect(body.baseline.archiveExpiryDays).toBe(365);
+    expect(body.expiry.map((c: { class: string }) => c.class)).toEqual(["runner_job_logs", "machine_request_logs", "resource_observations", "drift_reports"]);
     expect(body.baseline.notices.join(" ")).toMatch(/does not track backup expiry/);
     expect(body.payloadMinimizer).toMatchObject({ hours: 72, gate: { enabled: false } });
     expect(body.payloadMinimizer.eligible).toEqual(expect.any(Number));

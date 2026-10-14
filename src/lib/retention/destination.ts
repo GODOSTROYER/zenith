@@ -129,7 +129,17 @@ export async function connectTenantDestination(
   if (!expected) throw new DestinationError("The storage resource has no observed bucket identity yet; apply it before using it as a destination.");
   if (expected !== bucket) throw new DestinationError("The storage credentials do not belong to the destination resource's bucket.");
   const label = `s3://${bucket}/zenith-retention/`;
-  return { target: s3ArtifactStore(store, "zenith-retention/", label), bucket, label };
+  const artifacts = s3ArtifactStore(store, "zenith-retention/", label);
+  const target: ArchiveTarget = {
+    label,
+    put: (key, bytes) => artifacts.put(key, bytes),
+    get: (key) => artifacts.get(key),
+    delete: async (key) => {
+      if (!artifacts.delete) throw new DestinationError("This storage connection cannot delete objects.");
+      await artifacts.delete(key);
+    },
+  };
+  return { target, bucket, label };
 }
 
 export async function createDestination(

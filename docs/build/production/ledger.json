@@ -5508,7 +5508,7 @@
         "PROD-LIFE-07"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (pricing) approved 2026-10-13: plans explore, builder, team, enterprise; total = max(minimum, ZCU-hours x 1.5 cents); Enterprise is billed by contract (no auto-invoice); live charging remains off.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (pricing) approved 2026-10-13: plans explore, builder, team, enterprise; total = max(minimum, ZCU-hours x 1.5 cents); Enterprise is billed by contract (no auto-invoice); live charging remains off. 2026-10-14: fair-use limits set (Builder 2,000 build minutes and 100 GB; Team 10,000 and 500 GB); public /pricing page renders the catalog.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -5742,7 +5742,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: default policy ships logs at 30 days with a built-in approval; audit-evidence classes cannot be pruned before 365 days; legal holds now stop archive copies (the watermark never passes a held row); the job pages through workspaces so held workspaces cannot starve others. Deletion still needs ZENITH_RETENTION_APPLY=1.",
+      "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: default policy ships logs at 30 days with a built-in approval; audit-evidence classes cannot be pruned before 365 days; legal holds now stop archive copies (the watermark never passes a held row); the job pages through workspaces so held workspaces cannot starve others. Deletion still needs ZENITH_RETENTION_APPLY=1. 2026-10-14: operator-bucket log archives expire 365 days after their newest row (migration 59, aggregate 0027), only when fully pruned, never under a legal hold, only behind the apply gate; expired archives keep their record with expired_at, expired_by and outcome.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -5803,7 +5803,7 @@
         "PROD-CI-09"
       ],
       "implementationStatus": "implementation_complete_verification_pending",
-      "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
+      "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. 2026-10-14: the release seed never outlives its signing step (mktemp under umask 077, EXIT trap, always() cleanup); update binaries, checksums and signed updater manifests are published as GitHub release assets after offline verification through a draft release; one flat asset layout across zenith-release, the workflow, build.sh and RUNNER-UPDATES.md. A first real tag run is still pending.",
       "evidence": [],
       "requiredEvidence": [
         "contract",
@@ -6802,8 +6802,10 @@
       "approved": "2026-10-13",
       "approvedBy": "Arnav Bule",
       "description": "Retention baseline approved 2026-10-13 by Arnav Bule: production logs 30 days, sensitive execution payloads 72 hours after settlement, essential audit records kept at least one year and not auto-deleted. Deletion stays off on each installation until its operator sets the apply switches.",
-      "approvalScope": "Default policy windows for runner_job_logs and machine_request_logs (archive and prune at 30 days); payload minimizer window 72 hours; audit-evidence classes may not be pruned before 365 days; legal holds stop archive copies, pruning and the minimizer. Not approved: automatic deletion of audit records, archive object expiry, backup expiry tracking.",
-      "acceptance": "Implemented in code and unit/PGlite tested on the build machine; real PostgreSQL and object-store verification pending on the verifier."
+      "approvalScope": "Default policy windows for runner_job_logs and machine_request_logs (archive and prune at 30 days; archive objects in the operator bucket expire 365 days after their newest row, tenant buckets stay customer-controlled unless the workspace opts in); payload minimizer window 72 hours; audit-evidence classes may not be pruned before 365 days and their archives are never expired; legal holds stop archive copies, pruning, archive expiry and the minimizer. Not approved: automatic deletion of audit records, backup expiry tracking.",
+      "acceptance": "Implemented in code and unit/PGlite tested on the build machine; real PostgreSQL and object-store verification pending on the verifier.",
+      "amended": "2026-10-14",
+      "amendment": "Archive expiry added. 2026-10-14: values chosen by the build agent at the owner's request (\"use broad intelligence, decent approximates\") and recorded as Arnav Bule's decision."
     },
     {
       "id": "DEC-BUSINESS",
@@ -6819,14 +6821,16 @@
       "approved": "2026-10-13",
       "approvedBy": "Arnav Bule",
       "description": "Partly approved 2026-10-13 by Arnav Bule: launch packages and prices (Explore free; Builder $29 minimum; Team $199 minimum; $0.015 per ZCU-hour; Enterprise by contract) and launch service-level engineering targets (99.9% control-plane and managed-runtime availability, p95 500 ms, 95% dispatch within 30 s after approvals, RPO 15 minutes, RTO 4 hours). Still pending: terms and legal review, live payment account, contractual Enterprise SLA and service credits.",
-      "approvalScope": "Prices, plan entitlements and the ZCU definition (1 ZCU-hour = one managed resource-hour; build minutes and storage included under carried-forward fair-use caps). Service-level targets as engineering targets only, not a contractual SLA.",
+      "approvalScope": "Prices, plan entitlements and the ZCU definition (1 ZCU-hour = one managed resource-hour; build minutes and storage included). Monthly fair-use limits: Explore 300 build minutes and 20 GB, Builder 2,000 and 100 GB, Team 10,000 and 500 GB, Enterprise by contract; concurrent operations 3, 15, 60. Service-level targets as engineering targets only, not a contractual SLA.",
       "pending": [
         "Terms of service, privacy policy and DPA legal review",
         "Live payment account (Stripe live keys remain refused; test mode only)",
         "Contractual Enterprise SLA and service credits (after production verification)",
         "Tax handling and currency beyond USD"
       ],
-      "acceptance": "Implemented in code and unit tested on the build machine; operated and Stripe test-mode verification pending on the verifier."
+      "acceptance": "Implemented in code and unit tested on the build machine; operated and Stripe test-mode verification pending on the verifier.",
+      "amended": "2026-10-14",
+      "amendment": "Fair-use limits set (Builder raised from 1,000 minutes and 50 GB). Public /pricing page published from the catalog. 2026-10-14: values chosen by the build agent at the owner's request (\"use broad intelligence, decent approximates\") and recorded as Arnav Bule's decision."
     }
   ],
   "integrations": [

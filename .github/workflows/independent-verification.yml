@@ -1,0 +1,46 @@
+name: Independent mixed admission verification
+
+on:
+  push:
+    branches: ['codex/independent-verification-2026-10-13']
+  pull_request:
+    branches: ['codex/production-2026-10-02']
+    paths:
+      - 'src/lib/execution/graph.ts'
+      - 'src/lib/execution/mixed/**'
+      - 'tests/execution/mixed/**'
+      - '.github/workflows/independent-verification.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: independent-mixed-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mixed-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-independent-mixed
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Record tested source
+        run: git rev-parse HEAD
+      - name: Run admission custody regressions and existing mixed contracts
+        run: npx --no-install vitest run --project=node --maxWorkers=1 tests/execution/mixed
+      - name: Typecheck complete repository
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: npx --no-install tsc --noEmit
+      - name: Lint changed source and contract suites
+        run: npx --no-install eslint src/lib/execution/graph.ts src/lib/execution/mixed/admission.ts tests/execution/mixed/admission-custody.test.ts tests/execution/mixed/admission-content.test.ts

@@ -41,7 +41,7 @@ import { RENDERABLE_KINDS } from "@/lib/providers/kubernetes/render";
 import { assessZenithGraph } from "@/lib/providers/zenith/render";
 import type { ArtifactSpec } from "@/lib/resources/specs";
 import type { DriverLookup, ProductContext } from "./ports";
-import { isMixedAdmission, type MixedAdmission } from "./mixed/admission";
+import { isMixedAdmissionForGraph, type MixedAdmission } from "./mixed/admission";
 import { errorText, safeText } from "./text";
 
 export interface DesiredState {
@@ -110,6 +110,8 @@ function zenithClasses(graph: ResourceGraph): Map<string, ZenithClass> {
 
 export function findGraphProblems(graph: ResourceGraph, environmentProvider: string, drivers: DriverLookup, admission?: MixedAdmission): string[] {
   const problems: string[] = [];
+  // Validate the complete graph once. Public token metadata never grants admission.
+  const graphAdmitted = isMixedAdmissionForGraph(admission, graph);
   const managedClass = environmentProvider === "zenith" ? zenithClasses(graph) : undefined;
   for (const node of graph.nodes) {
     if (node.ownership === "external") continue;
@@ -131,9 +133,8 @@ export function findGraphProblems(graph: ResourceGraph, environmentProvider: str
       problems.push(`${node.address}: a ${node.kind} has no native realization on ${node.provider} (${node.nativeType}); it cannot be executed there.`);
       continue;
     }
-    // A foreign placement is explained only by an admission minted for this very address; anything else keeps the refusal.
-    const admitted = admission !== undefined && isMixedAdmission(admission) && admission.addresses.has(node.address);
-    if (node.provider !== environmentProvider && !admitted) {
+    // Only an unchanged graph in its original environment may use the admission.
+    if (node.provider !== environmentProvider && !graphAdmitted) {
       problems.push(`${node.address} is placed on ${node.provider}/${node.region} but this environment executes on ${environmentProvider}; multi-provider graphs are not executable yet.`);
       continue;
     }

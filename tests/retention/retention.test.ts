@@ -11,15 +11,15 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
 import * as repos from "@/lib/controlplane/db/repos";
-import { FilesystemTarget } from "@/lib/hosted/backup/targets";
+import { FilesystemTarget, S3Target } from "@/lib/hosted/backup/targets";
 import { unseal } from "@/lib/hosted/backup/crypto";
 import { archiveBatch, archiveTargetFromEnv, pruneArchive, rowsDigestOf, type ArchiveTarget } from "@/lib/retention/archive";
 import { CLASS_SPECS, NEVER_PRUNABLE, RETENTION_CLASSES, RetentionInvariantError, assertPrunableClass, refusalFor } from "@/lib/retention/classes";
 import { RETENTION_WORKSPACE_PAGES_PER_CLASS, retentionPass, type RetentionOptions } from "@/lib/retention/job";
 import {
-  APPROVED_LOG_RETENTION_DAYS, APPROVED_PAYLOAD_RETENTION_HOURS, AUDIT_MINIMUM_RETENTION_DAYS, DEFAULT_RETENTION_POLICY, loadRetentionPolicy, parseRetentionPolicy, resolveWindow, retentionApplyGate, RetentionPolicyError, type PolicyLoad, type RetentionPolicy,
+  APPROVED_ARCHIVE_EXPIRY_DAYS, APPROVED_LOG_RETENTION_DAYS, APPROVED_PAYLOAD_RETENTION_HOURS, AUDIT_MINIMUM_RETENTION_DAYS, DEFAULT_RETENTION_POLICY, loadRetentionPolicy, parseRetentionPolicy, resolveArchiveExpiry, resolveWindow, retentionApplyGate, RetentionPolicyError, tenantArchiveExpiryOptIn, type PolicyLoad, type RetentionPolicy,
 } from "@/lib/retention/policy";
-import { archiveWatermark, classSql, createHold, listArchives, listHolds, previewRetention, pruneSql, releaseHold } from "@/lib/retention/store";
+import { archiveWatermark, classSql, createHold, listArchives, listHolds, markPruned, previewRetention, pruneSql, recordArchive, releaseHold } from "@/lib/retention/store";
 import { newWorkspace, seedApprovedOperation, uid } from "../controlplane/_support/harness";
 
 const PUBKEY = "A".repeat(43);
@@ -256,12 +256,13 @@ describe("archive: copy only, sealed, read back", () => {
       label: "corrupting",
       put: async (key, bytes) => { const bad = Buffer.from(bytes); bad[bad.length - 1] ^= 0xff; await target.put(key, bad); },
       get: (key) => target.get(key),
+      delete: (key) => target.delete(key),
     };
     const out = await archiveBatch(db, ws, "runner_job_logs", 30, { target: corrupting, key: KEY, policy: policyOf(LOGS) });
     expect(out).toEqual({ status: "failed", reason: "digest_mismatch" });
-    const lost: ArchiveTarget = { label: "lost", put: async () => undefined, get: async () => null };
+    const lost: ArchiveTarget = { label: "lost", put: async () => undefined, get: async () => null, delete: async () => undefined };
     expect(await archiveBatch(db, ws, "runner_job_logs", 30, { target: lost, key: KEY, policy: policyOf(LOGS) })).toEqual({ status: "failed", reason: "digest_mismatch" });
-    const broken: ArchiveTarget = { label: "broken", put: async () => { throw new Error("denied"); }, get: async () => null };
+    const broken: ArchiveTarget = { label: "broken", put: async () => { throw new Error("denied"); }, get: async () => null, delete: async () => undefined };
     expect(await archiveBatch(db, ws, "runner_job_logs", 30, { target: broken, key: KEY, policy: policyOf(LOGS) })).toEqual({ status: "failed", reason: "write_failed" });
     expect(await listArchives(db, { workspaceId: ws })).toHaveLength(0);
     expect(await logCount(ws)).toBe(3);
@@ -565,5 +566,329 @@ describe("dry-run preview", () => {
     expect(row).toMatchObject({ pruneEligible: 2, pruneWaitingForArchive: 0, archiveEligible: 0 });
     expect(prev.classes.find((c) => c.class === "runner_job_logs")!.samplePrune.some((s) => s.workspaceId === ws)).toBe(true);
     expect(prev.classes.find((c) => c.class === "runner_job_logs")!.archivedRows).toBeGreaterThanOrEqual(2);
+  });
+});
+
+/* ------------------------------ archive expiry (DEC-RETENTION, 2026-10-14) ------------------------------ */
+
+/**
+ * The archive expiry suites below also run against a real PostgreSQL when ZENITH_TEST_RETENTION_PG=1 and an owned,
+ * disposable, already migrated ZENITH_TEST_PLATFORM_PG_URL are set: they swap `db` for that database for their own
+ * duration. The older suites in this file are PGlite-only and are left untouched.
+ */
+function useNativePostgresForExpiry(): void {
+  let pgdb: PlatformDbHandle | undefined;
+  let pglite: PlatformDbHandle | undefined;
+  beforeAll(async () => {
+    if (process.env.ZENITH_TEST_RETENTION_PG !== "1") return;
+    const url = process.env.ZENITH_TEST_PLATFORM_PG_URL;
+    if (!url) throw new Error("ZENITH_TEST_RETENTION_PG=1 needs an owned disposable ZENITH_TEST_PLATFORM_PG_URL.");
+    pglite = db;
+    pgdb = db = await openPlatformDb({ kind: "postgres", url, max: 2 });
+  }, 60_000);
+  afterAll(async () => {
+    if (!pgdb) return;
+    db = pglite!;
+    await pgdb.close();
+    pgdb = undefined;
+  });
+}
+
+describe("archive expiry policy", () => {
+  const EXPIRY_LOGS = { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90, archiveExpireAfterDays: 365 } } as const;
+
+  it("ships 365 days for both log classes in the approved baseline and keeps resolveWindow unchanged", () => {
+    expect(APPROVED_ARCHIVE_EXPIRY_DAYS).toBe(365);
+    for (const cls of ["runner_job_logs", "machine_request_logs"] as const) {
+      expect(DEFAULT_RETENTION_POLICY.classes[cls]).toEqual({ archiveAfterDays: 30, pruneAfterDays: 30, archiveExpireAfterDays: 365 });
+      expect(resolveArchiveExpiry(DEFAULT_RETENTION_POLICY, "ws", cls)).toBe(365);
+    }
+    for (const cls of ["resource_observations", "drift_reports"] as const) expect(resolveArchiveExpiry(DEFAULT_RETENTION_POLICY, "ws", cls)).toBeNull();
+    expect(DEFAULT_RETENTION_POLICY.approval?.note).toMatch(/365 days after their newest row/);
+  });
+
+  it("validates the field: whole days 1..36500, not earlier than the prune window, null retains forever", () => {
+    expect(parseRetentionPolicy({ version: 1, classes: EXPIRY_LOGS }).classes.runner_job_logs).toEqual(EXPIRY_LOGS.runner_job_logs);
+    // equal to the prune window is allowed, earlier is refused
+    expect(() => parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90, archiveExpireAfterDays: 90 } } })).not.toThrow();
+    expect(() => parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90, archiveExpireAfterDays: 89 } } })).toThrow(/not be earlier than pruneAfterDays/);
+    for (const days of [0, -1, 1.5, "365", 40_000]) expect(() => parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, archiveExpireAfterDays: days } } })).toThrow(RetentionPolicyError);
+    expect(parseRetentionPolicy({ version: 1, classes: { runner_job_logs: { archiveAfterDays: 30, archiveExpireAfterDays: null } } }).classes.runner_job_logs?.archiveExpireAfterDays).toBeNull();
+    // a workspace override is checked against the merged prune window
+    expect(() => parseRetentionPolicy({ version: 1, classes: EXPIRY_LOGS, workspaces: { ws_a: { runner_job_logs: { archiveExpireAfterDays: 60 } } } })).toThrow(/archiveExpireAfterDays must not be earlier/);
+    const p = parseRetentionPolicy({ version: 1, classes: EXPIRY_LOGS, workspaces: { ws_a: { runner_job_logs: { archiveExpireAfterDays: 120 } }, ws_b: { runner_job_logs: { archiveExpireAfterDays: null } } } });
+    expect(resolveArchiveExpiry(p, "ws_x", "runner_job_logs")).toBe(365);
+    expect(resolveArchiveExpiry(p, "ws_a", "runner_job_logs")).toBe(120);
+    expect(resolveArchiveExpiry(p, "ws_b", "runner_job_logs")).toBeNull();
+  });
+
+  it("refuses an expiry window on audit-evidence classes at class and workspace level", () => {
+    for (const cls of ["resource_observations", "drift_reports"]) {
+      expect(() => parseRetentionPolicy({ version: 1, classes: { [cls]: { archiveAfterDays: 30, pruneAfterDays: 365, archiveExpireAfterDays: 400 } } })).toThrow(/audit evidence/);
+      expect(() => parseRetentionPolicy({ version: 1, workspaces: { ws_a: { [cls]: { archiveExpireAfterDays: 400 } } } })).toThrow(/audit evidence/);
+      // null is the same as absent: nothing to refuse
+      expect(() => parseRetentionPolicy({ version: 1, classes: { [cls]: { archiveAfterDays: 30, archiveExpireAfterDays: null } } })).not.toThrow();
+    }
+  });
+
+  it("tenant buckets are customer-controlled unless the workspace opts in with a valid value", () => {
+    const p = parseRetentionPolicy({ version: 1, classes: EXPIRY_LOGS, workspaces: { ws_in: { tenantArchiveExpiry: "policy" }, ws_out: { tenantArchiveExpiry: "customer_controlled" }, ws_plain: { runner_job_logs: { archiveExpireAfterDays: 200 } } } });
+    expect(tenantArchiveExpiryOptIn(p, "ws_in")).toBe(true);
+    expect(tenantArchiveExpiryOptIn(p, "ws_out")).toBe(false);
+    expect(tenantArchiveExpiryOptIn(p, "ws_plain")).toBe(false);
+    expect(tenantArchiveExpiryOptIn(p, "unknown")).toBe(false);
+    for (const bad of ["always", true, 1, null]) expect(() => parseRetentionPolicy({ version: 1, workspaces: { ws: { tenantArchiveExpiry: bad } } })).toThrow(/customer_controlled/);
+    // the reserved key never makes a data class, and a normal class name is still validated
+    expect(() => parseRetentionPolicy({ version: 1, workspaces: { ws: { nonsense: { archiveAfterDays: 1 } } } })).toThrow(/not a retention class/);
+    expect(parseRetentionPolicy(JSON.parse(JSON.stringify(p)))).toEqual(p);
+  });
+});
+
+describe("object store deletes (filesystem and S3)", () => {
+  it("filesystem delete is idempotent, removes only the named file, and refuses links and escapes", async (ctx) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-delete-root-"));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-delete-outside-"));
+    try {
+      const t = new FilesystemTarget(root);
+      await t.put("retention/ws/a.zra", Buffer.from("a"));
+      await t.put("retention/ws/b.zra", Buffer.from("b"));
+      await t.delete("retention/ws/a.zra");
+      expect(await t.get("retention/ws/a.zra")).toBeNull();
+      expect((await t.get("retention/ws/b.zra"))!.toString()).toBe("b");
+      await t.delete("retention/ws/a.zra");
+      await t.delete("never/existed.zra");
+      await expect(t.delete("../escape.zra")).rejects.toThrow(/usable backup target key/);
+      await expect(t.delete("/etc/passwd")).rejects.toThrow();
+      // a key naming a directory is refused, not removed
+      await expect(t.delete("retention/ws")).rejects.toThrow(/not a regular file/);
+      expect(await t.get("retention/ws/b.zra")).not.toBeNull();
+      // symlinks (when the platform lets this test create them): the link target outside the root is never touched
+      fs.writeFileSync(path.join(outside, "victim.txt"), "keep");
+      try {
+        fs.symlinkSync(path.join(outside, "victim.txt"), path.join(root, "retention", "ws", "link.zra"));
+        fs.symlinkSync(outside, path.join(root, "retention", "linked-dir"), "junction");
+      } catch { ctx.skip(); }
+      await expect(t.delete("retention/ws/link.zra")).rejects.toThrow(/not a regular file/);
+      await expect(t.delete("retention/linked-dir/victim.txt")).rejects.toThrow(/outside the target/);
+      expect(fs.readFileSync(path.join(outside, "victim.txt"), "utf8")).toBe("keep");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("S3 delete sends DeleteObject for the key and treats a missing key as success", async () => {
+    const sent: { name: string; input: Record<string, unknown> }[] = [];
+    let missing = false;
+    const client = { async send(command: { constructor: { name: string }; input: Record<string, unknown> }) {
+      sent.push({ name: command.constructor.name, input: command.input });
+      if (missing) throw Object.assign(new Error("gone"), { name: "NoSuchKey", $metadata: { httpStatusCode: 404 } });
+      return {};
+    } };
+    const t = new S3Target({ bucket: "ops-archives", client });
+    await t.delete("retention/ws/a.zra");
+    missing = true;
+    await t.delete("retention/ws/a.zra");
+    expect(sent.map((s) => s.name)).toEqual(["DeleteObjectCommand", "DeleteObjectCommand"]);
+    expect(sent[0].input).toEqual({ Bucket: "ops-archives", Key: "retention/ws/a.zra" });
+    await expect(t.delete("../x")).rejects.toThrow();
+    const denied = new S3Target({ bucket: "b", client: { send: async () => { throw Object.assign(new Error("denied"), { name: "AccessDenied", $metadata: { httpStatusCode: 403 } }); } } });
+    await expect(denied.delete("retention/a.zra")).rejects.toThrow(/denied/);
+  });
+});
+
+describe("archive expiry", () => {
+  useNativePostgresForExpiry();
+  const EXP = { runner_job_logs: { archiveAfterDays: 30, pruneAfterDays: 90, archiveExpireAfterDays: 365 } } as const;
+  const NO_EXP = LOGS;
+  const expiry = (env: Record<string, string>, extra: Partial<RetentionOptions> = {}, policy: RetentionPolicy = policyOf(EXP)) =>
+    run({ env, load: loadOf(policy), target, key: KEY, recheckMs: 0, maxExpiries: 100, ...extra });
+  const recordOf = async (ws: string) => (await listArchives(db, { workspaceId: ws })).find((a) => a.dataClass === "runner_job_logs")!;
+
+  /** Logs older than the expiry window, archived and fully pruned from the source with the expiry-free policy. */
+  async function pruned(age = 450, lines = 2) {
+    const ws = newWorkspace();
+    const { id: runnerId } = await runner(ws);
+    const job = await jobWithLogs(ws, runnerId, age, lines);
+    for (let i = 0; i < 2; i++) await run({ env: APPLY_ENV, load: loadOf(policyOf(NO_EXP)), target, key: KEY, recheckMs: 0 });
+    expect(await logCount(ws)).toBe(0);
+    const archive = await recordOf(ws);
+    expect(archive).toMatchObject({ prunedRows: lines, expiredAt: null });
+    expect(archive.completedAt).not.toBeNull();
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+    return { ws, job, archive };
+  }
+
+  it("a dry run reports what is due and deletes nothing", async () => {
+    const { archive } = await pruned();
+    const res = await expiry({});
+    expect(res.applied).toBe(false);
+    expect(res.archivesExpired).toBe(0);
+    expect(res.archiveExpiryDue).toBeGreaterThanOrEqual(1);
+    expect(res.archiveExpiryWouldExpire).toBeGreaterThanOrEqual(1);
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+    expect(await recordOf(archive.workspaceId)).toMatchObject({ expiredAt: null, expiredBy: null, expiryOutcome: null });
+    // an unapproved operator policy is also a dry run even with the switch on
+    const unapproved = await expiry(APPLY_ENV, {}, policyOf(EXP, false));
+    expect(unapproved.applied).toBe(false);
+    expect(unapproved.archivesExpired).toBe(0);
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+  });
+
+  it("deletes the object, keeps the record with who and when, leaves the source alone, and is idempotent", async () => {
+    const { ws, archive } = await pruned();
+    const before = await protectedCounts();
+    const res = await expiry(APPLY_ENV);
+    expect(res.applied).toBe(true);
+    expect(res.archivesExpired).toBeGreaterThanOrEqual(1);
+    expect(await target.get(archive.objectKey)).toBeNull();
+    const after = await recordOf(ws);
+    expect(after).toMatchObject({ id: archive.id, rowCount: archive.rowCount, prunedRows: archive.prunedRows, rowsDigest: archive.rowsDigest, expiredBy: "system:data-retention", expiryOutcome: "deleted" });
+    expect(after.expiredAt).not.toBeNull();
+    expect(await logCount(ws)).toBe(0);
+    expect(await protectedCounts()).toEqual(before);
+    // running again changes nothing for this archive
+    const again = await expiry(APPLY_ENV);
+    expect(again.archiveExpiryFailed).toBe(0);
+    expect(await recordOf(ws)).toEqual(after);
+  });
+
+  it("does not expire an archive newer than the window, nor without a window for the class", async () => {
+    const { ws, archive } = await pruned(200);
+    await expiry(APPLY_ENV);
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+    expect(await recordOf(ws)).toMatchObject({ expiredAt: null });
+    const old = await pruned(450);
+    await expiry(APPLY_ENV, {}, policyOf(NO_EXP));
+    expect(await target.get(old.archive.objectKey)).not.toBeNull();
+    // a per-workspace null override retains the archive even though the class window has passed
+    await expiry(APPLY_ENV, {}, policyOf(EXP, true, { [old.ws]: { runner_job_logs: { archiveExpireAfterDays: null } } }));
+    expect(await target.get(old.archive.objectKey)).not.toBeNull();
+    expect(await recordOf(old.ws)).toMatchObject({ expiredAt: null });
+  });
+
+  it("an object that is already gone is recorded as missing (idempotent)", async () => {
+    const { ws, archive } = await pruned();
+    await target.delete(archive.objectKey);
+    const res = await expiry(APPLY_ENV);
+    expect(res.archiveExpiryFailed).toBe(0);
+    expect(await recordOf(ws)).toMatchObject({ expiryOutcome: "missing", expiredBy: "system:data-retention" });
+  });
+
+  it("an archive whose rows are not all pruned is never expired, and is counted", async () => {
+    const ws = newWorkspace();
+    const { id: runnerId } = await runner(ws);
+    await jobWithLogs(ws, runnerId, 450, 2);
+    // archive-only policy: rows stay in the source, so the archive is still the backup of live rows
+    const archiveOnly = policyOf({ runner_job_logs: { archiveAfterDays: 30, archiveExpireAfterDays: 365 } });
+    const res = await expiry(APPLY_ENV, {}, archiveOnly);
+    const archive = await recordOf(ws);
+    expect(archive).toMatchObject({ prunedRows: 0, expiredAt: null });
+    expect(res.archiveExpiryBlockedUnpruned).toBeGreaterThanOrEqual(1);
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+    expect(await logCount(ws)).toBe(2);
+    // the database refuses it too, whatever the job does
+    await expect(db.query("update platform.retention_archives set expired_at = clock_timestamp(), expired_by = 'x', expiry_outcome = 'deleted' where id = $1", [archive.id])).rejects.toThrow(/every archived row/);
+  });
+
+  it("a legal hold overlapping the archive keeps it; release lets it expire; non-overlapping holds do not block", async () => {
+    const a = await pruned();
+    const b = await pruned();
+    const c = await pruned();
+    const d = await pruned();
+    const holdA = await createHold(db, { workspaceId: a.ws, reason: "case a", actor: "op" });
+    const holdB = await createHold(db, { workspaceId: b.ws, dataClass: "runner_job_logs", resourceRef: b.job.jobId, reason: "case b", actor: "op" });
+    // c: a hold on another class, another job and a future time range overlaps nothing
+    await createHold(db, { workspaceId: c.ws, dataClass: "machine_request_logs", reason: "other class", actor: "op" });
+    await createHold(db, { workspaceId: c.ws, resourceRef: "job_unrelated", reason: "other job", actor: "op" });
+    await createHold(db, { workspaceId: c.ws, timeFrom: new Date(Date.now() + 86_400_000).toISOString(), reason: "future", actor: "op" });
+    // d: a hold on the job's OPERATION also overlaps
+    const holdD = await createHold(db, { workspaceId: d.ws, resourceRef: d.job.operationId, reason: "case d", actor: "op" });
+    const res = await expiry(APPLY_ENV);
+    expect(res.archiveExpiryHeld).toBeGreaterThanOrEqual(3);
+    for (const x of [a, b, d]) { expect(await recordOf(x.ws)).toMatchObject({ expiredAt: null }); expect(await target.get(x.archive.objectKey)).not.toBeNull(); }
+    expect(await recordOf(c.ws)).toMatchObject({ expiryOutcome: "deleted" });
+    expect(await target.get(c.archive.objectKey)).toBeNull();
+    for (const [h, x] of [[holdA, a], [holdB, b], [holdD, d]] as const) await releaseHold(db, { id: h.id, workspaceId: x.ws, actor: "op", reason: "resolved" });
+    await expiry(APPLY_ENV);
+    for (const x of [a, b, d]) { expect(await recordOf(x.ws)).toMatchObject({ expiryOutcome: "deleted" }); expect(await target.get(x.archive.objectKey)).toBeNull(); }
+  });
+
+  it("audit-evidence archives are never expired", async () => {
+    const ws = newWorkspace();
+    const rec = await recordArchive(db, { workspaceId: ws, dataClass: "drift_reports", objectKey: `retention/${ws}/drift_reports/x.zra`, rowsDigest: "a".repeat(64), rowCount: 1, firstRowId: "d1", lastRowId: "d1", lastRecordedAt: new Date(Date.now() - 900 * 86_400_000).toISOString(), keyId: "k", policyDigest: "b".repeat(64) });
+    await markPruned(db, rec.id, ws, 1, 0, 0);
+    await target.put(rec.objectKey, Buffer.from("evidence"));
+    await expiry(APPLY_ENV);
+    expect((await listArchives(db, { workspaceId: ws }))[0]).toMatchObject({ completedAt: expect.any(String), expiredAt: null });
+    expect(await target.get(rec.objectKey)).not.toBeNull();
+  });
+
+  it("an archive sealed under another key is kept and reported, never deleted blind", async () => {
+    const { ws, archive } = await pruned();
+    const res = await run({ env: APPLY_ENV, load: loadOf(policyOf(EXP)), target, key: randomBytes(32), recheckMs: 0, maxExpiries: 100 });
+    expect(res.archiveExpiryFailed).toBeGreaterThanOrEqual(1);
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+    expect(await recordOf(ws)).toMatchObject({ expiredAt: null });
+  });
+
+  it("an object delete that fails records nothing and the next run succeeds", async () => {
+    const { ws, archive } = await pruned();
+    const failing: ArchiveTarget = { label: "flaky", put: (k, b) => target.put(k, b), get: (k) => target.get(k), delete: async () => { throw new Error("storage down"); } };
+    const res = await run({ env: APPLY_ENV, load: loadOf(policyOf(EXP)), target: failing, key: KEY, recheckMs: 0, maxExpiries: 100 });
+    expect(res.archiveExpiryFailed).toBeGreaterThanOrEqual(1);
+    expect(await recordOf(ws)).toMatchObject({ expiredAt: null });
+    expect(await target.get(archive.objectKey)).not.toBeNull();
+    await expiry(APPLY_ENV);
+    expect(await recordOf(ws)).toMatchObject({ expiryOutcome: "deleted" });
+  });
+});
+
+describe("archive record trigger (expiry columns)", () => {
+  useNativePostgresForExpiry();
+  const recordRow = (ws: string, tag: string) => recordArchive(db, { workspaceId: ws, dataClass: "runner_job_logs", objectKey: `retention/${ws}/runner_job_logs/${tag}.zra`, rowsDigest: "c".repeat(64), rowCount: 3, firstRowId: "1", lastRowId: "3", lastRecordedAt: "2025-01-01T00:00:00Z", keyId: "k", policyDigest: "d".repeat(64) });
+  async function fullyPrunedRecord() {
+    const ws = newWorkspace();
+    const rec = await recordRow(ws, "a");
+    await markPruned(db, rec.id, ws, rec.rowCount, 0, 0);
+    return { ws, id: rec.id };
+  }
+  const expire = (id: string, set = "expired_at = clock_timestamp(), expired_by = 'system:data-retention', expiry_outcome = 'deleted'") =>
+    db.query(`update platform.retention_archives set ${set} where id = $1`, [id]);
+
+  it("allows setting the expiry columns exactly once, after the archive is fully pruned", async () => {
+    const { id } = await fullyPrunedRecord();
+    await expire(id);
+    const row = (await db.query<{ expired_at: unknown; expired_by: string; expiry_outcome: string }>("select expired_at, expired_by, expiry_outcome from platform.retention_archives where id = $1", [id]))[0];
+    expect(row).toMatchObject({ expired_by: "system:data-retention", expiry_outcome: "deleted" });
+    expect(row.expired_at).toBeTruthy();
+    // never twice, never changed, never cleared
+    await expect(expire(id)).rejects.toThrow(/recorded once/);
+    await expect(expire(id, "expiry_outcome = 'missing'")).rejects.toThrow(/recorded once/);
+    await expect(expire(id, "expired_at = null, expired_by = null, expiry_outcome = null")).rejects.toThrow(/recorded once/);
+    await expect(expire(id, "expired_by = 'someone'")).rejects.toThrow(/recorded once/);
+  });
+
+  it("refuses a partial or invalid expiry, an expiry before the archive is fully pruned, and any other change", async () => {
+    const ws = newWorkspace();
+    const open = await recordRow(ws, "open");
+    await expect(expire(open.id)).rejects.toThrow(/every archived row/);
+    await markPruned(db, open.id, ws, 1, 2, 0);
+    await expect(expire(open.id)).rejects.toThrow(/every archived row/);
+    const { id } = await fullyPrunedRecord();
+    await expect(expire(id, "expired_at = clock_timestamp()")).rejects.toThrow(/together/);
+    await expect(expire(id, "expired_by = 'x', expiry_outcome = 'deleted'")).rejects.toThrow(/together/);
+    await expect(expire(id, "expired_at = clock_timestamp(), expired_by = 'x', expiry_outcome = 'gone'")).rejects.toThrow();
+    await expect(expire(id, "expired_at = clock_timestamp(), expired_by = '', expiry_outcome = 'deleted'")).rejects.toThrow();
+    await expect(expire(id, "expired_at = clock_timestamp(), expired_by = 'x', expiry_outcome = 'deleted', pruned_rows = pruned_rows + 1")).rejects.toThrow(/cannot change anything else/);
+    for (const set of ["object_key = 'retention/other.zra'", "rows_digest = '" + "e".repeat(64) + "'", "row_count = 9", "last_recorded_at = now()", "workspace_id = 'ws_other'", "destination_label = 'elsewhere'", "key_id = 'k2'", "verified_at = now()"]) {
+      await expect(expire(id, set)).rejects.toThrow(/immutable/);
+      await expect(expire(id, `${set}, expired_at = clock_timestamp(), expired_by = 'x', expiry_outcome = 'deleted'`)).rejects.toThrow();
+    }
+    await expect(expire(id, "pruned_rows = pruned_rows - 1")).rejects.toThrow(/only grows/);
+    await expect(expire(id, "completed_at = null")).rejects.toThrow();
+    await expect(db.query("delete from platform.retention_archives where id = $1", [id])).rejects.toThrow(/retained/);
+    // the record is untouched by all of the refused attempts
+    expect((await db.query<{ expired_at: unknown }>("select expired_at from platform.retention_archives where id = $1", [id]))[0].expired_at).toBeNull();
   });
 });

@@ -49,7 +49,12 @@ export interface RestoreContext {
 
 }
 
+/** Why an expired archive cannot be verified or restored: the record is kept as audit, the object is gone. */
+export const expiredArchiveMessage = (archive: Pick<ArchiveRecord, "expiredAt" | "expiryOutcome">): string =>
+  `The archive record exists, but its object was ${archive.expiryOutcome === "missing" ? "already gone and was recorded as expired" : "deleted by retention expiry"} on ${(archive.expiredAt ?? "").slice(0, 10)}, so it cannot be verified or restored.`;
+
 async function loadVerified(db: Sql, archive: ArchiveRecord, ctx: RestoreContext, legacy?: RestoreInput["legacyKey"]): Promise<{ payload: ArchivePayload } | { problems: string[] }> {
+  if (archive.expiredAt) return { problems: [expiredArchiveMessage(archive)] };
   const dest = await resolveDestination(db, archive.workspaceId, ctx.deps, { destinationId: archive.destinationId });
   if (!dest.ok) return { problems: [dest.detail] };
   let key: Buffer;
@@ -170,14 +175,14 @@ export async function restoreArchive(db: Sql, input: RestoreInput, ctx: RestoreC
         ? ` and exists (select 1 from ${spec.restoreParent.table} p where p.workspace_id = r.workspace_id and p.id = r.${spec.restoreParent.fk})`
         : "";
       const done = await tx.query<{ id: string }>(
-        `insert into ${target}${overriding} select r.* from jsonb_populate_recordset(null::${spec.table}, $1::jsonb) r where r.workspace_id = $2${parent}
+        `insert into ${target}${overriding} select r.* from jsonb_populate_recordset(null::${spec.table}, $1::text::jsonb) r where r.workspace_id = $2${parent}
          on conflict do nothing returning id::text as id`,
         [chunk, archive.workspaceId]);
       inserted += done.length;
     }
     if (!stagingSchema && spec.restoreParent) {
       const missing = await tx.query<{ n: number }>(
-        `select count(*)::int as n from jsonb_populate_recordset(null::${spec.table}, $1::jsonb) r
+        `select count(*)::int as n from jsonb_populate_recordset(null::${spec.table}, $1::text::jsonb) r
           where not exists (select 1 from ${spec.restoreParent.table} p where p.workspace_id = r.workspace_id and p.id = r.${spec.restoreParent.fk})`,
         [JSON.stringify(rows)]);
       skippedNoParent = Number(missing[0]?.n ?? 0);
@@ -189,7 +194,7 @@ export async function restoreArchive(db: Sql, input: RestoreInput, ctx: RestoreC
   for (let i = 0; i < rows.length; i += RESTORE_BATCH) {
     const ids = JSON.stringify(rows.slice(i, i + RESTORE_BATCH).map((r) => String(r.id)));
     const back = await db.query<{ id: string; row: Record<string, unknown> }>(
-      `select t.id::text as id, to_jsonb(t) as row from ${target} t where t.workspace_id = $2 and t.id::text in (select jsonb_array_elements_text($1::jsonb))`,
+      `select t.id::text as id, to_jsonb(t) as row from ${target} t where t.workspace_id = $2 and t.id::text in (select jsonb_array_elements_text($1::text::jsonb))`,
       [ids, archive.workspaceId]);
     for (const b of back) present.set(b.id, canonical(typeof b.row === "string" ? JSON.parse(b.row) : b.row));
   }

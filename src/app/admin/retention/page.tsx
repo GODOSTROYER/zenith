@@ -50,6 +50,8 @@ export default async function RetentionPage() {
                 Approved by {overview.baseline.approvedBy} on {overview.baseline.approvedAt.slice(0, 10)} ({overview.baseline.decision}). Production logs are kept {overview.baseline.logDays} days.
                 Sensitive execution payloads are deleted within {overview.baseline.payloadHours} hours after an operation finishes. Essential audit records (approvals,
                 infrastructure changes and outcomes) are kept at least {overview.baseline.auditMinimumDays} days and are never deleted automatically.
+                Archive copies of the log lines in the operator bucket are deleted {overview.baseline.archiveExpiryDays} days after their newest row, so logs live {overview.baseline.logDays} days
+                in the database and at most one year in total.
                 Approval does not start deletion: nothing is removed until the operator of this installation turns deletion on.
               </p>
             </section>
@@ -69,6 +71,14 @@ export default async function RetentionPage() {
                 <h2>Deletion</h2>
                 <strong className={overview.gate.enabled ? styles.warn : styles.ok}>{overview.gate.enabled ? "Enabled" : "Off (dry run)"}</strong>
                 <p>{overview.gate.reason}</p>
+              </div>
+              <div className={styles.card}>
+                <h2>Archive expiry</h2>
+                <strong className={overview.gate.enabled ? styles.warn : styles.ok}>{overview.gate.enabled ? "Enabled" : "Off (reporting only)"}</strong>
+                <p>
+                  Archive objects of the log classes in the operator bucket are deleted {overview.baseline.archiveExpiryDays} days after their newest row, under the same switch as deletion.
+                  Archives in a tenant-owned bucket follow the customer&apos;s own bucket lifecycle unless that workspace opted in. The archive record is always kept.
+                </p>
               </div>
               <div className={styles.card}>
                 <h2>Payload minimizer</h2>
@@ -132,6 +142,45 @@ export default async function RetentionPage() {
               ) : null}
             </section>
 
+            <section className={styles.section} aria-labelledby="expiry-heading">
+              <h2 id="expiry-heading">Archive expiry</h2>
+              <p>
+                An archive expires {overview.baseline.archiveExpiryDays} days after the newest row it contains, only once every row it holds has been pruned from the database, never while a legal hold
+                covers it, and only in the operator bucket (or a tenant bucket whose workspace opted in). The object is deleted and the record stays, marked with the date.
+                {overview.gate.enabled ? "" : " Deletion is off, so the counts below are what would happen; nothing is removed."}
+                Resource-scoped holds are checked against the archive contents at the moment of expiry.
+              </p>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Data class</th>
+                      <th scope="col">Archives</th>
+                      <th scope="col">Expired</th>
+                      <th scope="col">Due now</th>
+                      <th scope="col">Held back by a legal hold</th>
+                      <th scope="col">Kept, rows not all pruned</th>
+                      <th scope="col">Customer-controlled bucket</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overview.expiry.map((c) => (
+                      <tr key={c.class}>
+                        <td><span className={styles.className}>{CLASS_SPECS[c.class].label}</span></td>
+                        <td>{n(c.archives)}</td>
+                        <td>{n(c.expired)}{c.expiredMissing ? ` (${n(c.expiredMissing)} already gone)` : ""}</td>
+                        <td>{n(c.due)}</td>
+                        <td>{n(c.heldBack)}</td>
+                        <td>{n(c.blockedUnpruned)}</td>
+                        <td>{n(c.customerControlled)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p>Audit-evidence classes (resource observations and drift reports) are never pruned before one year and their archives are not expired by Zenith.</p>
+            </section>
+
             <section className={styles.section} aria-labelledby="holds-heading">
               <h2 id="holds-heading">Legal holds</h2>
               <p>A hold blocks archiving, pruning and payload removal for a workspace, narrowed by data class, resource or time range. Archiving stops before the first held row and continues from there once the hold is released. Releasing a hold never deletes anything.</p>
@@ -154,8 +203,8 @@ export default async function RetentionPage() {
                 <ul className={styles.list}>
                   {overview.archives.map((a) => (
                     <li key={a.id}>
-                      <span>{CLASS_SPECS[a.dataClass].label}: {n(a.rowCount)} rows, {n(a.prunedRows)} pruned{a.completedAt ? " (done)" : ""}</span>
-                      <span className={styles.meta}>workspace {a.workspaceId}, verified {a.verifiedAt.slice(0, 16).replace("T", " ")} UTC, stored in {a.destinationLabel}</span>
+                      <span>{CLASS_SPECS[a.dataClass].label}: {n(a.rowCount)} rows, {n(a.prunedRows)} pruned{a.completedAt ? " (done)" : ""}{a.expiredAt ? `, object deleted ${a.expiredAt.slice(0, 10)}` : ""}</span>
+                      <span className={styles.meta}>workspace {a.workspaceId}, verified {a.verifiedAt.slice(0, 16).replace("T", " ")} UTC, stored in {a.destinationLabel}{a.expiredAt ? " (record kept, cannot be restored)" : ""}</span>
                     </li>
                   ))}
                 </ul>

@@ -168,6 +168,17 @@ export class S3ObjectStore implements ObjectStorePort {
     const { client, sdk } = await this.open();
     await client.send(new sdk.PutObjectCommand({ Bucket: this.bucket, Key: key, Body: bytes, ...(contentType ? { ContentType: contentType } : {}) })).catch(storageFailure);
   }
+
+  async delete(key: string): Promise<void> {
+    const { client, sdk } = await this.open();
+    try {
+      await client.send(new sdk.DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch (err) {
+      const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (e.name === "NoSuchKey" || e.name === "NotFound" || e.$metadata?.httpStatusCode === 404) return;
+      storageFailure(err);
+    }
+  }
 }
 
 /** Tenant-owned artifact storage over S3: every key lives under `base`, so a bug cannot write elsewhere in the bucket. */
@@ -182,5 +193,6 @@ export function s3ArtifactStore(store: ObjectStorePort, base: string, label: str
     put: async (key, bytes) => store.put(safe(key), bytes, "application/octet-stream"),
     get: async (key) => (await store.get(safe(key)))?.bytes ?? null,
     list: async (prefix) => (await store.list(`${root}${prefix}`)).map((o) => o.key.slice(root.length)),
+    ...(store.delete ? { delete: async (key: string) => store.delete!(safe(key)) } : {}),
   };
 }

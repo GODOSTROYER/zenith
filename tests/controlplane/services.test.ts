@@ -31,12 +31,21 @@ describe.each(LANES)("services [$name]", (lane) => {
   });
   const db = () => ctx.db;
   const scope = (): string => `env:${uid("env")}`;
+  // A first acquisition starts at the recovery fence floor (epoch * 1e9 + 1). Other suites sharing this database may have
+  // advanced the append-only recovery epoch, so the expected value is derived, as tests/controlplane/leases.test.ts does.
+  const initialFence = async (): Promise<number> => {
+    const [state] = await db().query<{ epoch: number | string }>("select platform.current_recovery_epoch() as epoch");
+    const fence = Number(state!.epoch) * 1_000_000_000 + 1;
+    expect(Number.isSafeInteger(fence)).toBe(true);
+    return fence;
+  };
 
   describe("withLease", () => {
     it("runs under the lease, hands fn the lease and a live signal, and releases afterwards", async () => {
       const s = scope();
+      const fence = await initialFence();
       const value = await withLease(db(), { scope: s, holder: "worker-a", ttlMs: 5_000 }, async (lease, signal) => {
-        expect(lease).toMatchObject({ scope: s, holder: "worker-a", fenceToken: 1 });
+        expect(lease).toMatchObject({ scope: s, holder: "worker-a", fenceToken: fence });
         expect(signal.aborted).toBe(false);
         expect((await repos.leases.current(db(), s))?.holder).toBe("worker-a");
         return "done";
@@ -172,10 +181,11 @@ describe.each(LANES)("services [$name]", (lane) => {
     it("appends lease.acquired and lease.released events when asked to audit", async () => {
       const ws = newWorkspace();
       const correlationId = newCorrelationId();
+      const fence = await initialFence();
       await withLease(db(), { scope: scope(), holder: "w", ttlMs: 5_000, workspaceId: ws, audit: { workspaceId: ws, correlationId, environmentId: "env_1" } }, async () => undefined);
       const events = await repos.events.list(db(), ws, { correlationId });
       expect(events.map((e) => e.type)).toEqual(["lease.acquired", "lease.released"]);
-      expect(events[0].data).toMatchObject({ holder: "w", fenceToken: 1 });
+      expect(events[0].data).toMatchObject({ holder: "w", fenceToken: fence });
     });
   });
 

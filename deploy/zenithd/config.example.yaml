@@ -60,7 +60,9 @@ log:
 update:
   enabled: false
   # channel: stable
-  # manifestUrl: https://downloads.example.com/zenithd/stable.json
+  # manifestUrl: https://github.com/GODOSTROYER/zenith/releases/latest/download/updater-zenithd.json
+  #   (default layout: GitHub release assets; a mirror serves <mirror>/<tag>/updater-zenithd.json.
+  #    Needs a public repository or a mirror: agents send no credentials. Runners use updater-zenith-runner.json.)
   # publicKeys:
   #   - kid: release-2026-10
   #     publicKey: QCz_edVf623L2xc3D9dRRytU25iMBVd3npdz-c2GOaY

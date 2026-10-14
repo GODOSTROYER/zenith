@@ -4,9 +4,16 @@
 //
 //	zenith-release keygen  --kid ID --private-out FILE
 //	zenith-release sign    --key FILE --kid ID --component zenithd|zenith-runner --channel stable
-//	                       --version 1.2.3 --seq N --base-url https://dl.example.com/zenithd --dist DIR
-//	                       [--valid-days 30] [--allow-downgrade] [--out FILE]
-//	zenith-release verify  --manifest FILE --kid ID --public-key B64URL [--component ..] [--channel ..]
+//	                       --version 1.2.3 --seq N --dist DIR
+//	                       (--base-url https://dl.example.com/v1.2.3 | --repository owner/repo --tag v1.2.3)
+//	                       [--stage-dir DIR] [--valid-days 30] [--allow-downgrade] [--out FILE]
+//	zenith-release verify  --manifest FILE (--kid ID --public-key B64URL | --keys FILE.json)
+//	                       [--component ..] [--channel ..] [--assets DIR]
+//
+// Artifact URLs are <base>/<component>-<os>-<arch> (flat asset names, see release.AssetName).
+// verify --assets DIR also requires every artifact URL to end in the canonical flat asset name and DIR to hold that
+// file with the signed size and sha256.
+// --stage-dir copies each binary there under that name with a .sha256 file next to it.
 package main
 
 import (
@@ -96,7 +103,10 @@ func sign(args []string, stdout io.Writer) error {
 	channel := fs.String("channel", "stable", "release channel")
 	version := fs.String("version", "", "release version (semantic)")
 	seq := fs.Int64("seq", 0, "monotonic manifest sequence (must exceed every earlier release)")
-	baseURL := fs.String("base-url", "", "URL prefix the artifacts are published under")
+	baseURL := fs.String("base-url", "", "URL prefix the flat artifact assets are published under")
+	repository := fs.String("repository", "", "owner/repo: with --tag, use the GitHub release download prefix as the base URL")
+	tag := fs.String("tag", "", "release tag (with --repository)")
+	stageDir := fs.String("stage-dir", "", "copy each binary here under its flat asset name, with a .sha256 file")
 	dist := fs.String("dist", "dist", "build output directory holding <os>-<arch>/<component>")
 	days := fs.Int("valid-days", 30, "days the manifest stays valid (1-90)")
 	downgrade := fs.Bool("allow-downgrade", false, "mark this as a deliberate signed rollback release")
@@ -104,8 +114,24 @@ func sign(args []string, stdout io.Writer) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *keyFile == "" || *kid == "" || *component == "" || *version == "" || *baseURL == "" || *seq < 1 {
-		return fmt.Errorf("--key --kid --component --version --seq and --base-url are required")
+	if *keyFile == "" || *kid == "" || *component == "" || *version == "" || *seq < 1 {
+		return fmt.Errorf("--key --kid --component --version and --seq are required")
+	}
+	base := *baseURL
+	switch {
+	case base != "" && (*repository != "" || *tag != ""):
+		return fmt.Errorf("--base-url cannot be combined with --repository/--tag")
+	case base == "":
+		if *repository == "" || *tag == "" {
+			return fmt.Errorf("either --base-url or both --repository and --tag are required")
+		}
+		var err error
+		if base, err = release.GitHubReleaseBase(*repository, *tag); err != nil {
+			return err
+		}
+	}
+	if *days < 1 || *days > 90 {
+		return fmt.Errorf("--valid-days must be between 1 and 90")
 	}
 	priv, err := readKey(*keyFile)
 	if err != nil {
@@ -132,9 +158,22 @@ func sign(args []string, stdout io.Writer) error {
 			return err
 		}
 		sum := sha256.Sum256(raw)
+		if *stageDir != "" {
+			asset := release.AssetName(*component, goos, goarch)
+			if err := os.MkdirAll(*stageDir, 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(*stageDir, asset), raw, 0o755); err != nil {
+				return err
+			}
+			line := hex.EncodeToString(sum[:]) + "  " + asset + "\n"
+			if err := os.WriteFile(filepath.Join(*stageDir, asset+".sha256"), []byte(line), 0o644); err != nil {
+				return err
+			}
+		}
 		m.Artifacts = append(m.Artifacts, release.Artifact{
 			OS: goos, Arch: goarch,
-			URL:    strings.TrimRight(*baseURL, "/") + "/" + *version + "/" + dir + "/" + *component,
+			URL:    release.ArtifactURL(base, *component, goos, goarch),
 			SHA256: hex.EncodeToString(sum[:]), Size: int64(len(raw)),
 		})
 	}
@@ -159,17 +198,72 @@ func verify(args []string, stdout io.Writer) error {
 	file := fs.String("manifest", "", "envelope file")
 	kid := fs.String("kid", "", "key id")
 	pub := fs.String("public-key", "", "base64url Ed25519 public key")
+	keysFile := fs.String("keys", "", "JSON file holding an array of pinned {kid, publicKey} entries (instead of --kid/--public-key)")
+	component := fs.String("component", "", "require the manifest to be for this component")
+	channel := fs.String("channel", "", "require the manifest to be for this channel")
+	assets := fs.String("assets", "", "directory of release assets: every artifact must be there under its flat name with the signed size and sha256")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *file == "" {
+		return fmt.Errorf("--manifest is required")
+	}
+	var pinned []protocol.KeyEntry
+	switch {
+	case *keysFile != "" && (*kid != "" || *pub != ""):
+		return fmt.Errorf("--keys cannot be combined with --kid/--public-key")
+	case *keysFile != "":
+		data, err := os.ReadFile(*keysFile)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, &pinned); err != nil || len(pinned) == 0 {
+			return fmt.Errorf("%s is not a non-empty JSON array of {kid, publicKey}", *keysFile)
+		}
+	case *kid != "" && *pub != "":
+		pinned = []protocol.KeyEntry{{Kid: *kid, PublicKey: *pub}}
+	default:
+		return fmt.Errorf("pass --keys FILE or both --kid and --public-key")
 	}
 	raw, err := os.ReadFile(*file)
 	if err != nil {
 		return err
 	}
-	m, err := release.Verify(raw, []protocol.KeyEntry{{Kid: *kid, PublicKey: *pub}}, time.Now())
+	m, err := release.Verify(raw, pinned, time.Now())
 	if err != nil {
 		return err
 	}
+	if *component != "" && m.Component != *component {
+		return fmt.Errorf("manifest is for component %q, expected %q", m.Component, *component)
+	}
+	if *channel != "" && m.Channel != *channel {
+		return fmt.Errorf("manifest is for channel %q, expected %q", m.Channel, *channel)
+	}
+	if *assets != "" {
+		if err := checkAssets(m, *assets); err != nil {
+			return err
+		}
+	}
 	fmt.Fprintf(stdout, "ok: %s %s channel=%s seq=%d expires=%s artifacts=%d\n", m.Component, m.Version, m.Channel, m.Seq, m.ExpiresAt, len(m.Artifacts))
+	return nil
+}
+
+// checkAssets requires each artifact URL to end in the canonical flat asset name for its platform and the file of
+// that name in dir to have the signed size and sha256.
+func checkAssets(m *release.Manifest, dir string) error {
+	for _, a := range m.Artifacts {
+		name := release.AssetName(m.Component, a.OS, a.Arch)
+		if !strings.HasSuffix(a.URL, "/"+name) {
+			return fmt.Errorf("artifact url %s does not end in the asset name %s", a.URL, name)
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return fmt.Errorf("asset %s is not staged: %w", name, err)
+		}
+		sum := sha256.Sum256(raw)
+		if int64(len(raw)) != a.Size || hex.EncodeToString(sum[:]) != a.SHA256 {
+			return fmt.Errorf("asset %s does not match the signed size and sha256", name)
+		}
+	}
 	return nil
 }

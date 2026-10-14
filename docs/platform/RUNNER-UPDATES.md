@@ -34,12 +34,35 @@ zenith-release keygen --kid release-2026-1 --private-out release.key   # prints 
 go/build.sh 1.4.0                                                        # builds dist/, tools/zenith-release
 ZENITH_RELEASE_KEY_FILE=release.key ZENITH_RELEASE_KID=release-2026-1 \
 ZENITH_RELEASE_BASE_URL=https://downloads.example.com ZENITH_RELEASE_SEQ=12 go/build.sh 1.4.0
-# writes dist/manifests/stable-zenithd.json and stable-zenith-runner.json
+# writes dist/manifests/updater-zenithd.json and updater-zenith-runner.json, and the flat-named binaries
+# plus .sha256 files in dist/assets/ (artifact URLs: https://downloads.example.com/v1.4.0/<asset>)
+zenith-release verify --manifest dist/manifests/updater-zenithd.json --keys pinned.json \
+  --component zenithd --channel stable --assets dist/assets   # the check the release workflow runs before it uploads
 ```
 
-Publish the binaries under `<base-url>/<component>/<version>/<os>-<arch>/<component>`
-and the manifest wherever `update.manifestUrl` points. `--seq` must exceed every
-earlier release of that channel and component.
+### The one URL layout
+
+Every published file is a **flat asset** (a GitHub release asset name cannot contain a slash):
+
+| Asset | Example |
+|---|---|
+| binary `<component>-<os>-<arch>` | `zenith-runner-linux-amd64`, `zenithd-linux-arm64` |
+| checksum `<component>-<os>-<arch>.sha256` | `zenithd-linux-arm64.sha256` (`<hex>  <asset name>`) |
+| signed manifest `updater-<component>.json` | `updater-zenith-runner.json` |
+
+A manifest artifact URL is `<base>/<asset>`, where `<base>` is:
+
+- by default (`ZENITH_UPDATE_BASE_URL` unset) the release itself,
+  `https://github.com/<owner>/<repo>/releases/download/<tag>`; or
+- `<ZENITH_UPDATE_BASE_URL>/<tag>` when an operator mirrors the assets. The workflow still attaches every file to the
+  GitHub release, so mirroring is a copy of the release assets into `<mirror>/<tag>/`.
+
+Point `update.manifestUrl` at `updater-<component>.json`: for stable releases on GitHub
+`https://github.com/<owner>/<repo>/releases/latest/download/updater-zenithd.json` always resolves to the newest
+non-prerelease. Prerelease tags (`v1.2.3-rc.1`) sign the `prerelease` channel and are not "latest"; point at
+`releases/download/<tag>/updater-zenithd.json` to follow one. GitHub downloads need no credentials only for a **public**
+repository; for a private one, host a mirror. `--seq` must exceed every earlier release of that channel and component
+(the workflow uses the run number).
 
 ## Agent configuration
 
@@ -47,7 +70,7 @@ earlier release of that channel and component.
 update:
   enabled: true
   channel: stable
-  manifestUrl: https://downloads.example.com/zenithd/stable-zenithd.json
+  manifestUrl: https://github.com/<owner>/<repo>/releases/latest/download/updater-zenithd.json   # or your mirror's copy
   publicKeys:
     - kid: release-2026-1
       publicKey: <base64url Ed25519 public key>

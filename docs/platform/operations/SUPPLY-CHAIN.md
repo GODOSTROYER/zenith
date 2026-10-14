@@ -12,7 +12,7 @@ PROD-OPS-09. What ships, how an operator verifies it offline, and what is delibe
 | SBOM | `scripts/supply-chain/sbom.mjs` | CycloneDX 1.5 JSON: npm lockfile (purl, sha512, scope, dependency graph), Go build info (`go version -m`), Dockerfile inputs (base images, pinned OpenTofu) and the built image digests. |
 | Provenance | `scripts/supply-chain/release.mjs provenance` | in-toto Statement v1 with a SLSA provenance v1 predicate: subjects are every release file by sha256; resolved dependencies are the git commit and the lockfile digest. |
 | Signed release | `release.mjs manifest` / `sign`, `.github/workflows/release.yml` | One verification manifest naming every artifact, the SBOM and the provenance by sha256, signed with the offline `signing:release` Ed25519 key. Same key format and signing scheme as the runner updater, so one key and one pinned public key serves both. |
-| Updater manifests | `go/cmd/zenith-release sign` (MACH-04, unchanged) | The workflow signs the runner and zenithd update manifests with the same key when `ZENITH_UPDATE_BASE_URL` is set. Agents already verify these (`docs/platform/RUNNER-UPDATES.md`). |
+| Updater manifests and binaries | `go/cmd/zenith-release sign` and `verify` (MACH-04) | Whenever the key is present the workflow signs the runner and zenithd update manifests with the same key, verifies them with `zenith-release verify` against the pinned keys and the staged assets, and attaches them to the GitHub release with the binaries and `.sha256` files. One flat layout: `<component>-<os>-<arch>` and `updater-<component>.json` (`docs/platform/RUNNER-UPDATES.md`). |
 | Offline verifier | `scripts/supply-chain/zenith-verify-release.mjs` (`npm run verify:release`) | Verifies signature, digests, SBOM, image archives and provenance with no network. |
 | Vulnerability triage | `scripts/ci/vulnerability-triage.mjs`, `scripts/ci/vulnerability-triage.json` | Records linked to SBOM components by purl, with expiry; mirrors every security exception; renders CycloneDX VEX. Never affects the dependency gate. |
 | Audit export | `src/lib/audit-export`, `POST /api/platform/v1/audit/exports`, `scripts/supply-chain/zenith-verify-audit-export.mjs` | Hash-chained, signed export of an audit-log range with a ledger (`platform.audit_exports`, migration 47) and an offline verifier. |
@@ -27,7 +27,9 @@ Push a version tag (`v1.2.3`, `v1.2.3-rc.1`) whose commit is on the default bran
 2. Create a protected GitHub environment named `release` with required reviewers.
 3. In that environment: secret `ZENITH_RELEASE_SIGNING_SEED` (the seed), variables `ZENITH_RELEASE_KEY_ID` and
    `ZENITH_RELEASE_PUBLIC_KEYS` (a JSON array of pinned `{"kid","publicKey"}` entries), optionally
-   `ZENITH_UPDATE_BASE_URL` (an https prefix under which you host `<version>/<os>-<arch>/<component>`).
+   `ZENITH_UPDATE_BASE_URL` (an https mirror prefix; the signed URLs become `<prefix>/<tag>/<asset>` with the flat asset
+   names `<component>-<os>-<arch>` and `updater-<component>.json`). Unset, the signed URLs point at the GitHub release
+   (`https://github.com/<owner>/<repo>/releases/download/<tag>/<asset>`); agents download without credentials only from a public repository.
 
 Current release key (public half, safe to publish): kid `release-2026-10`, publicKey
 `QCz_edVf623L2xc3D9dRRytU25iMBVd3npdz-c2GOaY`, created 2026-10-13. The `release` environment exists with a required
@@ -38,7 +40,14 @@ publishes nothing. With it, the run builds, generates the SBOM, signs, then veri
 pinned public keys before publishing; a failed verification publishes nothing.
 
 The control plane never holds this key: `signing:release` is verify-only there (`docs/platform/operations/KEY-CUSTODY.md`).
-The seed is present on the CI runner only inside the signing steps and is deleted after them.
+The seed exists on the CI runner only inside the two signing steps. Each writes it with `umask 077` to a fresh
+`mktemp` file, installs an `EXIT` trap that removes the file before writing, and passes the file path (never the
+seed) to the signer, so success, failure and cancellation all delete it; a final `if: always()` step removes any
+`release-seed.*` that is somehow left. The seed is never echoed and never written to `GITHUB_ENV` or `GITHUB_OUTPUT`.
+
+Publishing: the release is created as a **draft**, the assets are uploaded (`--clobber` applies only to that draft created by
+this run), the uploaded list is compared with the expected one, and only then is the draft made public. If a run fails
+after creating the draft, delete the draft release (the tag stays) and re-run; nothing was public.
 
 ## Verifying a release (offline)
 

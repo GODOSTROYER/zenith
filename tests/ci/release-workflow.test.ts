@@ -208,8 +208,12 @@ describe("one update layout, end to end", () => {
     expect(layout).toContain('return component + "-" + goos + "-" + goarch');
     expect(layout).toContain('return "updater-" + component + ".json"');
     expect(layout).toContain('"/releases/download/"');
+    // The CLI is a thin wrapper (cmd/zenith-release is a no-test package for the native Go gate); its signing code lives in
+    // internal/release and must build artifact URLs through the same layout function.
     const main = text("go/cmd/zenith-release/main.go");
-    expect(main).toContain("release.ArtifactURL(base, *component, goos, goarch)");
+    expect(main).toContain("release.Run(os.Args[1:], os.Stdout, os.Stderr)");
+    const cli = text("go/internal/release/cli.go");
+    expect(cli).toContain("ArtifactURL(base, *component, goos, goarch)");
     // the workflow signs both components and stages flat assets in one place that is also what publishing uploads
     const upd = steps[named("Sign the runner and zenithd update manifests")].run ?? "";
     expect(upd).toContain("for component in zenith-runner zenithd; do");

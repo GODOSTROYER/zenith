@@ -1,4 +1,4 @@
-package main
+package release
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/GODOSTROYER/zenith/go/internal/protocol"
-	"github.com/GODOSTROYER/zenith/go/internal/release"
 )
 
 type fixture struct {
@@ -22,7 +21,7 @@ func newFixture(t *testing.T) fixture {
 	dir := t.TempDir()
 	f := fixture{dir: dir, seed: filepath.Join(dir, "seed")}
 	var out, errb bytes.Buffer
-	if code := run([]string{"keygen", "--kid", "rel-1", "--private-out", f.seed}, &out, &errb); code != 0 {
+	if code := Run([]string{"keygen", "--kid", "rel-1", "--private-out", f.seed}, &out, &errb); code != 0 {
 		t.Fatalf("keygen: %s", errb.String())
 	}
 	if err := json.Unmarshal(out.Bytes(), &f.pin); err != nil {
@@ -51,7 +50,7 @@ func (f fixture) sign(t *testing.T, component string, extra ...string) (string, 
 	args := append([]string{"sign", "--key", f.seed, "--kid", "rel-1", "--component", component, "--version", "1.2.3", "--seq", "7",
 		"--dist", filepath.Join(f.dir, "dist"), "--out", outFile}, extra...)
 	var out, errb bytes.Buffer
-	code := run(args, &out, &errb)
+	code := Run(args, &out, &errb)
 	return outFile, code, errb.String()
 }
 
@@ -61,7 +60,7 @@ func manifestBody(t *testing.T, path string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var env release.Envelope
+	var env Envelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +137,7 @@ func TestVerifyAssets(t *testing.T) {
 	}
 	verify := func() int {
 		var out, errb bytes.Buffer
-		return run([]string{"verify", "--manifest", path, "--keys", f.keys, "--assets", stage}, &out, &errb)
+		return Run([]string{"verify", "--manifest", path, "--keys", f.keys, "--assets", stage}, &out, &errb)
 	}
 	if verify() != 0 {
 		t.Fatal("staged assets must verify")
@@ -159,7 +158,7 @@ func TestVerifyAssets(t *testing.T) {
 		t.Fatal(msg)
 	}
 	var out, errb bytes.Buffer
-	if run([]string{"verify", "--manifest", mirror, "--keys", f.keys, "--assets", filepath.Join(f.dir, "nowhere")}, &out, &errb) == 0 {
+	if Run([]string{"verify", "--manifest", mirror, "--keys", f.keys, "--assets", filepath.Join(f.dir, "nowhere")}, &out, &errb) == 0 {
 		t.Fatal("an unstaged asset directory must fail")
 	}
 }
@@ -172,7 +171,7 @@ func TestVerifyFlags(t *testing.T) {
 	}
 	ok := func(args ...string) bool {
 		var out, errb bytes.Buffer
-		return run(append([]string{"verify", "--manifest", path}, args...), &out, &errb) == 0
+		return Run(append([]string{"verify", "--manifest", path}, args...), &out, &errb) == 0
 	}
 	if !ok("--keys", f.keys) || !ok("--keys", f.keys, "--component", "zenithd", "--channel", "stable") {
 		t.Fatal("verify against the pinned key file must pass")

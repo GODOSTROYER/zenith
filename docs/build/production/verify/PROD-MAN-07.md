@@ -73,7 +73,7 @@ Owner Arnav Bule decided launch pricing under DEC-BUSINESS on 2026-10-13. What i
 | Launch packages and prices: Explore (free), Builder ($29/month minimum), Team ($199/month minimum), Enterprise (custom, by contract); $0.015 per ZCU-hour above the included usage | DECIDED, implemented in `src/lib/billing/plans.ts` and `invoice.ts` |
 | ZCU definition: one resource managed by Zenith for one hour (the `managed_resource_hours` meter); build minutes and storage included, bounded by fair-use caps | DECIDED |
 | Payment account, live Stripe keys, terms of service, tax handling | NOT decided. Live charging stays off; the adapter refuses live keys |
-| Fair-use limits (active operations 3 / 15 / 60, build and storage caps) | carried forward from the earlier catalog, adjustable |
+| Fair-use limits (active operations 3 / 15 / 60, build and storage caps) | active operations unchanged; build and storage caps set by the owner on 2026-10-14 (Builder 2,000 min / 100 GB), adjustable |
 | Destructive retention (DEC-RETENTION) | unchanged, still pending |
 
 Nonpayment still never silently destroys data: suspension stops NEW provisioning work only, and export and destroy stay available.

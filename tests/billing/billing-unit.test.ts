@@ -50,7 +50,7 @@ describe("launch plan catalog", () => {
       expect(plan.meters.build_minutes.rateCents).toBe(0);
       expect(plan.meters.storage_gb_month.rateCents).toBe(0);
     }
-    expect([PLANS.explore, PLANS.builder, PLANS.team].map((p) => [p.meters.build_minutes.hardCap, p.meters.storage_gb_month.hardCap])).toEqual([[300, 20], [1000, 50], [10000, 500]]);
+    expect([PLANS.explore, PLANS.builder, PLANS.team].map((p) => [p.meters.build_minutes.hardCap, p.meters.storage_gb_month.hardCap])).toEqual([[300, 20], [2000, 100], [10000, 500]]);
     expect(PLANS.enterprise.meters.build_minutes.hardCap).toBeUndefined();
     expect(PLANS.enterprise.meters.storage_gb_month.hardCap).toBeUndefined();
     for (const plan of Object.values(PLANS)) expect(plan.meters.managed_resource_hours.hardCap).toBeUndefined();
@@ -223,7 +223,7 @@ describe("invoice pricing", () => {
     ], "2026-03");
     expect(priced.subtotalCents).toBe(2900);
     expect(priced.lines.find((l) => l.key === "build_minutes")).toMatchObject({ amountCents: 0 });
-    expect(priced.lines.find((l) => l.key === "build_minutes")!.description).toMatch(/included in the plan.*fair-use cap 1000/);
+    expect(priced.lines.find((l) => l.key === "build_minutes")!.description).toMatch(/included in the plan.*fair-use cap 2000/);
   });
 
   it("prices Explore at zero whatever the usage, and refuses to price a contract plan", () => {

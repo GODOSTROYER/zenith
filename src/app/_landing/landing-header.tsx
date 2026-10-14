@@ -35,6 +35,7 @@ export function LandingHeader({ cta }: { cta: Cta }) {
         <Link href="/" aria-label="Zenith home" className="zenith-home"><span className="zenith-home-mark"><OrbitMark size={30} /></span><span className="zenith-home-word"><Wordmark size={26} /></span></Link>
         <nav className="zenith-desktop-nav" aria-label="Main navigation">
           {LINKS.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
+          <Link href="/pricing">Pricing</Link>
           <Link href="/guide">Guide <ArrowUpRight size={12} aria-hidden="true" /></Link>
         </nav>
         <div className="zenith-header-actions">
@@ -47,6 +48,7 @@ export function LandingHeader({ cta }: { cta: Cta }) {
       </div>
       {open && <nav id="zenith-mobile-nav" className="zenith-mobile-nav" aria-label="Mobile navigation">
         {LINKS.map((link) => <a key={link.href} href={link.href} onClick={() => setOpen(false)}>{link.label}<ArrowUpRight size={18} aria-hidden="true" /></a>)}
+        <Link href="/pricing" onClick={() => setOpen(false)}>Pricing<ArrowUpRight size={18} aria-hidden="true" /></Link>
         <Link href="/guide" onClick={() => setOpen(false)}>Workspace guide<ArrowUpRight size={18} aria-hidden="true" /></Link>
         <Link href={cta.signedIn ? cta.href : "/login"} onClick={() => setOpen(false)}>{cta.signedIn ? cta.label : "Sign in"}<ArrowUpRight size={18} aria-hidden="true" /></Link>
       </nav>}

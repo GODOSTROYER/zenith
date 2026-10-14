@@ -1,0 +1,50 @@
+name: Hosted disposable Kubernetes verification
+
+on:
+  push:
+    branches: ['codex/hosted-kind-verification-2026-10-13']
+  pull_request:
+    branches: ['codex/production-2026-10-02']
+    paths:
+      - '.github/workflows/hosted-kind-verification.yml'
+      - 'scripts/ci/hosted-kind-verification.sh'
+      - 'src/lib/providers/kubernetes/**'
+      - 'src/lib/machines/**'
+      - 'src/lib/platform/credentials.ts'
+      - 'tests/providers/kubernetes/**'
+      - 'tests/machines/kubernetes*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-kind-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  kind-provider-release-guest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Validate shell syntax
+        run: bash -n scripts/ci/hosted-kind-verification.sh
+      - name: Execute real provider, release and scoped guest suites
+        run: bash scripts/ci/hosted-kind-verification.sh
+      - name: Preserve only sanitized current-attempt evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-kind-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/zenith-hosted-kind-result.json
+          if-no-files-found: error
+          retention-days: 14

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Wordmark } from "@/components/shell/wordmark";
 import { PACKAGE_ROWS, listPlanViews, type PlanView } from "@/lib/billing/plans";
-import { HEADER_LEAD, HEADER_TITLE, ctaFor, fairUseLine } from "./plan-copy";
+import { HEADER_LEAD, HEADER_TITLE, PUBLIC_STATUS, ctaFor, fairUseLine } from "./plan-copy";
 import styles from "./pricing.module.css";
 
 export const metadata: Metadata = {
@@ -90,7 +90,7 @@ export default function PricingPage() {
         </section>
         <section className={styles.section} aria-labelledby="status-title">
           <h2 id="status-title">Where pricing stands</h2>
-          <p className={styles.status}>{plans[0].notice} There is no checkout on this page.</p>
+          <p className={styles.status}>{PUBLIC_STATUS}</p>
         </section>
       </main>
       <footer className={styles.footer}><Link href="/">Back to Zenith</Link><Link href="/privacy">Privacy policy</Link><Link href="/terms">Terms of service</Link></footer>

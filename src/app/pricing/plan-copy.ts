@@ -17,6 +17,9 @@ export const PLAN_CTAS: Readonly<Record<string, PlanCta>> = Object.freeze({
 });
 
 export const HEADER_TITLE = "Zenith Pricing";
+/** Public status line: the same facts as PLAN_NOTICE, worded for visitors. */
+export const PUBLIC_STATUS = "These are Zenith's launch prices, approved on 13 October 2026. Paid plans are not charged yet: " +
+  "billing starts once payment processing and our terms review are complete, so there is no checkout on this page.";
 export const HEADER_LEAD = "Deploy and manage applications in your cloud, or let Zenith host them.";
 
 export const ctaFor = (plan: PlanView): PlanCta => PLAN_CTAS[plan.id] ?? { label: plan.name, href: null };

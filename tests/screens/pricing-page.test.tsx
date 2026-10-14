@@ -68,7 +68,7 @@ describe("pricing page", () => {
   });
 
   it("states that nothing is charged yet and offers no checkout or payment form", () => {
-    expect(text).toMatch(/Charging is not live/);
+    expect(text).toMatch(/Paid plans are not charged yet/);
     expect(text).toMatch(/no checkout/i);
     expect(doc.querySelector("form, input, button, iframe")).toBeNull();
     expect(html).not.toMatch(/stripe|card number|checkout\?|payment form/i);

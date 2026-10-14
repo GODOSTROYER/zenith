@@ -284,7 +284,7 @@ Enforcement happens only in managed billing mode; with billing disabled (default
 - Unknown plan or unreadable billing state keeps `billing_unavailable` (503) for both paths.
 - `approvals`, `deploymentOptions` and `support` are catalog facts shown in the comparison table; no separate runtime gate exists for them beyond the two above (Explore has no deploy path, so there is nothing to approve beyond previews).
 
-Fair-use limits carried forward and adjustable (the owner did not restate them): active operations 3 / 15 / 60 / none (contract); build-minute hard caps 300 / 1000 / 10000; storage hard caps 20 / 50 / 500 GB. Explore chargeable ZCU-hours are zero because Explore cannot deploy. Legacy `free_provisional` accounts that were deploying are now held to Explore and lose deploy; reassign them before enabling billing for such workspaces.
+Fair-use limits (the owner set the build and storage caps on 2026-10-14; active operations are unchanged; all adjustable): active operations 3 / 15 / 60 / none (contract); build-minute hard caps 300 / 2000 / 10000; storage hard caps 20 / 100 / 500 GB. Explore chargeable ZCU-hours are zero because Explore cannot deploy. Legacy `free_provisional` accounts that were deploying are now held to Explore and lose deploy; reassign them before enabling billing for such workspaces.
 
 ### Verification commands (Mac verifier, Node 22, no network, no live Stripe)
 

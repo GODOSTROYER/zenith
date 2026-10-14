@@ -111,8 +111,8 @@ export interface PlanDefinition {
   decision: "DEC-BUSINESS";
   pricing: PlanPricing;
   /**
-   * Queued + running operations at once (in addition to the platform's own OPS-02 quota). Fair-use limit carried forward
-   * from the earlier catalog, adjustable. null = no catalog limit (Enterprise: set by contract).
+   * Queued + running operations at once (in addition to the platform's own OPS-02 quota). Fair-use limit (3 / 15 / 60),
+   * adjustable. null = no catalog limit (Enterprise: set by contract).
    */
   maxActiveOperations: number | null;
   meters: Readonly<Record<BillableMeter, MeterAllowance>>;
@@ -134,8 +134,9 @@ const ZCU_RATE_CENTS = ZCU_RATE_MILLICENTS / 1000;
 /** ZCU-hours the monthly minimum covers: minimum / rate (29.00 / 0.015 = 1933.33...). Display only. */
 const coveredZcuHours = (minimumCents: number): number => Math.round(((minimumCents * 1000) / ZCU_RATE_MILLICENTS) * 100) / 100;
 
-// Fair-use limits (hard caps, concurrency) are carried forward from the earlier catalog and are adjustable. They refuse new
-// work at the cap; they never charge.
+// Fair-use limits (hard caps, concurrency). The owner set the monthly build-minute and storage caps on 2026-10-14
+// (Explore 300 min / 20 GB, Builder 2,000 min / 100 GB, Team 10,000 min / 500 GB, Enterprise by contract); concurrency
+// (3 / 15 / 60) is unchanged. They refuse new work at the cap; they never charge.
 export const PLANS: Readonly<Record<string, PlanDefinition>> = Object.freeze({
   explore: deepFreeze({
     id: "explore", managedTier: "free", name: "Explore", provisional: false, decision: "DEC-BUSINESS", pricing: { kind: "free" }, maxActiveOperations: 3,
@@ -156,8 +157,8 @@ export const PLANS: Readonly<Record<string, PlanDefinition>> = Object.freeze({
     pricing: { kind: "usage_minimum", minimumCents: 2900, zcuRateMillicents: ZCU_RATE_MILLICENTS }, maxActiveOperations: 15,
     meters: {
       managed_resource_hours: { included: coveredZcuHours(2900), rateCents: ZCU_RATE_CENTS },
-      build_minutes: { included: 1000, rateCents: 0, hardCap: 1000 },
-      storage_gb_month: { included: 50, rateCents: 0, hardCap: 50 },
+      build_minutes: { included: 2000, rateCents: 0, hardCap: 2000 },
+      storage_gb_month: { included: 100, rateCents: 0, hardCap: 100 },
     },
     entitlements: { deploy: true, approvals: "full", orgPolicies: false, deploymentOptions: ["customer_cloud", "zenith_hosted"], support: "email" },
     display: {

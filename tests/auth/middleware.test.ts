@@ -63,6 +63,12 @@ describe("public paths", () => {
     expect(isPublicPath("/privacy-settings")).toBe(false);
   });
 
+  it("makes pricing public without exposing nested routes", () => {
+    expect(isPublicPath("/pricing")).toBe(true);
+    expect(isPublicPath("/pricing/checkout")).toBe(false);
+    expect(isPublicPath("/pricing-settings")).toBe(false);
+  });
+
   it("makes terms public without exposing nested routes", () => {
     expect(isPublicPath("/terms")).toBe(true);
     expect(isPublicPath("/terms/export")).toBe(false);

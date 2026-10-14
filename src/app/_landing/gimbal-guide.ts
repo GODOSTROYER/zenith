@@ -197,7 +197,7 @@ export const TOPICS: Topic[] = [
     answer: "Not yet. Kubernetes is planned as a deployment target, an environment you already run, not another cloud vendor. Zenith cannot connect to a cluster today, and it says so before any plan is written. Google Cloud and Azure are planned too; Oracle Cloud comes later.",
     show: { chapter: "cloud", label: "See what’s available" } },
   { id: "pricing", question: "How much does Zenith cost?", keywords: ["price", "pricing", "cost", "pay", "fee", "free", "bill", "billing", "money"],
-    answer: "Zenith has no published pricing. Every dollar figure on this page is an infrastructure estimate from Zenith’s static estimate tables for the example configuration: not Zenith’s fee, not a bill and not a quote from any provider." },
+    answer: "Zenith publishes launch pricing on the /pricing page: Explore is free, Builder starts at $29 a month, Team at $199 a month and Enterprise is custom, and paid plans are not charged yet. The dollar figures on this page are different: each is an infrastructure estimate from Zenith’s static estimate tables for the example configuration: not Zenith’s fee, not a bill and not a quote from any provider." },
   { id: "compliance", question: "Does Zenith handle GDPR or compliance?", keywords: ["gdpr", "compliance", "compliant", "privacy", "legal", "region", "regional", "residency", "soc"],
     answer: "No. Compliance assistance is a roadmap item: it could surface privacy, regional or GDPR-related considerations for a person to review. Zenith does not determine which laws apply, does not certify anything and does not automate compliance." },
   { id: "live-ai", question: "Are you a live AI?", keywords: ["ai", "live", "real", "model", "llm", "chatbot", "bot", "human", "curated"],

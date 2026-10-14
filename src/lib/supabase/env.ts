@@ -97,6 +97,8 @@ export function isPublicPath(pathname: string): boolean {
     // Public policy access must not expose any future nested routes.
     pathname === "/privacy" ||
     pathname === "/terms" ||
+    // The public pricing page is static and exact: no nested routes.
+    pathname === "/pricing" ||
     PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))) ||
     PREVIEW_PAGE.test(pathname) ||
     pathname.startsWith(INTERNAL_PREFIX)

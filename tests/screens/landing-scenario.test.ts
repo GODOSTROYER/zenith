@@ -82,7 +82,7 @@ describe("Gimbal's curated guide", () => {
     expect(matchTopic("what is the weather like")).toBeNull();
     expect(matchTopic("")).toBeNull();
     for (const ids of Object.values(CHAPTER_TOPICS)) for (const id of ids) expect(topicById(id)).not.toBeNull();
-    expect(TOPICS.find((t) => t.id === "pricing")?.answer).toMatch(/no published pricing/);
+    expect(TOPICS.find((t) => t.id === "pricing")?.answer).toMatch(/\/pricing page.*infrastructure estimate/);
   });
 
   it("offers one suggestion per chapter that opens a walkthrough in that chapter", () => {

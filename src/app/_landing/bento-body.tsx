@@ -238,6 +238,6 @@ export function BentoClose({ cta }: { cta: Cta }) {
       <div><p className={styles.closeLabel}>Your cloud, in full view.</p><h2 id="bento-close-title">Reach<br /><em>the zenith.</em></h2><div className={styles.closeActions}><LandingCta cta={cta} /><Link href="/guide">Explore the guide<Glyph name="arrow" size={17} /></Link></div></div>
       <div className={styles.closeMark} aria-hidden="true"><OrbitMark size={220} /></div>
     </div>
-    <footer className="zenith-footer"><a href="#main" aria-label="Zenith home"><Wordmark size={26} /></a><p>The next change, made tangible.</p><nav aria-label="Footer navigation"><Link href={cta.signedIn ? cta.href : "/waitlist"} data-waitlist-trigger={!cta.signedIn ? "" : undefined} aria-haspopup={!cta.signedIn ? "dialog" : undefined}>{cta.signedIn ? cta.label : "Join waitlist"}</Link><Link href="/guide">Guide</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
+    <footer className="zenith-footer"><a href="#main" aria-label="Zenith home"><Wordmark size={26} /></a><p>The next change, made tangible.</p><nav aria-label="Footer navigation"><Link href={cta.signedIn ? cta.href : "/waitlist"} data-waitlist-trigger={!cta.signedIn ? "" : undefined} aria-haspopup={!cta.signedIn ? "dialog" : undefined}>{cta.signedIn ? cta.label : "Join waitlist"}</Link><Link href="/pricing">Pricing</Link><Link href="/guide">Guide</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
   </section>;
 }

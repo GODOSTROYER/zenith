@@ -641,7 +641,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       await assignPlan(db(), { workspaceId: team, planId: "team", actor: "op" });
       await assignPlan(db(), { workspaceId: enterprise, planId: "enterprise", actor: "op" });
       const period = periodOf(new Date());
-      for (const ws of [builder, team, enterprise]) await upsertUsage(db(), { workspaceId: ws, meter: "build_minutes", sourceId: "b", period, quantity: 1001, unit: "minute", estimated: false });
+      for (const ws of [builder, team, enterprise]) await upsertUsage(db(), { workspaceId: ws, meter: "build_minutes", sourceId: "b", period, quantity: 2001, unit: "minute", estimated: false });
       const e = await refused(builder, "deploy");
       expect(e).toMatchObject({ code: "plan_quota_exceeded", status: 429 });
       expect((e as BackpressureError).message).toMatch(/build minutes/);
@@ -828,7 +828,7 @@ describe.each(LANES)("separable metering and billing [$name]", (lane) => {
       expect(view.packages.map((p) => p.id)).toEqual(["explore", "builder", "team", "enterprise"]);
       expect(view.zcuDefinition).toMatch(/one resource managed by Zenith for one hour/);
       expect(view.notice).toMatch(/not live/i);
-      expect(view.usage.find((u) => u.meter === "build_minutes")).toMatchObject({ included: 1000, hardCap: 1000, charged: false });
+      expect(view.usage.find((u) => u.meter === "build_minutes")).toMatchObject({ included: 2000, hardCap: 2000, charged: false });
       expect(view.usage.find((u) => u.meter === "managed_resource_hours")).toMatchObject({ unit: "ZCU-hour", charged: true });
       expect(view.usage.find((u) => u.meter === "egress_gb_estimated")).toMatchObject({ charged: false, estimated: true });
       expect(view.invoices).toHaveLength(1);

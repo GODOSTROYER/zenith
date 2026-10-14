@@ -1,0 +1,43 @@
+.page { min-height: 100vh; background: var(--bg0); color: var(--ink); }
+.header, .main, .footer { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 30px; border-bottom: 1px solid var(--line); }
+.header a { display: inline-flex; align-items: center; min-height: 44px; }
+.signIn { gap: 12px; font-size: 14px; }
+.intro { padding-block: clamp(56px, 8vw, 100px) 48px; max-width: 760px; }
+.eyebrow { margin-bottom: 24px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute); }
+.intro h1 { font-family: var(--font-display); font-size: clamp(44px, 8vw, 88px); line-height: 1.04; font-weight: 400; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.lead { max-width: 600px; margin-top: 24px; font-size: clamp(18px, 2.4vw, 22px); line-height: 1.55; color: var(--ink-mute); }
+.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding-bottom: 56px; list-style: none; }
+.card { display: flex; flex-direction: column; gap: 14px; padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--bg2); min-width: 0; }
+.card h2 { font-family: var(--font-display); font-size: 30px; font-weight: 400; letter-spacing: -.02em; }
+.bestFor { font-size: 14px; line-height: 1.5; color: var(--ink-mute); }
+.price { font-family: var(--font-display); font-size: 26px; line-height: 1.2; letter-spacing: -.02em; }
+.facts { display: grid; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--ink-mute); }
+.facts dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.facts dd { color: var(--ink); }
+.cta { margin-top: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding-inline: 20px; border: 1px solid var(--signal); border-radius: 999px; color: var(--signal); font-size: 14px; text-align: center; }
+.cta:hover { background: var(--signal-dim); }
+.salesText { margin-top: auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; font-size: 14px; color: var(--ink-mute); }
+.section { padding-block: 40px; border-top: 1px solid var(--line); }
+.section h2 { margin-bottom: 20px; font-family: var(--font-display); font-size: clamp(26px, 4vw, 34px); font-weight: 400; letter-spacing: -.02em; }
+.tableWrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; background: var(--bg2); }
+.table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+.table caption { padding: 16px 18px; text-align: left; font-family: var(--font-mono); font-size: 12px; color: var(--ink-mute); }
+.table th, .table td { padding: 14px 18px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+.table thead th { font-family: var(--font-display); font-size: 18px; font-weight: 400; color: var(--ink); }
+.table tbody th { font-weight: 500; color: var(--ink-mute); width: 24%; }
+.note { max-width: 720px; font-size: 15px; line-height: 1.8; color: var(--ink-mute); }
+.fair { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; list-style: none; max-width: 900px; }
+.fair li { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; font-size: 14px; line-height: 1.5; color: var(--ink-mute); }
+.fair strong { display: block; color: var(--ink); font-weight: 500; }
+.status { padding: 16px 20px; border: 1px solid var(--line); border-left: 3px solid var(--signal); border-radius: 12px; font-size: 14px; line-height: 1.6; color: var(--ink-mute); max-width: 720px; }
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; margin-top: 40px; border-top: 1px solid var(--line); padding-block: 28px; font-size: 13px; color: var(--ink-mute); }
+.page a:focus-visible, .tableWrap:focus-visible { outline: 2px solid var(--signal); outline-offset: 4px; border-radius: 4px; }
+.skip { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 12px 18px; background: var(--bg2); transform: translateY(-160%); }
+.skip:focus { transform: translateY(0); }
+@media (max-width: 1000px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .header, .main, .footer { width: calc(100% - 40px); }
+  .header { padding-block: 18px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}

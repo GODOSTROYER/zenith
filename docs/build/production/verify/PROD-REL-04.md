@@ -143,3 +143,16 @@ Source `9d6446d3`, the commit of this requirement's `live_sandbox` receipt, so t
 Limits: no `local_engine` receipt. `tests/acceptance/local-targets.engine.test.ts` runs one local target profile per run and skips the other three, so it cannot give a skip-free source.
 
 `operational_rehearsal` is still not done. Not a promotion.
+
+## Contract and local_engine receipts at c4653f94 (2026-11-02)
+
+`tests/acceptance/local-targets.engine.test.ts` used to skip the scenarios of the other three profiles in every gated run. At `c4653f94` a gated run declares only its own profile's scenarios, so one profile run is skip-free. An ungated run still lists all four as skipped, so the wave6 inventory is unchanged.
+
+Run on a clean checkout of `c4653f94` with `scripts/release/lane-source.mjs`, Node 22.23.3 (official build), Docker 29.8.2 and kind v0.33.0 (release checksum verified). Each profile was brought up with `scripts/release/local-target-runner.ts up --profile <p>` and torn down afterwards.
+
+- `contract`: 342 passed, 0 failed, 0 skipped over the same 9 files as the 2026-11-01 contract lane. Files: `docs/build/production/evidence/PROD-REL-04/2026-11-02-contract-c4653f94/`.
+- `local_engine`, profile billing (scenario billing, stripe-mock): 1 passed, 0 failed, 0 skipped. Files: `docs/build/production/evidence/PROD-REL-04/2026-11-02-local-engine-c4653f94-billing/`.
+- `local_engine`, profile acme (scenario dns-tls, Pebble and CoreDNS): 1 passed, 0 failed, 0 skipped. Files: `docs/build/production/evidence/PROD-REL-04/2026-11-02-local-engine-c4653f94-acme/`.
+- `local_engine`, profile mixed (scenarios stateful-traffic and mixed-recovery, kind and LocalStack): 2 passed, 0 failed, 0 skipped. Files: `docs/build/production/evidence/PROD-REL-04/2026-11-02-local-engine-c4653f94-mixed/`.
+
+Limits: these are local rehearsals with disposable fixtures, not live providers, accounts or public DNS. The first acme attempt, made right after the fixture images were first pulled, failed once and its report was not kept; three repeat runs and the receipt run passed, and the cause is unknown. The live_sandbox receipt is still at `9d6446d3`, so no single commit yet carries every level, and `operational_rehearsal` is still unperformed.

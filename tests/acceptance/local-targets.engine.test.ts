@@ -10,7 +10,9 @@ import { execFileSync } from "node:child_process";
 const enabled = process.env.ZENITH_LOCAL_TARGETS === "1";
 const profile = process.env.ZENITH_LOCAL_PROFILE;
 for (const [needed, scenario] of [["mixed", "stateful-traffic"], ["mixed", "mixed-recovery"], ["acme", "dns-tls"], ["billing", "billing"]]) {
-  describe.skipIf(!enabled || profile !== needed)(`local rehearsal ${scenario}: needs ZENITH_LOCAL_TARGETS=1, ZENITH_LOCAL_PROFILE=${needed}, local-target-runner up`, () => {
+  // A gated run declares only its own profile's scenarios, so one profile run is skip-free; ungated, all four stay listed as skipped.
+  if (enabled && profile !== needed) continue;
+  describe.skipIf(!enabled)(`local rehearsal ${scenario}: needs ZENITH_LOCAL_TARGETS=1, ZENITH_LOCAL_PROFILE=${needed}, local-target-runner up`, () => {
     it("executes the real engine and accepts only the exact run/source checks", async () => {
       const file = path.join(mkdtempSync(path.join(os.tmpdir(), "j15-engine-")), "receipt.json");
       expect(await runLocalScenario(scenario!, file, process.env)).toBe(0);

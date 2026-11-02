@@ -10,7 +10,8 @@
  *
  * Set ZENITH_TEST_POSTGRES_URL (a superuser-ish URL to an EMPTY scratch server)
  * to also run the same journey over real network Postgres through the
- * production connector (`openPostgres`): see the last describe block.
+ * production connector (`openPostgres`): see the last describe block. A plain
+ * local server without TLS needs `?sslmode=disable` on that URL.
  */
 import fs from "node:fs";
 import path from "node:path";

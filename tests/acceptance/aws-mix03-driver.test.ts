@@ -12,7 +12,7 @@ import { parseManifest } from "@/lib/resources/manifest-v2";
 import { buildParentPlan } from "@/lib/execution/mixed/parent-plan";
 import { connection, PARENT_ENV, PROJECT, WS } from "../execution/mixed/_fixtures";
 import {
-  browserMix03Product, MIX03_REFERENCE, mix03Manifests, mixedReadbackOf, runnerStack, type ProductRequest, type RunnerStack, type TenantSession,
+  browserMix03Product, MIX03_REFERENCE, mix01Manifests, mix03Manifests, mixedReadbackOf, runnerStack, type ProductRequest, type RunnerStack, type TenantSession,
 } from "../../scripts/acceptance/live/product/mix-03-driver";
 
 const STACK: RunnerStack = { apiUrl: "http://127.0.0.1:36400", supabaseUrl: "http://127.0.0.1:54321", adminKey: "admin-test", mailpitUrl: "http://127.0.0.1:8025" };
@@ -208,6 +208,19 @@ describe("mixed proposal: the sandbox parent, two AWS children and the plan", ()
     } });
     const order = t.sent.map(c => c.endpoint);
     expect(order.indexOf("/api/environments/env-parent/deployments?limit=1")).toBeLessThan(order.indexOf("/api/platform/v1/mixed/plans"));
+  });
+
+  it("PROD-MIX-01: puts the consumer child on the second connection, pins one bucket per child and declares no reference", async () => {
+    const t = transport(proposeRoute());
+    await (await driverWithTenant({ request: t.request })).proposeMixed(TENANT, { connectionId: "conn-1", consumerConnectionId: "conn-2", independent: true, accountId: "123456789012", region: "ap-south-1" });
+    const created = t.sent.filter(c => c.endpoint === "/api/actions/env.create").map(c => inputOf(c)).filter(input => input.name !== "parent");
+    expect(created.map(input => [input.name, input.connectionId])).toEqual([["producer", "conn-1"], ["consumer", "conn-2"]]);
+    expect(t.sent.find(c => c.endpoint === "/api/platform/v1/mixed/plans")).toMatchObject({ body: {
+      pins: [{ address: "object_store/first", childEnvironmentId: "env-producer" }, { address: "object_store/second", childEnvironmentId: "env-consumer" }],
+      references: [],
+    } });
+    const { producer, consumer, graph } = mix01Manifests("ap-south-1");
+    expect(t.sent.filter(c => c.endpoint === "/api/actions/project.updateManifest").map(c => inputOf(c).manifest)).toEqual([graph, producer, consumer]);
   });
 
   it("lowers the parent's autonomy below deployment.deploy's default before the plan, so the parent operation waits for a person", async () => {

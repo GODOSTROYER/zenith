@@ -630,7 +630,8 @@ describe("PROD-MIX-03 run window", () => {
 /** PROD-MIX-01: the same port over two connections (-live, -live2); the fake adds the second stack's roles and the state buckets. */
 describe("PROD-MIX-01 partitions over two connections", () => {
   const settings01 = { ...settings, scenario: "mix-01" as const, durationMinutes: 40 };
-  const STATE_BUCKET2 = `zenith-state-${ACCOUNT}-${REGION}-live2`, CONSUMER_ENV = "envlive2";
+  const STATE_BUCKET2 = `zenith-state-${ACCOUNT}-${REGION}-live2`, CONSUMER_ENV = "envlive2", SECOND = "zenith-envlive2-second";
+  const OWNED_SECOND = [{ Key: "zenith:managed", Value: "true" }, { Key: "zenith:environment", Value: CONSUMER_ENV }];
   const requirement01 = { ...requirement, id: "PROD-MIX-01" };
   interface World01 extends World { trust2: Record<"observe" | "deploy", string>; states: Record<string, string[]> }
   const world01 = (): World01 => ({ ...world(), trust2: { observe: trustDocument(PRINCIPAL, OLD_EXT), deploy: trustDocument(PRINCIPAL, OLD_EXT) },
@@ -641,7 +642,12 @@ describe("PROD-MIX-01 partitions over two connections", () => {
       case "mix01-live2-iam-read-deploy": return { Role: { AssumeRolePolicyDocument: encodeURIComponent(state.trust2.deploy) } };
       case "mix01-live2-iam-trust-observe": state.trust2.observe = String(input.PolicyDocument); return {};
       case "mix01-live2-iam-trust-deploy": state.trust2.deploy = String(input.PolicyDocument); return {};
-      case "mix01-live2-sts-assume": expect(input.ExternalId).toBe(NEW_EXT); return { Credentials: { AccessKeyId: "A", SecretAccessKey: "S", SessionToken: "T" } };
+      case "mix03-tag-read": {
+        const value = (input.TagFilters as { Values: string[] }[])[0]!.Values[0];
+        if (value !== CONSUMER_ENV) return respond(state, c, input);
+        return { ResourceTagMappingList: [{ ResourceARN: `arn:aws:s3:::${SECOND}`, Tags: OWNED_SECOND }].filter(r => !state.deleted.has(r.ResourceARN)) };
+      }
+      case "mix03-bucket-tags": return input.Bucket === SECOND ? { TagSet: OWNED_SECOND } : respond(state, c, input);
       case "mix01-state-list": return { Contents: (state.states[String(input.Bucket)] ?? []).filter(key => key.startsWith(String(input.Prefix))).map(Key => ({ Key })) };
       default: return respond(state, c, input);
     }
@@ -649,8 +655,12 @@ describe("PROD-MIX-01 partitions over two connections", () => {
   function happy01(overrides: Partial<Mix03Product> = {}): { product: Mix03Product; proposals: unknown[]; uploads: string[] } {
     const proposals: unknown[] = [], uploads: string[] = [];
     let connections = 0;
+    // Two independent partitions: the stored plan has no dependency between them.
+    const stored = mixedPlan();
+    stored.state.stage = 1;
     const product = happy({
       createAwsConnection: async () => ({ connectionId: `conn-${++connections}`, externalId: NEW_EXT }),
+      planReadback: async () => { const plan = await stored.readback(); plan.children[1]!.dependsOn = []; return plan; },
       proposeMixed: async (_tenant, input) => { proposals.push(input); return { environmentIds: [ENV, CONSUMER_ENV], planId: "plan-1", parentOperationId: "op-parent" }; },
       ...overrides,
     });
@@ -674,7 +684,8 @@ describe("PROD-MIX-01 partitions over two connections", () => {
     expect(plan.fixtures).toEqual([]);
     const ids = allCalls(plan).map(c => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toEqual(expect.arrayContaining(["mix03-iam-trust-deploy", "mix01-live2-iam-trust-observe", "mix01-live2-iam-trust-deploy", "mix01-live2-sts-assume", "mix01-state-list"]));
+    expect(ids).toEqual(expect.arrayContaining(["mix03-iam-trust-deploy", "mix01-live2-iam-trust-observe", "mix01-live2-iam-trust-deploy", "mix01-state-list"]));
+    expect(ids).not.toContain("mix01-live2-sts-assume");
     const trust = (plan.productCalls ?? []).filter(c => c.command === "UpdateAssumeRolePolicy").map(c => c.resource).sort();
     expect(trust).toEqual(["ZenithDeployRole-live", "ZenithDeployRole-live2", "ZenithObserveRole-live", "ZenithObserveRole-live2"].map(name => `arn:aws:iam::${ACCOUNT}:role/${name}`));
     expect(scopedRequirementIds(plan.settings, ["PROD-MIX-01", "PROD-MIX-03"])).toEqual(["PROD-MIX-01"]);
@@ -686,8 +697,10 @@ describe("PROD-MIX-01 partitions over two connections", () => {
     const result = await harness01(state, product, uploads).run();
     expect(result.reason).toContain("PROD-MIX-01 proven");
     expect(result.complete).toBe(true);
-    expect(proposals).toEqual([expect.objectContaining({ connectionId: "conn-1", consumerConnectionId: "conn-2" })]);
-    expect(uploads).toEqual([STATE_BUCKET2]);
+    expect(proposals).toEqual([expect.objectContaining({ connectionId: "conn-1", consumerConnectionId: "conn-2", independent: true })]);
+    expect(proposals[0]).not.toHaveProperty("artifact");
+    expect(uploads).toEqual([]);
+    expect(state.deleted.has(`arn:aws:s3:::${SECOND}`)).toBe(true);
     for (const docs of [state.trustDocs, state.trust2]) for (const role of ["observe", "deploy"] as const) expect(docs[role]).toBe(trustDocument(PRINCIPAL, OLD_EXT));
     expect(result.leaks).toEqual([]);
   });
@@ -707,6 +720,15 @@ describe("PROD-MIX-01 partitions over two connections", () => {
     const result = await harness01(state, happy01().product).run();
     expect(result.complete).toBe(false);
     expect(result.reason).toContain("the consumer's state is not in its own connection's state bucket");
+  });
+
+  it("refuses a stored plan whose children depend on each other", async () => {
+    const state = world01(), finished = mixedPlan();
+    finished.state.stage = 1;
+    const result = await harness01(state, happy01({ planReadback: finished.readback }).product).run();
+    expect(result.complete).toBe(false);
+    expect(result.reason).toContain("this proof needs independent partitions");
+    expect(state.trust2.deploy).toBe(trustDocument(PRINCIPAL, OLD_EXT));
   });
 
   it("refuses when the product returns one connection for both stacks, before any plan", async () => {

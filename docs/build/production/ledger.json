@@ -7699,7 +7699,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; restore_with_aws_state_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01",
+      "implementationStatus": "implementation_complete_verification_pending; restore_with_aws_state_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7753,6 +7753,16 @@
           "result": "PROD-OPS-04 real-engine suite at the commit of its live_sandbox receipt: 56 passed, 0 failed, 0 skipped, exit 0, over 2 test files (tests/controlplane/recovery-epoch.test.ts, tests/controlplane/state-backend-recovery.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-01-local-engine-2cdb66db/release-evidence-PROD-OPS-04.json",
           "sha256": "51e6ad9da3b14a8048e7404d1ebbf539e86773f704aebb3c03d52d059954046d"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "2cdb66db6343469eebde92fb48e8ee0f808064d3",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode local -- tests/ops/recovery-rehearsal.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, removed afterwards; pg_dump/pg_restore 16.15 (Homebrew postgresql@16); Temporal CLI 1.9.1 dev server (release checksum verified); runbook rehearsal docs/platform/operations/RESTORE-RUNBOOK.md 'Rehearse it'; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_PG_DUMP_BIN ZENITH_TEST_PG_RESTORE_BIN ZENITH_TEST_RECOVERY_REQUIRED=1 ZENITH_TEST_TEMPORAL=1",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-operational-rehearsal-2cdb66db/",
+          "result": "PROD-OPS-04 operational rehearsal (RESTORE-RUNBOOK.md 'Rehearse it') at the commit of its live_sandbox receipt: clean-host pg_dump/pg_restore into an empty database, consumed approval refused, pending effect kept uncertain, fresh approval runs once, lost-timeline workflows terminated on a Temporal dev server. 10 passed, 0 failed, 0 skipped, exit 0. Run with ZENITH_TEST_RECOVERY_REQUIRED=1 so a missing prerequisite fails. Scripted local rehearsal on the owner's Mac, not a staging or production restore. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-operational-rehearsal-2cdb66db/release-evidence-PROD-OPS-04.json",
+          "sha256": "8ac269010114052426a273119a47ff2e4a7837b001fc48c21940d71d42689f90"
         }
       ],
       "requiredEvidence": [
@@ -8694,7 +8704,7 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipts_at_live_commit_2026-11-01; contract_and_local_engine_receipts_at_c4653f94_2026-11-02",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipts_at_live_commit_2026-11-01; contract_and_local_engine_receipts_at_c4653f94_2026-11-02; contract_local_engine_and_live_receipts_at_85a9b254_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -8774,6 +8784,58 @@
           "result": "PROD-REL-04 local target engine lane, profile mixed (stateful-traffic and mixed-recovery): 2 passed, 0 failed, 0 skipped, exit 0, over tests/acceptance/local-targets.engine.test.ts against the real disposable fixtures, each scenario receipt validated by validateLocalReceipt with evidenceLabel local_rehearsal. Local rehearsal only: no live provider, account or public DNS. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-02-local-engine-c4653f94-mixed/release-evidence-PROD-REL-04.json",
           "sha256": "e1f9540a53d0b9fb082dbe4429cc85c1dc28f17a13aaa71cdbdcbd42ac743d65"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "85a9b25466c5012816b2f3705f76ac596ec69349",
+          "runId": 41590171117,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41590171117",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario rel-04 and run_id zlive-202611030629-0ae8 (lane live; scripts/acceptance/live/drill/rel-04.ts, then verify-rel-04.ts offline); plan sha256 8fc837b84203a6b137537701824b19c9060b022dc25e082b9408ab5f6ce63dbd; permission sha256 865e216266d442053da4e6cdab411eeacc869dc1de54907c37bd93d9b2416bb1",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 0.4 (provisional, billing not measured); 15 minute window (plan)",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-03-live-aws-41590171117/",
+          "result": "Live AWS sandbox crash, resume and replay drill passed at 85a9b254 with cleanup complete: receipt verdict passed (steps A-D all hold; the run bucket read NotFound after resume and the run receipt parameter matched the run id); the offline verifier passed on the runner and wrote the release source bound to the receipt and evidence bytes. Re-run so REL-04's levels can share one commit. Not operational_rehearsal.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-03-live-aws-41590171117/release-evidence-PROD-REL-04.json",
+          "sha256": "b34538128fa0bfd2fa70d5fc6959f48806122564e8ae941f4e081745f456a1e4"
+        },
+        {
+          "level": "contract",
+          "commit": "85a9b25466c5012816b2f3705f76ac596ec69349",
+          "command": "node scripts/release/lane-source.mjs --requirement PROD-REL-04 --mode contract -- tests/release/scope.test.ts tests/release/checkpoint.test.ts tests/release/orchestrator.test.ts tests/release/live-scope-coverage.test.ts tests/acceptance/aws-production.test.ts tests/acceptance/aws-rel04-drill.test.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-shared.test.ts tests/acceptance/safety.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_* variables set",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-03-contract-85a9b254/",
+          "result": "PROD-REL-04 offline contract suite at 85a9b254, the commit of its re-run live_sandbox receipt: 342 passed, 0 failed, 0 skipped, exit 0, over 9 test files (tests/release/scope.test.ts, tests/release/checkpoint.test.ts, tests/release/orchestrator.test.ts, tests/release/live-scope-coverage.test.ts, tests/acceptance/aws-production.test.ts, tests/acceptance/aws-rel04-drill.test.ts, tests/acceptance/live-managed.test.ts, tests/acceptance/live-shared.test.ts, tests/acceptance/safety.test.ts). Run on a clean checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-03-contract-85a9b254/release-evidence-PROD-REL-04.json",
+          "sha256": "24781888ed1d938a4be939a5e7ccfb2eba499500c7e779e9de8a0e6fa67cfb06"
+        },
+        {
+          "level": "local_engine",
+          "commit": "85a9b25466c5012816b2f3705f76ac596ec69349",
+          "command": "node node_modules/tsx/dist/cli.mjs scripts/release/local-target-runner.ts up --profile billing; node scripts/release/lane-source.mjs --requirement PROD-REL-04 --mode local -- tests/acceptance/local-targets.engine.test.ts --no-file-parallelism --maxWorkers=1; local-target-runner down",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, kind v0.33.0 (release checksum verified); local-target-runner profile billing with the pinned compose fixtures of deploy/acceptance/local-targets, torn down afterwards; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_PROFILE=billing ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-billing/",
+          "result": "PROD-REL-04 local target engine lane, profile billing (billing): 1 passed, 0 failed, 0 skipped, exit 0, over tests/acceptance/local-targets.engine.test.ts against the real disposable fixtures, each scenario receipt validated by validateLocalReceipt with evidenceLabel local_rehearsal. Local rehearsal only: no live provider, account or public DNS. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-billing/release-evidence-PROD-REL-04.json",
+          "sha256": "2ecbfc2ae9b28b0cc138b0688ae4037d599de0a1d5f0d5645fc96fb220b2b932"
+        },
+        {
+          "level": "local_engine",
+          "commit": "85a9b25466c5012816b2f3705f76ac596ec69349",
+          "command": "node node_modules/tsx/dist/cli.mjs scripts/release/local-target-runner.ts up --profile acme; node scripts/release/lane-source.mjs --requirement PROD-REL-04 --mode local -- tests/acceptance/local-targets.engine.test.ts --no-file-parallelism --maxWorkers=1; local-target-runner down",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, kind v0.33.0 (release checksum verified); local-target-runner profile acme with the pinned compose fixtures of deploy/acceptance/local-targets, torn down afterwards; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_PROFILE=acme ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-acme/",
+          "result": "PROD-REL-04 local target engine lane, profile acme (dns-tls): 1 passed, 0 failed, 0 skipped, exit 0, over tests/acceptance/local-targets.engine.test.ts against the real disposable fixtures, each scenario receipt validated by validateLocalReceipt with evidenceLabel local_rehearsal. Local rehearsal only: no live provider, account or public DNS. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-acme/release-evidence-PROD-REL-04.json",
+          "sha256": "959420d4236432d7892b1b7a1063ca2013b3b47d6dd5f5a0d40dcb73e28b0ecb"
+        },
+        {
+          "level": "local_engine",
+          "commit": "85a9b25466c5012816b2f3705f76ac596ec69349",
+          "command": "node node_modules/tsx/dist/cli.mjs scripts/release/local-target-runner.ts up --profile mixed; node scripts/release/lane-source.mjs --requirement PROD-REL-04 --mode local -- tests/acceptance/local-targets.engine.test.ts --no-file-parallelism --maxWorkers=1; local-target-runner down",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, kind v0.33.0 (release checksum verified); local-target-runner profile mixed with the pinned compose fixtures of deploy/acceptance/local-targets, torn down afterwards; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_PROFILE=mixed ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-mixed/",
+          "result": "PROD-REL-04 local target engine lane, profile mixed (stateful-traffic and mixed-recovery): 2 passed, 0 failed, 0 skipped, exit 0, over tests/acceptance/local-targets.engine.test.ts against the real disposable fixtures, each scenario receipt validated by validateLocalReceipt with evidenceLabel local_rehearsal. Local rehearsal only: no live provider, account or public DNS. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-mixed/release-evidence-PROD-REL-04.json",
+          "sha256": "81e409b03aaa2ce028aaa99d3ebaaf8bcb30919036e9508c041fcb4bc4e4c04e"
         }
       ],
       "requiredEvidence": [

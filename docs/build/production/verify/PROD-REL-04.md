@@ -156,3 +156,18 @@ Run on a clean checkout of `c4653f94` with `scripts/release/lane-source.mjs`, No
 - `local_engine`, profile mixed (scenarios stateful-traffic and mixed-recovery, kind and LocalStack): 2 passed, 0 failed, 0 skipped. Files: `docs/build/production/evidence/PROD-REL-04/2026-11-02-local-engine-c4653f94-mixed/`.
 
 Limits: these are local rehearsals with disposable fixtures, not live providers, accounts or public DNS. The first acme attempt, made right after the fixture images were first pulled, failed once and its report was not kept; three repeat runs and the receipt run passed, and the cause is unknown. The live_sandbox receipt is still at `9d6446d3`, so no single commit yet carries every level, and `operational_rehearsal` is still unperformed.
+
+## Live re-run and contract and local_engine receipts at 85a9b254 (2026-11-03)
+
+Live runs always dispatch at the base-branch head, so the live result could not be moved to c4653f94. An older commit cannot give a skip-free local lane either. REL-04's levels were therefore re-run at one commit, 85a9b254:
+
+- `live_sandbox`: run [41590171117](https://github.com/saivedant169/zenith/actions/runs/41590171117) (scenario rel-04, lane live, cap USD 0.4, 15 minutes). The receipt verdict passed, steps A-D all hold, the run bucket read NotFound after resume, and cleanup completed. Files: `docs/build/production/evidence/PROD-REL-04/2026-11-03-live-aws-41590171117/`.
+- `contract`: the same 9 files as at c4653f94. 342 passed, 0 failed, 0 skipped. Files: `2026-11-03-contract-85a9b254/`.
+- `local_engine`: one run each on a clean checkout of 85a9b254, all 0 failed, 0 skipped, torn down afterwards:
+  - billing: 1 passed (`2026-11-03-local-engine-85a9b254-billing/`)
+  - acme: 1 passed (`2026-11-03-local-engine-85a9b254-acme/`)
+  - mixed: 2 passed (`2026-11-03-local-engine-85a9b254-mixed/`)
+
+Limits:
+- `operational_rehearsal` is still unperformed. It needs the operator-run local Zenith/PostgreSQL/Temporal stack (J1) described above.
+- Status stays `in_progress`. Not a promotion.

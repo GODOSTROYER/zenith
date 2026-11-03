@@ -94,3 +94,9 @@ control.
 
 The suite runs on PGlite (always) and on Postgres when `ZENITH_TEST_PLATFORM_PG_URL` is set. It does not
 exercise live cloud, a live Temporal server or an MCP network client; contract-level only.
+
+## A value that was ever stored in plain text
+
+"Move to the secret store" (`system.setSecret` with `moveExistingValue`) replaces a plaintext env value with a vault reference in the working manifest. It cannot remove the earlier plaintext from the database's own files. The old row versions stay until vacuum reclaims them, the write-ahead log keeps them until it is recycled, and every backup taken in between keeps them as well. The PROD-OPS-06 operated rehearsal (`tests/acceptance/ops06-rehearsal.operated.test.ts`) shows this on a real stack. A value sent only through `system.setSecret` never appears in plain text in any volume, log or stack file. A moved value is still found in the database volume, and nowhere else.
+
+Treat any secret that was ever entered as a plain env value as exposed. Move it, then rotate it at its source, and set the new value with `system.setSecret`.

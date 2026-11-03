@@ -94,6 +94,8 @@ node scripts/slo/capacity-test.mjs --url http://127.0.0.1:3000 --path /api/inter
 
 GET only. A non-loopback target is refused unless `--allow-remote`. Add `--report` (with `--bearer-file`) to record the result. The figure describes the machine and target that ran it, not a production capacity.
 
+Raise the admission limits for the test window, or the run measures the rate limiter instead of capacity. Set `ZENITH_OPS_EDGE_RATE_PER_SEC`, `ZENITH_OPS_EDGE_BURST`, `ZENITH_OPS_API_RATE_PER_SEC` and `ZENITH_OPS_API_BURST` (see `src/lib/ops/config.ts`; they accept up to 100000) on the API under test, then put the defaults back. At the defaults (edge 100/s with burst 400, API 50/s with burst 200), a 16-worker run is mostly answered with 429. The test counts those as errors, so it records a miss. The PROD-OPS-01 operated rehearsal (`tests/acceptance/ops01-rehearsal.operated.test.ts`) does exactly this on a real stack and restores the composition afterwards.
+
 ## ZenithSloAvailabilityBurnFast
 
 The API is returning 5xx fast enough to spend two percent of the 30-day budget in an hour. Check `zenith_control_store_up`, the API logs and the last deploy. Roll back a bad deploy first, diagnose second.

@@ -93,3 +93,21 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-01 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Live scenario `mix-01` (2026-11-03)
+
+The owner ruled that one AWS account with two separately authorized connections meets the partition requirement for the AWS BYOC private beta. Separate accounts and cross-provider partitions stay outside that beta.
+
+`scripts/acceptance/live/product/mix-03.ts` gains a `mix-01` variant. In the run:
+- One tenant creates two AWS connections, on the `zenith-connection-live` and `zenith-connection-live2` stacks.
+- The ExternalId on each stack's observe and deploy role trust is rewritten and later restored.
+- Both connections must pass `connection.verifyAws`.
+- One mixed parent puts the producer child (S3 bucket) on the first connection and the consumer child (Lambda function) on the second, with one typed reference between them.
+
+Independent AWS readback decides:
+- The consumer's deployed `PRODUCER_BUCKET_ARN` equals the producer bucket.
+- Each child's OpenTofu state object (`zenith/<workspace>/<environment>/terraform.tfstate`, `src/lib/execution/compile.ts`) is in its own connection's state bucket and not in the other's. This uses a bounded `ListObjectsV2` under the runner's existing `s3:ListBucket` grant on `zenith-*`.
+
+Dispatch `mix-01` only while no other lane run is active, because it rewrites trust on both lanes' roles. The plan allows 5..40 minutes with a cap of USD 0.5 + 0.02 per minute. Offline coverage is in `tests/acceptance/aws-mix03-port.test.ts` ("PROD-MIX-01 partitions over two connections").
+
+Limits: no live run yet. This is one account and one provider, and only AWS AssumeRole connections. Not a promotion.

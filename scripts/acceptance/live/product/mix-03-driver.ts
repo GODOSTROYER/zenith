@@ -297,7 +297,8 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
       return step("connection", async () => {
         const session = sessionOf(tenant);
         const result = await runAction(session, "connection.createAws", {
-          label: "PROD-MIX-03 live", region: input.region, accountId: input.accountId, stateBucket: input.stateBucket, bootstrapNameSuffix: input.bootstrapNameSuffix,
+          // One label per connection stack, so a tenant holding both (PROD-MIX-01) can tell them apart.
+          label: `PROD-MIX live${input.bootstrapNameSuffix}`, region: input.region, accountId: input.accountId, stateBucket: input.stateBucket, bootstrapNameSuffix: input.bootstrapNameSuffix,
           observeRoleArn: input.observeRoleArn, deployRoleArn: input.deployRoleArn, mode: "aws_assume_role",
         });
         const data = (result.data ?? {}) as { connectionId?: unknown; externalId?: unknown };
@@ -325,10 +326,11 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         // A sandbox environment's default autonomy (4) lets policy run deployment.deploy unattended. Below it, the parent
         // operation waits for a person, which PROD-MIX-03 requires. The admin sets it through the product's own route.
         ok(await send(session, session.owner, `/api/platform/v1/environments/${parent}/autonomy`, { level: PARENT_AUTONOMY }, "PUT"));
-        const create = async (name: string) => idOf((await must(session, "env.create", {
-          projectId, name, class: "sandbox", connectionId: input.connectionId, region: input.region, approvalRequired: true,
+        // PROD-MIX-01 binds the consumer child to a second connection; otherwise both children share one.
+        const create = async (name: string, connectionId: string) => idOf((await must(session, "env.create", {
+          projectId, name, class: "sandbox", connectionId, region: input.region, approvalRequired: true,
         }, scope)).environmentId, `the ${name} environment`);
-        const producerEnv = await create("producer"), consumerEnv = await create("consumer");
+        const producerEnv = await create("producer", input.connectionId), consumerEnv = await create("consumer", input.consumerConnectionId ?? input.connectionId);
 
         const planned = await send(session, session.owner, "/api/platform/v1/mixed/plans", {
           parentEnvironmentId: parent, childEnvironmentIds: [producerEnv, consumerEnv],

@@ -16,6 +16,7 @@ import { AgentServiceError, type AgentCaller } from "@/lib/coding-agent/service"
 import { buildCtx } from "@/lib/server/scope";
 import { requireWorkspace } from "@/lib/server/workspace";
 import { assertBrowserSession } from "./browser";
+import { GithubSourceError } from "@/lib/sources/github/types";
 
 export interface AgentRouteCaller {
   agent: AgentCaller;
@@ -43,14 +44,18 @@ export async function agentAdmin(req: NextRequest): Promise<AgentRouteCaller> {
 
 /** Translate service and store refusals into the platform error body. */
 export function mapAgentError(error: unknown): never {
+  if (error instanceof GithubSourceError) {
+    const code = { invalid: "invalid_request", conflict: "conflict", refused: "policy_denied", unavailable: "platform_store_unavailable" } as const;
+    throw new BrokerError(code[error.code], error.message, "Refresh the repository selection, confirm access, and inspect the source again.");
+  }
   if (error instanceof AgentServiceError) {
     if (error.code === "not_found") throw notFound();
-    if (error.code === "model_not_configured") throw new BrokerError("platform_store_unavailable", error.message, "Set ANTHROPIC_API_KEY on the deployment, then retry.", { reason: "model_not_configured" });
+    if (error.code === "model_not_configured") throw new BrokerError("platform_store_unavailable", error.message, "Use static analysis, or ask an admin to configure a model-enabled execution worker.", { reason: "model_not_configured" });
     throw new BrokerError(error.code === "unavailable" ? "platform_store_unavailable" : error.code, error.message);
   }
   if (error instanceof ControlStoreError) {
     if (error.code === "not_found" || error.code === "tenant_mismatch") throw notFound();
-    if (error.code === "conflict" || error.code === "invalid_state") throw new BrokerError(error.code, "The run is not in a state that allows this.");
+    if (error.code === "conflict" || error.code === "invalid_state") throw new BrokerError(error.code, error.message);
   }
   throw error;
 }

@@ -83,7 +83,7 @@ export interface McpDeployAuthority {
   project: Record<string, unknown>; environment: Record<string, unknown>; revision: Record<string, unknown>; deployment: Record<string, unknown>; connection: NativeRow;
   manifest: Record<string, unknown>; providerConnection: Record<string, unknown>;
   bindings: Record<string, unknown>[]; sources: Record<string, unknown>[]; resources: Record<string, unknown>[];
-  sourceAddresses: string[]; evidence: Record<string, unknown>[];
+  sourceRepositories: { owner: string; repo: string }[]; sourceAddresses: string[]; evidence: Record<string, unknown>[];
 }
 
 /** Every public row is read through the owning native connection and compared with the immutable native proposal. */
@@ -132,18 +132,23 @@ export async function captureMcpDeployAuthority(tx: Sql, op: DeployOperation): P
     'mode',mode,'config',config,'status',status,'revoked_at',revoked_at) as row from platform.provider_connections where id=$1 and workspace_id=$2`, [conn.data.platformConnectionId, ws]);
   if (providerRows.length !== 1 || providerRows[0].row.status !== "verified" || providerRows[0].row.revoked_at !== null
     || providerRows[0].row.provider !== conn.data.provider) return refused();
-  const bindings = (await tx.query<{ row: Record<string, unknown> }>("select to_jsonb(b) as row from platform.github_source_bindings b where workspace_id=$1", [ws])).map(value => value.row);
-  if (bindings.length > 1 || bindings[0]?.revoked_at != null) return refused();
+  const allBindings = (await tx.query<{ row: Record<string, unknown> }>("select to_jsonb(b) as row from platform.github_source_bindings b where workspace_id=$1 order by repository_id", [ws])).map(value => value.row);
+  const sourceRepositories: { owner: string; repo: string }[] = [];
   for (const service of manifest.manifest.services) {
     if (service.ownership !== "managed" || service.source.type !== "git") continue;
     const repository = /^(?:(?:https:\/\/)?github\.com\/)?([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9._-]{1,100})\/?$/.exec(service.source.repo);
-    if (!repository || bindings[0] && (bindings[0].owner !== repository[1].toLowerCase()
-      || bindings[0].repo !== repository[2].replace(/\.git$/, "").toLowerCase())) return refused();
+    if (!repository) return refused();
+    const location = { owner: repository[1].toLowerCase(), repo: repository[2].replace(/\.git$/, "").toLowerCase() };
+    sourceRepositories.push(location);
+    if (allBindings.some(b => b.name_current === true && b.owner === location.owner && b.repo === location.repo && b.revoked_at != null)) return refused();
   }
   const sourceRows = await tx.query<{ row: Record<string, unknown> }>("select to_jsonb(s) as row from platform.approved_source_snapshots s where workspace_id=$1 and operation_id=$2 order by service_address collate \"C\" limit 10001", [ws, op.id]);
   if (sourceRows.length > 10000) return refused();
   const sourceAddresses = [...new Set(graph.nodes.filter(node => node.ownership === "managed" && ["container_service", "scheduled_job", "build_pipeline"].includes(node.kind)).map(node => node.address))].sort();
   const resources = (await tx.query<{ row: Record<string, unknown> }>("select to_jsonb(r) as row from platform.resources r where workspace_id=$1 and environment_id=$2 and address=any($3::text[]) order by address collate \"C\"", [ws, op.environment_id, textArray(sourceAddresses)])).map(value => value.row);
+  const sourceIdentities = sourceRows.map(value => immutableSourceSnapshot(value.row.snapshot));
+  const bindings = allBindings.filter(b => b.name_current === true && sourceRepositories.some(r => b.owner === r.owner && b.repo === r.repo)
+    || sourceIdentities.some(source => Number(b.repository_id) === source.repositoryId));
   const sources = sourceRows.map(value => {
     const row = value.row, source = immutableSourceSnapshot(row.snapshot);
     const service = graph.nodes.find(node => node.address === source.serviceAddress), pipeline = graph.nodes.find(node => node.address === source.pipelineAddress);
@@ -156,9 +161,12 @@ export async function captureMcpDeployAuthority(tx: Sql, op: DeployOperation): P
         || native[0].ownership !== "managed" || native[0].status === "deleted" || native[0].spec_digest !== node.specDigest
         || digest(native[0].spec) !== digest(node.spec)) return refused();
     }
-    const remembered = source.githubBinding, current = bindings[0];
-    if (remembered ? !current || current.app_id !== remembered.appId || current.installation_id !== remembered.installationId
-      || current.repository_id !== remembered.repositoryId || current.version !== remembered.version
+    const remembered = source.githubBinding;
+    const matches = bindings.filter(b => Number(b.repository_id) === source.repositoryId || b.name_current === true && b.owner === source.owner && b.repo === source.repo);
+    if (matches.length > 1) return refused();
+    const current = matches[0];
+    if (remembered ? !current || current.revoked_at != null || current.app_id !== remembered.appId || Number(current.installation_id) !== remembered.installationId
+      || Number(current.repository_id) !== remembered.repositoryId || current.version !== remembered.version
       || current.owner !== source.owner || current.repo !== source.repo : !!current) return refused();
     return source;
   });
@@ -204,7 +212,7 @@ export async function captureMcpDeployAuthority(tx: Sql, op: DeployOperation): P
     revision_id: revision.id, data: { executor: deployment.data.executor, operationId: deployment.data.operationId, mcpAdmission: deployment.data.mcpAdmission } };
   return bounded({ member: member.data, project: projectAuthority, environment: environmentAuthority, revision: revisionAuthority, deployment: deploymentAuthority,
     connection, manifest: manifestRow.data, providerConnection: providerRows[0].row,
-    bindings, sources: sourceRows.map(value => value.row), resources, sourceAddresses, evidence });
+    bindings, sourceRepositories, sources: sourceRows.map(value => value.row), resources, sourceAddresses, evidence });
 }
 
 /** $12 is produced internally before role/policy waits. This final statement sees committed changes at READ COMMITTED. */
@@ -225,7 +233,9 @@ export const MCP_DEPLOY_AUTHORITY = `($12::text::jsonb='null'::jsonb or (
   and exists(select 1 from public.connections c where c.id=o.proposal->'input'->>'connectionId' and c.workspace_id=o.workspace_id and to_jsonb(c)=$12::text::jsonb->'connection')
   and exists(select 1 from platform.provider_connections c where c.workspace_id=o.workspace_id and c.id=$12::text::jsonb->'providerConnection'->>'id'
     and c.status='verified' and c.revoked_at is null and jsonb_build_object('id',c.id,'workspace_id',c.workspace_id,'provider',c.provider,'mode',c.mode,'config',c.config,'status',c.status,'revoked_at',c.revoked_at)=$12::text::jsonb->'providerConnection')
-  and coalesce((select jsonb_agg(to_jsonb(b)) from platform.github_source_bindings b where b.workspace_id=o.workspace_id),'[]'::jsonb)=$12::text::jsonb->'bindings'
+  and coalesce((select jsonb_agg(to_jsonb(b) order by b.repository_id) from platform.github_source_bindings b where b.workspace_id=o.workspace_id
+    and (b.name_current and exists(select 1 from jsonb_array_elements($12::text::jsonb->'sourceRepositories') loc where b.owner=loc->>'owner' and b.repo=loc->>'repo')
+      or exists(select 1 from jsonb_array_elements($12::text::jsonb->'sources') src where b.repository_id=(src->'snapshot'->>'repositoryId')::bigint))),'[]'::jsonb)=$12::text::jsonb->'bindings'
   and coalesce((select jsonb_agg(to_jsonb(s) order by s.service_address collate "C") from platform.approved_source_snapshots s where s.workspace_id=o.workspace_id and s.operation_id=o.id),'[]'::jsonb)=$12::text::jsonb->'sources'
   and coalesce((select jsonb_agg(to_jsonb(r) order by r.address collate "C") from platform.resources r where r.workspace_id=o.workspace_id and r.environment_id=o.environment_id
     and r.address in (select jsonb_array_elements_text($12::text::jsonb->'sourceAddresses'))),'[]'::jsonb)=$12::text::jsonb->'resources'

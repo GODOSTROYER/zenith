@@ -27,28 +27,23 @@ function single(req: NextRequest, key: string): string | undefined {
 export const GET = route({ workspaceRole: "admin" }, async (req) => {
   const caller = await browserCaller(req, false);
   try {
-    if ([...req.nextUrl.searchParams.keys()].some(key => !["ref", "root", "repository"].includes(key))) throw new GithubSourceError("invalid");
+    if ([...req.nextUrl.searchParams.keys()].some(key => !["ref", "root", "repository", "contextDir", "accessKind"].includes(key))) throw new GithubSourceError("invalid");
     const store = createGithubSourceStore(await platformDb());
-    const state = await store.getState(caller.workspaceId);
-    // A revoked binding is never an anonymous fallback.
-    if (state?.revoked) throw new GithubSourceError("refused");
+    const requested = single(req, "repository");
     let location: { owner: string; repo: string };
-    if (state) {
-      location = { owner: state.binding.owner, repo: state.binding.repo };
-      const requested = single(req, "repository");
-      if (requested !== undefined) {
-        const parts = requested.split("/");
-        if (parts.length !== 2) throw new GithubSourceError("invalid");
-        const asked = repository(parts[0], parts[1]);
-        if (asked.owner !== location.owner || asked.repo !== location.repo) throw new GithubSourceError("refused");
-      }
-    } else {
-      const parts = (single(req, "repository") ?? "").split("/");
+    if (requested !== undefined) {
+      const parts = requested.split("/");
       if (parts.length !== 2) throw new GithubSourceError("invalid");
       location = repository(parts[0], parts[1]);
+    } else {
+      const state = await store.getState(caller.workspaceId);
+      if (!state || state.revoked) throw new GithubSourceError("refused");
+      location = { owner: state.binding.owner, repo: state.binding.repo };
     }
+    const accessKind = single(req, "accessKind");
+    if (accessKind !== undefined && accessKind !== "public" && accessKind !== "installed") throw new GithubSourceError("invalid");
     const result = await inspector({
-      workspaceId: caller.workspaceId, ...location, ref: single(req, "ref") ?? "HEAD", root: single(req, "root"),
+      workspaceId: caller.workspaceId, ...location, ref: single(req, "ref") ?? "HEAD", root: single(req, "root"), contextDir: single(req, "contextDir"), accessKind,
       signal: AbortSignal.any([req.signal, AbortSignal.timeout(60_000)]),
     });
     return jsonResponse(result);

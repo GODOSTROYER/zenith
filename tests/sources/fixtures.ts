@@ -12,13 +12,16 @@ export const USER_TOKEN = "synthetic-user-canary";
 export const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 export const tokenResponse = () => ({ token: INSTALL_TOKEN, expires_at: new Date(Date.now() + 3_600_000).toISOString(), permissions: { contents: "read", metadata: "read" }, repositories: [{ id: 99, full_name: "acme/app" }] });
 export function api() {
-  return vi.fn<typeof fetch>(async (url) => {
+  return vi.fn<typeof fetch>(async (url, init) => {
     const value = String(url);
     if (value === "https://api.github.com/app") return json({ id: 42, slug: "zenith-test" });
+    if (value === "https://api.github.com/app/installations/7") return json({ id: 7, app_id: 42, suspended_at: null });
     if (value === "https://api.github.com/repos/acme/app/installation") return json({ id: 7, app_id: 42, suspended_at: null });
     if (value === "https://api.github.com/app/installations/7/access_tokens") return json(tokenResponse());
+    if (value === "https://api.github.com/installation/token" && init?.method === "DELETE") return new Response(null, { status: 204 });
     if (value === "https://github.com/login/oauth/access_token") return json({ access_token: USER_TOKEN, token_type: "bearer" });
-    if (value.startsWith("https://api.github.com/user/installations/7/repositories?")) return json({ repositories: [{ id: 99, full_name: "acme/app" }] });
+    if (value === "https://api.github.com/repos/acme/app") return json({ id: 99, full_name: "acme/app", name: "app", owner: { login: "acme" }, private: true, default_branch: "main", permissions: { admin: true } });
+    if (value.startsWith("https://api.github.com/user/installations/7/repositories?")) return json({ repositories: [{ id: 99, full_name: "acme/app", private: true, default_branch: "main", permissions: { admin: true } }] });
     throw new Error("Unexpected synthetic GitHub request.");
   });
 }

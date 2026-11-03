@@ -32,6 +32,7 @@ const squash = (text: string): string => text.replace(/\s+/g, " ");
 // Committed guide-input pins; shallow CI need not have historical Git objects.
 // These verify the declared documentation contract, not remote ancestry or live acceptance.
 const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
+  "GITHUB-ANALYSIS.md": { branch: "codex/github-source-gimbal-2026-11-03", commit: "e70820e2576dcef0eb3a462d1c9ec25917cf82a8" },
   ...Object.fromEntries(["README.md", "DEPLOYING.md", "RECOVERY.md", "AWS-SETUP.md", "POLICY.md", "COST.md", "TEARDOWN.md", "BUILDS.md", "OCI-SIGNALS.md"]
     .map(name => [name, { branch: "ws/docs-sync-2", commit: "3c1fa66" }])),
   "DEPLOYING.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
@@ -861,20 +862,27 @@ describe("operator claims match current wiring", () => {
   it("GitHub source setup uses the platform ledger and links the browser form", () => {
     const builds = squash(guide("BUILDS.md"));
     expect(builds).toContain("npm run migrate:platform");
-    expect(builds).toContain("Platform migration 6 (`github_sources`)");
+    expect(builds).toContain("Platform migration 60 (`github_repository_grants`)");
     expect(builds).toContain("No separate GitHub schema installer is required");
-    expect(builds).toContain("preserves tables and rows from earlier manual installations");
-    expect(builds).toContain("**GitHub source** in the Platform navigation");
+    expect(builds).toContain("preserves event history");
+    expect(builds).toContain("`supabase/migrations/0030_platform_core.sql`");
+    expect(builds).toContain("`0027_platform_core.sql` and `0029_platform_core.sql`, remain unchanged");
+    expect(builds).toContain("ZENITH_ALLOW_CONTRACT_MIGRATIONS=60,62,63");
+    expect(builds).toContain("Do not replace an unknown budget or spend value with zero");
+    expect(builds).toContain("**Repositories** in the Platform navigation");
+    expect(builds).toContain("[GITHUB-ANALYSIS.md](GITHUB-ANALYSIS.md)");
     expect(builds).not.toContain("separate from the platform migration ledger");
     expect(builds).not.toContain("navigation link in the product settings is an orchestrator follow-up");
     expect(source("src/lib/sources/github/migrate.ts")).toContain("await migratePlatformDb(db)");
     expect(source("src/lib/sources/github/migrate.ts")).not.toContain("installGithubSourceSchema");
     const layout = source("src/app/(product)/platform/layout.tsx");
     expect(layout).toContain("<PlatformNav />");
-    expect(source("src/app/(product)/platform/_components/platform-nav.tsx")).toContain('{ href: "/platform/source", label: "GitHub source" }');
+    expect(source("src/app/(product)/platform/_components/platform-nav.tsx")).toContain('{ href: "/platform/source", label: "Repositories" }');
     const panel = source("src/app/(product)/platform/source/source-panel.tsx");
     expect(panel).toContain('viewerRole !== "admin"');
     expect(panel).toContain('browserMutation<{ installUrl: string }>(workspaceId, "/api/platform/v1/github/binding"');
+    expect(panel).toContain('browserMutation<{ authorizeUrl: string }>(workspaceId, "/api/platform/v1/github/discovery"');
+    expect(panel).toContain('"/api/platform/v1/github/binding/unbind", { bindingId: binding.bindingId, version: binding.version }');
     const callback = source("src/app/api/platform/v1/github/callback/route.ts");
     expect(callback).toContain('export const GET = route({ workspaceRole: "admin" }');
     expect(callback).toContain("Install and bind repository");
@@ -1004,7 +1012,7 @@ describe("operator claims match current wiring", () => {
     expect(awsSetup).not.toContain("absent from default composition");
   });
 
-  it("CLI entry points and all sixteen MCP tools are documented", () => {
+  it("CLI entry points and all twenty-one MCP tools are documented", () => {
     const pkg = JSON.parse(source("package.json")) as { scripts: Record<string, string>; bin: Record<string, string> };
     expect(pkg.scripts.cli).toBe("tsx src/cli/bin.ts");
     expect(pkg.bin.zenith).toBe("src/cli/bin.ts");
@@ -1013,9 +1021,9 @@ describe("operator claims match current wiring", () => {
     const names = [...new Set([...catalog.matchAll(/\bzenith_[a-z_]+\b/g)].map((m) => m[0]))].sort();
     const mcp = source("docs/platform/MCP.md");
     const listed = [...mcp.matchAll(/^\| `(zenith_[a-z_]+)` \|/gm)].map((m) => m[1]).sort();
-    expect(names).toHaveLength(17);
+    expect(names).toHaveLength(21);
     expect(listed).toEqual(names);
-    expect(mcp).toContain("seventeen");
+    expect(mcp).toContain("twenty-one");
     expect(guide("README.md")).toContain("CLI.md");
   });
 

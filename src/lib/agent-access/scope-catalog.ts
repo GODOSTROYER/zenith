@@ -13,8 +13,8 @@ export const OAUTH_SCOPE_PREFIX = "zenith:" as const;
 
 export const SCOPE_SUMMARY: Record<IntegrationScope, string> = {
   read: "Read projects, revisions and operations. Always included.",
-  plan: "Prepare proposals for review here. Never executes anything.",
-  export: "Export a project's configuration.",
+  plan: "Prepare proposals for review here. Returning repository changes also requires export. Never executes anything.",
+  export: "Export a project's configuration and authorized repository analysis or handoff context.",
   write: "Dispatch a proposal you have approved.",
   publish: "Release an app it also has an explicit owner grant for.",
   logs: "Read redacted deployment logs.",

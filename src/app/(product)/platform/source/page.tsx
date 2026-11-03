@@ -1,21 +1,15 @@
-/** GitHub source binding: the workspace's one bound repository, why access stopped, bind/unbind and static inspection. */
-import { platformDb } from "@/lib/controlplane/db/open";
-import { createGithubSourceStore } from "@/lib/sources/github/store";
+/** Workspace repository grants and the shared source-inspection entry point. */
 import { loadPage } from "../_lib/loaders";
 import { PageState } from "../_components/page-state";
-import { SourcePanel, type SourceBindingView } from "./source-panel";
+import { SourcePanel } from "./source-panel";
 export const dynamic = "force-dynamic";
-export default async function SourcePage() {
-  const result = await loadPage(async (context) => {
-    const state = await createGithubSourceStore(await platformDb()).getState(context.workspaceId);
-    const view: SourceBindingView | null = state ? {
-      owner: state.binding.owner, repo: state.binding.repo, version: state.binding.version,
-      state: state.revoked ? "revoked" : "connected", revokedReason: state.revokedReason,
-    } : null;
-    return view;
-  });
+export default async function SourcePage({ searchParams }: { searchParams?: Promise<{ discovery?: string }> }) {
+  const query = searchParams ? await searchParams : {};
+  const result = await loadPage(async () => null);
   if ("error" in result) return <PageState {...result} />;
-  return <div className="space-y-5"><h1 className="app-page-title">GitHub source</h1>
-    <SourcePanel workspaceId={result.context.workspaceId} viewerRole={result.context.role} initial={result.data} />
+  const discovery = typeof query.discovery === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(query.discovery) ? query.discovery : undefined;
+  return <div className="space-y-5"><h1 className="app-page-title">Repository connections</h1>
+    <p className="text-[13px] text-ink-mute">Choose which code Zenith can read, inspect it, and manage access as your projects change.</p>
+    <SourcePanel workspaceId={result.context.workspaceId} viewerRole={result.context.role} discoverySession={discovery} />
   </div>;
 }

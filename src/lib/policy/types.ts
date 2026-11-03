@@ -91,7 +91,7 @@ export interface PolicyInput {
      * The engine fills it from the catalog when absent and rejects a value that
      * disagrees with the catalog, so a broker cannot understate what it asks for.
      */
-    integrationScope?: "read" | "plan" | "logs" | "write" | "publish";
+    integrationScope?: "read" | "plan" | "logs" | "write" | "publish" | "export";
     scope: { workspaceId: string; projectId?: string; environmentId?: string; resourceId?: string };
     requestedDurationSec?: number;
     constraints?: Record<string, unknown>;

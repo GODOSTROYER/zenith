@@ -7,10 +7,11 @@
  * this file never sees, logs or stores it. Every request carries the output
  * ceiling the budget meter computed and an abort signal for the time left.
  *
- * Thinking is left at the model default (adaptive) because the current models
- * cannot disable it; `effort` is set explicitly (default "low") to keep the
- * reasoning share of the output budget small. Reasoning blocks are carried
- * back verbatim, never interpreted.
+ * Adaptive thinking display is explicitly omitted. Opaque signed blocks are
+ * carried back verbatim only in the protected, expiring protocol checkpoint;
+ * they are never part of a run view or handoff. See the current contract:
+ * https://platform.claude.com/docs/en/build-with-claude/thinking-tool-workflows
+ * https://platform.claude.com/docs/en/build-with-claude/thinking
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Block, ModelProvider, ModelRequest, ModelResponse, ModelStop } from "./types";
@@ -35,7 +36,7 @@ export function anthropicProvider(options: AnthropicProviderOptions = {}): Model
   const client = async (): Promise<Pick<Anthropic, "messages">> => {
     if (cached) return cached;
     const { default: Sdk } = await import("@anthropic-ai/sdk");
-    cached = new Sdk({ timeout: options.timeoutMs ?? 120_000, maxRetries: 1 });
+    cached = new Sdk({ timeout: options.timeoutMs ?? 120_000, maxRetries: 0 });
     return cached;
   };
   return {
@@ -48,6 +49,7 @@ export function anthropicProvider(options: AnthropicProviderOptions = {}): Model
         system: request.system,
         messages: request.messages,
         tools: request.tools,
+        thinking: { type: "adaptive", display: "omitted" },
         output_config: { effort: options.effort ?? "low" },
       };
       const response = (await c.messages.create(body as never, request.signal ? { signal: request.signal } : undefined)) as Anthropic.Message;

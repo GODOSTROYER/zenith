@@ -215,10 +215,18 @@ describe("native escape hatch", () => {
 
   it("registry: strict schemas only, prefix enforced, last registration wins, unregister works", () => {
     expect(() => registerNativeType("aws", "aws:loose", z.object({ a: z.string() }))).toThrow(/must be \.strict\(\)/);
+    expect(() => registerNativeType("aws", "aws:loose_transform", z.object({ a: z.string() }).transform(value => value))).toThrow(/must be \.strict\(\)/);
+    expect(() => registerNativeType("aws", "aws:loose_preprocess", z.preprocess(value => value, z.object({ a: z.string() })))).toThrow(/must be \.strict\(\)/);
+    expect(() => registerNativeType("aws", "aws:loose_catchall", z.object({ a: z.string() }).strict().catchall(z.unknown()))).toThrow(/must be \.strict\(\)/);
     expect(() => registerNativeType("aws", "gcp:wrong", z.object({}).strict())).toThrow(/must look like "aws:<name>"/);
     expect(() => registerNativeType("aws", "aws:", z.object({}).strict())).toThrow();
     // a refined strict object is still strict
     expect(() => registerNativeType("aws", "aws:refined", z.object({ a: z.number() }).strict().refine((c) => c.a > 0))).not.toThrow();
+    expect(() => registerNativeType("aws", "aws:transformed", z.preprocess(value => value, z.object({ a: z.number() }).strict().refine(c => c.a > 0).transform(c => ({ ...c, checked: true }))))).not.toThrow();
+    cleanup.push(["aws", "aws:transformed"]);
+    expect(issues(v2({ native: [native({ type: "aws:transformed", id: "transformed", config: { a: 0 } })] })).length).toBeGreaterThan(0);
+    expect(issues(v2({ native: [native({ type: "aws:transformed", id: "transformed", config: { a: 1, extra: true } })] })).length).toBeGreaterThan(0);
+    expect(issues(v2({ native: [native({ type: "aws:transformed", id: "transformed", config: { a: 1 } })] }))).toEqual([]);
     cleanup.push(["aws", "aws:refined"]);
     expect(issues(v2({ native: [native({ type: "aws:refined", id: "refd", config: { a: 0 } })] })).length).toBeGreaterThan(0);
     // tighten the schema: last registration wins

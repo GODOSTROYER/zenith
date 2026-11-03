@@ -52,8 +52,8 @@ const basePlan = (summary: string, details: string[], extra: Partial<ActionPlan>
 
 /* ---------------------------------- create --------------------------------- */
 
-function createAction<S extends z.ZodTypeAny>(provider: "gcp" | "azure" | "oci" | "zenith", id: string, title: string, schema: S, details: string[]) {
-  defineAction<z.infer<S>>({
+function createAction<T>(provider: "gcp" | "azure" | "oci" | "zenith", id: string, title: string, schema: z.ZodType<T>, details: string[]) {
+  defineAction<T>({
     id, title, category: "connection", risk: "medium", requiredRole: "admin", mutates: true, input: schema,
     async plan(ctx) {
       return basePlan(`Save a pending ${provider.toUpperCase()} connection.`, [

@@ -41,8 +41,8 @@ describe("Next lint dependency replacement", () => {
     const pkg = require(path.join(root, "package.json"));
     const lock = require(path.join(root, "package-lock.json"));
     expect(pkg.engines.node).toBe(">=22.22.2 <23");
-    expect(pkg.overrides["@next/eslint-plugin-next@15.5.24"]["fast-glob"]).toBe("npm:glob@13.0.6");
-    expect(nextRequire("fast-glob/package.json")).toMatchObject({ name: "glob", version: "13.0.6" });
+    expect(pkg.overrides["@next/eslint-plugin-next@15.5.24"]["fast-glob"]).toBe("npm:glob@14.0.3");
+    expect(nextRequire("fast-glob/package.json")).toMatchObject({ name: "glob", version: "14.0.3" });
     expect(pkg.devDependencies.picomatch).toBe("4.0.7");
     expect(require("picomatch/package.json").version).toBe("4.0.7");
     const globRequire = createRequire(nextRequire.resolve("fast-glob"));
@@ -152,6 +152,25 @@ describe("Next lint dependency replacement", () => {
     expect(unused[0].message).toContain("'unused'");
     const [owner] = await eslint.lintText('import "@/lib/hosted/contracts/types";', { filePath: "src/lib/hosted/dependency-check.ts" });
     expect(owner.messages.filter((message) => message.ruleId === "no-restricted-imports")).toEqual([]);
+  });
+
+  it.each([
+    ["forbid", { forbid: ["@/lib/domain/**"] }],
+    ["allow", { allow: ["@/lib/coding-agent/**"] }],
+  ] as const)("keeps import/no-internal-modules %s predicates on the v11 matcher", async (_mode, options) => {
+    const importLint = new ESLint({ cwd: root, overrideConfig: { rules: { "import/no-internal-modules": ["error", options] } } });
+    const [allowed] = await importLint.lintText(
+      'import { DEFAULT_LIMITS } from "@/lib/coding-agent/budget"; export const calls = DEFAULT_LIMITS.toolCalls;',
+      { filePath: "src/app/dependency-check.ts" },
+    );
+    expect(allowed.fatalErrorCount).toBe(0);
+    expect(allowed.messages.filter(message => message.ruleId === "import/no-internal-modules")).toEqual([]);
+    const [blocked] = await importLint.lintText(
+      'import { contentHash } from "@/lib/domain/types"; export const hash = contentHash({});',
+      { filePath: "src/app/dependency-check.ts" },
+    );
+    expect(blocked.fatalErrorCount).toBe(0);
+    expect(blocked.messages.filter(message => message.ruleId === "import/no-internal-modules")).toHaveLength(1);
   });
 
   it("bounds deeply nested brace input in an isolated process", () => {

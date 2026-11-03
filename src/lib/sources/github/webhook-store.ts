@@ -72,7 +72,7 @@ export function createGithubWebhookStore(db: Sql, backendKind = (db as Sql & { r
           where app_id = $1 and installation_id = $2`, [event.appId, event.installationId]);
         // All cross-tenant authority is bounded by signed immutable provider
         // IDs. Names and URLs from the payload are never used as selectors.
-        const candidates = await tx.query<{ workspace_id: string }>(`select workspace_id
+        const candidates = await tx.query<{ workspace_id: string }>(`select distinct workspace_id
           from platform.github_source_bindings where app_id = $1 and installation_id = $2
           and ($3::boolean or repository_id = any($4::bigint[])) order by workspace_id`,
         [event.appId, event.installationId, event.event === "installation", ids]);
@@ -80,9 +80,9 @@ export function createGithubWebhookStore(db: Sql, backendKind = (db as Sql & { r
         // then binding rows. PGlite serializes transactions in its engine.
         if (backendKind === "postgres") for (const row of candidates) await tx.query(
           "select pg_advisory_xact_lock(hashtextextended('zenith:github-binding:' || $1::text, 0))", [row.workspace_id]);
-        const affected = await tx.query<{ workspace_id: string; active: boolean }>(`select workspace_id, revoked_at is null as active
+        const affected = await tx.query<{ workspace_id: string; binding_id: string; repository_id: number; owner: string; repo: string; active: boolean }>(`select workspace_id, binding_id, repository_id, owner, repo, revoked_at is null as active
           from platform.github_source_bindings where app_id = $1 and installation_id = $2
-          and ($3::boolean or repository_id = any($4::bigint[])) order by workspace_id for update`,
+          and ($3::boolean or repository_id = any($4::bigint[])) order by workspace_id, repository_id for update`,
         [event.appId, event.installationId, event.event === "installation", ids]);
         const actor = "github_webhook";
         const reason = event.event === "installation_repositories" ? "repositories_removed" : event.action === "suspend" ? "installation_suspended" : "installation_deleted";
@@ -91,19 +91,20 @@ export function createGithubWebhookStore(db: Sql, backendKind = (db as Sql & { r
           if (row.active) {
             const changed = await tx.query(`update platform.github_source_bindings
               set revoked_at = clock_timestamp(), revoked_by = $2, revoked_reason = $5, version = version + 1, updated_at = clock_timestamp()
-              where workspace_id = $1 and app_id = $3 and installation_id = $4 and revoked_at is null returning version`,
-            [row.workspace_id, actor, event.appId, event.installationId, reason]);
+              where workspace_id = $1 and app_id = $3 and installation_id = $4 and binding_id=$6 and revoked_at is null returning version`,
+            [row.workspace_id, actor, event.appId, event.installationId, reason, row.binding_id]);
             if (changed.length !== 1) throw new GithubSourceError("conflict");
             await tx.query(`insert into platform.github_binding_events
-              (workspace_id, version, action, actor_id, app_id, installation_id, repository_id, owner, repo, reason)
-              select workspace_id, version, 'revoked', $2, app_id, installation_id, repository_id, owner, repo, $3::text
-              from platform.github_source_bindings where workspace_id = $1`, [row.workspace_id, actor, reason]);
+              (workspace_id, version, action, actor_id, app_id, installation_id, repository_id, owner, repo, reason, binding_id)
+              select workspace_id, version, 'revoked', $2, app_id, installation_id, repository_id, owner, repo, $3::text, binding_id
+              from platform.github_source_bindings where workspace_id = $1 and binding_id=$4`, [row.workspace_id, actor, reason, row.binding_id]);
             revokedCount++;
           }
           // Includes pending callbacks on an already-revoked matching row.
           // Consumed callbacks must also carry the captured epoch into bind.
-          await tx.query("delete from platform.github_install_intents where workspace_id = $1", [row.workspace_id]);
+          await tx.query("delete from platform.github_install_intents where workspace_id=$1 and owner=$2 and repo=$3", [row.workspace_id,row.owner,row.repo]);
         }
+        await tx.query("delete from platform.github_discovery_sessions where app_id=$1 and installation_id=$2", [event.appId,event.installationId]);
         if (event.event === "installation") await tx.query(`delete from platform.github_install_intents
           where app_id = $1 and installation_id = $2`, [event.appId, event.installationId]);
         await tx.query(`update platform.github_webhook_deliveries set revoked_count = $3

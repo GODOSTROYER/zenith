@@ -495,6 +495,54 @@ describe("separation of duties over HTTP", () => {
 /* ---------------------------- operations: read / cancel -------------------- */
 
 describe("GET operations, detail and events; POST cancel", () => {
+  it.each(["coding_agent_manifest", "coding_agent_source_return"])("keeps %s source details out of ordinary bearer REST reads while retaining human review", async stage => {
+    const privateContext = "private-customer-repository-findings";
+    const created = await proposeAs("eve", {
+      capability: "infrastructure.plan", scope: { workspaceId: "ws-a", projectId: "pa", environmentId: "env-sbx" },
+      input: { operation: "plan", stage, runId: "run-private", source: { repository: privateContext }, description: privateContext },
+      reason: privateContext,
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.operation.id;
+    const human = await call(operation.GET as Handler, "GET", `operations/${id}`, { id });
+    expect(human.text).toContain(privateContext);
+    signIn(null);
+    const headers = { authorization: `Bearer ${state.token}` };
+    state.credentials[0].scopes = ["read"];
+    const detail = await call(operation.GET as Handler, "GET", `operations/${id}`, { id, headers });
+    const list = await call(operations.GET as Handler, "GET", "operations", { headers });
+    const history = await call(events.GET as Handler, "GET", `operations/${id}/events`, { id, headers });
+    for (const response of [detail, list, history]) {
+      expect(response.status).toBe(200);
+      expect(response.text).not.toContain(privateContext);
+    }
+    expect(detail.body.operation).toMatchObject({ id, proposal: { input: { sourceContextOmitted: true } } });
+    expect(detail.body.sourceContextOmitted).toBe(true);
+    expect(list.body.operations[0].proposal.input).toEqual({ sourceContextOmitted: true });
+    expect(history.body.events.length).toBeGreaterThan(0);
+    for (const event of history.body.events) expect(event.data).toEqual({ sourceContextOmitted: true });
+  });
+
+  it("does not expose retained source context through a bearer proposal replay or cancellation", async () => {
+    signIn(null);
+    const headers = { authorization: `Bearer ${state.token}` };
+    const privateContext = "unpublished-customer-code-paths";
+    const body = { capability: "infrastructure.plan", scope: { workspaceId: "ws-a", projectId: "pa", environmentId: "env-sbx" },
+      input: { operation: "plan", stage: "coding_agent_source_return", runId: "private-run", description: privateContext },
+      reason: privateContext, idempotencyKey: "source-rest-replay-001" };
+    const first = await call(propose.POST as Handler, "POST", "capabilities/propose", { headers, body });
+    expect(first.status).toBe(201);
+    const replay = await call(propose.POST as Handler, "POST", "capabilities/propose", { headers, body });
+    expect(replay.status).toBe(200);
+    const id = first.body.operation.id;
+    const cancelled = await call(cancel.POST as Handler, "POST", `operations/${id}/cancel`, { id, headers, body: {} });
+    expect(cancelled.status).toBe(200);
+    for (const response of [first, replay, cancelled]) {
+      expect(response.text).not.toContain(privateContext);
+      expect(response.body.operation.proposal.input).toEqual({ sourceContextOmitted: true });
+    }
+  });
+
   it("lists newest first, paginates with an opaque cursor, and filters", async () => {
     for (let i = 0; i < 3; i++) await proposeAs("eve", restart("env-prod", { input: { n: i } }));
     await proposeAs("eve", restart("env-sbx"));

@@ -3,6 +3,8 @@ export interface GithubRepository { owner: string; repo: string }
 export interface GithubAccessScope extends GithubRepository {
   workspaceId?: string;
   environmentId?: string;
+  /** Explicit browser source selection; omitted only by legacy internal callers. */
+  accessKind?: "public" | "installed";
   signal?: AbortSignal;
 }
 export interface GithubSourceBinding extends GithubRepository {

@@ -1,5 +1,5 @@
 {
-  "catalogDigest": "sha256:6a74227494d3e45e9a1d547e6e428da3b744b140c986c54362e0dec920d3bce9",
+  "catalogDigest": "sha256:946783432915b9ba1afbd4fb8877bf4a8b9a88f9a618b74c1024577f42b82e30",
   "tools": [
     {
       "name": "zenith_get_topology",
@@ -85,6 +85,26 @@
       "name": "zenith_get_operation_events",
       "schemaVersion": 1,
       "schemaDigest": "sha256:ffe7fb3194c7573d8045a3fe7b708b1a2bf3338ee4f293e3117278b408ef20f9"
+    },
+    {
+      "name": "zenith_get_source_context",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:b638f24f409a44cc407eb1d83a75c6a505cd0f0273a4cfdf2dfb67cd75a2818e"
+    },
+    {
+      "name": "zenith_get_analysis",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:b638f24f409a44cc407eb1d83a75c6a505cd0f0273a4cfdf2dfb67cd75a2818e"
+    },
+    {
+      "name": "zenith_get_handoff",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:b638f24f409a44cc407eb1d83a75c6a505cd0f0273a4cfdf2dfb67cd75a2818e"
+    },
+    {
+      "name": "zenith_submit_source_proposal",
+      "schemaVersion": 2,
+      "schemaDigest": "sha256:3b9b1cfd17b25f49a9d666191e47f5b1c5d247ad954baaacc39c01a7e8795243"
     }
   ]
 }

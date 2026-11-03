@@ -37,7 +37,7 @@ describe("route wiring", () => {
     const start = routeFile("runs");
     expect(start).toContain("agentAdmin(req)");
     expect(start).toContain("createRun(await codingAgentControl()");
-    expect(readFileSync(path.resolve("src/lib/coding-agent/platform.ts"), "utf8")).toContain("modelConfigured: anthropicKeyPresent");
+    expect(readFileSync(path.resolve("src/lib/coding-agent/platform.ts"), "utf8")).toContain("modelConfigured: async () => modelWorkerAvailable(await platformDb())");
     expect(start).toContain(".strict()");
     const resume = routeFile("runs", "[id]", "resume");
     expect(resume).toContain("resumeRun(await codingAgentControl()");

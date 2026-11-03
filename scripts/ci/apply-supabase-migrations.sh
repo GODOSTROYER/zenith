@@ -29,9 +29,9 @@
 # exposes it here either: the agent journal and credential authority speak
 # direct Postgres through `postgres.js`.
 #
-# ## 0014 — the `platform` schema
+# ## 0014 through 0030 — the `platform` schema
 #
-# `supabase/migrations/0027_platform_core.sql` is GENERATED from the TypeScript
+# `supabase/migrations/0030_platform_core.sql` is GENERATED from the TypeScript
 # migrations of the platform control store (`npx tsx scripts/platform/emit-sql.ts`;
 # `tests/controlplane/migrations.test.ts` keeps it byte-identical). It creates the
 # `platform` schema and its own `platform.schema_migrations` ledger — checksummed,
@@ -109,6 +109,9 @@ MIGRATIONS=(
   "0025_platform_core.sql"
   "0026_platform_core.sql"
   "0027_platform_core.sql"
+  "0028_github_waitlist_identity.sql"
+  "0029_platform_core.sql"
+  "0030_platform_core.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -295,7 +298,7 @@ if [ -n "$unprotected" ]; then
 fi
 echo "row level security enabled on every table in schema agent."
 
-# --- the platform schema (historical0014/0016/0017/0018/0019/0020/0021/0022 plus current0023) ---------------------------------------------
+# --- the platform schema (historical snapshots plus current 0030) -------------
 #
 # Use the application's checksum/version verifier and canonical known names.
 # No pinned migration count: newly shipped versions follow the runtime manifest,
@@ -327,6 +330,8 @@ PLATFORM_TABLES=(
   cleanup_writer_holds
   cleanup_writer_scopes
   coding_agent_runs
+  coding_agent_workers
+  coding_agent_workspace_limits
   connection_rotations
   cost_estimates
   drift_reports
@@ -338,7 +343,9 @@ PLATFORM_TABLES=(
   external_effect_resolutions
   external_effects
   github_binding_events
+  github_discovery_sessions
   github_install_intents
+  github_project_sources
   github_source_bindings
   github_webhook_deliveries
   github_webhook_installation_epochs

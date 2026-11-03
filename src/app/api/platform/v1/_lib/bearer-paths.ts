@@ -85,8 +85,8 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/recovery/items/${ID}/decide$`), methods: { POST: "browser-only" } },
   // Coding-agent runs spend the workspace's model budget and stage a proposal: a workspace admin's own browser only.
   { path: new RegExp(`^${ROOT}/coding-agent/runs$`), methods: { GET: "browser-only", POST: "browser-only" } },
-  { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}$`), methods: { GET: "browser-only" } },
-  { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}/(?:resume|cancel|adopt)$`), methods: { POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}$`), methods: { GET: "browser-only", DELETE: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/coding-agent/runs/${ID}/(?:resume|cancel|adopt|handoff)$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/capability-catalog$`), methods: { GET: "bearer-capable" } },
   // Managed serving (PROD-MAN-02/03): the promised service catalog and a member's view of custom domains are readable; claiming, proving and
   // revoking a domain decide who may serve a hostname, so they need an admin's own browser.
@@ -97,7 +97,9 @@ export const PLATFORM_PATHS: readonly {
   // Installation and repository binding require the human admin's browser session.
   { path: new RegExp(`^${ROOT}/github/callback$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/github/binding$`), methods: { GET: "browser-only", POST: "browser-only" } },
-  { path: new RegExp(`^${ROOT}/github/binding/unbind$`), methods: { POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/binding/(?:unbind|sync)$`), methods: { POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/(?:discovery|project-source)$`), methods: { GET: "browser-only", POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/github/branches$`), methods: { GET: "browser-only" } },
   { path: new RegExp(`^${ROOT}/github/inspect$`), methods: { GET: "browser-only" } },
   { path: new RegExp(`^${ROOT}/github/webhook$`), methods: { POST: "webhook-signed" } },
   // Billing (PROD-MAN-06, managed mode only): a member reads plan and usage and an admin downloads the tenant export (both a person in the browser);

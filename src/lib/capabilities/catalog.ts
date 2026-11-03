@@ -34,7 +34,7 @@ export interface CapabilityDef {
   /** which scope level the request must name */
   scopeLevel: "workspace" | "project" | "environment" | "resource";
   /** coarse credential scope an integration needs (compat with za_ scopes) */
-  integrationScope: "read" | "plan" | "logs" | "write" | "publish";
+  integrationScope: "read" | "plan" | "logs" | "write" | "publish" | "export";
 }
 
 const def = (d: CapabilityDef): CapabilityDef => d;
@@ -43,6 +43,7 @@ export const CAPABILITIES = {
   /* ---------------------------- observation ---------------------------- */
   "infrastructure.observe": def({ name: "infrastructure.observe", title: "Observe infrastructure", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "environment", integrationScope: "read" }),
   "topology.read": def({ name: "topology.read", title: "Read topology", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "project", integrationScope: "read" }),
+  "source.context.read": def({ name: "source.context.read", title: "Export authorized repository analysis", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "environment", integrationScope: "export" }),
   "logs.read": def({ name: "logs.read", title: "Read logs", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "environment", integrationScope: "logs" }),
   "metrics.read": def({ name: "metrics.read", title: "Read metrics", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "environment", integrationScope: "read" }),
   "traces.read": def({ name: "traces.read", title: "Read traces", mutates: false, risk: "low", defaultAutonomy: 0, scopeLevel: "environment", integrationScope: "read" }),
@@ -137,7 +138,7 @@ export const CapabilityRequestSchema = z
     /** capability-specific, validated again by the executing handler */
     input: z.unknown().optional(),
     /** narrowing the requester asks for, e.g. { maxLines: 500, window: "1h" } */
-    constraints: z.record(z.unknown()).optional(),
+    constraints: z.record(z.string(), z.unknown()).optional(),
     /** how long a resulting grant should live, capped by policy (seconds) */
     requestedDurationSec: z.number().int().min(1).max(3600).optional(),
     /** why — shown to approvers; untrusted text */

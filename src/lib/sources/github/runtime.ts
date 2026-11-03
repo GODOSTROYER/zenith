@@ -7,11 +7,12 @@ import { GithubSourceError, repository, type GithubAccessScope } from "./types";
 
 export function createGithubAccess(deps: { db: () => Promise<Sql>; fetchImpl?: typeof fetch; env?: Readonly<Record<string, string | undefined>> }) {
   return async function withGithubAccess<T>(input: GithubAccessScope, fn: (token?: string) => Promise<T>): Promise<T> {
-    if (!input.workspaceId) return fn();
+    if (!input.workspaceId) { if (input.accessKind === "installed") throw new GithubSourceError("refused"); return fn(); }
     const requested = repository(input.owner, input.repo);
     try {
       const store = createGithubSourceStore(await deps.db());
-      const binding = await store.getBinding(input.workspaceId);
+      const binding = await store.getBinding(input.workspaceId, requested);
+      if (input.accessKind === "installed" && !binding || input.accessKind === "public" && binding) throw new GithubSourceError("refused");
       if (!binding) return await fn();
       const config = githubAppConfig(deps.env);
       if (!config || binding.appId !== config.appId || binding.owner !== requested.owner || binding.repo !== requested.repo) throw new GithubSourceError("refused");
@@ -27,7 +28,7 @@ export const defaultGithubAccess = createGithubAccess({ db: platformDb });
 
 /** Immutable source reads: fixed REST endpoints, bounded data, no provider URLs. */
 export function createGithubImmutableSourceAccess(deps: { db: () => Promise<Sql>; fetchImpl?: typeof fetch; env?: Readonly<Record<string,string|undefined>> }) {
-  return async <T>(input: import("./types").GithubImmutableSourceRequest, read: (source: import("./types").GithubImmutableSource, token?: string) => Promise<T>): Promise<T> => {
+  return async <T>(input: import("./types").GithubImmutableSourceRequest, read: (source: import("./types").GithubImmutableSource, token?: string, signal?: AbortSignal) => Promise<T>): Promise<T> => {
     const location=repository(input.owner,input.repo);
     if(!input.workspaceId || !/^[A-Za-z0-9_.:-]{1,200}$/.test(input.workspaceId) || typeof input.ref!=="string" || input.ref.length>250
       || !input.ref || input.ref.split("/").some(p=>! /^[A-Za-z0-9._+@~-]{1,100}$/.test(p) || [".",".."].includes(p))) throw new GithubSourceError("invalid");
@@ -39,11 +40,24 @@ export function createGithubImmutableSourceAccess(deps: { db: () => Promise<Sql>
       signal.addEventListener("abort",stop,{once:true});pending.then(v=>{signal.removeEventListener("abort",stop);if(signal.aborted)stop();else resolve(v);},()=>stop());if(signal.aborted)stop();
     });
     try {
-      const store=createGithubSourceStore(await bounded(deps.db())),binding=await bounded(store.getBinding(input.workspaceId));
+      const store=createGithubSourceStore(await bounded(deps.db())),binding=await bounded(store.getBinding(input.workspaceId, location));
+      if(input.accessKind === "installed" && !binding || input.accessKind === "public" && binding) throw new GithubSourceError("refused");
       const retained=input.expected;
       const authority=binding?{appId:binding.appId,installationId:binding.installationId,repositoryId:binding.repositoryId,version:binding.version}:null;
-      if(retained && (retained.owner!==location.owner || retained.repo!==location.repo || JSON.stringify(retained.binding)!==JSON.stringify(authority))) throw new GithubSourceError("refused");
-      const current=async()=>{check();if(binding)await bounded(store.assertCurrent(binding));else if(await bounded(store.getBinding(input.workspaceId)))throw new GithubSourceError("refused");check();};
+      // JSONB (and other serializers) can reorder object keys. Authority is the
+      // four pinned values, never their incidental serialization order.
+      const sameAuthority = !retained || (retained.binding === null && authority === null)
+        || (retained.binding != null && authority != null && retained.binding.appId === authority.appId
+          && retained.binding.installationId === authority.installationId && retained.binding.repositoryId === authority.repositoryId
+          && retained.binding.version === authority.version);
+      if(retained && (retained.owner!==location.owner || retained.repo!==location.repo || !sameAuthority)) throw new GithubSourceError("refused");
+      let resolvedRepositoryId: number | undefined;
+      const current=async()=>{
+        check();
+        if(binding) await bounded(store.assertCurrent(binding));
+        else if(await bounded(store.getState(input.workspaceId, location)) || resolvedRepositoryId !== undefined && await bounded(store.getState(input.workspaceId, { repositoryId: resolvedRepositoryId }))) throw new GithubSourceError("refused");
+        check();
+      };
       const fetchData=async(path:string,token:string|undefined,accept:string,cap:number):Promise<string>=>{
         check();const pending=(deps.fetchImpl??fetch)(`https://api.github.com/repos/${location.owner}/${location.repo}${path}`,{headers:{Accept:accept,"User-Agent":"zenith-approved-source","X-GitHub-Api-Version":"2026-03-10",...(token?{Authorization:`Bearer ${token}`}:{})},redirect:"error",signal});
         void pending.then(response=>{if(signal.aborted)void response.body?.cancel().catch(()=>undefined);},()=>undefined);
@@ -59,10 +73,13 @@ export function createGithubImmutableSourceAccess(deps: { db: () => Promise<Sql>
         if(typeof info.id!=="number" || !Number.isSafeInteger(info.id) || info.id<1 || typeof info.name!=="string" || typeof info.owner?.login!=="string"
           || info.name.toLowerCase()!==location.repo || info.owner.login.toLowerCase()!==location.owner || typeof info.private!=="boolean"
           || (!binding && info.private!==false) || (binding && binding.repositoryId!==info.id) || (retained && retained.repositoryId!==info.id)) throw new GithubSourceError("refused");
+        resolvedRepositoryId = info.id;
+        // A repository rename or transfer must not turn a remembered revoked grant into public access.
+        if (!binding && await bounded(store.getState(input.workspaceId, { repositoryId: info.id }))) throw new GithubSourceError("refused");
         const commit=(await fetchData(`/commits/${encodeURIComponent(input.ref)}`,token,"application/vnd.github.sha",128)).trim();
         if(!/^[a-f0-9]{40}$/.test(commit) || (retained && commit!==retained.commitSha)) throw new GithubSourceError("refused");
         const source=Object.freeze({...location,repositoryId:info.id,commitSha:commit,binding:authority?Object.freeze(authority):null});
-        await current();const result=await bounded(read(source,token));await current();return result;
+        await current();const result=await bounded(read(source,token,signal));await current();return result;
       };
       if(!binding)return await run();
       const config=githubAppConfig(deps.env);

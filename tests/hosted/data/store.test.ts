@@ -227,6 +227,32 @@ describe("validation", () => {
     expect(error.message).toContain("names no fields");
   });
 
+  it("preserves every omitted field in a patch and clears a date only when explicitly requested", async () => {
+    const record = input({
+      title: "Dock",
+      details: "Two external displays",
+      quantity: 4,
+      priority: "high",
+      status: "approved",
+      requestedFor: "Science lab",
+      neededBy: "2027-01-15",
+    });
+    const seed = await store.create(editor, { writeId: uuid(), record });
+    const updated = await store.update(editor, seed.record.id, {
+      writeId: uuid(),
+      expectedVersion: 1,
+      patch: { title: "  USB-C dock  " },
+    });
+    expect(updated.record).toMatchObject({ ...record, title: "USB-C dock", version: 2 });
+
+    const cleared = await store.update(editor, seed.record.id, {
+      writeId: uuid(),
+      expectedVersion: 2,
+      patch: { neededBy: null },
+    });
+    expect(cleared.record).toMatchObject({ ...record, title: "USB-C dock", neededBy: null, version: 3 });
+  });
+
   it("refuses an update to a record that does not exist", async () => {
     const error = await refusal(() =>
       store.update(editor, "no-such-record", { writeId: uuid(), expectedVersion: 1, patch: { quantity: 2 } })

@@ -317,6 +317,7 @@ export function StepSystem({
         Start with a blueprint, import your configuration, or begin with an empty system.
         This creates an editable manifest and an environment using {choice.displayName}. Nothing is deployed.
       </p>
+      <Link href="/platform/coding-agent" className="inline-block text-[13px] text-signal hover:underline">Start from a GitHub repository with Gimbal →</Link>
       {choice.providerId === "aws" && <p className="text-sm text-warn">AWS Preview supports plans and Terraform export only. Zenith never calls or applies changes to AWS. No credentials or IAM setup are needed.</p>}
       {choice.providerId === "localstack" && <p className="text-sm text-ink-mute">LocalStack supports real local S3 and SQS operations. The Local resources blueprint is a supported starting point. Application services, routes and other emulated behavior remain simulated; a successful connection check does not verify application support.</p>}
       {pendingProject?.slug && <div className="rounded-card border border-line bg-bg1 p-4 text-sm text-ink-mute"><p>Your project is already saved. Retrying an interrupted import uses this same project. If you refreshed, choose or paste the file again; its contents are never stored in browser storage.</p><Link href={`/p/${encodeURIComponent(pendingProject.slug)}`} className="mt-2 inline-block text-signal underline">Open the saved project</Link></div>}

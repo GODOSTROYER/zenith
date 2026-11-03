@@ -25,6 +25,7 @@ import type { ObservabilityFabric } from "@/lib/observability/types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
 import type { DayTwoWorkflowInput, DeployWorkflowInput, WorkflowProgress } from "@/lib/workflows/types";
 import type { AgentIdentity } from "./principal";
+import type { HandoffRequest, RunHandoff } from "@/lib/coding-agent/handoff";
 
 /* ------------------------------ product reads ------------------------------ */
 
@@ -176,6 +177,8 @@ export interface McpPorts {
   observability: ObservabilityPort;
   investigator: Investigator;
   workflows: WorkflowPort;
+  /** Optional only for older adapters. Production rechecks exact source authority on every export. */
+  sourceContext?: { get(request: HandoffRequest): Promise<RunHandoff> };
   /** The trusted origin approval URLs are built on (never a request header). */
   origin(): string;
   /** Run `fn` with the product store available for this identity. */

@@ -26,17 +26,17 @@ describe("anytime workspace guide", () => {
   it("explains all ten areas and scopes project links to the displayed environment", () => {
     const boot = starterBoot(); boot.projects = [starterProject()]; boot.environments = [starterEnvironment()];
     render(<GuideContent boot={boot} />);
-    for (const name of ["Overview", "System", "Source", "Deploys", "Observe", "Security", "Navigator", "Settings", "Activity", "Revisions"])
+    for (const name of ["Overview", "System", "Infrastructure", "Repository", "Deploys", "Observe", "Security", "Navigator", "Settings", "Activity", "Revisions"])
       expect([...host.querySelectorAll("a")].some((a) => a.textContent === name)).toBe(true);
     expect(host.querySelector('a[href="/p/project/source?env=e1"]')).not.toBeNull();
     expect(host.textContent).toContain("Simulation");
   });
-  it("directs a healthy AWS preview profile to Source without claiming deployment", () => {
+  it("directs a healthy AWS preview profile to infrastructure without claiming deployment", () => {
     const boot = starterBoot(); boot.projects = [starterProject()]; boot.environments = [starterEnvironment()];
     boot.connections[0] = { ...boot.connections[0], provider: "aws" };
     render(<GuideContent boot={boot} />);
     expect(host.textContent).toContain("Preview · plan and export only");
-    expect([...host.querySelectorAll("a")].find((a) => a.textContent?.includes("Review Source and export"))?.getAttribute("href")).toBe("/p/project/source?env=e1");
+    expect([...host.querySelectorAll("a")].find((a) => a.textContent?.includes("Review infrastructure and export"))?.getAttribute("href")).toBe("/p/project/source?env=e1");
     expect(host.textContent).toContain("Choose a project to see what’s ready and find your next step");
     expect(host.textContent).toContain("Review a plan before applying changes");
     expect(host.textContent).not.toContain("workspace records");

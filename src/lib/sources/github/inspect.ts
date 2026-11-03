@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
 import type { Sql } from "@/lib/controlplane/types";
 import { analyzeRepository, snapshotFromGithub, type BuildPlan, type Confidence } from "@/lib/analysis";
 import { createGithubImmutableSourceAccess } from "./runtime";
+import { createGithubSourceStore } from "./store";
 import { GithubSourceError, repository } from "./types";
 
 export interface SourceInspectionRequest {
@@ -27,6 +28,8 @@ export interface SourceInspectionRequest {
   ref: string;
   /** Optional monorepo subdirectory (repository-relative, no traversal). */
   root?: string;
+  contextDir?: string;
+  accessKind?: "public" | "installed";
   signal?: AbortSignal;
 }
 export interface BuildCandidate {
@@ -45,6 +48,8 @@ export interface SourceInspection {
   commitSha: string;
   /** True when access went through a workspace GitHub App binding. */
   viaBinding: boolean;
+  bindingId?: string;
+  bindingVersion?: number;
   candidates: BuildCandidate[];
   selected?: BuildCandidate;
   monorepo: boolean;
@@ -76,18 +81,42 @@ async function walkTree(location: { owner: string; repo: string }, commitSha: st
   let sha = commitSha;
   const parts = path === "" ? [] : path.split("/");
   const refuse = (reason: string): never => { throw new GithubSourceError("refused", reason); };
+  const deadline = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(30_000)]);
+  const bounded = <T>(pending: Promise<T>): Promise<T> => new Promise((resolve, reject) => {
+    const stop = () => { deadline.removeEventListener("abort", stop); reject(new GithubSourceError("unavailable")); };
+    deadline.addEventListener("abort", stop, { once: true });
+    pending.then(value => { deadline.removeEventListener("abort", stop); if (deadline.aborted) stop(); else resolve(value); }, stop);
+    if (deadline.aborted) stop();
+  });
   for (let i = 0; i <= parts.length; i++) {
-    const response = await fetchImpl(`https://api.github.com/repos/${location.owner}/${location.repo}/git/trees/${sha}`, {
-      headers: { Accept: "application/vnd.github+json", "User-Agent": "zenith-source-inspect", "X-GitHub-Api-Version": "2026-03-10", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, redirect: "error", signal });
-    if (!response.ok || Number(response.headers.get("content-length")) > 8 * 1024 * 1024) return refuse("The repository tree at the pinned commit could not be read.");
-    const tree = JSON.parse(await response.text()) as { truncated?: unknown; tree?: { path?: unknown; mode?: unknown; type?: unknown; sha?: unknown }[] };
+    if (deadline.aborted) throw new GithubSourceError("unavailable");
+    const pending = fetchImpl(`https://api.github.com/repos/${location.owner}/${location.repo}/git/trees/${sha}`, {
+      headers: { Accept: "application/vnd.github+json", "User-Agent": "zenith-source-inspect", "X-GitHub-Api-Version": "2026-03-10", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, redirect: "error", signal: deadline });
+    void pending.then(response => { if (deadline.aborted) void response.body?.cancel().catch(() => undefined); }, () => undefined);
+    const response = await bounded(pending), cap = 8 * 1024 * 1024;
+    if (!response.ok || Number(response.headers.get("content-length")) > cap || !response.body) {
+      void response.body?.cancel().catch(() => undefined);
+      return refuse("The repository tree at the pinned commit could not be read.");
+    }
+    const reader = response.body.getReader(), chunks: Uint8Array[] = []; let length = 0;
+    let text: string;
+    try {
+      for (;;) {
+        const next = await bounded(reader.read()); if (next.done) break;
+        length += next.value.byteLength;
+        if (length > cap) return refuse("A directory on the path is too large to verify.");
+        chunks.push(next.value);
+      }
+      text = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, length));
+    } finally { void reader.cancel().catch(() => undefined); reader.releaseLock(); }
+    const tree = JSON.parse(text) as { truncated?: unknown; tree?: { path?: unknown; mode?: unknown; type?: unknown; sha?: unknown }[] };
     if (tree.truncated === true || !Array.isArray(tree.tree)) return refuse("A directory on the path is too large to verify.");
     if (i === parts.length) return sha;
     const entry = tree.tree.find(e => e.path === parts[i]);
     if (!entry) return refuse(`${parts.slice(0, i + 1).join("/")} does not exist at the pinned commit.`);
     if (entry.mode === "120000") return refuse(`${parts.slice(0, i + 1).join("/")} is a symbolic link.`);
     const last = i === parts.length - 1;
-    if (last && kind === "blob") { if (entry.type !== "blob" || entry.mode === "160000" || typeof entry.sha !== "string") return refuse(`${path} is not a regular file.`); return entry.sha; }
+    if (last && kind === "blob") { if (entry.type !== "blob" || !["100644", "100755"].includes(String(entry.mode)) || typeof entry.sha !== "string" || !/^[a-f0-9]{40}$/.test(entry.sha)) return refuse(`${path} is not a regular file.`); return entry.sha; }
     if (entry.type !== "tree" || typeof entry.sha !== "string" || !/^[a-f0-9]{40}$/.test(entry.sha)) return refuse(`${parts.slice(0, i + 1).join("/")} is not a directory.`);
     sha = entry.sha;
   }
@@ -99,9 +128,11 @@ export function createGithubSourceInspector(deps: { db: () => Promise<Sql>; fetc
   return async function inspect(input: SourceInspectionRequest): Promise<SourceInspection> {
     const location = repository(input.owner, input.repo);
     const root = normalizeInspectionRoot(input.root);
-    return access({ ...location, workspaceId: input.workspaceId, environmentId: input.environmentId, ref: input.ref, signal: input.signal }, async (identity, token) => {
+    const contextDir = normalizeInspectionRoot(input.contextDir);
+    const signal = AbortSignal.any([...(input.signal ? [input.signal] : []), AbortSignal.timeout(60_000)]);
+    return access({ ...location, workspaceId: input.workspaceId, environmentId: input.environmentId, ref: input.ref, signal, accessKind: input.accessKind }, async (identity, token) => {
       // The commit SHA, not the moving ref, is fetched: analysis describes exactly what a build would get.
-      const snapshot = await snapshotFromGithub({ owner: identity.owner, repo: identity.repo, ref: identity.commitSha, token, fetchImpl: deps.fetchImpl, timeoutMs: 45_000 });
+      const snapshot = await snapshotFromGithub({ owner: identity.owner, repo: identity.repo, ref: identity.commitSha, token, fetchImpl: deps.fetchImpl, timeoutMs: 45_000, signal });
       const analysis = analyzeRepository(snapshot);
       const inside = (dir: string) => root === "" || dir === root || dir.startsWith(`${root}/`);
       const candidates: BuildCandidate[] = analysis.builds.filter(plan => inside(plan.value.root)).map(plan => ({
@@ -116,11 +147,14 @@ export function createGithubSourceInspector(deps: { db: () => Promise<Sql>; fetc
       let proof: { contextDir: string; contextDigest: string } | undefined;
       if (dockerfile) {
         const doFetch = deps.fetchImpl ?? fetch;
-        const contextTree = await walkTree(location, identity.commitSha, root, "tree", token, doFetch, input.signal);
-        const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, input.signal);
-        proof = { contextDir: root, contextDigest: computeContextDigest({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir: root, contextTree, dockerfile, dockerfileBlob }) };
+        const contextTree = await walkTree(location, identity.commitSha, contextDir, "tree", token, doFetch, signal);
+        const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, signal);
+        proof = { contextDir, contextDigest: computeContextDigest({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir, contextTree, dockerfile, dockerfileBlob }) };
       }
+      const bindingState = identity.binding ? await createGithubSourceStore(await deps.db()).getState(input.workspaceId, { repositoryId: identity.repositoryId }) : undefined;
+      if (identity.binding && (!bindingState || bindingState.revoked || bindingState.binding.version !== identity.binding.version)) throw new GithubSourceError("refused");
       return {
+        ...(bindingState ? { bindingId: bindingState.bindingId, bindingVersion: bindingState.binding.version } : {}),
         owner: identity.owner, repo: identity.repo, repositoryId: identity.repositoryId, commitSha: identity.commitSha, viaBinding: identity.binding !== null,
         candidates, ...(selected ? { selected } : {}), monorepo: Boolean(analysis.monorepo) || analysis.builds.length > 1,
         truncated: analysis.truncated, unknowns,
@@ -158,12 +192,14 @@ export function createGithubContextVerifier(deps: { db: () => Promise<Sql>; fetc
       if (!owner || !repoName || rest.length > 0 || !/^[a-f0-9]{40}$/.test(input.commitSha) || !/^[a-f0-9]{64}$/.test(input.contextDigest)) return false;
       const location = repository(owner, repoName);
       const root = normalizeInspectionRoot(input.contextDir === "." ? "" : input.contextDir);
-      const dockerfile = input.dockerfile;
-      return await access({ ...location, workspaceId: input.workspaceId, environmentId: input.environmentId, ref: input.commitSha, signal: input.signal }, async (identity, token) => {
+      const dockerfile = normalizeInspectionRoot(input.dockerfile);
+      if (!dockerfile || dockerfile !== input.dockerfile) return false;
+      const signal = AbortSignal.any([...(input.signal ? [input.signal] : []), AbortSignal.timeout(60_000)]);
+      return await access({ ...location, workspaceId: input.workspaceId, environmentId: input.environmentId, ref: input.commitSha, signal }, async (identity, token) => {
         if (identity.commitSha !== input.commitSha) return false;
         const doFetch = deps.fetchImpl ?? fetch;
-        const contextTree = await walkTree(location, identity.commitSha, root, "tree", token, doFetch, input.signal);
-        const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, input.signal);
+        const contextTree = await walkTree(location, identity.commitSha, root, "tree", token, doFetch, signal);
+        const dockerfileBlob = await walkTree(location, identity.commitSha, dockerfile, "blob", token, doFetch, signal);
         const derived = computeContextDigest({ repo: `${identity.owner}/${identity.repo}`, commit: identity.commitSha, contextDir: root, contextTree, dockerfile, dockerfileBlob });
         return derived === input.contextDigest;
       });

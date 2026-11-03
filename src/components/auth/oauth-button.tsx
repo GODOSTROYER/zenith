@@ -3,6 +3,7 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import { cx } from "@/lib/format";
 import type { OAuthProvider } from "@/lib/supabase/env";
 import { GoogleMark } from "./google-mark";
+import { GithubMark } from "./github-mark";
 import styles from "./oauth-button.module.css";
 
 interface OAuthButtonProps extends ButtonProps {
@@ -23,17 +24,20 @@ export function OAuthButton({
 }: OAuthButtonProps) {
   if (provider !== "google") {
     return (
+      <>
       <Button
         {...props}
-        className={cx(styles.provider, className)}
+        className={cx(styles.provider, styles.github, className)}
         busy={busy}
         disabled={disabled}
-        disabledReason={disabledReason}
-        icon={icon}
-        title={title}
+        disabledReason={busy ? "Opening GitHub…" : disabledReason}
+        icon={icon ?? <GithubMark />}
+        title={busy ? "Opening GitHub…" : title}
       >
         {children}
       </Button>
+      <span className="sr-only" role="status">{busy ? "Opening GitHub…" : ""}</span>
+      </>
     );
   }
 

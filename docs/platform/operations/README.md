@@ -45,6 +45,7 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 | [MIXED-PARTITIONS.md](MIXED-PARTITIONS.md) | Whoever reviews a mixed-provider plan | Logical partition digests, disjoint state/lock objects, typed references and the retained mixed-provider execution refusal |
 | [MIXED-RECOVERY.md](MIXED-RECOVERY.md) | Whoever runs, recovers or pays for a multi-cloud application | Protected cross-cloud endpoints (mutual TLS, allowlist, DNS and TLS pins, opt-in VPN), the reference app and its gated live acceptance, failure scenarios and the recovery runbook, transfer-inclusive cost and latency, the live scope manifest and checkpoints |
 | [GITHUB-WEBHOOKS.md](GITHUB-WEBHOOKS.md) | Whoever manages private GitHub source bindings | Signed revocation transport, file-only secret custody, permanent delivery receipts and live-delivery limits |
+| [GITHUB-ANALYSIS.md](GITHUB-ANALYSIS.md) | Workspace admins and deployment operators | GitHub sign-in/import, independent repository grants, Gimbal analysis, retention, Claude Code continuation and coordinated upgrade acceptance |
 | [RECONCILE-SCHEDULING.md](RECONCILE-SCHEDULING.md) | Whoever owns critical observation schedules | Fixed Temporal schedule ownership, pause preservation and real-engine prerequisites |
 | [RECONCILE-WORKER.md](RECONCILE-WORKER.md) | Whoever operates execution workers | Default polling composition, authenticated Temporal, observation freshness and readiness |
 | [WORKFLOW-START-INTENTS.md](WORKFLOW-START-INTENTS.md) | Whoever resolves workflow-start uncertainty | Permanent single-attempt intents, exact authority, raw-history recovery and no blind resend |
@@ -74,7 +75,7 @@ Reference material these guides lean on (not duplicated here):
 | [ARCHITECTURE.md](../ARCHITECTURE.md) | The control-plane design and its invariants |
 | [CURRENT-STATE.md](../CURRENT-STATE.md) | The baseline audit the build started from |
 | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md) | Workflows, retries, leases, approval, cancellation, worker configuration |
-| [CLI.md](../CLI.md), [MCP.md](../MCP.md) | Operator CLI, REST SDK, fifteen MCP v3 tools, browser approval and execution |
+| [CLI.md](../CLI.md), [MCP.md](../MCP.md) | Operator CLI, REST SDK, scoped MCP v3 tools, browser approval and execution |
 | [RUNNER-PROTOCOL-OCI.md](../RUNNER-PROTOCOL-OCI.md) | Opt-in `oci.http` signing proxy and its remaining session limits |
 | [DRIVER-CONVENTIONS.md](../DRIVER-CONVENTIONS.md) | How every provider's resource drivers must behave |
 | [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md) | The wire protocol for `zenith-runner` and `zenithd` |

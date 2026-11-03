@@ -15,6 +15,7 @@
 import { platformBroker } from "@/lib/capabilities/platform";
 import { platformRoute, readJson } from "../../_lib/http";
 import { callerOf } from "../../_lib/principal";
+import { operationForRest } from "../../_lib/source-read";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,5 +24,5 @@ export const POST = platformRoute(async (req) => {
   const caller = await callerOf(req);
   const body = await readJson(req);
   const result = await (await platformBroker()).propose(body, caller.principal, { via: "rest" });
-  return { status: result.replayed ? 200 : 201, body: result };
+  return { status: result.replayed ? 200 : 201, body: { ...result, operation: operationForRest(result.operation, caller) } };
 });

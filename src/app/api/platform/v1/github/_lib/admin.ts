@@ -98,7 +98,7 @@ export async function currentAdminMutation<T>(req: NextRequest, caller: Awaited<
     // closes that wait before checking identity/roles, including an absent row.
     // PGlite serializes transactions through its engine instead of SQL locks.
     if (database.kind === "postgres") await tx.query("select pg_advisory_xact_lock(hashtextextended('zenith:github-binding:' || $1::text, 0))", [caller.workspaceId]);
-    await tx.query("select workspace_id from platform.github_source_bindings where workspace_id=$1 for update", [caller.workspaceId]);
+    await tx.query("select workspace_id from platform.github_source_bindings where workspace_id=$1 order by repository_id for update", [caller.workspaceId]);
     await freshBrowserAdmin(req, caller, mutation);
     return fn(createGithubSourceStore(tx, database.kind));
   });

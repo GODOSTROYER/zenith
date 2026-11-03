@@ -330,6 +330,14 @@ secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 skip_nonce_check = false
 email_optional = false
 
+# Sign-in only. Repository permissions use Zenith's separate GitHub App.
+# Enable after supplying OAuth credentials; see docs/github-auth.md.
+[auth.external.github]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET)"
+email_optional = false
+
 [auth.external.apple]
 enabled = false
 client_id = ""

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OAUTH_SCOPE_PREFIX, SCOPE_SUMMARY, consentFacts, scopeCatalog } from "@/lib/agent-access/scope-catalog";
 import { INTEGRATION_SCOPES, TOOL_NAMES } from "@/lib/agent-access/v3/contract";
-import { catalogFor } from "@/lib/agent-access/v3/catalog";
+import { catalogFor, TOOL_CATALOG } from "@/lib/agent-access/v3/catalog";
 import { metadata } from "@/lib/agent-access/v3/auth-metadata";
 
 describe("scope catalog", () => {
@@ -20,7 +20,11 @@ describe("scope catalog", () => {
     expect(all).toEqual([...TOOL_NAMES].sort());
     for (const scope of scopeCatalog()) {
       const unlocked = catalogFor(["read", scope.name]).map((t) => t.name);
-      for (const tool of scope.tools) expect(unlocked).toContain(tool);
+      for (const name of scope.tools) {
+        const tool = TOOL_CATALOG.find(t => t.name === name)!;
+        if (!tool.additionalScopes?.length) expect(unlocked).toContain(name);
+        else expect(catalogFor(["read", scope.name, ...tool.additionalScopes]).map(t => t.name)).toContain(name);
+      }
       // read plus this scope never unlocks a tool that another scope owns
       const owned = new Set([...scopeCatalog().find((s) => s.name === "read")!.tools, ...scope.tools]);
       expect(unlocked.every((name) => owned.has(name))).toBe(true);

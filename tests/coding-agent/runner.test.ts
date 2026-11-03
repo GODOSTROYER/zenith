@@ -223,7 +223,7 @@ describe("recovery after failure", () => {
 
 describe("prompt injection and authority", () => {
   it("the tool set is a constant and none of its tools can grant, approve, execute or change policy", () => {
-    expect([...TOOL_NAMES].sort()).toEqual(["analyze_repository", "list_files", "propose_manifest", "read_file", "search_files"]);
+    expect([...TOOL_NAMES].sort()).toEqual(["analyze_repository", "list_files", "propose_manifest", "read_file", "refine_requirements", "search_files"]);
     for (const name of TOOL_NAMES) expect(name).not.toMatch(/approv|grant|polic|autonomy|exec|deploy|apply|secret|credential|token/i);
   });
 

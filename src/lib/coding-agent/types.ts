@@ -8,6 +8,10 @@
  * are fixed by the caller before the first model call.
  */
 
+import type { AnyManifest } from "@/lib/domain/types";
+import type { AppRequirements } from "@/lib/analysis/types";
+import type { GithubImmutableSource } from "@/lib/sources/github/types";
+
 export type TextBlock = { type: "text"; text: string };
 export type ToolUseBlock = { type: "tool_use"; id: string; name: string; input: unknown };
 export type ToolResultBlock = { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
@@ -84,6 +88,14 @@ export interface AgentSourceRef {
   /** exact commit the snapshot was read at; a resume re-reads this commit, never a moving ref */
   commit: string;
   root?: string;
+  /** Provider identity and permission version pinned by the server, never supplied by a model. */
+  sourceIdentity?: GithubImmutableSource;
+  bindingId?: string;
+  bindingVersion?: number;
+  repositoryId?: number;
+  contextDir?: string;
+  contextDigest?: string;
+  dockerfile?: string;
 }
 
 /** What the model produced: a manifest proposal artifact. Data, never authority. */
@@ -106,6 +118,13 @@ export interface UnsafeAttempt {
 /** Everything needed to continue a stopped run. Contains tool results (repository text), so it is stored as data and re-fenced on resume. */
 export interface Checkpoint {
   version: 1;
+  analysisMode?: "static" | "model";
+  environmentClass?: "sandbox" | "staging" | "production";
+  /** The working copy actually reviewed by this run. It is never sent to the model. */
+  targetBase?: { manifest: AnyManifest; manifestHash: string };
+  requirements?: AppRequirements;
+  redactionVersion?: string;
+  coverage?: { retainedFiles: number; truncated: boolean; skipped: { reason: string; count: number }[]; readPaths: string[] };
   messages: Message[];
   usage: BudgetUsage;
   steps: number;

@@ -10,9 +10,9 @@ import { TOOL_NAMES } from "@/lib/agent-access/v3/contract";
 import { argsFor } from "./support";
 
 describe("MCP v3 catalog", () => {
-  it("has exactly the seventeen semantic tools", () => {
+  it("has the exact semantic tool catalog including source continuation", () => {
     expect(TOOL_CATALOG.map((t) => t.name)).toEqual(TOOL_NAMES);
-    expect(TOOL_CATALOG).toHaveLength(17);
+    expect(TOOL_CATALOG).toHaveLength(21);
   });
   it.each(TOOL_CATALOG)("$name publishes its strict input contract, digest and hints", async (tool) => {
     expect(tool.inputSchema.additionalProperties).toBe(false);
@@ -29,6 +29,46 @@ describe("MCP v3 catalog", () => {
   });
   it("pins schema versions and digests in the golden contract", () => {
     expect({ catalogDigest: catalogDigest(), tools: TOOL_CATALOG.map(({ name, schemaVersion, schemaDigest }) => ({ name, schemaVersion, schemaDigest })) }).toEqual(golden);
+  });
+  it("keeps returned source proofs strict and bounded in runtime and advertised validation", async () => {
+    const name = "zenith_submit_source_proposal";
+    const tool = TOOL_CATALOG.find(tool => tool.name === name)!;
+    const standard = fromJsonSchema(tool.inputSchema as JsonSchemaType)["~standard"];
+    const base = argsFor(name);
+    const file = { path: "Dockerfile", change: "modified" };
+    const check = { check: "unit", status: "passed" };
+    const valid = [
+      base,
+      { ...base, result: { kind: "patch", patchDigest: "d".repeat(64) } },
+      { ...base, expectedVersion: Number.MAX_SAFE_INTEGER,
+        changedFiles: Array.from({ length: 100 }, (_, index) => ({ ...file, path: `${"a".repeat(497)}${String(index).padStart(3, "0")}` })),
+        verification: Array.from({ length: 20 }, () => ({ ...check, check: "a".repeat(100), summary: "a".repeat(500) })),
+        description: "a".repeat(500) },
+    ];
+    const invalid = [
+      { ...base, result: { kind: "commit", newCommit: "c".repeat(40), patchDigest: "d".repeat(64) } },
+      { ...base, result: { kind: "patch", newCommit: "c".repeat(40) } },
+      { ...base, result: { kind: "other", newCommit: "c".repeat(40) } },
+      { ...base, result: { kind: "commit", newCommit: "main" } },
+      { ...base, result: { kind: "patch", patchDigest: "d".repeat(63) } },
+      { ...base, expectedDigest: "b".repeat(63) },
+      { ...base, baseCommit: "main" },
+      ...[0, 1.5, Number.MAX_SAFE_INTEGER + 1].map(expectedVersion => ({ ...base, expectedVersion })),
+      { ...base, changedFiles: [] },
+      { ...base, changedFiles: Array.from({ length: 101 }, () => file) },
+      { ...base, changedFiles: [{ ...file, path: "a".repeat(501) }] },
+      { ...base, verification: [{ ...check, approved: true }] },
+      { ...base, verification: Array.from({ length: 21 }, () => check) },
+      { ...base, description: "a".repeat(501) },
+    ];
+    for (const input of valid) {
+      expect(TOOL_SCHEMAS[name].safeParse(input).success).toBe(true);
+      expect(await standard.validate(input)).toHaveProperty("value");
+    }
+    for (const input of invalid) {
+      expect(TOOL_SCHEMAS[name].safeParse(input).success).toBe(false);
+      expect(await standard.validate(input)).toHaveProperty("issues");
+    }
   });
   it("keeps the generated documentation table identical to the catalog", () => {
     const table = ["| Tool | Capability | Access | Scope | R/D/I/O |", "|---|---|---|---|---|",

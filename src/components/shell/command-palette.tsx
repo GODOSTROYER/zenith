@@ -55,7 +55,7 @@ function actionDestination(action: ActionEntry, hasProject: boolean): ActionDest
     return hasProject ? { seg: "", label: "System map" } : { href: "/onboarding?step=3", label: "Onboarding — Create project" };
   }
   if (action.id === "project.importResources") return { seg: "", label: "System map" };
-  if (action.id === "project.updateManifest") return { seg: "source", label: "Source" };
+  if (action.id === "project.updateManifest") return { seg: "source", label: "Infrastructure" };
   if (action.id === "project.delete") return { seg: "settings#danger", label: "Settings — Danger zone" };
   if (action.id.startsWith("alerts.")) {
     return /^alerts\.(create|update|delete|test)Channel$/.test(action.id)
@@ -76,7 +76,8 @@ function actionDestination(action: ActionEntry, hasProject: boolean): ActionDest
 
 const TABS: { seg: string; label: string }[] = [
   { seg: "", label: "System map" },
-  { seg: "source", label: "Source" },
+  { seg: "source", label: "Infrastructure" },
+  { seg: "repository", label: "Repository" },
   { seg: "deploys", label: "Deploys" },
   { seg: "revisions", label: "Revisions" },
   { seg: "observe", label: "Observe" },

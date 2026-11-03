@@ -31,7 +31,7 @@ export function assessAudit(report, status) {
       throw new Error("Incomplete or inconsistent npm audit counts.");
     }
     const idsByPackage = new Map();
-    const advisoryContent = new Map();
+    const advisoryContentBySource = new Map();
     const scopesByPackage = new Map();
     for (const [name, finding] of entries) {
       if (!packageName.test(name) || !record(finding) || finding.name !== name ||
@@ -50,33 +50,47 @@ export function assessAudit(report, status) {
         for (const via of scope.via) {
           if (typeof via === "string") continue;
           const content = JSON.stringify(via);
-          if (advisoryContent.has(via.url) && advisoryContent.get(via.url) !== content) throw new Error("inconsistent advisory");
-          advisoryContent.set(via.url, content);
+          // npm can publish several range records for one GHSA (for example,
+          // patched maintenance branches). Its numeric source identifies a
+          // record; the GHSA URL identifies the vulnerability, not its range.
+          if (advisoryContentBySource.has(via.source) && advisoryContentBySource.get(via.source) !== content) throw new Error("inconsistent advisory");
+          advisoryContentBySource.set(via.source, content);
         }
       }
       catch { throw new Error("Malformed vulnerability scope."); }
     }
-    const advisoryIds = (name, visiting = new Set()) => {
-      if (idsByPackage.has(name)) return idsByPackage.get(name);
-      if (visiting.has(name) || !Object.hasOwn(report.vulnerabilities, name)) {
-        throw new Error("Unresolvable npm audit dependency advisory.");
-      }
-      visiting.add(name);
+    // Meta-vulnerability dependencies can contain legitimate cycles (ESLint
+    // and its plugins are one example). Resolve the complete graph to a fixed
+    // point; an unknown edge or a component with no actual advisory still fails.
+    const dependencies = new Map();
+    for (const [name, finding] of entries) {
       const ids = new Set();
-      for (const via of report.vulnerabilities[name].via) {
+      const parents = [];
+      for (const via of finding.via) {
         if (typeof via === "string") {
-          for (const id of advisoryIds(via, visiting)) ids.add(id);
+          if (!Object.hasOwn(report.vulnerabilities, via)) throw new Error("Unresolvable npm audit dependency advisory.");
+          parents.push(via);
         } else {
           const match = record(via) && typeof via.url === "string" && advisoryUrl.exec(via.url);
           if (!match) throw new Error("Missing canonical advisory identifier.");
           ids.add(match[1]);
         }
       }
-      visiting.delete(name);
       idsByPackage.set(name, ids);
-      return ids;
-    };
-    const findings = entries.map(([name]) => ({ package: name, advisoryIds: [...advisoryIds(name)].sort(), scope: scopesByPackage.get(name) }));
+      dependencies.set(name, parents);
+    }
+    let changed;
+    do {
+      changed = false;
+      for (const [name, parents] of dependencies) {
+        const ids = idsByPackage.get(name);
+        for (const parent of parents) for (const id of idsByPackage.get(parent)) {
+          if (!ids.has(id)) { ids.add(id); changed = true; }
+        }
+      }
+    } while (changed);
+    if ([...idsByPackage.values()].some(ids => ids.size === 0)) throw new Error("Unresolvable npm audit dependency advisory.");
+    const findings = entries.map(([name]) => ({ package: name, advisoryIds: [...idsByPackage.get(name)].sort(), scope: scopesByPackage.get(name) }));
     if (status !== 0 && status !== 1) throw new Error("npm audit did not complete successfully.");
     const aboveThreshold = entries.some(([, finding]) => finding.severity !== "info");
     if ((status === 0 && aboveThreshold) || (status === 1 && !aboveThreshold)) throw new Error("npm audit exit status disagrees with the configured severity threshold.");

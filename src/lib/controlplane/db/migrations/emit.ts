@@ -1,5 +1,5 @@
 /**
- * Renders `supabase/migrations/0027_platform_core.sql` from the TypeScript
+ * Renders `supabase/migrations/0030_platform_core.sql` from the TypeScript
  * migrations — the ONLY way that file is produced. It is never hand-edited: a
  * test (`tests/controlplane/migrations.test.ts`) fails when the committed file
  * differs by even one byte from what `renderSupabaseMigration()` returns now,
@@ -23,7 +23,7 @@
 import { BOOTSTRAP_SQL } from "./bootstrap";
 import { PLATFORM_MIGRATIONS, migrationChecksum } from "./index";
 
-export const EMITTED_FILE = "0027_platform_core.sql";
+export const EMITTED_FILE = "0030_platform_core.sql";
 
 const HARDENING_SQL = `do $$
 declare
@@ -131,6 +131,17 @@ begin
       revoke all on table platform.coding_agent_runs from service_role;
       grant select,insert,update on table platform.coding_agent_runs to service_role;
     end if;
+    -- Repository and project CAS tombstones survive disconnection; audit is append-only.
+    if to_regclass('platform.github_project_sources') is not null then
+      revoke all on table platform.github_source_bindings,platform.github_binding_events,platform.github_project_sources,platform.github_discovery_sessions from service_role;
+      grant select,insert,update on table platform.github_source_bindings,platform.github_project_sources to service_role;
+      grant select,insert on table platform.github_binding_events to service_role;
+      grant select,insert,update,delete on table platform.github_discovery_sessions to service_role;
+    end if;
+    if to_regclass('platform.coding_agent_workers') is not null then
+      revoke all on table platform.coding_agent_workers,platform.coding_agent_workspace_limits from service_role;
+      grant select,insert,update on table platform.coding_agent_workers,platform.coding_agent_workspace_limits to service_role;
+    end if;
     -- Platform schemas 37 to 41 (wave 4) keep the narrower grants their own migrations set.
     if to_regclass('platform.actual_spend_snapshots') is not null then
       revoke all on table platform.actual_spend_snapshots from service_role;
@@ -195,7 +206,7 @@ $$;
 
 const quote = (text: string): string => `'${text.replace(/'/g, "''")}'`;
 
-/** The exact text of `supabase/migrations/0027_platform_core.sql`. */
+/** The exact text of `supabase/migrations/0030_platform_core.sql`; historical snapshots remain unchanged. */
 export function renderSupabaseMigration(): string {
   const parts: string[] = [
     `-- Zenith platform control store (ADR-0002) — schema \`platform\`.

@@ -88,6 +88,26 @@ describe.skipIf(!PG_URL)("permanent approved source snapshots [postgres]",()=>{
   it("raw/as-cast metadata cannot forge actual archive capture provenance",async()=>{
     const f=await fixture();await expect(f.a.retain({...f.captured},f.lease)).rejects.toThrow();expect(await f.a.list(f.scope)).toEqual([]);
   });
+  it("keeps the selected source current when another repository in the workspace is revoked",async()=>{
+    const f=await fixture(true);await f.a.retain(f.captured,f.lease);
+    await db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at) values($1,'42',7,100,'acme','other',2,'fixture-admin',clock_timestamp())",[f.scope.workspaceId]);
+    await expect(f.b.assertCurrent(f.captured)).resolves.toBeUndefined();
+    await db.query("update platform.github_source_bindings set revoked_at=clock_timestamp(),version=version+1 where workspace_id=$1 and repository_id=99",[f.scope.workspaceId]);
+    await expect(f.b.assertCurrent(f.captured)).rejects.toThrow();
+  });
+  it.each([true,false])("ignores a superseded name belonging to a different stable ID for bound=%s capture and current checks",async bound=>{
+    const f=await fixture(bound);
+    await db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,98,'acme','app',2,'fixture-admin',clock_timestamp(),false)",[f.scope.workspaceId]);
+    await expect(f.a.retain(f.captured,f.lease)).resolves.toEqual(f.captured);
+    await expect(f.b.assertCurrent(f.captured)).resolves.toBeUndefined();
+    await expect(f.port.verify!(f.captured)).resolves.toBeUndefined();
+  });
+  it("still refuses public capture of a historical revoked stable ID even when its name was superseded",async()=>{
+    const f=await fixture();
+    await db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,99,'acme','old-name',2,'fixture-admin',clock_timestamp(),false)",[f.scope.workspaceId]);
+    await expect(f.a.retain(f.captured,f.lease)).rejects.toThrow();
+    expect(await f.a.list(f.scope)).toEqual([]);
+  });
   it.each(["operation","execution","fence"] as const)("expired %s authority refuses both first capture and current retained row",async kind=>{
     const f=await fixture();await f.a.retain(f.captured,f.lease);
     if(kind==="fence")await db.query("update platform.leases set expires_at=clock_timestamp()-interval '1 second' where workspace_id=$1 and scope=$2",[f.scope.workspaceId,f.lease.scope]);

@@ -158,7 +158,7 @@ const WRITES = new Set([
   // PROD-UX-02: every statement binds the supplied workspace and the authenticated principal digest; foreign-workspace and foreign-principal refusals are covered by tests/agent-v3/stream-store.test.ts.
   "mcpStreams.openStream", "mcpStreams.appendStreamEvent", "mcpStreams.requestStreamCancel", "mcpStreams.finishStream",
   // PROD-MACH-06: every statement binds the supplied workspace in SQL and a foreign run id equals a missing one; foreign-workspace refusals are covered by tests/coding-agent/store.test.ts.
-  "codingAgentRuns.createRun", "codingAgentRuns.getRun", "codingAgentRuns.listRuns", "codingAgentRuns.saveRun", "codingAgentRuns.attachOutcome", "codingAgentRuns.claimResume", "codingAgentRuns.cancelRun", "codingAgentRuns.failRun",
+  "codingAgentRuns.createRun", "codingAgentRuns.getRun", "codingAgentRuns.listRuns", "codingAgentRuns.listRunStatuses", "codingAgentRuns.saveRun", "codingAgentRuns.attachOutcome", "codingAgentRuns.claimResume", "codingAgentRuns.cancelRun", "codingAgentRuns.failRun",
   // PROD-MACH-02: workspace-keyed guest binding rows (no credential column); foreign-workspace refusals are covered by tests/controlplane/k8s-guest-bindings.test.ts.
   "k8sGuestBindings.ensure", "k8sGuestBindings.get", "k8sGuestBindings.listOpen", "k8sGuestBindings.listForConnection", "k8sGuestBindings.markActive", "k8sGuestBindings.recordIssuance", "k8sGuestBindings.recordError",
   "k8sGuestBindings.markConnectionRevoking", "k8sGuestBindings.markRevoked", "k8sGuestBindings.markRevoking",
@@ -187,6 +187,7 @@ const WRITES = new Set([
 
 /** Deliberately not workspace-filtered, with the reason. */
 const EXEMPT: Record<string, string> = {
+  "codingAgentRuns.runRequestDigest": "pure digest over supplied immutable admission fields; reads no SQL or tenant data and is excluded from bindRepos",
   "managedServing.listDomainsDue": "system renewal under the managed-serving lease; returns workspace-qualified rows and all transitions rebind the row workspace (domain-store.test.ts)",
   "managedServing.listRevokePending": "system revocation under the managed-serving lease; returns workspace-qualified key rows and readback/settlement rebinds that workspace (domain-store.test.ts)",
   "planCustody.PlanCustodyError": "pure fixed error class; no SQL or tenant data and excluded from bindRepos",

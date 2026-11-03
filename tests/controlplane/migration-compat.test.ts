@@ -65,6 +65,18 @@ describe("migration compatibility classification", () => {
     expect(() => assertPendingMigrationsCompatible([repair], { baseline: 41, approvals: [], allowed: new Set([42]) })).toThrow("no LIFE-10 approval");
   });
 
+  it.each([60, 62, 63])("requires reviewed SQL and drained writers for repository/Gimbal contract migration %s", version => {
+    const migration = PLATFORM_MIGRATIONS.find(item => item.version === version)!;
+    expect(assessPlatformMigration(migration, 59).class).toBe("contract");
+    expect(contractViolations([migration], { baseline: 59 })).toEqual([]);
+    expect(() => assertPendingMigrationsCompatible([migration], { baseline: 59, allowed: new Set() })).toThrow("previous release is drained");
+    expect(() => assertPendingMigrationsCompatible([migration], { baseline: 59, allowed: new Set([version]) })).not.toThrow();
+    expect(() => assertPendingMigrationsCompatible([{ ...migration, sql: migration.sql + " " }], { baseline: 59, allowed: new Set([version]) })).toThrow("SQL changed after approval");
+    expect(() => assertPendingMigrationsCompatible([migration], { baseline: 59, approvals: [], allowed: new Set([version]) })).toThrow("no LIFE-10 approval");
+    // A fresh database has no previous writer and requires no drain admission.
+    expect(() => assertPendingMigrationsCompatible([migration], { baseline: Infinity, allowed: new Set() })).not.toThrow();
+  });
+
   it("accepts an expand migration, including RLS/index on a table created in the same migration", () => {
     const a = assessPlatformMigration(EXPAND);
     expect(a.class).toBe("expand");

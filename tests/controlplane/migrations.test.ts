@@ -5,6 +5,7 @@
  * be byte-identical to what the emitter renders now and must apply cleanly.
  */
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -33,6 +34,8 @@ import { normalizePlan } from "@/lib/tofu/plan";
 import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import { TOFU_VERSION } from "@/lib/tofu/types";
 import { planEvidence } from "@/lib/execution/plan-evidence";
+import { platformRunStore } from "@/lib/coding-agent/store";
+import { expireAnalysisPayloads } from "@/lib/coding-agent/lifecycle";
 
 if (process.env.ZENITH_TEST_APPROVED_SOURCE_REQUIRED === "1" && !PG_URL) {
   throw new Error("Approved source migration acceptance requires an owned PostgreSQL database.");
@@ -59,6 +62,8 @@ const EXPECTED_TABLES = [
   "mixed_output_records", "slo_samples", "slo_measurements", "recovery_epochs", "recovery_items", "legal_holds", "retention_archives", "retention_destinations", "retention_restores", "audit_exports", "managed_domains", "managed_storage_keys", "billing_accounts", "billing_account_events", "billing_invoices", "billing_usage_events", "billing_webhook_events",
   // Wave 6 integration, schemas 53..58.
   "agent_update_controls", "isolation_plan_custody", "workspace_mfa_controls",
+  // Repository grants and bounded Gimbal analysis, schemas 60 and 61.
+  "github_discovery_sessions", "github_project_sources", "coding_agent_workers", "coding_agent_workspace_limits",
   // Platform schemas 37 to 41 (wave 4).
   "actual_spend_snapshots", "ops_maintenance", "ops_maintenance_history", "tenant_quotas", "key_custody_keys", "key_rewrap_jobs", "mixed_parent_plans", "mixed_child_plans", "mixed_child_receipts", "mixed_addresses", "mixed_runs", "mixed_run_events", "mixed_output_preauthorizations",
 ];
@@ -68,7 +73,7 @@ const EXPECTED_TABLES = [
 // are global App-scoped fences/receipts, never tenant-addressable resources.
 // The cleanup writer epoch is one installation-wide singleton, not a tenant row.
 // Maintenance mode/history and non-secret key custody are installation-wide; tenant_quotas and key_rewrap_jobs remain tenant-scoped.
-const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs", "ops_maintenance", "ops_maintenance_history", "key_custody_keys", "slo_samples", "slo_measurements", "recovery_epochs", "billing_webhook_events"]);
+const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs", "ops_maintenance", "ops_maintenance_history", "key_custody_keys", "slo_samples", "slo_measurements", "recovery_epochs", "billing_webhook_events", "coding_agent_workers"]);
 
 interface Lane {
   name: string;
@@ -115,6 +120,21 @@ const lanes: Lane[] = [
     : []),
 ];
 
+const analysisPayload = (bindingId = uid("binding")) => ({
+  source: { repository: "acme/school", repositoryId: 101, bindingId, bindingVersion: 1, commit: "a".repeat(40) },
+  limits: { spendMicroUsd: 600_000, toolCalls: 20 }, usage: { spendMicroUsd: 125_000, toolCalls: 4 },
+  checkpoint: { version: 1, analysisMode: "model", steps: 4, messages: [{ role: "user", content: "private source" }] },
+  result: { artifact: { manifest: "private source", manifestDigest: digest("manifest"), requirementsDigest: digest("requirements") } },
+});
+
+async function seedAnalysisRow(db: PlatformDbHandle, id: string, workspaceId: string, payload: Record<string, unknown>, encoded: boolean) {
+  const json = (value: unknown) => value === null ? null : JSON.stringify(encoded ? JSON.stringify(value) : value);
+  await db.query(
+    "insert into platform.coding_agent_runs(id,workspace_id,project_id,environment_id,created_by,status,model,task,source,limits,usage,checkpoint,result,workflow_id,version) values($1,$2,'school','staging','admin','running','fixture','private source',$3::text::jsonb,$4::text::jsonb,$5::text::jsonb,$6::text::jsonb,$7::text::jsonb,'legacy-workflow',7)",
+    [id, workspaceId, json(payload.source), json(payload.limits), json(payload.usage), json(payload.checkpoint), json(payload.result)],
+  );
+}
+
 /** Historical SQL fixture setup never supplies current contract admission. */
 async function historicalFixtureRange(db: PlatformDbHandle, from: number, through: number) {
   const prior = PLATFORM_MIGRATIONS.filter(m => m.version < from);
@@ -146,11 +166,11 @@ async function withOwnedHistoricalRepairAdmission<T>(admit42: boolean, fixture: 
   }
 }
 
-/** Successful historical upgrade fixtures explicitly model drained Wave 5 writers. */
-async function migrateDrainedWave5(db: PlatformDbHandle) {
+/** Successful historical upgrade fixtures explicitly model drained previous writers. */
+async function migrateDrainedWriters(db: PlatformDbHandle) {
   const admission = process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
   try {
-    process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [admission, "49", "51", "57", "58"].filter(Boolean).join(",");
+    process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = [admission, "49", "51", "57", "58", "60", "62", "63"].filter(Boolean).join(",");
     return await migratePlatformDb(db);
   } finally {
     if (admission === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
@@ -226,6 +246,11 @@ describe("migration set", () => {
     const committed = fs.readFileSync(path.join(process.cwd(), EMITTED_RELATIVE_PATH), "utf8");
     expect(committed).toBe(renderSupabaseMigration());
     expect(EMITTED_RELATIVE_PATH).toBe(`supabase/migrations/${EMITTED_FILE}`);
+    expect(EMITTED_FILE).toBe("0030_platform_core.sql");
+    expect(createHash("sha256").update(fs.readFileSync(path.join(process.cwd(), "supabase/migrations/0029_platform_core.sql"))).digest("hex"))
+      .toBe("30c7b953663546f27d4d2c8a431b74befdd370836f71061a929a1037833f01e9");
+    expect(createHash("sha256").update(fs.readFileSync(path.join(process.cwd(), "supabase/migrations/0027_platform_core.sql"))).digest("hex"))
+      .toBe("5e740886cb5eb637f0680c503ac900a3cbdeb0802e22dd4dff8376c687f66039");
     // and it carries this build's checksum for every migration (so the TS migrator recognises it)
     for (const m of PLATFORM_MIGRATIONS) expect(committed).toContain(migrationChecksum(m));
     expect(committed).toContain("enable row level security");
@@ -251,6 +276,129 @@ describe.each(lanes)("migrator [$name]", (lane) => {
     if (allowedBefore === undefined) delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
     else process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = allowedBefore;
   });
+
+  it("installs the current schema on an empty database without drained-writer admission", async () => {
+    const oldEnforce = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+    try {
+      process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
+      delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+      await lane.withFresh(async open => {
+        const db = await open(false);
+        expect((await migratePlatformDb(db)).applied).toEqual(ALL);
+        await assertPlatformSchemaCurrent(db);
+      });
+    } finally {
+      if (oldEnforce === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+      else process.env.ZENITH_ENFORCE_EXPAND_ONLY = oldEnforce;
+    }
+  }, 60_000);
+
+  it("refuses a real schema 59 upgrade before any DDL until all repository/Gimbal contract versions are admitted", async () => {
+    await lane.withFresh(async open => {
+      const db = await open(false), previous = PLATFORM_MIGRATIONS.filter(m => m.version <= 59);
+      await migratePlatformDb(db, previous);
+      const workspaceId = uid("ws"), id = uid("run"), payload = analysisPayload();
+      await seedAnalysisRow(db, id, workspaceId, payload, true);
+      await db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values($1,'42',7,101,'acme','school',1,'admin')", [workspaceId]);
+      const ledger = await db.query("select * from platform.schema_migrations order by version");
+      const rows = await db.query("select to_jsonb(r) as row from platform.coding_agent_runs r");
+      const oldEnforce = process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+      try {
+        process.env.ZENITH_ENFORCE_EXPAND_ONLY = "1";
+        delete process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS;
+        await expect(migratePlatformDb(db)).rejects.toMatchObject({ details: { versions: [60, 62, 63] } });
+        process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = "60";
+        await expect(migratePlatformDb(db)).rejects.toMatchObject({ details: { versions: [62, 63] } });
+        expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(ledger);
+        expect(await db.query("select to_jsonb(r) as row from platform.coding_agent_runs r")).toEqual(rows);
+        expect(await db.query("select column_name from information_schema.columns where table_schema='platform' and table_name='github_source_bindings' and column_name='binding_id'")).toEqual([]);
+        // This is the actual N-1 writer whose conflict target migration 60 removes.
+        await db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values($1,'42',7,101,'acme','school',1,'admin') on conflict(workspace_id) do update set version=platform.github_source_bindings.version", [workspaceId]);
+        process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = "60,62,63";
+        expect((await migratePlatformDb(db)).applied).toEqual([60, 61, 62, 63]);
+        expect(await db.query("select * from platform.schema_migrations where version<=59 order by version")).toEqual(ledger);
+        expect(await db.query("select workspace_id,repository_id,owner,repo,version,name_current from platform.github_source_bindings where workspace_id=$1", [workspaceId]))
+          .toEqual([{ workspace_id: workspaceId, repository_id: 101, owner: "acme", repo: "school", version: 1, name_current: true }]);
+        expect(await platformRunStore(db).get(workspaceId, id)).toMatchObject({ ...payload, version: 7 });
+        await expect(db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values($1,'42',7,101,'acme','school',1,'admin') on conflict(workspace_id) do update set version=platform.github_source_bindings.version", [workspaceId]))
+          .rejects.toMatchObject({ sqlstate: "42P10" });
+        await assertPlatformSchemaCurrent(db);
+      } finally {
+        if (oldEnforce === undefined) delete process.env.ZENITH_ENFORCE_EXPAND_ONLY;
+        else process.env.ZENITH_ENFORCE_EXPAND_ONLY = oldEnforce;
+      }
+    });
+  }, 60_000);
+
+  it("repairs legacy JSONB objects without changing retained records and restores budgets and revoked-source cleanup across cumulative replay", async () => {
+    await lane.withFresh(async open => {
+      const db = await open(false);
+      await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 61));
+      const workspaceId = uid("ws"), id = uid("run"), bindingId = uid("binding"), payload = analysisPayload(bindingId);
+      await db.query("insert into platform.github_source_bindings(workspace_id,binding_id,app_id,installation_id,repository_id,owner,repo,version,bound_by) values($1,$2,'42',7,101,'acme','school',1,'admin')", [workspaceId, bindingId]);
+      await seedAnalysisRow(db, id, workspaceId, payload, true);
+      await seedAnalysisRow(db, uid("healthy"), uid("other-ws"), payload, false);
+      await seedAnalysisRow(db, uid("no-result"), uid("other-ws"), { ...payload, result: null }, true);
+      const read = () => db.query<{ row: Record<string, unknown> }>("select to_jsonb(r) as row from platform.coding_agent_runs r order by id");
+      const retained = await read();
+      const expected = retained.map(({ row }) => ({ row: { ...row, ...Object.fromEntries(["source", "limits", "usage", "checkpoint", "result"].map(key => [key, typeof row[key] === "string" ? JSON.parse(row[key] as string) : row[key]])) } }));
+      process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = "62,63";
+      expect((await migratePlatformDb(db)).applied).toEqual([62, 63]);
+      expect(await read()).toEqual(expected);
+      const ledger = await db.query("select * from platform.schema_migrations order by version");
+      await db.exec(renderSupabaseMigration());
+      await db.exec(renderSupabaseMigration());
+      expect(await read()).toEqual(expected);
+      expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(ledger);
+      expect(await db.query("select jsonb_typeof(source) as source,jsonb_typeof(limits) as limits,jsonb_typeof(usage) as usage,jsonb_typeof(checkpoint) as checkpoint,jsonb_typeof(result) as result,source->>'bindingId' as binding_id,limits->>'spendMicroUsd' as budget from platform.coding_agent_runs where id=$1", [id]))
+        .toEqual([{ source: "object", limits: "object", usage: "object", checkpoint: "object", result: "object", binding_id: bindingId, budget: "600000" }]);
+      await db.query("insert into platform.coding_agent_workspace_limits(workspace_id,concurrent_runs,daily_spend_micro_usd) values($1,3,1000000)", [workspaceId]);
+      await expect(platformRunStore(db).create({ id: uid("denied"), workspaceId, createdBy: "admin", model: "fixture", task: "inspect", workflowId: uid("workflow"), ...payload, limits: { spendMicroUsd: 400_001 } }))
+        .rejects.toThrow("daily analysis budget");
+      await db.query("update platform.github_source_bindings set revoked_at=clock_timestamp(),version=version+1 where workspace_id=$1 and binding_id=$2", [workspaceId, bindingId]);
+      expect(await expireAnalysisPayloads(db)).toBeGreaterThanOrEqual(1);
+      expect(await platformRunStore(db).get(workspaceId, id)).toMatchObject({
+        source: payload.source, usage: payload.usage, task: "[Analysis content deleted]", status: "cancelled", version: 8,
+        result: { purged: true, manifestDigest: digest("manifest"), requirementsDigest: digest("requirements") },
+      });
+      await assertPlatformSchemaCurrent(db);
+    });
+  }, 60_000);
+
+  it("refuses malformed legacy JSON or unknown spend without deleting rows or partially normalizing the migration", async () => {
+    await lane.withFresh(async open => {
+      const db = await open(false);
+      await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 61));
+      const workspaceId = uid("ws"), id = uid("bad"), payload = analysisPayload();
+      await seedAnalysisRow(db, uid("valid"), workspaceId, payload, true);
+      await seedAnalysisRow(db, id, workspaceId, payload, true);
+      const read = () => db.query("select to_jsonb(r) as row from platform.coding_agent_runs r order by id");
+      const ledger = await db.query("select * from platform.schema_migrations order by version");
+      const invalid: [string, unknown, string][] = [
+        ["source", "not-json-private-source", "malformed legacy"],
+        ["checkpoint", JSON.stringify([]), "require an object"],
+        ["result", JSON.stringify(null), "require an object"],
+        ["source", [], "require an object"],
+        ["limits", JSON.stringify({}), "will not assume a zero budget"],
+        ["usage", JSON.stringify({ spendMicroUsd: "10" }), "will not assume a zero budget"],
+        ["limits", JSON.stringify({ spendMicroUsd: -1 }), "nonnegative safe integer"],
+        ["usage", JSON.stringify({ spendMicroUsd: 0.5 }), "nonnegative safe integer"],
+        ["limits", JSON.stringify({ spendMicroUsd: 9_007_199_254_740_992 }), "nonnegative safe integer"],
+      ];
+      process.env.ZENITH_ALLOW_CONTRACT_MIGRATIONS = "62,63";
+      for (const [column, value, message] of invalid) {
+        await db.query(`update platform.coding_agent_runs set ${column}=$2::text::jsonb where id=$1`, [id, JSON.stringify(value)]);
+        const before = await read();
+        const error = await migratePlatformDb(db).catch((error: unknown) => error);
+        expect(error).toMatchObject({ sqlstate: "23514", message: expect.stringContaining(message) });
+        expect(String(error)).not.toContain("not-json-private-source");
+        expect(await read()).toEqual(before);
+        expect(await db.query("select * from platform.schema_migrations order by version")).toEqual(ledger);
+        await db.query(`update platform.coding_agent_runs set ${column}=$2::text::jsonb where id=$1`, [id, JSON.stringify(JSON.stringify(payload[column as keyof typeof payload]))]);
+      }
+      expect((await migratePlatformDb(db)).applied).toEqual([62, 63]);
+    });
+  }, 60_000);
 
   it("repairs published external-effect key checks through an approved upgrade without changing history or authority", async () => {
     await lane.withFresh(async (open) => {
@@ -316,9 +464,9 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         values ($1,$2,$3,$4,'approve',$5::text::jsonb,$6,'editor','legacy',clock_timestamp() + interval '1 hour')`,
       [approvalId, workspaceId, op.id, op.proposalDigest, JSON.stringify(approver), approver.id]);
       await db.query("update platform.operations set status = 'approved' where workspace_id = $1 and id = $2", [workspaceId, op.id]);
-      await expectHistoricalContractRefusal(db, [4, 5, 11, 15, 28, 30, 49, 51, 57, 58]);
+      await expectHistoricalContractRefusal(db, [4, 5, 11, 15, 28, 30, 49, 51, 57, 58, 60, 62, 63]);
       await historicalFixtureRange(db, 4, 30);
-      expect((await migrateDrainedWave5(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter(m => m.version > 30).map(m => m.version));
+      expect((await migrateDrainedWriters(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter(m => m.version > 30).map(m => m.version));
       expect(await db.query("select approval_round from platform.approvals where workspace_id = $1 and id = $2", [workspaceId, approvalId])).toEqual([{ approval_round: 0 }]);
       await claimOperation(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: "worker" });
       await suspendForApproval(db, { workspaceId, id: op.id });
@@ -778,10 +926,10 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             await tx.query("drop table platform.agent_receipt_acl_probe");
           }
           if (mode === "same-owner schema6") {
-            await expectHistoricalContractRefusal(db, [11, 15, 28, 30, 49, 51, 57, 58]);
+            await expectHistoricalContractRefusal(db, [11, 15, 28, 30, 49, 51, 57, 58, 60, 62, 63]);
             await historicalFixtureRange(db, 7, 30);
           }
-          await migrateDrainedWave5(db);
+          await migrateDrainedWriters(db);
           await assertPlatformSchemaCurrent(db);
           expect((await tx.query<{ owner: string }>("select pg_get_userbyid(relowner) as owner from pg_class where oid='platform.agent_effect_receipts'::regclass"))[0].owner).toBe(owner);
           for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"])
@@ -820,11 +968,11 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
             for (const privilege of ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"])
               expect((await tx.query<{ inherited: boolean }>("select has_table_privilege('service_role','platform.approved_source_acl_probe',$1) as inherited", [privilege]))[0].inherited).toBe(true);
             await tx.query("drop table platform.approved_source_acl_probe");
-            await expectHistoricalContractRefusal(db, [11, 15, 28, 30, 49, 51, 57, 58]);
+            await expectHistoricalContractRefusal(db, [11, 15, 28, 30, 49, 51, 57, 58, 60, 62, 63]);
             await historicalFixtureRange(db, 7, 12);
             expect((await migratePlatformDb(db, PLATFORM_MIGRATIONS.filter(m => m.version <= 13))).applied).toEqual([13]);
             await historicalFixtureRange(db, 14, 30);
-            await migrateDrainedWave5(db);
+            await migrateDrainedWriters(db);
           } else {
             // Fresh canonical Supabase SQL includes the final aggregate ACL
             // reassertion, not only migration13's narrower direct grant.
@@ -889,7 +1037,7 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
         expect((await withPlanReview(db, { ...operation, approvalRound: 0 })).planReview?.view).toEqual(summary.view);
         await expectHistoricalContractRefusal(db, [15, 28, 30], PLATFORM_MIGRATIONS.filter(m => m.version <= 30));
         await historicalFixtureRange(db, 14, 30);
-        await migrateDrainedWave5(db);
+        await migrateDrainedWriters(db);
         await assertPlatformSchemaCurrent(db);
         expect((await withPlanReview(db, { ...operation, approvalRound: 0 })).planReview?.view).toEqual(summary.view);
       } finally { await db.close(); }

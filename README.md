@@ -32,6 +32,7 @@ See [the identity and compatibility notes](docs/BRANDING.md).
 
 ## Accounts and collaboration
 
+GitHub sign-in setup and its separation from repository access are covered in [docs/github-auth.md](docs/github-auth.md).
 Google sign-in, identity linking, and password setup are covered in
 [Google authentication](docs/google-auth.md). Every workspace has a Share entry
 for email-bound invitations, viewer/editor/admin access, and owner-controlled
@@ -43,6 +44,12 @@ Intake and access gating are independently disabled by default. It does not add
 a landing-page form.
 
 ## Start with Gimbal
+
+Connect selected GitHub repositories in **Repositories**, attach one to a
+project, and open **Gimbal** for static or model-assisted analysis of an exact
+commit. Review the requirements and manifest diff, or continue through the
+scoped Claude Code/MCP handoff. See the [repository analysis guide](docs/platform/operations/GITHUB-ANALYSIS.md)
+for setup, access revocation, retention, upgrade requirements, and release checks.
 
 New accounts enter the optional starter at `/onboarding`: create or choose a
 workspace, select a connection, then create an editable blueprint project or

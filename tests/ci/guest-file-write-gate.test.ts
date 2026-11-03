@@ -1356,6 +1356,63 @@ assert project_state(None) is None
     const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
     expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
   });
+  it("admits locally loaded image digests only for the exact owned repository and pins cleanup custody", () => {
+    const model = String.raw`
+import ast, copy, json, pathlib, re, sys
+tree = ast.parse(pathlib.Path(sys.argv[1]).read_text())
+helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'owned_image_snapshot')
+operations = []
+namespace = {'json': json, 're': re, 'set_diagnostic_operation': operations.append}
+exec(compile(ast.Module(body=[helper], type_ignores=[]), 'actual-owned-image-admission', 'exec'), namespace)
+admit = namespace['owned_image_snapshot']
+absence = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'assert_image_id_absent')
+exec(compile(ast.Module(body=[absence], type_ignores=[]), 'actual-image-absence', 'exec'), namespace)
+assert_absent = namespace['assert_image_id_absent']
+identity = 'sha256:' + 'a' * 64
+assert_absent(identity, b'')
+assert_absent(identity, ('sha256:' + 'b' * 64 + '\n').encode())
+for listing in ((identity + '\n').encode(), ('a' * 64 + '\n').encode(), b'malformed-id\n'):
+    try: assert_absent(identity, listing)
+    except AssertionError: pass
+    else: raise AssertionError('missing tag incorrectly proved image ID absence')
+token = '012345abcdef'; name = 'zenith-mach04-' + token; tag = name + ':fixture'
+base = {'Id': 'sha256:' + 'a' * 64, 'Os': 'linux', 'Architecture': 'amd64', 'Config': {'Labels': {'zenith.mach04.owner': token}}, 'RepoTags': [tag], 'RepoDigests': []}
+for digests in (None, [], [name + '@sha256:' + 'b' * 64], ['docker.io/library/' + name + '@sha256:' + 'b' * 64]):
+    loaded = dict(base, RepoDigests=digests)
+    captured = admit(loaded, 'amd64', token, tag, [])
+    assert admit(copy.deepcopy(loaded), 'amd64', token, tag, [], captured) == captured
+canonical = dict(base, RepoTags=['docker.io/library/' + tag], RepoDigests=['docker.io/library/' + name + '@sha256:' + 'b' * 64])
+assert admit(canonical, 'amd64', token, tag, [])['Id'] == base['Id']
+for changes, operation in [
+    ({'Id': 'a' * 64}, 'load-apt-image-id'),
+    ({'Os': 'windows'}, 'load-apt-image-platform'),
+    ({'Architecture': 'arm64'}, 'load-apt-image-platform'),
+    ({'Config': {'Labels': {'zenith.mach04.owner': 'different'}}}, 'load-apt-image-owner'),
+    ({'RepoTags': [tag, 'unrelated:latest']}, 'load-apt-image-references'),
+    ({'RepoTags': ['unrelated:latest']}, 'load-apt-image-references'),
+    ({'RepoDigests': ['unrelated@sha256:' + 'b' * 64]}, 'load-apt-image-references'),
+    ({'RepoDigests': [name + '@sha256:short']}, 'load-apt-image-references'),
+    ({'RepoDigests': [name + '@sha256:' + 'b' * 64, name + '@sha256:' + 'c' * 64]}, 'load-apt-image-references'),
+    ({'RepoDigests': [name + '@sha256:' + 'b' * 64] * 2}, 'load-apt-image-references'),
+]:
+    try: admit(dict(base, **changes), 'amd64', token, tag, [])
+    except AssertionError: assert operations[-1] == operation
+    else: raise AssertionError('foreign or malformed image admitted')
+for baseline in ([base['Id'].encode()], [base['Id'][7:].encode()]):
+    try: admit(base, 'amd64', token, tag, baseline)
+    except AssertionError: assert operations[-1] == 'load-apt-image-id'
+    else: raise AssertionError('preexisting image admitted for deletion')
+original = copy.deepcopy(canonical); captured = admit(original, 'amd64', token, tag, [])
+original['Config']['Labels']['changed'] = 'after-capture'
+assert 'changed' not in captured['Config']['Labels']
+for changed in (original, dict(canonical, RepoDigests=[]), dict(canonical, Id='sha256:' + 'c' * 64)):
+    try: admit(changed, 'amd64', token, tag, [], captured)
+    except AssertionError: assert operations[-1] == 'load-apt-image-custody'
+    else: raise AssertionError('changed custody accepted for cleanup')
+`;
+    const child = spawnSync("python3", ["-B", "-c", model, path.resolve("scripts/ci/guest-pid1-fixtures.py")], { encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" }, timeout: 5000, maxBuffer: 65536 });
+    expect(child.error).toBeUndefined(); expect(child.status, `${child.stderr}${child.stdout}`).toBe(0); expect(child.stderr).toBe("");
+  });
   it("retries only init-to-systemd readiness within one strict deadline", () => {
     const model = String.raw`
 import ast, pathlib, subprocess, sys

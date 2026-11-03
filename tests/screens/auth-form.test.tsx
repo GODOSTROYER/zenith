@@ -16,7 +16,7 @@ const calls = vi.hoisted(() => ({
   hasWorkspace: true,
 }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: calls.createClient }));
-vi.mock("@/lib/supabase/env", () => ({ SUPABASE_OAUTH_PROVIDERS: ["google"], OAUTH_PROVIDER_LABEL: { google: "Google" } }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_OAUTH_PROVIDERS: ["google", "github"], OAUTH_PROVIDER_LABEL: { google: "Google", github: "GitHub" } }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: calls.replace, refresh: calls.refresh }),
   useSearchParams: () => new URLSearchParams(calls.search),
@@ -196,6 +196,32 @@ it("offers Google on signup and permits retry after a provider failure", async (
   calls.oauth.mockResolvedValueOnce({ error: null });
   await act(async () => button.click());
   expect(calls.oauth).toHaveBeenCalledTimes(2);
+});
+
+it("offers GitHub beside Google without requesting repository permissions", async () => {
+  calls.oauth.mockResolvedValue({ error: null });
+  const github = [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Continue with GitHub")!;
+  const google = [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Continue with Google")!;
+  expect(github.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  await act(async () => github.click());
+  expect(calls.oauth).toHaveBeenCalledWith({ provider: "github", options: {
+    redirectTo: "http://localhost/auth/callback?next=%2Fp%2Fdemo%2Factivity",
+  } });
+  expect(github.getAttribute("aria-busy")).toBe("true");
+  expect(github.title).toBe("Opening GitHub…");
+  expect(google.disabled).toBe(true);
+  expect([...host.querySelectorAll('[role="status"]')].some((s) => s.textContent === "Opening GitHub…")).toBe(true);
+});
+
+it("permits GitHub retry and keeps the provider-neutral waitlist explanation", async () => {
+  await act(async () => root.render(<AuthForm mode="login" waitlistRequired />));
+  calls.oauth.mockResolvedValue({ error: new Error("Provider unavailable") });
+  const github = [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Continue with GitHub")!;
+  await act(async () => github.click());
+  expect(github.disabled).toBe(false);
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("Provider unavailable");
+  expect(host.textContent).toContain("Access requires approval");
+  expect(host.textContent).not.toContain("Google will verify");
 });
 
 

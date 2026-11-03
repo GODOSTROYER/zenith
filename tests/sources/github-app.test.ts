@@ -58,17 +58,107 @@ describe("GitHub App credentials", () => {
     expect(exchange.code_verifier === "synthetic-pkce" && exchange.redirect_uri === "https://zenith.test/api/platform/v1/github/callback").toBe(true);
     const urls = fetchImpl.mock.calls.map(([url]) => String(url));
     expect(urls.every((url) => !url.includes(USER_TOKEN) && !url.includes(exchange.client_secret) && !url.includes("synthetic-code"))).toBe(true);
-    expect(urls[1]).toBe("https://api.github.com/user/installations/7/repositories?per_page=100&page=1");
+    expect(urls[1]).toBe("https://api.github.com/repos/acme/app");
+    expect((fetchImpl.mock.calls[1][1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${USER_TOKEN}`);
+    expect(urls[2]).toBe("https://api.github.com/repos/acme/app/installation");
+    expect(JSON.parse(String(fetchImpl.mock.calls[3][1]?.body))).toEqual({ repository_ids: [99], permissions: { contents: "read" } });
+    expect(fetchImpl.mock.calls[4]).toEqual(["https://api.github.com/installation/token", expect.objectContaining({ method: "DELETE", headers: expect.objectContaining({ Authorization: `Bearer ${INSTALL_TOKEN}` }) })]);
   });
   it("refuses a spoofed installation with a repository invisible to the GitHub user", async () => {
-    const fetchImpl = api(); fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" })).mockResolvedValueOnce(json({ repositories: [{ id: 100, full_name: "foreign/private" }] }));
+    const fetchImpl = api(); fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" })).mockResolvedValueOnce(json({ id: 100, full_name: "foreign/private", permissions: { admin: true } }));
     await expect(createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" })).rejects.toThrow("refused");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
-  it("paginates with fixed URLs and does not follow externally supplied Link headers", async () => {
-    const fetchImpl = api(); fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" })).mockResolvedValueOnce(json({ repositories: Array.from({ length: 100 }, (_, id) => ({ id: id + 100, full_name: "other/repo" })) }));
-    expect(await createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" })).toBe(99);
-    expect(String(fetchImpl.mock.calls[2][0])).toBe("https://api.github.com/user/installations/7/repositories?per_page=100&page=2");
+  it("does not let a repository reader delegate private code to a shared workspace", async () => {
+    const fetchImpl = api();
+    fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" }))
+      .mockResolvedValueOnce(json({ id: 99, full_name: "acme/app", permissions: { pull: true, admin: false } }));
+    await expect(createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" }))
+      .rejects.toMatchObject({ code: "refused" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+  it("discovers only user-and-installation repositories administrable by the initiating user", async () => {
+    const fetchImpl = api();
+    fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" }))
+      .mockResolvedValueOnce(json({ id: 7, app_id: 42, suspended_at: null }))
+      .mockResolvedValueOnce(json({ repositories: [
+        { id: 99, full_name: "acme/app", private: true, default_branch: "develop", permissions: { admin: true } },
+        { id: 100, full_name: "foreign/reader", private: true, permissions: { admin: false } },
+      ] }));
+    const result = await createGithubApp(material.config, { fetchImpl }).discoverUserRepositories({ installationId: 7, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" });
+    expect(result).toEqual({ repositories: [{ owner: "acme", repo: "app", repositoryId: 99, private: true, defaultBranch: "develop" }], truncated: false });
+    expect(JSON.stringify(result)).not.toContain(USER_TOKEN);
+    expect(fetchImpl.mock.calls.every(([url]) => !String(url).includes(USER_TOKEN))).toBe(true);
+  });
+  it("keeps discovery bounded at 1000 but directly verifies repository 1001 without following provider Link URLs", async () => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (raw, init) => {
+      const url = new URL(String(raw));
+      if (url.pathname === "/user/installations/7/repositories") {
+        const page = Number(url.searchParams.get("page"));
+        const response = json({ repositories: Array.from({ length: 100 }, (_, n) => ({ id: (page - 1) * 100 + n + 1,
+          full_name: `acme/repo-${(page - 1) * 100 + n + 1}`, private: true, default_branch: "main", permissions: { admin: true } })) });
+        response.headers.set("link", '<https://foreign.test/credential-trap>; rel="next"');
+        return response;
+      }
+      if (url.href === "https://api.github.com/repos/acme/app") return json({ id: 1001, full_name: "acme/app", permissions: { admin: true } });
+      if (url.href === "https://api.github.com/app/installations/7/access_tokens") return json({ ...tokenResponse(), repositories: [{ id: 1001, full_name: "acme/app" }] });
+      return delegate(raw, init);
+    });
+    const app = createGithubApp(material.config, { fetchImpl });
+    const input = { ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" };
+    const found = await app.discoverUserRepositories(input);
+    expect(found.truncated).toBe(true);
+    expect(found.repositories).toHaveLength(1000);
+    expect(found.repositories.some(repo => repo.repositoryId === 1001)).toBe(false);
+    const before = fetchImpl.mock.calls.length;
+    expect(await app.verifyUserRepository(input)).toBe(1001);
+    expect(fetchImpl.mock.calls.slice(before).map(([url]) => String(url))).toEqual([
+      "https://github.com/login/oauth/access_token", "https://api.github.com/repos/acme/app", "https://api.github.com/repos/acme/app/installation",
+      "https://api.github.com/app/installations/7/access_tokens", "https://api.github.com/installation/token",
+    ]);
+    expect(fetchImpl.mock.calls.filter(([url]) => String(url).includes("/user/installations/"))).toHaveLength(10);
+    expect(fetchImpl.mock.calls.every(([url]) => ["api.github.com", "github.com"].includes(new URL(String(url)).hostname))).toBe(true);
+  });
+  it("still requires the selected App installation after direct user administration is proven", async () => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (url, init) => String(url).endsWith("/installation")
+      ? json({ id: 8, app_id: 42, suspended_at: null }) : delegate(url, init));
+    await expect(createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" }))
+      .rejects.toMatchObject({ code: "refused" });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+  it.each(["repository ID", "canonical name"])("refuses a changed %s between user authorization and the installation proof", async changed => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (url, init) => String(url).endsWith("/access_tokens")
+      ? json({ ...tokenResponse(), repositories: [{ id: changed === "repository ID" ? 202 : 99, full_name: changed === "canonical name" ? "acme/renamed" : "acme/app" }] })
+      : delegate(url, init));
+    await expect(createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" }))
+      .rejects.toMatchObject({ code: "refused" });
+    expect(JSON.parse(String(fetchImpl.mock.calls[3][1]?.body)).repository_ids).toEqual([99]);
+    expect(fetchImpl.mock.calls.at(-1)?.[1]?.method).toBe("DELETE");
+  });
+  it("lists branch metadata with an exact repository token and fixed pagination URLs", async () => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (url, init) => String(url).includes("/branches?")
+      ? json([{ name: "release/school", commit: { sha: "a".repeat(40) }, protected: true }])
+      : delegate(url, init));
+    const result = await createGithubApp(material.config, { fetchImpl }).branches(binding, 2);
+    expect(result).toEqual({ branches: [{ name: "release/school", commitSha: "a".repeat(40), protected: true }], nextCursor: null });
+    expect(JSON.parse(String(fetchImpl.mock.calls[1][1]?.body))).toEqual({ repository_ids: [99], permissions: { contents: "read" } });
+    expect(String(fetchImpl.mock.calls[2][0])).toBe("https://api.github.com/repos/acme/app/branches?per_page=100&page=2");
+    expect((fetchImpl.mock.calls[2][1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${INSTALL_TOKEN}`);
+    expect(JSON.stringify(result)).not.toContain(INSTALL_TOKEN);
+  });
+  it("refuses malformed branch metadata and invalid pagination before it can reach a picker", async () => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (url, init) => String(url).includes("/branches?")
+      ? json([{ name: "main", commit: { sha: "mutable-reference" }, protected: true }])
+      : delegate(url, init));
+    const app = createGithubApp(material.config, { fetchImpl });
+    for (const page of [0, -1, 1.1, 1001]) await expect(app.branches(binding, page)).rejects.toMatchObject({ code: "invalid" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    await expect(app.branches(binding)).rejects.toMatchObject({ code: "unavailable" });
   });
   it("scrubs transport, response and consumer failures and produces no logs", async () => {
     const logs = [vi.spyOn(console, "log"), vi.spyOn(console, "warn"), vi.spyOn(console, "error")];

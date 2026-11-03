@@ -96,10 +96,17 @@ async function capture(tx: Sql, row: ArtifactRow, destination: string, previous?
   const input = operation.proposal.input ?? {}, originalInput = original.proposal.input ?? {};
   const subject = operation.principal.kind === "user" ? operation.principal.id
     : ["integration", "navigator"].includes(operation.principal.kind) ? operation.principal.onBehalfOf : undefined;
-  const available = await tx.query<Tables>(`select to_regclass('public.workspaces')::text as workspaces,to_regclass('public.members')::text as members,
-    to_regclass('public.projects')::text as projects,to_regclass('public.environments')::text as environments,
-    to_regclass('public.revisions')::text as revisions,to_regclass('public.revision_manifests')::text as revision_manifests,
-    to_regclass('public.deployments')::text as deployments,to_regclass('public.connections')::text as connections`);
+  // The bare name, as regclass::text prints it under the default search_path. regclass::text follows the session's
+  // search_path, which a transaction pooler can leave changed by another client, so this capture and the CAS could disagree.
+  const available = await tx.query<Tables>(`select
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.workspaces')) as workspaces,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.members')) as members,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.projects')) as projects,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.environments')) as environments,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.revisions')) as revisions,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.revision_manifests')) as revision_manifests,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.deployments')) as deployments,
+    (select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.connections')) as connections`);
   if (available.length !== 1) return refuse();
   const tables = available[0];
   const [projects, environments, workspaces, members] = await Promise.all([
@@ -323,7 +330,7 @@ export function planProductDispatchPredicate(current: PlanProductDispatchAuthori
       and e.kind='observation' and not e.simulated and e.digest=$8::text::jsonb->'witness'->>'digest'
       and e.summary=$8::text::jsonb->'witness'->'summary' and e.summary->>'phase'='claimed'
       and e.summary->>'destinationOperationId'=$2 and e.summary->>'attemptId'=$3)`;
-  const tables = tableNames.map(name => `to_regclass('public.${name}')::text is not distinct from $8::text::jsonb->'tables'->>'${name}'`).join(" and ");
+  const tables = tableNames.map(name => `(select relname::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.${name}')) is not distinct from $8::text::jsonb->'tables'->>'${name}'`).join(" and ");
   if (current.kind === "native-absence") {
     const absence = [current.tables.workspaces ? "not exists(select 1 from public.workspaces where id=$8::text::jsonb->'witness'->'summary'->>'workspaceId')" : "true",
       current.tables.projects ? "not exists(select 1 from public.projects where id=$8::text::jsonb->'witness'->'summary'->>'projectId')" : "true",

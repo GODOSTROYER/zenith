@@ -52,6 +52,19 @@ export function mcpCompositionFromEnv(env: Readonly<Record<string, string | unde
   return { api, selected, port, username };
 }
 
+/**
+ * The session's own database, role and configured schema. A transaction pooler hands out backends whose session settings
+ * another client changed (pg_dump and pg_restore set search_path to ''), so the schema is read at its configured default:
+ * the server, database, role and startup values still decide it, a leftover SET from another client does not.
+ */
+export async function nativeSessionTopology(session: Sql): Promise<{ database: string; role: string; schema: string }[]> {
+  return session.tx(async tx => {
+    await tx.query("set local search_path to default");
+    return tx.query<{ database: string; role: string; schema: string }>(
+      "select current_database() as database,current_user as role,current_schema() as schema");
+  });
+}
+
 /** Default native topology only. Custom/separate stores cannot supply final native product predicates. */
 async function defaultMcpProductTopology(sql: Sql, session: Sql): Promise<void> {
   const [{ SUPABASE_URL }, { isDefaultProductClientFor }] = await Promise.all([
@@ -65,8 +78,7 @@ async function defaultMcpProductTopology(sql: Sql, session: Sql): Promise<void> 
     if (!isDefaultProductClientFor(api.origin)) return refused();
   };
   currentComposition();
-  const rows = await session.query<{ database: string; role: string; schema: string }>(
-    "select current_database() as database,current_user as role,current_schema() as schema");
+  const rows = await nativeSessionTopology(session);
   if (rows.length !== 1 || rows[0].database !== "postgres" || rows[0].role !== "postgres" || rows[0].schema !== "public") return refused();
   currentComposition();
 }

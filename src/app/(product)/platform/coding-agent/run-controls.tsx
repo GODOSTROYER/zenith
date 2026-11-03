@@ -1,7 +1,7 @@
 "use client";
 /** Browser-only Gimbal controls. Source and execution authority are always rechecked by the server. */
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
@@ -62,16 +62,26 @@ export function AutoRefresh({ workspaceId, runs, refreshOnProgress = false }: {
   refreshOnProgress?: boolean;
 }) {
   const router = useRouter();
+  const [refreshPending, startRefresh] = useTransition();
+  const pendingRefresh = useRef(refreshPending);
+  pendingRefresh.current = refreshPending;
   const snapshot = JSON.stringify(runs.map(({ id, status, version }) => ({ id, status, version })));
   useEffect(() => {
     const current: { id: string; status: string; version: number }[] = JSON.parse(snapshot);
     if (!current.length) return;
-    let stopped = false, failures = 0;
+    let stopped = false, failures = 0, refreshRetryAt = 0;
     let timer: ReturnType<typeof setTimeout>;
     let pending: AbortController | undefined;
     const schedule = () => { if (!stopped) timer = setTimeout(() => { void poll(); }, Math.min(60_000, 5_000 * 2 ** failures)); };
+    const refreshPage = () => {
+      // App Router refresh has no completion promise. A successful new snapshot
+      // replaces this effect; a failed/unchanged refresh must remain retryable.
+      // Wait for its transition and a cooldown before starting another request.
+      refreshRetryAt = Date.now() + 30_000;
+      startRefresh(() => router.refresh());
+    };
     const poll = async () => {
-      if (document.visibilityState !== "visible") { schedule(); return; }
+      if (document.visibilityState !== "visible" || pendingRefresh.current || Date.now() < refreshRetryAt) { schedule(); return; }
       const controller = new AbortController(); pending = controller;
       const deadline = setTimeout(() => controller.abort(), 15_000);
       try {
@@ -86,14 +96,12 @@ export function AutoRefresh({ workspaceId, runs, refreshOnProgress = false }: {
           const latest = statuses.get(run.id);
           return !latest || latest.status !== run.status || refreshOnProgress && latest.version !== run.version;
         })) {
-          stopped = true;
-          router.refresh();
+          refreshPage();
         }
       } catch (failure) {
         if (stopped) return;
         if (failure instanceof ApiError && (failure.status === 401 || failure.status === 403 || failure.status === 404)) {
-          stopped = true;
-          router.refresh();
+          refreshPage();
         } else failures = Math.min(failures + 1, 4);
       } finally {
         clearTimeout(deadline);
@@ -103,7 +111,7 @@ export function AutoRefresh({ workspaceId, runs, refreshOnProgress = false }: {
     };
     schedule();
     return () => { stopped = true; clearTimeout(timer); pending?.abort(); };
-  }, [workspaceId, snapshot, refreshOnProgress, router]);
+  }, [workspaceId, snapshot, refreshOnProgress, router, startRefresh]);
   return null;
 }
 

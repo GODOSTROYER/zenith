@@ -111,7 +111,7 @@ export function RepositoryPicker({ workspaceId, initialBindings, initialNextCurs
   const [contextDir, setContextDir] = useState(initialSource?.contextDir ?? "");
   const [inspection, setInspection] = useState<SourceInspection>();
   const [candidates, setCandidates] = useState<BuildCandidate[]>([]);
-  const [branchPage, setBranchPage] = useState<{ workspaceId: string; bindingId: string; branches: { name: string; commitSha: string; protected: boolean }[]; nextCursor?: string | null }>();
+  const [branchPage, setBranchPage] = useState<{ workspaceId: string; bindingId: string; bindingVersion: number; branches: { name: string; commitSha: string; protected: boolean }[]; nextCursor?: string | null }>();
   const [branchBusy, setBranchBusy] = useState(false);
   const [busy, setBusy] = useState<"connections" | "inspect">();
   const [error, setError] = useState<string>();
@@ -119,6 +119,8 @@ export function RepositoryPicker({ workspaceId, initialBindings, initialNextCurs
   const abort = useRef<AbortController | null>(null);
   const connectionsAbort = useRef<AbortController | null>(null);
   const paging = useRef(false);
+  const branchAbort = useRef<AbortController | null>(null);
+  const branchInFlight = useRef(false);
   const change = useRef(onChange);
   change.current = onChange;
 
@@ -181,18 +183,33 @@ export function RepositoryPicker({ workspaceId, initialBindings, initialNextCurs
   const location = isPublic ? publicRepository.trim() : binding ? `${binding.owner}/${binding.repo}` : "";
   const validLocation = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/.test(location);
   const usable = isPublic || binding?.state === "connected";
-  const visibleBranches = branchPage?.bindingId === bindingId && branchPage.workspaceId === workspaceId ? branchPage : undefined;
+  const branchScope = JSON.stringify([workspaceId, bindingId, binding?.version, binding?.state]);
+  const currentBranchScope = useRef(branchScope);
+  currentBranchScope.current = branchScope;
+  const visibleBranches = branchPage?.bindingId === bindingId && branchPage.workspaceId === workspaceId && branchPage.bindingVersion === binding?.version ? branchPage : undefined;
+
+  useEffect(() => {
+    branchAbort.current?.abort();
+    branchAbort.current = null;
+    branchInFlight.current = false;
+    setBranchPage(undefined); setBranchBusy(false);
+    return () => branchAbort.current?.abort();
+  }, [branchScope]);
 
   const browseBranches = async (cursor?: string) => {
-    if (!binding || binding.state !== "connected" || disabled || branchBusy) return;
-    setBranchBusy(true); setError(undefined);
+    if (!binding || binding.state !== "connected" || disabled || branchInFlight.current) return;
+    const controller = new AbortController();
+    branchAbort.current = controller;
+    const current = () => !controller.signal.aborted && branchAbort.current === controller && currentBranchScope.current === branchScope;
+    branchInFlight.current = true; setBranchBusy(true); setError(undefined);
     try {
       const query = new URLSearchParams({ bindingId: binding.bindingId });
       if (cursor) query.set("cursor", cursor);
-      const out = await api<{ branches: { name: string; commitSha: string; protected: boolean }[]; nextCursor?: string | null }>(`/api/platform/v1/github/branches?${query}`, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId } });
-      setBranchPage(previous => ({ workspaceId, bindingId: binding.bindingId, nextCursor: out.nextCursor, branches: [...new Map([...(cursor && previous?.bindingId === binding.bindingId && previous.workspaceId === workspaceId ? previous.branches : []), ...out.branches].map(branch => [branch.name, branch])).values()] }));
-    } catch (failure) { setError(sourceError(failure)); }
-    finally { setBranchBusy(false); }
+      const out = await api<{ branches: { name: string; commitSha: string; protected: boolean }[]; nextCursor?: string | null }>(`/api/platform/v1/github/branches?${query}`, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal: controller.signal });
+      if (!current()) return;
+      setBranchPage(previous => ({ workspaceId, bindingId: binding.bindingId, bindingVersion: binding.version, nextCursor: out.nextCursor, branches: [...new Map([...(cursor && previous?.bindingId === binding.bindingId && previous.workspaceId === workspaceId && previous.bindingVersion === binding.version ? previous.branches : []), ...out.branches].map(branch => [branch.name, branch])).values()] }));
+    } catch (failure) { if (current()) setError(sourceError(failure)); }
+    finally { if (current()) { branchInFlight.current = false; setBranchBusy(false); } }
   };
 
   const invalidate = () => {

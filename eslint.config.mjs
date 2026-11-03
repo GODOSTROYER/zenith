@@ -20,6 +20,13 @@ if (require("minimatch/package.json").version !== "11.0.4") {
 }
 if (typeof matcherApi !== "function") {
   const callable = Object.assign(matcherApi.minimatch, matcherApi);
+  // import/no-internal-modules is the sole legacy makeRe consumer in the pinned
+  // lint graph. It uses only .test(path). Preserve that narrow predicate with
+  // v11 matching; do not recreate the removed regex compiler or RegExp API.
+  callable.makeRe = (pattern, options) => {
+    const matcher = new matcherApi.Minimatch(pattern, options);
+    return Object.freeze({ test: (value) => matcher.match(value) });
+  };
   callable.default = callable;
   require.cache[matcherPath].exports = callable;
 }

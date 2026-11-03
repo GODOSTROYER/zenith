@@ -33,6 +33,17 @@ describe("analysis progress polling", () => {
     mount(<AutoRefresh workspaceId="ws-a" runs={runs} refreshOnProgress />);
     await tick(); expect(mocks.router.refresh).toHaveBeenCalledOnce();
   });
+  it("retries an unchanged or failed route refresh after a cooldown and stops after the new snapshot arrives", async () => {
+    mocks.api.mockResolvedValue({ runs: [{ ...runs[0], status: "completed", version: 2 }] });
+    const el = mount(<AutoRefresh workspaceId="ws-a" runs={runs} />);
+    await tick(); expect(mocks.router.refresh).toHaveBeenCalledOnce();
+    await tick(25_000); expect(mocks.api).toHaveBeenCalledOnce();
+    // router.refresh() returned without replacing props, as after a failed RSC
+    // fetch or an unchanged server result. The same component must recover.
+    await tick(); expect(mocks.router.refresh).toHaveBeenCalledTimes(2);
+    rerender(el, <AutoRefresh workspaceId="ws-a" runs={[]} />);
+    await tick(60_000); expect(mocks.api).toHaveBeenCalledTimes(2);
+  });
   it("pauses hidden tabs and never overlaps unresolved status requests", async () => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     mocks.api.mockReturnValue(new Promise(() => {}));

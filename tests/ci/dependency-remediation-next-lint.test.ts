@@ -154,6 +154,25 @@ describe("Next lint dependency replacement", () => {
     expect(owner.messages.filter((message) => message.ruleId === "no-restricted-imports")).toEqual([]);
   });
 
+  it.each([
+    ["forbid", { forbid: ["@/lib/domain/**"] }],
+    ["allow", { allow: ["@/lib/coding-agent/**"] }],
+  ] as const)("keeps import/no-internal-modules %s predicates on the v11 matcher", async (_mode, options) => {
+    const importLint = new ESLint({ cwd: root, overrideConfig: { rules: { "import/no-internal-modules": ["error", options] } } });
+    const [allowed] = await importLint.lintText(
+      'import { DEFAULT_LIMITS } from "@/lib/coding-agent/budget"; export const calls = DEFAULT_LIMITS.toolCalls;',
+      { filePath: "src/app/dependency-check.ts" },
+    );
+    expect(allowed.fatalErrorCount).toBe(0);
+    expect(allowed.messages.filter(message => message.ruleId === "import/no-internal-modules")).toEqual([]);
+    const [blocked] = await importLint.lintText(
+      'import { contentHash } from "@/lib/domain/types"; export const hash = contentHash({});',
+      { filePath: "src/app/dependency-check.ts" },
+    );
+    expect(blocked.fatalErrorCount).toBe(0);
+    expect(blocked.messages.filter(message => message.ruleId === "import/no-internal-modules")).toHaveLength(1);
+  });
+
   it("bounds deeply nested brace input in an isolated process", () => {
     const script = `
       const { ESLint } = require("eslint");

@@ -243,13 +243,21 @@ describe.each(LANES)("analysis lifecycle and admissions on $name", lane => {
     const workspaceId = newWorkspace(), store = platformRunStore(ctx.db);
     await limits(workspaceId, 4, 1_000_000);
     const complete = await store.save({ ...progress(await store.create(runInput(workspaceId))), status: "completed", usage: { spendMicroUsd: 300_000 } });
-    await expect(store.create(runInput(workspaceId, { limits: { spendMicroUsd: 700_001 } })))
-      .rejects.toMatchObject({ code: "invalid_state", message: expect.stringContaining("daily analysis budget") });
+    // PostgreSQL preserves numeric scale in JSONB. The storage guard accepts
+    // integral decimal/scientific spellings, which admission must count too.
+    for (const spend of ["300000", "300000.0", "3.000000e5"]) {
+      await ctx.db.query("update platform.coding_agent_runs set usage=jsonb_set(usage,'{spendMicroUsd}',$3::text::jsonb) where workspace_id=$1 and id=$2", [workspaceId, complete.id, spend]);
+      await expect(store.create(runInput(workspaceId, { limits: { spendMicroUsd: 700_001 } })))
+        .rejects.toMatchObject({ code: "invalid_state", message: expect.stringContaining("daily analysis budget") });
+    }
     await ctx.db.query("update platform.coding_agent_runs set updated_at=clock_timestamp()-interval '25 hours' where workspace_id=$1 and id=$2", [workspaceId, complete.id]);
     const running = await store.create(runInput(workspaceId, { limits: { spendMicroUsd: 900_000 } }));
     await ctx.db.query("update platform.coding_agent_runs set updated_at=clock_timestamp()-interval '25 hours' where workspace_id=$1 and id=$2", [workspaceId, running.id]);
-    await expect(store.create(runInput(workspaceId, { limits: { spendMicroUsd: 100_001 } })))
-      .rejects.toMatchObject({ code: "invalid_state", message: expect.stringContaining("daily analysis budget") });
+    for (const budget of ["900000", "900000.0", "9.000000e5"]) {
+      await ctx.db.query("update platform.coding_agent_runs set limits=jsonb_set(limits,'{spendMicroUsd}',$3::text::jsonb) where workspace_id=$1 and id=$2", [workspaceId, running.id, budget]);
+      await expect(store.create(runInput(workspaceId, { limits: { spendMicroUsd: 100_001 } })))
+        .rejects.toMatchObject({ code: "invalid_state", message: expect.stringContaining("daily analysis budget") });
+    }
     expect((await store.create(runInput(workspaceId, { limits: { spendMicroUsd: 100_000 } }))).status).toBe("running");
   });
 

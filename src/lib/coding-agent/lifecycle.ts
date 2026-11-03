@@ -78,7 +78,7 @@ export async function withRunAdmission<T>(sql: Sql, workspaceId: string, spendMi
     const previous = await replay?.(tx);
     if (previous) return previous.value;
     const [usage] = await tx.query<{ active: string | number; reserved: string | number }>(
-      "select count(*) filter(where status='running') as active,coalesce(sum(case when checkpoint->>'analysisMode'='static' then 0 when status='running' then (limits->>'spendMicroUsd')::bigint else (usage->>'spendMicroUsd')::bigint end),0) as reserved from platform.coding_agent_runs where workspace_id=$1 and (updated_at > clock_timestamp()-interval '24 hours' or status='running') and ($2::text is null or id<>$2)", [workspaceId, excludedRunId ?? null]);
+      "select count(*) filter(where status='running') as active,coalesce(sum(case when checkpoint->>'analysisMode'='static' then 0 when status='running' then (limits->>'spendMicroUsd')::numeric::bigint else (usage->>'spendMicroUsd')::numeric::bigint end),0) as reserved from platform.coding_agent_runs where workspace_id=$1 and (updated_at > clock_timestamp()-interval '24 hours' or status='running') and ($2::text is null or id<>$2)", [workspaceId, excludedRunId ?? null]);
     if (Number(usage.active) >= Number(limit.concurrent_runs)) throw new ControlStoreError("invalid_state", "The workspace concurrent analysis limit has been reached.");
     if (Number(usage.reserved) + spendMicroUsd > Number(limit.daily_spend_micro_usd)) throw new ControlStoreError("invalid_state", "The workspace daily analysis budget has been reached.");
     return work(tx);

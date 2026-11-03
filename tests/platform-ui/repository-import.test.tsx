@@ -118,6 +118,39 @@ describe("repository input", () => {
     expect(new URL(requests()[1].url, "https://zenith.test").searchParams.get("ref")).toBe("release");
     expect(text(el)).toContain(commit);
   });
+  it.each([false, true])("aborts branch browsing on workspace change and ignores a late error=%s", async lateError => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockImplementation(async (_url, init) => new Headers(init?.headers).get("x-zenith-workspace") === "ws_one"
+      ? new Promise<Response>(resolve => { finish = resolve; })
+      : reply({ branches: [{ name: "current-branch", commitSha: commit, protected: false }], nextCursor: null }));
+    const el = mount(<RepositoryPicker workspaceId="ws_one" initialBindings={[binding]} onChange={() => {}} />);
+    select(el.querySelector("select")!, binding.bindingId); click(button(el, "Browse branches")); await settle();
+    const oldSignal = requests()[0].init!.signal!;
+    rerender(el, <RepositoryPicker workspaceId="ws_two" initialBindings={[second]} onChange={() => {}} />); await settle();
+    select(el.querySelector("select")!, second.bindingId);
+    expect(oldSignal.aborted).toBe(true);
+    expect(button(el, "Browse branches").disabled).toBe(false);
+    click(button(el, "Browse branches")); await settle();
+    finish(lateError ? reply({ error: { message: "Old workspace failed" } }, 503) : reply({ branches: [{ name: "stale-branch", commitSha: commit, protected: false }], nextCursor: null })); await settle();
+    expect(text(el)).toContain("current-branch"); expect(text(el)).not.toContain("stale-branch");
+    expect(text(el)).not.toContain("temporarily unavailable");
+    expect(button(el, "Browse branches").disabled).toBe(false);
+  });
+  it.each(["binding", "version"])("invalidates branch requests when the selected %s changes in the same workspace", async change => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockResolvedValue(reply({ branches: [{ name: "new-branch", commitSha: commit, protected: false }], nextCursor: null }))
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const el = mount(<RepositoryPicker workspaceId="ws_one" initialBindings={[binding, second]} onChange={() => {}} />);
+    select(el.querySelector("select")!, binding.bindingId); click(button(el, "Browse branches")); await settle();
+    const signal = requests()[0].init!.signal!;
+    if (change === "binding") select(el.querySelector("select")!, second.bindingId);
+    else rerender(el, <RepositoryPicker workspaceId="ws_one" initialBindings={[{ ...binding, version: binding.version + 1 }, second]} onChange={() => {}} />);
+    await settle();
+    expect(signal.aborted).toBe(true); expect(button(el, "Browse branches").disabled).toBe(false);
+    finish(reply({ branches: [{ name: "old-branch", commitSha: commit, protected: false }], nextCursor: null })); await settle();
+    expect(text(el)).not.toContain("old-branch");
+    click(button(el, "Browse branches")); await settle(); expect(text(el)).toContain("new-branch");
+  });
 
   it("does not republish a late inspection after connection state changes", async () => {
     let finish!: (response: Response) => void;

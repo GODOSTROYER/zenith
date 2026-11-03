@@ -19,6 +19,7 @@ import {
   type RecoveryDecision, type RecoveryItem,
 } from "@/lib/controlplane/recovery";
 import type { Sql } from "@/lib/controlplane/types";
+import { nativeSessionTopology } from "@/lib/controlplane/db/repos/workflow-start-deploy-authority";
 import { PG_URL, approve, expectCode, newWorkspace, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
 import { openMigratedScratchDatabase } from "./_support/scratch-db";
 
@@ -307,6 +308,21 @@ describe.each(ENGINES)("recovery epochs [$name]", (engine) => {
       expect(details).toMatchObject({ reason: "resume_blocked" });
       // the person can still abandon it
       await decide(db(), item, "abandon");
+    });
+  });
+
+  describe("pooled sessions after a restore", () => {
+    // Live runs 41706011242 and 41710574347: pg_dump and pg_restore set search_path to '' for their session. Through a
+    // transaction pooler that setting stays on the backend, and the resumed deploy's final topology check, landing there,
+    // read current_schema() as null and refused the reviewed plan at claim or dispatch.
+    it("a session left with pg_restore's search_path still reads its configured schema", async () => {
+      await db().tx(async (tx) => {
+        const [clean] = await nativeSessionTopology(tx);
+        expect(clean?.schema).toBe("public");
+        await tx.query("select pg_catalog.set_config('search_path', '', false)");
+        try { expect(await nativeSessionTopology(tx)).toEqual([clean]); }
+        finally { await tx.query("reset search_path"); }
+      });
     });
   });
 });

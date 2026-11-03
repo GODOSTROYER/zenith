@@ -47,17 +47,17 @@ vi.mock("@/lib/policy",async original=>({...await original<typeof import("@/lib/
   input=>input.request.mutates?requireApproval(1,"admin",true):allowDecision())}));
 vi.mock("@/lib/execution/product-port", async original => ({ ...await original<typeof import("@/lib/execution/product-port")>(),
   workerStoreScope: async <T>(body: () => Promise<T>): Promise<T> => body() }));
-vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => ({
-  ...await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(),
+vi.mock("@/lib/controlplane/db/repos/workflow-start-deploy-authority", async original => { const actual = await original<typeof import("@/lib/controlplane/db/repos/workflow-start-deploy-authority")>(); return {
+  ...actual,
   assertDefaultMcpProductTopology:async(owner:Sql)=>{if((await owner.query("select current_user as role")).length!==1)throw new Error("Modeled owning association unavailable.");},
   // Hosted REST/SQL association is explicitly modeled. The owning transaction
   // and its native SQL identity remain real; MCP R3 owns private factory proof.
   assertFinalMcpProductTopology: async (_sql: Sql, tx: Sql) => {
     if (tx === _sql) throw new Error("Modeled hosted composition requires the owning transaction.");
-    const rows = await tx.query<{ role: string }>("select current_user as role");
-    if (rows.length !== 1 || !rows[0].role) throw new Error("Modeled hosted composition is unavailable.");
+    const rows = await actual.nativeSessionTopology(tx);
+    if (rows.length !== 1 || !rows[0].role || rows[0].schema !== "public") throw new Error("Modeled hosted composition is unavailable.");
   },
-}));
+}; });
 const required = process.env.ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED === "1";
 if (required && (!PG_URL || PLATFORM_SCHEMA_VERSION < 13)) throw new Error("Plan product authority requires owned PostgreSQL and canonical schema13.");
 closeSharedPgliteAfterAll();
@@ -76,6 +76,8 @@ describe.skipIf(!PG_URL)("paired plan product dispatch authority [postgres; mode
     configure();await resetPlatformDbForTests();db=await native.remember(await platformDb());
     peer = await native.open();
     observer = await native.open();
+    // PROD-OPS-04: pg_dump/pg_restore through a transaction pooler leave search_path '' on a backend the worker reuses.
+    await peer.query("select pg_catalog.set_config('search_path', '', false)");
     await assertPlatformSchemaCurrent(db);
     nativeState.member=async(ws,id)=>(await observer.query<{id:string;workspace_id:string;role:string}>("select id,workspace_id,role from public.members where workspace_id=$1 and id=$2",[ws,id]))[0]??null;
     const migration = readFileSync(new URL("../../supabase/migrations/0001_system_of_record.sql", import.meta.url), "utf8");

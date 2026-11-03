@@ -324,3 +324,17 @@ With this receipt, all four required levels hold passing receipts at one commit.
 Limits:
 - This is a scripted local rehearsal on the owner's Mac. It is not a staging or production restore.
 - The ledger state stays `in_progress`. Promoting it to `verified` is a separate owner decision.
+
+## Intermittent resumed-deploy refusal: cause and fix (2026-11-04)
+
+Runs 41060350720 (at 2cdb66db), 41706011242 and 41710574347 (at 3b7fc395) stopped at the fresh approval. The resumed deploy's reviewed plan was refused at dispatch (`Original plan dispatch outcome is unconfirmed`) or at claim (`Reviewed plan artifact is unavailable or changed`). AWS was not changed.
+
+Cause: the live harness takes the backup and runs the restore through `ZENITH_PLATFORM_DB_URL`, which on the runner stack is the Supavisor transaction pooler. `pg_dump` and `pg_restore` run `set_config('search_path', '', false)`. That is a session setting, so it stays on the pooled backend after they disconnect. A later worker transaction that lands on such a backend reads `current_schema()` as null, and the final MCP product topology check (database `postgres`, role `postgres`, schema `public`) refuses. Whether the claim, the dispatch or neither landed on a changed backend is chance, which is why the failure was intermittent. Run 41706011242's values-free trace, mapped against a bundle built the way `docker/worker.Dockerfile` builds it, points at the `assertFinalMcpProductTopology` refusal inside `dispatch()`.
+
+Fix:
+- The topology check reads the schema under `set local search_path to default`. The server, database, role and startup settings still decide it, so a custom schema still refuses. A setting another client left on the backend no longer does.
+- The product-authority capture and its dispatch CAS no longer use `to_regclass(...)::text`. That text follows the session's search_path, so the capture and the CAS could disagree. Both now read the bare `pg_class.relname`, which is the same value the default path printed.
+
+Tests: `tests/controlplane/recovery-epoch.test.ts` ("a session left with pg_restore's search_path still reads its configured schema", PGlite and PostgreSQL) fails without the fix. `tests/controlplane/plan-artifact-product-authority.test.ts` now runs its `peer` connection with that search_path and models the final topology with the real session read. Five positive dispatch cases fail on the original code and on the first change alone. All 52 cases pass with both changes.
+
+Not changed: the runbook says to take backups and restores over a direct connection, not the pooler. The live harness still uses the pooler URL. That is a separate change to the harness.

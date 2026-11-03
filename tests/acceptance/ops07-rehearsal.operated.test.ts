@@ -24,10 +24,10 @@ describe.skipIf(!gated)("PROD-OPS-07 operated rehearsal: retention preview, lega
     try {
       const page = tenant.owner, ws = tenant.workspaceId;
       await stepUpWithAuthenticator(page, tenant.stack, tenant.ownerSecret);
-      const overview = ok(await browserRequest(page, "/api/admin/ops/retention", undefined, "GET", ws)) as { policy?: unknown };
+      const overview = ok(await browserRequest(page, "/api/admin/ops/retention", undefined, "GET", ws)) as { policy?: { valid?: boolean; value?: unknown } };
       diag("overview", overview);
-      expect(overview.policy).toBeDefined();
-      const preview = async () => (ok(await browserRequest(page, "/api/admin/ops/retention/preview", { policy: overview.policy }, "POST", ws)) as { preview: unknown }).preview;
+      expect(overview.policy?.valid).toBe(true);
+      const preview = async () => (ok(await browserRequest(page, "/api/admin/ops/retention/preview", { policy: overview.policy!.value }, "POST", ws)) as { preview: unknown }).preview;
       const before = await preview();
       diag("preview-before", before);
       const created = ok(await browserRequest(page, "/api/admin/ops/retention/holds", { workspaceId: ws, reason: "PROD-OPS-07 operated rehearsal" }, "POST", ws)) as { hold: { id: string; workspaceId: string } };

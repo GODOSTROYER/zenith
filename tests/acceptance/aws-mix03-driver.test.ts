@@ -117,7 +117,7 @@ describe("connection", () => {
       page: OWNER, endpoint: "/api/actions/connection.createAws", method: "POST", workspaceId: "ws-1",
       body: expect.objectContaining({
         mode: "execute", scope: {},
-        input: { label: "PROD-MIX-03 live", region: "ap-south-1", accountId: "123456789012", stateBucket: STATE_BUCKET, bootstrapNameSuffix: "-live", observeRoleArn: "arn:aws:iam::123456789012:role/Observe", deployRoleArn: "arn:aws:iam::123456789012:role/Deploy", mode: "aws_assume_role" },
+        input: { label: "PROD-MIX live-live", region: "ap-south-1", accountId: "123456789012", stateBucket: STATE_BUCKET, bootstrapNameSuffix: "-live", observeRoleArn: "arn:aws:iam::123456789012:role/Observe", deployRoleArn: "arn:aws:iam::123456789012:role/Deploy", mode: "aws_assume_role" },
       }),
     }]);
   });

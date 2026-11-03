@@ -47,7 +47,7 @@ export interface Mix03Product {
    * Sets the producer and consumer manifests, creates the sandbox parent and the two AWS children, proposes the parent plan and
    * queues one deploy operation per child. Returns the child environments (producer first) and the parent operation to approve.
    */
-  proposeMixed(tenant: Mix03Tenant, input: { connectionId: string; accountId: string; region: string; artifact: Mix03Artifact }): Promise<{ environmentIds: string[]; planId: string; parentOperationId: string }>;
+  proposeMixed(tenant: Mix03Tenant, input: { connectionId: string; consumerConnectionId?: string; accountId: string; region: string; artifact: Mix03Artifact }): Promise<{ environmentIds: string[]; planId: string; parentOperationId: string }>;
   /** A person's approval, performed by the CI test approver through the browser path. */
   approve(tenant: Mix03Tenant, operationId: string): Promise<void>;
   /** Adopts every child operation and starts the parent through the browser-only routes. */
@@ -203,11 +203,11 @@ const functionStateOf = (config: unknown): string | undefined => {
   return codes.length ? codes.join(" ") : undefined;
 };
 
-function preconditions(env: EnvLike, plan: Plan): void {
+function preconditions(env: EnvLike, plan: Plan, scenario: "mix-03" | "mix-01" = "mix-03"): void {
   if (env.ZENITH_LIVE_PRODUCT !== "1") refuse("ZENITH_LIVE_PRODUCT=1 is not set; no product scenario ran");
   if (!env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY || !env.AWS_SESSION_TOKEN) refuse("the AWS session must be in the process environment (OIDC path)");
-  if (plan.settings.scenario !== "mix-03") refuse("the plan is not the mix-03 scenario");
-  if (!plan.productCalls?.length) refuse("the plan has no PROD-MIX-03 product calls");
+  if (plan.settings.scenario !== scenario) refuse(`the plan is not the ${scenario} scenario`);
+  if (!plan.productCalls?.length) refuse(`the plan has no ${scenario === "mix-01" ? "PROD-MIX-01" : "PROD-MIX-03"} product calls`);
 }
 
 /** The consumer's handler: it only reports the producer bucket ARN it was given. */
@@ -251,6 +251,22 @@ async function inventoryOf(invoke: Invoke, call: Call, environmentIds: string[])
     }
   }
   return out;
+}
+
+/** One parent's environments must hold exactly one consumer function wired to exactly one producer bucket. Returns the bucket ARN. */
+async function producerConsumerReadback(invoke: Invoke, planned: (id: string) => Call, region: string, account: string, environmentIds: string[]): Promise<string> {
+  const mappings = await inventoryOf(invoke, planned("mix03-tag-read"), environmentIds);
+  const fnArns = mappings.filter(m => new RegExp(`^arn:aws:lambda:${region}:${account}:function:zenith-`).test(m.arn) && owned(m.tags, environmentIds));
+  const bucketArns = mappings.filter(m => /^arn:aws:s3:::zenith-/.test(m.arn) && owned(m.tags, environmentIds));
+  if (fnArns.length !== 1 || bucketArns.length !== 1) refuse("the run did not leave exactly one tagged consumer function and one tagged producer bucket");
+  const functionName = fnArns[0]!.arn.split(":function:")[1]!, bucketName = bucketArns[0]!.arn.split(":::")[1]!;
+  const fnConfig = await invoke(planned("mix03-lambda-read"), { functionName });
+  const variables = field(field(fnConfig, "Environment"), "Variables");
+  if (field(variables, "PRODUCER_BUCKET_ARN") !== `arn:aws:s3:::${bucketName}`) refuse("the consumer's deployed PRODUCER_BUCKET_ARN does not equal the producer bucket ARN");
+  await invoke(planned("mix03-bucket-head"), { bucketName });
+  const bucketTags = tagMap(field(await invoke(planned("mix03-bucket-tags"), { bucketName }), "TagSet"));
+  if (!owned(bucketTags, environmentIds)) refuse("the producer bucket lacks the run's ownership tags");
+  return bucketArns[0]!.arn;
 }
 
 async function teardown(run: RunState, plan: Plan, invoke: Invoke, planned: (id: string) => Call, principal: string): Promise<string[]> {
@@ -390,8 +406,14 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
   type Result = Awaited<ReturnType<ProductScenarioPort["verify"]>>;
   // One run answers both requirements: the harness asks for PROD-MIX-02 first (ledger order), then PROD-MIX-03.
   let flow: Promise<Record<"PROD-MIX-03" | "PROD-MIX-02", Result>> | undefined;
+  let mix01: Promise<Result> | undefined;
   return {
     async verify(requirement, context) {
+      if (context.plan.settings.scenario === "mix-01") {
+        if (requirement.id !== "PROD-MIX-01") return { complete: false, reason: `${requirement.id}: not implemented by this port` };
+        mix01 ??= runMix01(context);
+        return mix01;
+      }
       if (requirement.id !== "PROD-MIX-03" && requirement.id !== "PROD-MIX-02") return { complete: false, reason: `${requirement.id}: not implemented by this port` };
       flow ??= runFlow(context);
       return (await flow)[requirement.id];
@@ -505,20 +527,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
         if (!consumer!.childOperationId || consumer!.receiptOperationId !== consumer!.childOperationId) refuse("the consumer receipt does not link its child operation");
         step = "AWS readback";
         // One parent's environments must hold exactly one consumer function wired to exactly one producer bucket.
-        const awsReadback = async (environmentIds: string[]): Promise<string> => {
-          const mappings = await inventoryOf(invoke, planned("mix03-tag-read"), environmentIds);
-          const fnArns = mappings.filter(m => new RegExp(`^arn:aws:lambda:${region}:${account}:function:zenith-`).test(m.arn) && owned(m.tags, environmentIds));
-          const bucketArns = mappings.filter(m => /^arn:aws:s3:::zenith-/.test(m.arn) && owned(m.tags, environmentIds));
-          if (fnArns.length !== 1 || bucketArns.length !== 1) refuse("the run did not leave exactly one tagged consumer function and one tagged producer bucket");
-          const functionName = fnArns[0]!.arn.split(":function:")[1]!, bucketName = bucketArns[0]!.arn.split(":::")[1]!;
-          const fnConfig = await invoke(planned("mix03-lambda-read"), { functionName });
-          const variables = field(field(fnConfig, "Environment"), "Variables");
-          if (field(variables, "PRODUCER_BUCKET_ARN") !== `arn:aws:s3:::${bucketName}`) refuse("the consumer's deployed PRODUCER_BUCKET_ARN does not equal the producer bucket ARN");
-          await invoke(planned("mix03-bucket-head"), { bucketName });
-          const bucketTags = tagMap(field(await invoke(planned("mix03-bucket-tags"), { bucketName }), "TagSet"));
-          if (!owned(bucketTags, environmentIds)) refuse("the producer bucket lacks the run's ownership tags");
-          return bucketArns[0]!.arn;
-        };
+        const awsReadback = (environmentIds: string[]): Promise<string> => producerConsumerReadback(invoke, planned, region, account, environmentIds);
         const firstBucket = await awsReadback(run.environmentIds);
         const partly = "PROD-MIX-03 partly proven: the trust change touched only the ExternalId of both sandbox roles and was restored; connection.verifyAws passed; the producer finished before the consumer started; both receipts link their child operations; the consumer's deployed PRODUCER_BUCKET_ARN equals the producer bucket ARN by independent readback. Approvals by an automated test approver through the browser path";
         outcome = { complete: false, reason: `${partly}. Pending: the preauthorized path did not run` };
@@ -588,5 +597,116 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
         "PROD-MIX-02": { complete: false, reason: `${second.reason}; cleanup leaks: ${leaks.length} (reported on PROD-MIX-03)` },
       };
       return { "PROD-MIX-03": { ...outcome, leaks }, "PROD-MIX-02": second };
+  }
+
+  /**
+   * PROD-MIX-01: one tenant holds two AWS connections on the two connection stacks of one sandbox account (-live, -live2). The
+   * producer child runs on the first connection and the consumer child on the second, with one typed reference between them.
+   * AWS readbacks decide: the consumer's deployed PRODUCER_BUCKET_ARN equals the producer bucket, and each child's OpenTofu state
+   * object exists in its own connection's state bucket and not in the other's.
+   */
+  async function runMix01({ plan, call }: Parameters<ProductScenarioPort["verify"]>[1]): Promise<Result> {
+    const run: RunState = { attempted: false, environmentIds: [], trust: [] };
+    const pollDeadline = now() + plan.settings.durationMinutes * 60_000 - TEARDOWN_RESERVE_MS;
+    const invoke: Invoke = (c, values = {}, extra = {}) => call(c, { ...fill(c.input, values), ...extra });
+    const planned = (id: string): Call => plan.productCalls?.find(c => c.id === id) ?? refuse(`the plan has no call ${id}`);
+    const account = plan.settings.accountId, region = plan.settings.region;
+    const principal = `arn:aws:iam::${account}:role/${liveRoleNames().principal}`;
+    // Planned call ids: mix03-* for the -live roles, mix01-live2-* for the -live2 roles (plan.ts mix01ProductCalls).
+    const lanes = [{ suffix: "-live", ids: "mix03" }, { suffix: "-live2", ids: "mix01-live2" }] as const;
+    let step = "preconditions";
+    let outcome: { complete: boolean; reason: string };
+    try {
+      preconditions(env, plan, "mix-01");
+      step = "tenant";
+      const tenant = await product.createTenant();
+      const connections: { connectionId: string; externalId: string; stateBucket: string }[] = [];
+      for (const lane of lanes) {
+        const names = liveRoleNames(lane.suffix), stateBucket = `zenith-state-${account}-${region}${lane.suffix}`;
+        step = `connection ${lane.suffix}`;
+        const connection = await product.createAwsConnection(tenant, { accountId: account, region, stateBucket, bootstrapNameSuffix: lane.suffix,
+          observeRoleArn: `arn:aws:iam::${account}:role/${names.observe}`, deployRoleArn: `arn:aws:iam::${account}:role/${names.deploy}` });
+        if (!EXTERNAL_ID_NEW.test(connection.externalId)) refuse("the generated ExternalId has an unexpected shape");
+        step = `sandbox trust ${lane.suffix}`;
+        for (const role of ["observe", "deploy"] as const) {
+          const current = await invoke(planned(`${lane.ids}-iam-read-${role}`));
+          const original = templateExternalId(parsePolicy(field(field(current, "Role"), "AssumeRolePolicyDocument")), principal);
+          const write = planned(`${lane.ids}-iam-trust-${role}`);
+          run.trust.push({ role, original, write });
+          await invoke(write, { trustDocument: trustDocument(principal, connection.externalId) });
+        }
+        connections.push({ ...connection, stateBucket });
+      }
+      const [producerConnection, consumerConnection] = connections as [typeof connections[0], typeof connections[0]];
+      if (producerConnection.connectionId === consumerConnection.connectionId) refuse("the product returned one connection for two connection stacks");
+      step = "connection verification";
+      for (const connection of connections) for (let attempt = 1; ; attempt++) {
+        if ((await product.verifyAws(tenant, connection.connectionId)).ok) break;
+        if (attempt >= propagation.attempts) refuse("connection.verifyAws did not pass after the trust update within the propagation bound");
+        await sleep(propagation.intervalMs);
+      }
+      // The consumer's package goes to the consumer connection's state bucket, uploaded with that connection's deploy role.
+      step = "consumer package";
+      const assumed = field(await invoke(planned("mix01-live2-sts-assume"), { externalId: consumerConnection.externalId }), "Credentials");
+      const accessKeyId = field(assumed, "AccessKeyId"), secretAccessKey = field(assumed, "SecretAccessKey"), sessionToken = field(assumed, "SessionToken");
+      if (typeof accessKeyId !== "string" || typeof secretAccessKey !== "string" || typeof sessionToken !== "string") refuse("the deploy role session could not be read");
+      const pkg = consumerPackage(), key = `zenith-live/${plan.settings.runId}/consumer.zip`;
+      const versionId = await upload({ region, credentials: { accessKeyId, secretAccessKey, sessionToken }, bucket: consumerConnection.stateBucket, key, body: pkg.zip });
+      if (!versionId || versionId === "null" || !ARTIFACT_VERSION.test(versionId)) refuse("the state bucket did not return an object version for the consumer's package");
+      const artifact: Mix03Artifact = { bucket: consumerConnection.stateBucket, key, versionId, sha256: pkg.sha256, sourceDigest: pkg.sourceDigest };
+      step = "mixed plan";
+      run.attempted = true;
+      const proposal = await product.proposeMixed(tenant, { connectionId: producerConnection.connectionId, consumerConnectionId: consumerConnection.connectionId, accountId: account, region, artifact });
+      if (proposal.environmentIds.length !== 2) refuse("the mixed proposal did not name exactly the producer and consumer environments");
+      run.environmentIds = proposal.environmentIds;
+      const [producerEnv, consumerEnv] = proposal.environmentIds as [string, string];
+      step = "stored plan";
+      const proposed = product.planReadback ? await product.planReadback(tenant, proposal.planId) : refuse("the product driver cannot read the stored plan back");
+      const order = mix02Order(proposed);
+      if (order.producer.partitionId === order.consumer.partitionId) refuse("the producer and consumer share one partition");
+      step = "mixed plan";
+      await product.approve(tenant, proposal.parentOperationId);
+      const started = await product.startMixed(tenant, proposal.planId, proposal.parentOperationId);
+      if (!started.started) refuse(`the mixed parent did not start: ${FIXED_TEXT.test(started.reason) ? started.reason : "reason withheld"}`);
+      step = "child rounds";
+      let producer: Mix03Child | undefined, consumer: Mix03Child | undefined;
+      for (let poll = 1; ; poll++) {
+        const children = await product.children(tenant, proposal.planId);
+        producer = children.find(child => child.role === "producer");
+        consumer = children.find(child => child.role === "consumer");
+        if (!producer || !consumer) refuse("the plan does not have one producer and one consumer child");
+        if (producer.status !== "succeeded" && (consumer.status === "running" || consumer.status === "succeeded")) refuse("the consumer started before the producer receipt");
+        if ([producer, consumer].some(child => ["failed", "uncertain", "cancelled", "blocked"].includes(child.status))) refuse(`a child operation did not succeed (${[producer, consumer].map(childState).join(", ")})`);
+        for (const child of children) if (child.awaitingOperationId) await product.approve(tenant, child.awaitingOperationId);
+        if (producer.status === "succeeded" && consumer.status === "succeeded") break;
+        if (poll >= polls.attempts || now() >= pollDeadline) refuse(`the child operations did not finish within the bound (${[producer, consumer].map(childState).join(", ")})`);
+        await sleep(polls.intervalMs);
+      }
+      step = "receipts";
+      if (!producer!.childOperationId || producer!.receiptOperationId !== producer!.childOperationId) refuse("the producer receipt does not link its child operation");
+      if (!consumer!.childOperationId || consumer!.receiptOperationId !== consumer!.childOperationId) refuse("the consumer receipt does not link its child operation");
+      step = "AWS readback";
+      await producerConsumerReadback(invoke, planned, region, account, run.environmentIds);
+      // Each child's state object (src/lib/execution/compile.ts: zenith/<workspace>/<environment>/terraform.tfstate) must exist in
+      // its own connection's state bucket only. The listing is bounded and independent of the product.
+      step = "state partition";
+      const hasState = async (bucketName: string, environmentId: string): Promise<boolean> => {
+        const prefix = `zenith/${tenant.workspaceId}/${environmentId}/`;
+        const contents = field(await invoke(planned("mix01-state-list"), { bucketName, prefix }), "Contents");
+        return Array.isArray(contents) && contents.some(object => field(object, "Key") === `${prefix}terraform.tfstate`);
+      };
+      if (!await hasState(producerConnection.stateBucket, producerEnv)) refuse("the producer's state is not in its own connection's state bucket");
+      if (await hasState(consumerConnection.stateBucket, producerEnv)) refuse("the producer's state is also in the consumer connection's state bucket");
+      if (!await hasState(consumerConnection.stateBucket, consumerEnv)) refuse("the consumer's state is not in its own connection's state bucket");
+      if (await hasState(producerConnection.stateBucket, consumerEnv)) refuse("the consumer's state is also in the producer connection's state bucket");
+      outcome = { complete: true, reason: "PROD-MIX-01 proven on the live AWS sandbox: one tenant created two AWS connections on the two connection stacks of one account (-live, -live2); the trust change touched only the ExternalId of each stack's observe and deploy roles and was restored; connection.verifyAws passed for both. The stored parent plan put the producer child (S3 bucket, first connection) and the consumer child (Lambda function, second connection) in separate partitions, the consumer depending on the producer; the producer finished before the consumer started and both receipts link their child operations. By independent readback the consumer's deployed PRODUCER_BUCKET_ARN equals the producer bucket ARN, and each child's OpenTofu state object exists in its own connection's state bucket and not in the other's. Approvals by an automated test approver through the browser path. One AWS account and provider: separate accounts and cross-provider partitions are outside this run" };
+    } catch (error) {
+      outcome = { complete: false, reason: `PROD-MIX-01 not proven at ${step}: ${error instanceof Refusal ? error.message : "unexpected failure (details withheld; no completion claim)"}` };
+    }
+    // Trust is restored on all four roles and product resources deleted even after a refusal. Leaks fail the requirement.
+    const leaks = await teardown(run, plan, invoke, planned, principal).catch(() => ["cleanup did not complete; resources may remain"]);
+    try { await product.close?.(); } catch { /* the browser is released best-effort; the outcome above stands */ }
+    if (leaks.length) return { complete: false, reason: `${outcome.reason}; cleanup leaks: ${leaks.length} (see the cleanup checks)`, leaks };
+    return { ...outcome, leaks };
   }
 }

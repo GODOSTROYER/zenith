@@ -16,11 +16,13 @@
  *
  * Seams: `request` (same-origin fetch in the page), `approve`, `stepUp`, `session` and `sleep`. Unit tests inject all of them.
  */
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Browser, Page } from "@playwright/test";
 import type { EnvLike } from "../../config";
 import { refuse, Refusal, sanitizedError, type Mix03Artifact, type Mix03Child, type Mix03Product, type Mix03Tenant, type MixedReadback, type MixedReceipt } from "./mix-03";
 import { readState } from "../../default-stack/runtime.mjs";
+import { spkiPin } from "../../maintenance/runbook-fixture.mjs";
 import { browserRequest, ensure, localUrl, nonce, ok, operator, privateFile, until, action } from "../../../../tests/e2e/default/support.mjs";
 import { enrollOperator, totp } from "../../../../tests/e2e/default/mfa.mjs";
 import { approveOperation, authenticateBeforeWorkspace, requireTwoPersonProduction } from "../../../release/drivers/operated";
@@ -60,7 +62,10 @@ export function runnerStack(env: EnvLike): RunnerStack {
 export async function openRealSession(env: EnvLike): Promise<{ tenant: TenantSession; close: () => Promise<void> }> {
   const stack = runnerStack(env);
   const { chromium } = await import("@playwright/test");
-  const browser: Browser = await chromium.launch({ headless: true });
+  // The browser accepts exactly this stack's edge keys (as runbook-fixture.mjs does), so no keychain trust is needed.
+  const tls = path.join(env.ZENITH_DEFAULT_STACK_DIRECTORY!.trim(), "tls");
+  const pins = ["edge.crt", "api-edge.crt"].map(name => path.join(tls, name)).filter(file => existsSync(file)).map(file => spkiPin(readFileSync(file)));
+  const browser: Browser = await chromium.launch({ headless: true, args: pins.length ? [`--ignore-certificate-errors-spki-list=${pins.join(",")}`] : [] });
   const close = async () => { await browser.close(); };
   try {
     const users: string[] = [];

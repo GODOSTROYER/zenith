@@ -51,7 +51,7 @@ export default function SourcePage() {
 
   return (
     <div className="product-page h-full w-full overflow-y-auto">
-      <PageHeading title="Source" description="The same system, expressed as code. Edit the working definition, inspect a deployed snapshot, or export it." actions={<Chip tone={dirty ? "warn" : "neutral"}>{dirty ? "Unsaved changes" : "Working copy saved"}</Chip>} />
+      <PageHeading title="Infrastructure" description="Your infrastructure manifest. Edit the working definition, inspect a deployed snapshot, or export it." actions={<Chip tone={dirty ? "warn" : "neutral"}>{dirty ? "Unsaved changes" : "Working copy saved"}</Chip>} />
       <Tabs
         value={tab}
         onChange={setTab}

@@ -1,6 +1,6 @@
 # MCP v3 and the platform REST SDK
 
-Zenith exposes seventeen semantic infrastructure tools at
+Zenith exposes twenty-one semantic infrastructure and repository-continuation tools at
 `<origin>/api/agent/v3/mcp`. Every read, proposal and execution uses the same
 capability broker as UI and REST. There is no unrestricted shell, cloud CLI,
 OpenTofu, kubectl, database administration or approval tool.
@@ -55,6 +55,10 @@ also require `read`. Hints describe a tool, and never confer authorization.
 | `zenith_recommend_placement` | `placement.solve` | read | `plan` | T/F/T/F |
 | `zenith_get_operation` | `events.read` | read | `read` | T/F/T/T |
 | `zenith_get_operation_events` | `events.read` | read | `read` | T/F/T/F |
+| `zenith_get_source_context` | `source.context.read` | read | `export` | T/F/T/T |
+| `zenith_get_analysis` | `source.context.read` | read | `export` | T/F/T/T |
+| `zenith_get_handoff` | `source.context.read` | read | `export` | T/F/T/T |
+| `zenith_submit_source_proposal` | `infrastructure.plan` | propose | `plan` | F/F/T/T |
 <!-- catalog:end -->
 
 `zenith_review_teardown` requires `plan` scope and requests a dedicated read-only
@@ -218,6 +222,8 @@ tool refusals get the same redacted envelope, instead of SDK bare-text errors.
 
 `tools/list` includes `annotations` and
 `_meta.zenith.{contractVersion,schemaVersion,schemaDigest,access,capability,requiredScope}`.
+Tools needing a second consent scope also publish `additionalScopes`; every
+listed scope is required for both discovery and calls.
 `schemaDigest` is `sha256:` plus the SHA-256 of the canonical rendered input
 schema, using the control plane's sorted-key canonical JSON rule.
 `catalogDigest` also covers tool names, versions, scopes, access, capabilities
@@ -253,6 +259,111 @@ linked bearer in the `Authorization` header and optional
 `x-zenith-workspace` selection. Never put the bearer in a URL or a model prompt.
 The OAuth audience must be the same v3 endpoint URL; OAuth workspace selection
 is required. Use the client's secret-header storage for authentication.
+
+### Continue a repository analysis in Claude Code
+
+The Gimbal run page's **Continue in Claude Code** action prepares a bounded
+Markdown context file. It includes the exact GitHub repository id, commit,
+source grant version, selected root/build context, run version, target
+project/environment, captured base manifest hash, summary, unresolved questions
+and an immutable context digest. Environment values, raw checkpoints, model
+conversation messages and credentials are excluded. Secret-shaped text in
+summaries is redacted. This is a task handoff; it does not transplant a model
+conversation or connect a local GitHub credential.
+
+The browser endpoint is
+`POST /api/platform/v1/coding-agent/runs/<runId>/handoff` with `{}` (or the
+expected run version and digest). It requires the current admin's same-origin
+browser session and the workspace's MFA policy. The response contains
+`markdown`, `filename`, `context`, `digest`, `expiresAt` and an identifier-only
+`mcp` locator. Copy/download the file and supply it as task context in a local
+checkout. Verify the checkout's origin and exact base commit, and preserve any
+local changes. A targetless analysis can be exported as a file; remote MCP
+retrieval requires an explicit project and environment.
+
+For a linked remote client, grant **read + export** to the selected project and
+environment, then connect that client to the v3 Streamable HTTP endpoint using
+the authentication described above. The copied `mcp.arguments` can be passed to
+`zenith_get_handoff`; `zenith_get_source_context` and `zenith_get_analysis`
+return smaller projections of the same context. A generic read grant cannot
+export source-derived findings. Grant **plan** as well if the client should
+return proposed source changes. Repository access in GitHub, the workspace
+source binding, Zenith login identities and the linked-client grant each have
+their own lifecycle; changing one does not silently add authority to another.
+
+Every retrieval rechecks current membership, client scope/project/environment,
+policy and the exact source identity against GitHub. Changed, revoked, foreign,
+cancelled, active or legacy runs without exact provenance are refused. Context
+expires seven days after the stored run was updated, or when the analysis
+payload expires if sooner; generating another copy does not extend it. Deleting
+analysis content blocks future exports. A budget-stopped or failed run is
+explicitly marked partial.
+After revocation no new context can be fetched, but an already downloaded file
+cannot be remotely recalled.
+
+Generic operation and event tools return only ledger metadata for Gimbal and
+source-return proposals unless the same export consent and live source checks
+succeed. An old operation id does not bypass these checks. Missing authority,
+expired analysis content or an unavailable provider omits the private details;
+it never falls back to a cached source summary. Human review in Zenith remains
+a separate browser-authorized workflow.
+
+Source context, analysis, handoff, source-return, operation-detail and
+operation-event calls always return bounded JSON, including when a client
+requests progress. Their payloads are never stored in resumable SSE events.
+Retry the original call to perform fresh authorization. Other resumable streams
+are bound to the credential's current scopes and project/environment
+restrictions; changing those grants invalidates old stream ids. Stream ids
+issued before this authorization binding upgrade also expire on rollout.
+
+### Return changes for review
+
+`zenith_submit_source_proposal` requires **read + export + plan**. The table's
+primary scope is `plan`; its `additionalScopes: ["export"]` is enforced as well.
+Submit the exact target, run id/version, handoff digest and `baseCommit`, then
+either `result: {kind: "commit", newCommit: "<40-hex-sha>"}` or
+`result: {kind: "patch", patchDigest: "<64-hex-sha256>"}`. Include 1–100
+repository-relative changed-file paths with `change` (`added`, `modified`,
+`deleted`, `renamed`), up to 20 verification results (`check`, `status`, optional
+`summary`), a bounded `description`, and an `idempotencyKey`. Raw patches, tokens,
+approval flags and unrestricted files are not accepted. Verification statuses
+are `passed`, `failed` and `not_run`; these remain client claims.
+
+The server verifies the handoff's base source and current authority, then
+records an `infrastructure.plan` operation with stage
+`coding_agent_source_return`. It returns an operation id, status, proposal digest
+and browser review URL through the existing broker. An identical idempotency
+key replays that operation. This operation cannot be executed by MCP and
+performs no GitHub push, patch application, model run, manifest adoption or
+deployment. Review the returned commit, reimport/analyze that exact ref in
+Zenith, and use the normal reviewed plan workflow. A patch digest is evidence
+only; the human must apply and inspect the actual patch in their own checkout
+before reanalysis.
+
+These flows have contract and local integration tests. Real Supabase/GitHub
+applications, a production OAuth issuer and an end-to-end Claude Code session
+must still be configured and verified on the deployment; the existing v2
+plugin bridge does not expose these v3 tools.
+
+### Model continuation protocol
+
+Gimbal explicitly asks Anthropic for adaptive thinking with `display: "omitted"`.
+The provider still returns opaque signed blocks needed by later tool-result
+requests. They remain unchanged only in the protected, expiring run checkpoint;
+run views and handoff exports omit the entire protocol transcript. Redacting a
+signature or removing those blocks would break continuation. Source and ordinary
+model text still pass through the source redaction boundary. If the provider
+returns readable thinking, or redaction would change a signed assistant turn,
+the run stops before retaining that response or executing its tool requests.
+Legacy readable/changed signed history requires a fresh analysis, with an
+explicit failure reason, rather than being silently rewritten.
+
+The provider SDK performs no hidden retries (`maxRetries: 0`). Durable activity
+retries can still repeat a paid call after a lost acknowledgement, so usage is
+bounded and recorded rather than advertised as exactly-once provider execution.
+
+See Anthropic's [tool continuation rules](https://platform.claude.com/docs/en/build-with-claude/thinking-tool-workflows)
+and [thinking display contract](https://platform.claude.com/docs/en/build-with-claude/thinking).
 
 ## Typed REST SDK
 

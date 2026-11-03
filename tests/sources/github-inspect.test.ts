@@ -9,7 +9,7 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { openPlatformDb, type PlatformDbHandle } from "@/lib/controlplane/db";
-import { createGithubSourceInspector, normalizeInspectionRoot } from "@/lib/sources/github/inspect";
+import { createGithubContextVerifier, createGithubSourceInspector, normalizeInspectionRoot } from "@/lib/sources/github/inspect";
 import { api, INSTALL_TOKEN, json, keys } from "./fixtures";
 
 const SHA = "a".repeat(40);
@@ -75,7 +75,7 @@ describe("static GitHub source inspection", () => {
     expect(requests.every(r => r.auth === undefined)).toBe(true);
     const sub = await inspect({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" });
     expect(sub.candidates.map(c => c.root)).toEqual(["apps/web"]);
-    expect(sub.buildSource).toMatchObject({ repo: "acme/app", ref: SHA, dockerfile: "apps/web/Dockerfile", contextDir: "apps/web" });
+    expect(sub.buildSource).toMatchObject({ repo: "acme/app", ref: SHA, dockerfile: "apps/web/Dockerfile", contextDir: "" });
     expect(sub.buildSource?.contextDigest).toMatch(/^[a-f0-9]{64}$/);
     const buildpack = await inspect({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/api" });
     expect(buildpack.buildSource).toBeUndefined();
@@ -84,7 +84,7 @@ describe("static GitHub source inspection", () => {
 
   it("reads a private repository only through a per-repository read-only installation token", async () => {
     await db.query(`insert into platform.github_source_bindings (workspace_id, app_id, installation_id, repository_id, owner, repo, version, bound_by)
-      values ('ws-private', '42', 7, 99, 'acme', 'app', 1, 'human') on conflict (workspace_id) do nothing`);
+      values ('ws-private', '42', 7, 99, 'acme', 'app', 1, 'human') on conflict (workspace_id,repository_id) do nothing`);
     const { impl, requests } = github({ priv: true });
     const inspect = createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: appEnv() });
     const result = await inspect({ workspaceId: "ws-private", owner: "acme", repo: "app", ref: "HEAD" });
@@ -110,7 +110,7 @@ describe("static GitHub source inspection", () => {
     TREES = { ...TREES, ["2".repeat(40)]: { truncated: false, tree: [entry("Dockerfile", "blob", "4".repeat(40), "120000")] } };
     try {
       const { impl, requests } = github({ priv: false });
-      await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" })).rejects.toMatchObject({
+      await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web", contextDir: "apps/web" })).rejects.toMatchObject({
         name: "GithubSourceError", code: "unavailable", message: "GitHub source access could not be confirmed.",
       });
       expect(TREES["2".repeat(40)]).toEqual({ truncated: false, tree: [entry("Dockerfile", "blob", "4".repeat(40), "120000")] });
@@ -124,6 +124,37 @@ describe("static GitHub source inspection", () => {
       ]);
       expect(requests.every(r => r.auth === undefined)).toBe(true);
     } finally { TREES = saved; }
+  });
+
+  it("caps streamed tree bytes when Content-Length is absent and cancels the remaining body", async () => {
+    const { impl } = github({ priv: false }), delegate = impl.getMockImplementation()!;
+    const cancel = vi.fn();
+    impl.mockImplementation(async (url, init) => String(url).includes("/git/trees/")
+      ? new Response(new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(8 * 1024 * 1024 + 1)); }, cancel }))
+      : delegate(url, init));
+    await expect(createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web" }))
+      .rejects.toMatchObject({ code: "unavailable" });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("interrupts a tree body even when the injected transport ignores cancellation", async () => {
+    const { impl } = github({ priv: false }), delegate = impl.getMockImplementation()!;
+    const controller = new AbortController(); let started!: () => void;
+    const ready = new Promise<void>(resolve => { started = resolve; });
+    const cancel = vi.fn();
+    impl.mockImplementation(async (url, init) => String(url).includes("/git/trees/")
+      ? new Response(new ReadableStream({ pull() { started(); return new Promise(() => undefined); }, cancel }))
+      : delegate(url, init));
+    const pending = createGithubSourceInspector({ db: async () => db, fetchImpl: impl, env: {} })({ workspaceId: "ws-public", owner: "acme", repo: "app", ref: "HEAD", root: "apps/web", signal: controller.signal });
+    await ready; controller.abort(INSTALL_TOKEN);
+    await expect(pending).rejects.toMatchObject({ code: "unavailable" });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["", ".", "../Dockerfile", "apps//Dockerfile", "Dockerfile/"])("refuses a noncanonical Dockerfile proof path %j without reading source", async dockerfile => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    expect(await createGithubContextVerifier({ db: async () => db, fetchImpl, env: {} })({ workspaceId: "ws-public", repository: "acme/app", commitSha: SHA, contextDir: "", dockerfile, contextDigest: "b".repeat(64) })).toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it.each(["../x", "/etc", "a//b", "a/./b", "a\\b", "a/..", "x".repeat(201)])("rejects unsafe subdirectory %j", raw => {

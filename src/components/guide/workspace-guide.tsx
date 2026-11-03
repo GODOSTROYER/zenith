@@ -12,7 +12,8 @@ import { guideProgress } from "./progress";
 
 const destinations = [
   ["System", "", "Arrange services, resources and their connections. Review your editable system before planning."],
-  ["Source", "/source", "Inspect and edit the manifest. Saving a manifest does not deploy it."],
+  ["Infrastructure", "/source", "Inspect and edit the manifest. Saving a manifest does not deploy it."],
+  ["Repository", "/repository", "Connect application source, inspect a pinned commit, and prepare a Gimbal deployment proposal."],
   ["Deploys", "/deploys", "Preview changes, inspect runs and review Terraform exports. AWS is plan/export only."],
   ["Observe", "/observe", "Read the observations available for this environment. Sandbox observations are simulated."],
   ["Security", "/security", "Review findings and proposed fixes in the context of your environment."],
@@ -47,7 +48,7 @@ export function GuideContent({ boot, initialProjectId }: { boot: Bootstrap; init
         <div className="border-t border-line pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8"><h3 className="text-base font-medium text-ink">{state.next}</h3><p className="mt-2 text-xs text-info">{state.mode}</p>
           <p className="mt-3 text-sm text-ink-mute">{state.connection ? `Environment: ${state.environment?.name}. Connection: ${state.connection.label}.` : "No cloud access is needed to explore this workspace."}</p>
           {state.connection && <p className="mt-2 text-xs text-ink-faint">Last check: {state.connection.status}{state.connection.lastCheckedAt ? ` · ${new Date(state.connection.lastCheckedAt).toLocaleString()}` : " · no check date available"}. Recheck in Settings.</p>}
-          <Link className="mt-5 inline-flex min-h-11 items-center rounded-ctl bg-signal px-4 text-sm font-medium text-on-signal" href={base ? projectHref(!state.environment || !state.connection || state.connection.status !== "healthy" ? "/settings" : state.provider?.availability === "preview" ? "/source" : "") : "/onboarding?step=2"}>{!base ? "Open the optional starter" : !state.environment || !state.connection || state.connection.status !== "healthy" ? "Review connection settings" : state.provider?.availability === "preview" ? "Review Source and export" : "Review your system"} →</Link>
+          <Link className="mt-5 inline-flex min-h-11 items-center rounded-ctl bg-signal px-4 text-sm font-medium text-on-signal" href={base ? projectHref(!state.environment || !state.connection || state.connection.status !== "healthy" ? "/settings" : state.provider?.availability === "preview" ? "/source" : "") : "/onboarding?step=2"}>{!base ? "Open the optional starter" : !state.environment || !state.connection || state.connection.status !== "healthy" ? "Review connection settings" : state.provider?.availability === "preview" ? "Review infrastructure and export" : "Review your system"} →</Link>
         </div>
       </div>
       <div><h3 className="text-lg font-medium text-ink">Find your way around</h3><p className="mt-2 text-sm text-ink-mute">{base ? "Each link opens the selected project. Your existing system stays as it is until you make an explicit change." : "Create or select a project to open these screens. You can read what each one does now."}</p></div>

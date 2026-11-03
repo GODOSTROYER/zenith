@@ -99,6 +99,20 @@ describe("RequestEventStore over the platform schema", () => {
     }
   });
 
+  it("cannot replay a stream after the same credential's scope or target restrictions change", async () => {
+    const { port, alice } = await setup();
+    const original = { ...alice, scopes: ["read", "export"], environmentIds: ["env-a"] };
+    const store = new RequestEventStore(port, original, "7", "2025-11-25", () => undefined);
+    const sdk = sdkStreamId();
+    await store.storeEvent(sdk, {});
+    await store.storeEvent(sdk, result(7));
+    for (const changed of [{ ...original, scopes: ["read"] }, { ...original, projectIds: ["other"] }, { ...original, environmentIds: [] }]) {
+      expect(await resumeStream(port, changed, eventIdOf(hex(sdk), 1), new AbortController().signal)).toBeNull();
+    }
+    expect(await port.read({ ...original, scopes: ["export", "read"] }, hex(sdk), 1)).not.toBeNull();
+    expect(principalKeyOf({ ...original, environmentIds: undefined })).not.toBe(principalKeyOf({ ...original, environmentIds: [] }));
+  });
+
   it("expired streams are not readable and are removed when the workspace opens the next one", async () => {
     const { db, port, alice } = await setup();
     const key = principalKeyOf(alice);

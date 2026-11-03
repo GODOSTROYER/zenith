@@ -6,14 +6,14 @@
  * which is exactly what the Temporal activity runs. Driving the steps in a
  * loop with a FRESH worker per step is the restart test.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { snapshotFromFiles } from "@/lib/analysis";
 import { digest } from "@/lib/controlplane/digest";
 import { AdoptionRefused, AGENT_PLAN_STAGE, agentProposalInput, assertAdoptable } from "@/lib/coding-agent/proposal-sink";
 import { AgentServiceError, ModelNotConfiguredError, cancelRun, createRun, executeRunStep, failRunStep, resumeRun, type AgentCaller, type AgentControlDeps, type AgentWorkerDeps, type RunLauncher, type SourceReader } from "@/lib/coding-agent/service";
 import { memoryRunStore, type CodingAgentRunRow } from "@/lib/coding-agent/store";
 import { statelessGoodAgent } from "@/lib/coding-agent/eval/scripted";
-import type { ModelProvider, ProposalArtifact } from "@/lib/coding-agent/types";
+import type { AgentSourceRef, Checkpoint, ModelProvider, ModelResponse, ProposalArtifact } from "@/lib/coding-agent/types";
 import { makeHarness } from "../capabilities/support";
 
 const PKG = JSON.stringify({ name: "shop", version: "1.0.0", dependencies: { express: "^4.19.0", pg: "^8.11.0" } });
@@ -208,6 +208,78 @@ describe("control: create, resume, cancel", () => {
 });
 
 describe("worker: durable steps from the stored checkpoint", () => {
+  it.each(["checkpoint", "proposal"] as const)("a source revoked during a model call blocks %s publication", async stage => {
+    const h = await makeHarness({ kind: "memory" });
+    const w = world();
+    let revoked = false;
+    const row = await createRun(w.control, caller(h.ids.wsA), { ...REQ,
+      ...(stage === "proposal" ? { target: { projectId: h.ids.projA, environmentId: h.ids.envAStg } } : {}) });
+    if (stage === "proposal") {
+      const checkpoint = structuredClone(row.checkpoint) as Checkpoint;
+      const manifest = { version: 1, services: [], resources: [], routes: [], bindings: [] };
+      checkpoint.artifact = { manifest, manifestDigest: digest(manifest), requirementsDigest: "c".repeat(64), explanations: [], unresolved: [], confidence: "medium", environmentClass: "staging" };
+      await w.store.save({ ...row, expectedVersion: row.version, checkpoint });
+    }
+    const before = await w.store.get(row.workspaceId, row.id);
+    const save = vi.spyOn(w.store, "save");
+    const propose = vi.spyOn(h.broker, "propose");
+    const authorizeSource = vi.fn(async () => {
+      if (revoked) throw new AgentServiceError("invalid_state", "Source revoked.");
+      return { repository: REQ.source.repository, commit: COMMIT };
+    });
+    const provider: ModelProvider = { id: "revokes-in-flight", complete: vi.fn(async (): Promise<ModelResponse> => {
+      revoked = true;
+      return { content: [{ type: "text", text: "Finished inference" }], stopReason: "end_turn", usage: { inputTokens: 1, outputTokens: 1 } };
+    }) };
+    await expect(executeRunStep(w.worker({ provider, authorizeSource, broker: async () => h.broker }), { workspaceId: row.workspaceId, runId: row.id })).rejects.toThrow("Source revoked");
+    expect(provider.complete).toHaveBeenCalledOnce();
+    expect(authorizeSource).toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    expect(propose).not.toHaveBeenCalled();
+    expect(await w.store.get(row.workspaceId, row.id)).toEqual(before);
+  });
+
+  it("an expired run is cancelled before constructing a provider, reading source or publishing a result", async () => {
+    const w = world();
+    const row = await createRun(w.control, caller(), REQ);
+    const deps = w.worker();
+    const provider = vi.spyOn(deps, "provider");
+    const read = vi.spyOn(deps, "readSource");
+    const save = vi.spyOn(w.store, "save");
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.parse(row.payloadExpiresAt!) + 1);
+    try {
+      expect(await executeRunStep(deps, { workspaceId: row.workspaceId, runId: row.id })).toEqual({ status: "cancelled" });
+      expect(provider).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+      expect(save).not.toHaveBeenCalled();
+    } finally { clock.mockRestore(); }
+  });
+
+  it("rechecks the current human membership before any provider or repository work", async () => {
+    const w = world();
+    const row = await createRun(w.control, caller(), REQ);
+    const deps = w.worker({ authorizeCaller: vi.fn(async () => { throw new AgentServiceError("invalid_state", "Workspace membership revoked."); }) });
+    const provider = vi.spyOn(deps, "provider");
+    const read = vi.spyOn(deps, "readSource");
+    await expect(executeRunStep(deps, { workspaceId: row.workspaceId, runId: row.id })).rejects.toThrow("Workspace membership revoked");
+    expect(deps.authorizeCaller).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: row.workspaceId, createdBy: "bob" }));
+    expect(provider).not.toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
+    expect((await w.store.get(row.workspaceId, row.id))?.version).toBe(row.version);
+  });
+
+  it("refuses to resume when current source authorization no longer matches the pinned commit", async () => {
+    const w = world();
+    const row = await createRun(w.control, caller(), { ...REQ, limits: { toolCalls: 2 } });
+    await drive(() => w.worker(), row);
+    const before = await w.store.get(row.workspaceId, row.id);
+    const launches = w.starts.length;
+    w.setCommit("f".repeat(40));
+    await expect(resumeRun(w.control, caller(), row.id)).rejects.toMatchObject({ code: "invalid_state" });
+    expect(w.starts).toHaveLength(launches);
+    expect(await w.store.get(row.workspaceId, row.id)).toEqual(before);
+  });
+
   it("one step is one unit of work and is persisted; a brand-new worker finishes the run from the stored checkpoint (restart)", async () => {
     const w = world();
     const row = await createRun(w.control, caller(), REQ);
@@ -293,6 +365,26 @@ describe("adoption gate", () => {
 
   it("accepts only an approved operation of this run naming the stored manifest", () => {
     expect(assertAdoptable(run, op())).toBe(artifact);
+  });
+
+  it("binds approval to the exact source grant, build context and target base revision", () => {
+    const source: AgentSourceRef = { repository: "acme/shop", commit: COMMIT, root: "apps/web", repositoryId: 17, bindingId: "grant-a", bindingVersion: 3,
+      contextDir: "", contextDigest: "d".repeat(64), dockerfile: "apps/web/Dockerfile",
+      sourceIdentity: { owner: "acme", repo: "shop", repositoryId: 17, commitSha: COMMIT, binding: { appId: "app-1", installationId: 12, repositoryId: 17, version: 3 } } };
+    const baseManifestHash = "e".repeat(64);
+    const bound = { ...run, source, baseManifestHash };
+    const proposal = (s: AgentSourceRef = source, base = baseManifestHash) => op({ proposal: { input: agentProposalInput(artifact, s, run.id, base) } });
+    expect(assertAdoptable(bound, proposal())).toBe(artifact);
+    for (const changed of [
+      { ...source, commit: "c".repeat(40) }, { ...source, repository: "acme/another" },
+      { ...source, bindingId: "grant-b" }, { ...source, bindingVersion: 4 },
+      { ...source, contextDigest: "c".repeat(64) }, { ...source, root: "apps/worker" },
+    ]) expect(() => assertAdoptable(bound, proposal(changed))).toThrow(AdoptionRefused);
+    expect(() => assertAdoptable(bound, proposal(source, "f".repeat(64)))).toThrow(AdoptionRefused);
+    expect(() => assertAdoptable(bound, op())).toThrow(AdoptionRefused);
+    const returnedSource = proposal();
+    (returnedSource.proposal.input as Record<string, unknown>).stage = "coding_agent_source_return";
+    expect(() => assertAdoptable(bound, returnedSource)).toThrow(AdoptionRefused);
   });
 
   it.each([

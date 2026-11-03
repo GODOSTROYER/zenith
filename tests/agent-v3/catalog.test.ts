@@ -10,9 +10,9 @@ import { TOOL_NAMES } from "@/lib/agent-access/v3/contract";
 import { argsFor } from "./support";
 
 describe("MCP v3 catalog", () => {
-  it("has exactly the seventeen semantic tools", () => {
+  it("has the exact semantic tool catalog including source continuation", () => {
     expect(TOOL_CATALOG.map((t) => t.name)).toEqual(TOOL_NAMES);
-    expect(TOOL_CATALOG).toHaveLength(17);
+    expect(TOOL_CATALOG).toHaveLength(21);
   });
   it.each(TOOL_CATALOG)("$name publishes its strict input contract, digest and hints", async (tool) => {
     expect(tool.inputSchema.additionalProperties).toBe(false);

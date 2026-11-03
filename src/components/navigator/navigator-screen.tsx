@@ -268,7 +268,7 @@ export function NavigatorScreen({
       <div className={styles.layout}>
         <div className={styles.task}>
           <CommandBar value={goal} onChange={setGoal} onSubmit={plan} busy={planning}
-            gimbalState={gimbalState} disabledReason={planBlock(autonomy)} showExamples={!shown} />
+            gimbalState={gimbalState} disabledReason={planBlock(autonomy)} showExamples={!shown} repositoryHref={`/p/${encodeURIComponent(slug)}/repository`} />
           {error && <Callout tone="err" compact>{error}</Callout>}
           {live.error && running && (
             <Callout tone="warn" compact>

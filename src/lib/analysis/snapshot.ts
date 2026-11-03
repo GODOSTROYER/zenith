@@ -94,6 +94,16 @@ export function isSensitivePath(path: string): boolean {
   return SENSITIVE_BASENAMES.has(lower) || SENSITIVE_SUFFIXES.some((s) => lower.endsWith(s));
 }
 
+/** Selective agent evidence; generated/vendor directories remain excluded even when documentation is requested. */
+export function isEvidencePath(path: string): boolean {
+  const parts = path.toLowerCase().split("/");
+  if (parts.some(part => ["node_modules", ".git", "vendor", "dist", "build", "coverage", ".next", ".terraform"].includes(part))) return false;
+  const name = parts[parts.length - 1];
+  return /^(readme|agents|claude|deploy(?:ment)?|architecture)(?:[._-].*)?\.(?:md|txt|rst)$/.test(name)
+    || (parts[0] === ".github" && parts[1] === "workflows" && /\.ya?ml$/.test(name))
+    || ((parts.some(p => ["tests", "test", "__tests__", "spec"].includes(p)) || /\.(test|spec)\./.test(name)) && /\.(?:[cm]?[jt]sx?|py|go|rs)$/.test(name));
+}
+
 export type FileClass = "source" | "config" | "env" | "marker";
 
 /** Present-or-absent signals; their content is never read, so it is not kept. */
@@ -228,7 +238,8 @@ export class SnapshotBuilder {
 
   constructor(
     readonly limits: SnapshotLimits,
-    private source: SnapshotSource
+    private source: SnapshotSource,
+    private includeEvidence = false
   ) {}
 
   setCommit(commit: string): void {
@@ -245,10 +256,11 @@ export class SnapshotBuilder {
   /** Offer one regular file (already path-normalised) to the snapshot. */
   add(path: string, bytes: Uint8Array): void {
     if (this.kept.has(path)) return this.skip("duplicate", path);
-    if (isIgnoredPath(path)) return this.skip("irrelevant", path);
+    const evidence = this.includeEvidence && isEvidencePath(path);
+    if (isIgnoredPath(path) && !evidence) return this.skip("irrelevant", path);
     // Files that usually hold secrets are never read; they are counted so the analysis can say they exist.
     if (isSensitivePath(path)) return this.skip("sensitive", path);
-    const cls = classifyPath(path);
+    const cls = evidence ? "evidence" : classifyPath(path);
     if (cls === undefined) return this.skip("irrelevant", path);
     // A marker's bytes are dropped, so its size and encoding do not matter.
     if (cls !== "marker" && bytes.length > this.limits.maxFileBytes) return this.skip("oversize", path);
@@ -285,10 +297,10 @@ export class SnapshotBuilder {
  */
 export function snapshotFromFiles(
   files: Record<string, string> | RepoFile[],
-  opts: { source?: SnapshotSource; limits?: Partial<SnapshotLimits> } = {}
+  opts: { source?: SnapshotSource; limits?: Partial<SnapshotLimits>; includeEvidence?: boolean } = {}
 ): RepoSnapshot {
   const limits = { ...DEFAULT_SNAPSHOT_LIMITS, ...opts.limits };
-  const builder = new SnapshotBuilder(limits, opts.source ?? { kind: "fixture" });
+  const builder = new SnapshotBuilder(limits, opts.source ?? { kind: "fixture" }, opts.includeEvidence);
   const list: RepoFile[] = Array.isArray(files) ? files : Object.entries(files).map(([path, content]) => ({ path, content }));
   for (const f of [...list].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
     const check = checkEntryPath(f.path, limits);
@@ -413,14 +425,14 @@ function gunzip(input: Buffer, limits: SnapshotLimits): Buffer {
 export function snapshotFromTarball(
   input: Buffer,
   limits: Partial<SnapshotLimits> = {},
-  opts: { source?: SnapshotSource; stripComponents?: number | "auto" } = {}
+  opts: { source?: SnapshotSource; stripComponents?: number | "auto"; includeEvidence?: boolean } = {}
 ): RepoSnapshot {
   const lim: SnapshotLimits = { ...DEFAULT_SNAPSHOT_LIMITS, ...limits };
   if (input.length === 0) throw new AnalysisInputError("empty_archive", "The upload is empty.");
   if (input.length > lim.maxCompressedBytes)
     throw new AnalysisInputError("compressed_too_large", `The archive is ${input.length} bytes; the ceiling is ${lim.maxCompressedBytes}.`);
   const buf = gunzip(input, lim);
-  const builder = new SnapshotBuilder(lim, opts.source ?? { kind: "tarball" });
+  const builder = new SnapshotBuilder(lim, opts.source ?? { kind: "tarball" }, opts.includeEvidence);
 
   /* pass 1: walk headers, no copying */
   const entries: RawEntry[] = [];

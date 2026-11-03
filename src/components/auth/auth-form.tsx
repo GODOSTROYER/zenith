@@ -258,7 +258,7 @@ export function AuthForm({ mode, waitlistRequired = false }: { mode: AuthMode; w
       <h1 className="app-page-title">{c.title}</h1>
       <p className="mt-2 text-[14px] leading-relaxed text-ink-mute">{c.body}</p>
 
-      {mode === "login" && waitlistRequired && <p className="mt-3 text-[13px] leading-relaxed text-ink-mute">Already have access? Sign in as usual. New here? Google will verify your email and take you to the waitlist. Access requires approval.</p>}
+      {mode === "login" && waitlistRequired && <p className="mt-3 text-[13px] leading-relaxed text-ink-mute">Already have access? Sign in as usual. New here? Use a connected sign-in provider to verify your identity and continue to the waitlist. Access requires approval.</p>}
 
       {/* Above the form, and only while the form is the thing on screen: once
           `done` replaces it with "check your inbox", a provider button would be

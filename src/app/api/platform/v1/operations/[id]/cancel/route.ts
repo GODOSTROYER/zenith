@@ -10,6 +10,7 @@ import { notFound } from "@/lib/capabilities/errors";
 import { platformBroker } from "@/lib/capabilities/platform";
 import { parseWith, platformRoute, readJson } from "../../../_lib/http";
 import { callerOf } from "../../../_lib/principal";
+import { operationForRest } from "../../../_lib/source-read";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,5 +23,5 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
   const body = parseWith(Body, await readJson(req));
   if (!ID.test(id)) throw notFound();
   const operation = await (await platformBroker()).cancelOperation({ workspaceId: caller.workspaceId, operationId: id, principal: caller.principal, reason: body.reason });
-  return { body: { operation } };
+  return { body: { operation: operationForRest(operation, caller) } };
 });

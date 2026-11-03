@@ -29,6 +29,8 @@ import { composeReconcileSweepRuntime } from "@/lib/platform/execution";
 import { createCriticalMaintenanceActivities } from "@/lib/workflows/critical-activities";
 import { createMixedActivities } from "@/lib/workflows/mixed-activities";
 import { createProductionCodingAgentActivities } from "@/lib/coding-agent/activities";
+import { startAnalysisMaintenance } from "@/lib/coding-agent/lifecycle";
+import { anthropicKeyPresent } from "@/lib/coding-agent/anthropic";
 import { criticalJobHealth } from "@/lib/platform/critical-jobs";
 import type { RegisteredWorkerActivities } from "@/lib/workflows/types";
 import { listDrivers } from "@/lib/drivers/types";
@@ -69,6 +71,7 @@ async function main(): Promise<void> {
   let reconcileClient: Awaited<ReturnType<typeof openReconcileWorkerClient>> | undefined;
   let monitor: ReturnType<typeof reconcileWorkerMonitor> | undefined;
   let workerRun: Promise<void> | undefined;
+  let analysisMaintenance: ReturnType<typeof startAnalysisMaintenance> | undefined;
   failureCategory = "health-listener";
   const endpoint = await startHealthServer({ port: healthPortFromEnv(), checks: {
     async temporal() {
@@ -141,6 +144,8 @@ async function main(): Promise<void> {
     reconcileClient = await openReconcileWorkerClient(config, dataConverter);
     failureCategory = "reconcile-pollers";
     await awaitReconcilePollers(worker, reconcileClient.client, config, pollingStartedAt);
+    analysisMaintenance = startAnalysisMaintenance(db, config.identity, () => !stopping() && worker?.getState() === "RUNNING" && anthropicKeyPresent(),
+      () => log("warn", "analysis maintenance unavailable; check control store"));
     if (stopping()) throw new ExecutionStartupError("Worker stopped before durable reconciliation preparation.");
     failureCategory = "reconcile-schedule";
     await prepareReconcileWorkerSchedule(reconcileClient.client, sweep, config.reconcile!);
@@ -189,6 +194,7 @@ async function main(): Promise<void> {
     stopping = () => true;
     if (healthLog) clearInterval(healthLog);
     if (reconcileLog) clearInterval(reconcileLog);
+    await analysisMaintenance?.stop();
     opsSampler?.stop();
     // A failed shutdown or close must not strand another owned resource.
     try {

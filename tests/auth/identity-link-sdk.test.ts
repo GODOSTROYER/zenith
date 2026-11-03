@@ -17,7 +17,7 @@ vi.mock("next/headers", () => ({ cookies: async () => ({
 }) }));
 vi.mock("@/lib/supabase/env", () => ({
   SUPABASE_URL: "https://google-link-test.supabase.co", SUPABASE_PUBLIC_KEY: "test-public-key",
-  SUPABASE_OAUTH_PROVIDERS: ["google"], isSupabaseConfigured: () => true,
+  SUPABASE_OAUTH_PROVIDERS: ["google", "github"], isSupabaseConfigured: () => true,
 }));
 vi.mock("@/lib/waitlist/access", () => ({ getWaitlistAccess: async () => ({ allowed: true }) }));
 vi.mock("@/lib/auth/server-destination", () => ({ resolveAuthDestination: async () => "/overview" }));
@@ -26,7 +26,7 @@ const { GET } = await import("@/app/auth/callback/route");
 
 afterEach(() => { vi.unstubAllGlobals(); state.jar.clear(); state.writes = []; });
 
-it("carries the server-created PKCE verifier into callback and writes the exchanged session", async () => {
+it.each(["google", "github"])("carries the %s PKCE verifier into callback and writes the same account session", async (provider) => {
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const token = (version: string) => `${Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify({ sub: "u-ada", exp: expires, version })).toString("base64url")}.dGVzdA`;
   const oldToken = token("before-link");
@@ -36,7 +36,7 @@ it("carries the server-created PKCE verifier into callback and writes the exchan
     email_confirmed_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z",
     app_metadata: {}, user_metadata: {}, identities: [
       { id: "email-id", identity_id: "email-id", user_id: "u-ada", provider: "email", identity_data: { email: "ada@example.test" } },
-      ...(linked ? [{ id: "google-id", identity_id: "google-id", user_id: "u-ada", provider: "google", identity_data: { email: "ada@example.test" } }] : []),
+      ...(linked ? [{ id: `${provider}-id`, identity_id: `${provider}-id`, user_id: "u-ada", provider, identity_data: { email: "ada@example.test" } }] : []),
     ],
   });
   const storageKey = "sb-google-link-test-auth-token";
@@ -64,7 +64,7 @@ it("carries the server-created PKCE verifier into callback and writes the exchan
   vi.stubGlobal("fetch", requestFetch);
 
   const start = await POST(new NextRequest("https://zenith.test/api/account/identities/link", {
-    method: "POST", headers: { origin: "https://zenith.test", "content-type": "application/json" }, body: JSON.stringify({ provider: "google" }),
+    method: "POST", headers: { origin: "https://zenith.test", "content-type": "application/json" }, body: JSON.stringify({ provider }),
   }));
   expect(start.status).toBe(200);
   expect(authorizeUrl).toBeDefined();
@@ -73,12 +73,12 @@ it("carries the server-created PKCE verifier into callback and writes the exchan
   const intent = start.cookies.get(IDENTITY_LINK_COOKIE)!;
   state.jar.set(intent.name, intent.value);
   const returnUrl = new URL(authorizeUrl!.searchParams.get("redirect_to")!);
-  returnUrl.searchParams.set("code", "google-authorization-code");
+  returnUrl.searchParams.set("code", `${provider}-authorization-code`);
   const callback = await GET(new NextRequest(returnUrl, {
     headers: { cookie: [...state.jar].map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join("; ") },
   }));
   expect(new URL(callback.headers.get("location")!).searchParams.get("identity")).toBe("linked");
-  expect(exchangeBody?.auth_code).toBe("google-authorization-code");
+  expect(exchangeBody?.auth_code).toBe(`${provider}-authorization-code`);
   expect(exchangeBody?.code_verifier.length).toBeGreaterThan(30);
   expect(createHash("sha256").update(exchangeBody!.code_verifier).digest("base64url")).toBe(authorizeUrl!.searchParams.get("code_challenge"));
   expect(callback.cookies.get(IDENTITY_LINK_COOKIE)?.value).toBe("");

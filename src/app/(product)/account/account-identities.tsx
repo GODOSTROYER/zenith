@@ -11,6 +11,7 @@ import {
   type OAuthProvider,
 } from "@/lib/supabase/env";
 import { explain } from "@/components/auth/messages";
+import { GithubMark } from "@/components/auth/github-mark";
 import { GoogleMark } from "@/components/auth/google-mark";
 import { OAuthButton } from "@/components/auth/oauth-button";
 import { Button } from "@/components/ui/button";
@@ -191,6 +192,7 @@ export function IdentitiesCard() {
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
                       {identity.provider === "google" && <GoogleMark />}
+                      {identity.provider === "github" && <GithubMark />}
                       {providerLabel(identity.provider)}
                     </p>
                     {email && <p className="break-all font-mono text-[12px] text-ink-mute">{email}</p>}
@@ -241,7 +243,9 @@ export function IdentitiesCard() {
         open={Boolean(removing)}
         onClose={closeRemoval}
         title={`Remove ${removing ? providerLabel(removing.provider) : "provider"}?`}
-        description="You will need another connected method to sign in. Make sure you can use it before removing this one."
+        description={removing?.provider === "github"
+          ? "This removes GitHub as a sign-in method. Repository access remains managed separately in workspace repository settings. Make sure you can use another sign-in method."
+          : "You will need another connected method to sign in. Make sure you can use it before removing this one."}
         footer={
           <>
             <Button onClick={closeRemoval} disabled={Boolean(busy)} disabledReason={disabledReason}>Cancel</Button>

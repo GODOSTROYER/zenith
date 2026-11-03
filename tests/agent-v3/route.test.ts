@@ -23,7 +23,7 @@ function request(method: string, params?: object, headers: Record<string, string
   return new Request(`${origin}/api/agent/v3/mcp`, { method: "POST", headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json", accept: "application/json, text/event-stream", ...headers },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, ...(params ? { params } : {}) }) });
 }
-async function setup(scopes = ["read", "plan", "logs", "write"]) {
+async function setup(scopes = ["read", "plan", "logs", "write", "export"]) {
   const h = await makeHarness(); let revoked = false;
   const verify = vi.fn(async () => {
     if (revoked) throw new AgentError("unauthorized", "The connection was revoked.", 401);
@@ -71,6 +71,32 @@ describe("MCP v3 HTTP", () => {
     const call = await route.POST(request("tools/call", { _meta: meta, name: "zenith_get_topology", arguments: argsFor("zenith_get_topology") }, { "mcp-method": "tools/call", "mcp-name": "zenith_get_topology" }));
     expect(call.status).toBe(200); expect((await call.json()).result.structuredContent.ok).toBe(true);
     expect(h.authorizeRead).toHaveBeenCalledTimes(1);
+  });
+  it.each(["2025-11-25", "2026-07-28"])("never persists source-capable %s replies for resumable export after revocation", async protocolVersion => {
+    const { h, runtime } = await setup();
+    runtime.streams = { open: vi.fn(async () => {}), append: vi.fn(async () => 1), read: vi.fn(async () => null),
+      status: vi.fn(async () => null), requestCancel: vi.fn(async () => 0), cancelRequested: vi.fn(async () => false), finish: vi.fn(async () => {}) };
+    const handoff = await h.ports.sourceContext!.get({ workspaceId: ids.ws, target: { workspaceId: ids.ws, projectId: ids.project, environmentId: ids.env }, runId: "run-a" });
+    const submitted = await h.invoke("zenith_submit_source_proposal", { ...argsFor("zenith_submit_source_proposal"), expectedDigest: handoff.digest });
+    expect(submitted.ok).toBe(true);
+    const names = ["zenith_get_source_context", "zenith_get_analysis", "zenith_get_handoff", "zenith_submit_source_proposal", "zenith_get_operation", "zenith_get_operation_events"] as const;
+    for (const name of names) {
+      const args = argsFor(name, submitted.data.operationId as string);
+      if (name === "zenith_submit_source_proposal") args.expectedDigest = handoff.digest;
+      const modern = protocolVersion === "2026-07-28";
+      const _meta = { progressToken: "source-progress", ...(modern ? { [PROTOCOL_VERSION_META_KEY]: protocolVersion, [CLIENT_CAPABILITIES_META_KEY]: {} } : {}) };
+      const headers: Record<string, string> = modern ? { "mcp-method": "tools/call", "mcp-name": name } : { "mcp-protocol-version": protocolVersion };
+      const response = await route.POST(request("tools/call", { name, arguments: args, _meta }, headers));
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect((await response.json()).result.structuredContent.ok).toBe(true);
+    }
+    expect(runtime.streams.open).not.toHaveBeenCalled();
+    expect(runtime.streams.append).not.toHaveBeenCalled();
+    vi.mocked(h.ports.sourceContext!.get).mockRejectedValue(new AgentError("forbidden", "Repository access was revoked.", 403));
+    const retry = await route.POST(request("tools/call", { name: "zenith_get_handoff", arguments: argsFor("zenith_get_handoff") }));
+    expect((await retry.json()).result.structuredContent.ok).toBe(false);
   });
   it("HTTP validation refusals redact secret-shaped external member names", async () => {
     await setup();

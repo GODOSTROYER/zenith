@@ -7,7 +7,8 @@
  *    most clients use);
  *  - a `tools/call` that sends `_meta.progressToken` and accepts
  *    `text/event-stream`: Server-Sent Events with progress, stored durably so
- *    `GET` + `Last-Event-ID` resumes it (see ./stream.ts);
+ *    `GET` + `Last-Event-ID` resumes it (see ./stream.ts). Source-capable
+ *    calls always use fresh JSON responses and are never cached in that store;
  *  - `notifications/cancelled`: answered 202 and honoured through to the tool
  *    and broker (explicit cancel only; a dropped connection is not a cancel).
  *
@@ -49,6 +50,14 @@ const progressTokenOf = (message: Rpc | undefined): string | number | undefined 
   return typeof token === "string" || typeof token === "number" ? token : undefined;
 };
 const acceptsSse = (request: Request): boolean => (request.headers.get("accept") ?? "").includes("text/event-stream");
+// Source projections must be authorized on every read. Persisting their final
+// result in a resumable event stream would bypass later GitHub/run revocation.
+// These bounded calls use JSON even when progress was requested; retries run
+// the complete live authorization path again, with the same idempotency key.
+const FRESH_SOURCE_CALLS = new Set([
+  "zenith_get_source_context", "zenith_get_analysis", "zenith_get_handoff", "zenith_submit_source_proposal",
+  "zenith_get_operation", "zenith_get_operation_events",
+]);
 
 /** Hold a streamed body open, then release `close` when it ends or the client goes away. */
 function closeAfterBody(response: Response, close: () => Promise<void>): Response {
@@ -107,7 +116,8 @@ export async function handleMcp(request: Request, runtime: McpRuntime): Promise<
     }
 
     const isToolCall = message?.method === "tools/call" && requestId !== undefined;
-    const wantsProgress = isToolCall && progressTokenOf(message) !== undefined;
+    const wantsProgress = isToolCall && progressTokenOf(message) !== undefined
+      && !FRESH_SOURCE_CALLS.has(String(message?.params?.name));
     flight = isToolCall ? registerFlight(identity, requestId!) : undefined;
 
     const factory = (modern: boolean) => {

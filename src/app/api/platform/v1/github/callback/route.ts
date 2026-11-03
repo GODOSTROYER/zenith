@@ -24,7 +24,7 @@ const HEADERS = {
 function form(current: GithubBindingState | undefined): string {
   const status = current ? `<p>Repository: ${current.binding.owner}/${current.binding.repo}. Source access ${current.revoked ? "revoked" : "connected"}.</p>` : "<p>No repository connected.</p>";
   const revoke = current && !current.revoked ? `<form method="post" action="${PATH}"><input type="hidden" name="action" value="revoke"><input type="hidden" name="version" value="${current.binding.version}"><p>Revoke new source access in this workspace. Existing deployments keep running; an existing fetch may finish. The GitHub App installation remains in GitHub.</p><button type="submit">Revoke source access</button></form>` : "";
-  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect GitHub source</title><main><h1>Connect GitHub source</h1>${status}<p>Install the Zenith GitHub App, then authorize access to the repository. This replaces this workspace's source binding.</p><form method="post" action="${PATH}"><label>Repository (owner/name) <input name="repository" required maxlength="140" autocomplete="off"></label><button type="submit">Install and bind repository</button></form>${revoke}</main></html>`;
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect GitHub source</title><main><h1>Connect GitHub source</h1>${status}<p>Install the Zenith GitHub App, then authorize access to the repository. Only selected repositories are granted. A GitHub repository administrator must approve sharing code with this workspace.</p><form method="post" action="${PATH}"><label>Repository (owner/name) <input name="repository" required maxlength="140" autocomplete="off"></label><button type="submit">Install and bind repository</button></form>${revoke}</main></html>`;
 }
 const success = `<!doctype html><html lang="en"><meta charset="utf-8"><title>GitHub source connected</title><main><h1>GitHub source connected</h1><p>The workspace source binding was saved.</p><a href="/platform">Return to Zenith</a></main></html>`;
 const revoked = `<!doctype html><html lang="en"><meta charset="utf-8"><title>GitHub source revoked</title><main><h1>GitHub source revoked</h1><p>New source access is blocked. Existing deployments keep running.</p><a href="${PATH}">Connect a repository</a></main></html>`;
@@ -41,7 +41,8 @@ export const GET = route({ workspaceRole: "admin" }, async (req) => {
     const state = parameter(req, "state");
     if (state === undefined) {
       if (req.nextUrl.searchParams.size) throw new GithubSourceError("invalid");
-      const current = await createGithubSourceStore(await platformDb()).getState(caller.workspaceId);
+      const states = await createGithubSourceStore(await platformDb()).listStates(caller.workspaceId);
+      const current = states.length === 1 ? states[0] : undefined;
       return new NextResponse(form(current), { headers: { ...HEADERS, "content-type": "text/html; charset=utf-8" } });
     }
     const config = githubAppConfig();
@@ -61,9 +62,17 @@ export const GET = route({ workspaceRole: "admin" }, async (req) => {
     if (!/^[A-Za-z0-9_-]{1,256}$/.test(code)) throw new GithubSourceError("invalid");
     const intent = await store.consume(input);
     if (intent.appId !== config.appId) throw new GithubSourceError("refused");
+    if (intent.discovery) {
+      const discovered = await createGithubApp(config).discoverUserRepositories({ ...intent, code, verifier: browserProof, callbackUrl: callbackUrl(req) }, AbortSignal.any([req.signal, AbortSignal.timeout(60_000)]));
+      const session = await currentAdminMutation(req, caller, false, current => current.saveDiscovery({ ...intent, ...discovered, workspaceId: caller.workspaceId, actorId: caller.principal.id }), { appId: intent.appId, installationId: intent.installationId, generation: intent.installationGeneration });
+      const out = redirect(`/platform/source?discovery=${encodeURIComponent(session)}`);
+      out.cookies.set(COOKIE, "", { ...cookieOptions(req), maxAge: 0 });
+      return out;
+    }
     const repositoryId = await createGithubApp(config).verifyUserRepository({ ...intent, code, verifier: browserProof, callbackUrl: callbackUrl(req) }, AbortSignal.any([req.signal, AbortSignal.timeout(60_000)]));
+    if (intent.expectedRepositoryId !== undefined && repositoryId !== intent.expectedRepositoryId) throw new GithubSourceError("conflict");
     await currentAdminMutation(req, caller, false, current => current.bind({ ...intent, repositoryId, workspaceId: caller.workspaceId, actorId: caller.principal.id }), { appId: intent.appId, installationId: intent.installationId, generation: intent.installationGeneration });
-    const out = new NextResponse(success, { headers: { ...HEADERS, "content-type": "text/html; charset=utf-8" } });
+    const out = intent.returnTo ? redirect(intent.returnTo) : new NextResponse(success, { headers: { ...HEADERS, "content-type": "text/html; charset=utf-8" } });
     out.cookies.set(COOKIE, "", { ...cookieOptions(req), maxAge: 0 });
     return out;
   } catch (error) { return safeFailure(error); }

@@ -29,6 +29,7 @@ import { planChange, prepareDeploy, restartService, scaleService } from "./propo
 import { recommendPlacementTool } from "./placement";
 import { reviewTeardown } from "./teardown-review";
 import { planRunnerConnection } from "./connections";
+import { getSourceContext, getAnalysis, getHandoff, submitSourceProposal } from "./source";
 
 type Handler = (args: never, ctx: ToolContext) => Promise<ToolOutput>;
 
@@ -50,6 +51,10 @@ const HANDLERS: Record<ToolName, Handler> = {
   zenith_recommend_placement: recommendPlacementTool as Handler,
   zenith_get_operation: getOperation as Handler,
   zenith_get_operation_events: getOperationEvents as Handler,
+  zenith_get_source_context: getSourceContext as Handler,
+  zenith_get_analysis: getAnalysis as Handler,
+  zenith_get_handoff: getHandoff as Handler,
+  zenith_submit_source_proposal: submitSourceProposal as Handler,
 };
 
 export interface InvokeOptions {
@@ -67,6 +72,7 @@ export async function invokeTool(name: string, rawArgs: unknown, options: Invoke
   if (!tool || !(TOOL_NAMES as readonly string[]).includes(name)) throw new McpToolError("unknown_tool", "There is no such tool.", 404);
   requirePluginTool(options.principal, tool.name);
   requireScope(options.principal, tool.name, tool.requiredScope);
+  for (const scope of tool.additionalScopes ?? []) requireScope(options.principal, tool.name, scope);
 
   // Every strict schema has one of these two explicit scope shapes.
   const args = TOOL_SCHEMAS[tool.name].parse(rawArgs ?? {}) as { target: TargetLike } | { workspaceId: string };

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db/store";
 import { platformDb, repos } from "@/lib/controlplane/db";
 import { runView } from "@/lib/coding-agent/view";
+import { assertRunSourceAccess } from "@/lib/coding-agent/platform";
 import { Card } from "@/components/ui/card";
 import { loadPage } from "../_lib/loaders";
 import { PageState } from "../_components/page-state";
@@ -23,17 +24,34 @@ interface Row {
   updatedAt: string;
 }
 
-export default async function CodingAgentPage() {
+export default async function CodingAgentPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = searchParams ? await searchParams : {};
+  const value = (key: string) => typeof query[key] === "string" && query[key].length <= 250 ? query[key] : undefined;
+  const initialSource = {
+    bindingId: value("bindingId") ?? (value("repository") ? "public" : undefined),
+    repository: value("repository"), ref: value("ref"), root: value("root"), contextDir: value("contextDir"),
+  };
   const result = await loadPage(async (context) => {
     const admin = context.role === "admin";
-    if (!admin) return { admin, rows: [] as Row[], targets: [] as StartTarget[] };
-    const rows = (await repos.codingAgentRuns.listRuns(await platformDb(), context.workspaceId, 50)).map(runView);
+    if (!admin) return { admin, rows: [] as Row[], targets: [] as StartTarget[], unavailable: false };
+    const stored = await repos.codingAgentRuns.listRuns(await platformDb(), context.workspaceId, 50);
+    const visible: typeof stored = [];
+    // Retention belongs to each run, even when several runs share one source.
+    // Check every row independently, with at most four provider reads in flight.
+    for (let offset = 0; offset < stored.length; offset += 4) {
+      const batch = await Promise.all(stored.slice(offset, offset + 4).map(async row => {
+        try { await assertRunSourceAccess(row); return row; } catch { return null; }
+      }));
+      for (const row of batch) if (row) visible.push(row);
+    }
+    const rows = visible.map(runView);
     const targets: StartTarget[] = context.environments.flatMap((e) => {
       const projectId = db().environments.find((x) => x.id === e.id)?.projectId;
-      return projectId ? [{ environmentId: e.id, projectId, label: `${e.name} (${e.class})` }] : [];
+      return projectId ? [{ environmentId: e.id, projectId, label: `${db().projects.find(p => p.id === projectId)?.name ?? "Project"} / ${e.name} (${e.class})` }] : [];
     });
     return {
       admin,
+      unavailable: visible.length !== stored.length,
       targets,
       rows: rows.map((r): Row => ({
         id: String(r.id),
@@ -49,24 +67,25 @@ export default async function CodingAgentPage() {
     };
   });
   if ("error" in result) return <PageState {...result} />;
-  const { admin, rows, targets } = result.data;
+  const { admin, rows, targets, unavailable } = result.data;
   return (
     <div className="space-y-5">
-      <h1 className="app-page-title">Coding agents</h1>
+      <h1 className="app-page-title">Gimbal repository analysis</h1>
       <p className="text-[13px] text-ink-mute">
-        A run reads one repository at one exact commit with a model, inside hard budgets for tokens, tool calls, time and spend. It can only propose: the proposal goes through the normal approval path, and nothing is deployed until a person adopts and deploys it.
+        Attach a repository, inspect its applications, and prepare a deployment proposal. Start with static analysis or choose bounded model reasoning. Every run names an exact commit; infrastructure changes follow the normal review and deployment path.
       </p>
       {!admin ? (
         <PageState error="Only workspace admins can start or manage coding agent runs." missing />
       ) : (
         <>
           <AutoRefresh active={rows.some((r) => r.status === "running")} />
-          <Card title="Start a run">
-            <StartRun workspaceId={result.context.workspaceId} targets={targets} />
+          <Card title="Analyze your code" subtitle="Repository access and project choices stay attached to the analysis.">
+            <StartRun workspaceId={result.context.workspaceId} targets={targets} initialSource={initialSource} initialEnvironmentId={value("environmentId")} />
           </Card>
           <Card title="Recent runs" padded={false}>
+            {unavailable && <p className="border-b border-line p-4 text-[13px] text-ink-mute">Some analyses are hidden because current source access could not be confirmed. Review repository connections, then refresh.</p>}
             {rows.length === 0 ? (
-              <p className="p-4 text-[13px] text-ink-mute">No runs yet. Start one above to analyze a repository.</p>
+              <p className="p-4 text-[13px] text-ink-mute">No accessible analyses to show. Start one above or check repository access.</p>
             ) : (
               <table className="w-full text-left text-[13px]">
                 <caption className="sr-only">Coding agent runs, newest first</caption>

@@ -104,7 +104,7 @@ export const PolicyInputSchema = z
         destructive: z.boolean(),
         escapeHatch: z.boolean(),
         defaultAutonomy: z.number().int().min(0).max(6),
-        integrationScope: z.enum(["read", "plan", "logs", "write", "publish"]).optional(),
+        integrationScope: z.enum(["read", "plan", "logs", "write", "publish", "export"]).optional(),
         scope: z
           .object({
             workspaceId: IdSchema,

@@ -43,7 +43,7 @@ describe("default C3 GitHub connector", () => {
   it("keeps a workspace without a binding anonymous, even when an App is configured", async () => {
     const db = database([]); const fetchImpl = api();
     expect(await createGithubAccess({ db: async () => db, env: env(), fetchImpl })({ owner: "acme", repo: "app", workspaceId: "ws-b" }, async (token) => token === undefined)).toBe(true);
-    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("where workspace_id = $1"), ["ws-b"]); expect(fetchImpl).not.toHaveBeenCalled();
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining("where workspace_id = $1"), ["ws-b", "acme", "app"]); expect(fetchImpl).not.toHaveBeenCalled();
   });
   it("checks the exact tenant repository before any GitHub request or callback", async () => {
     const fetchImpl = api(); const callback = vi.fn(async () => "ok");

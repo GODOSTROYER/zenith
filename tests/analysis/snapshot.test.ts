@@ -321,6 +321,28 @@ describe("snapshotFromGithub", () => {
     expect(err.code).toBe("fetch_failed");
   });
 
+  it.each(["fetch", "body"])("bounds a stalled %s even when a transport ignores the caller's abort signal", async phase => {
+    const controller = new AbortController(); let started!: () => void;
+    const ready = new Promise<void>(resolve => { started = resolve; });
+    const cancel = vi.fn();
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
+      if (phase === "fetch") { started(); return new Promise(() => undefined); }
+      return new Response(new ReadableStream({ pull() { started(); return new Promise(() => undefined); }, cancel }));
+    });
+    const pending = snapshotFromGithub({ owner: "acme", repo: "app", ref: "main", token: TOKEN, fetchImpl, signal: controller.signal });
+    await ready; controller.abort(TOKEN);
+    const error = await pending.catch((value: unknown) => value);
+    expect(error).toMatchObject({ code: "fetch_failed" });
+    expect(String(error)).not.toContain(TOKEN);
+    if (phase === "body") expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a cancelled download before any request", async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    await expect(snapshotFromGithub({ owner: "acme", repo: "app", ref: "main", fetchImpl, signal: AbortSignal.abort(TOKEN) })).rejects.toMatchObject({ code: "fetch_failed" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("follows redirects only to GitHub-owned hosts and never forwards the token off codeload", async () => {
     const calls: { url: string; auth?: string }[] = [];
     const fetchImpl = (async (url: string, init: RequestInit) => {

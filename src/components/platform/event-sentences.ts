@@ -43,6 +43,8 @@ const OUTCOME_SENTENCE: Record<string, string> = {
 type Rule = { sentence: (who: string, d: Data) => string; tone: DotStatus };
 
 const RULES: Record<PlatformEventType, Rule> = {
+  "project.repository_attached": { sentence: (w) => `${w} attached a repository to this project.`, tone: "idle" },
+  "project.repository_detached": { sentence: (w) => `${w} detached the project's repository.`, tone: "idle" },
   "operation.proposed": { sentence: (w) => `${w} proposed this change.`, tone: "idle" },
   "operation.prepared": { sentence: () => "Zenith prepared the change for execution.", tone: "idle" },
   "operation.approved": { sentence: (w) => `${w} approved this proposal.`, tone: "ok" },

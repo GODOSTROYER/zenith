@@ -8,6 +8,7 @@ import { createPrivateKey, sign } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { isAbsolute } from "node:path";
+import type { GithubDiscoveredRepository } from "./store";
 import { GithubSourceError, numericId, repository, type GithubAppConfig, type GithubRepository, type GithubSourceBinding } from "./types";
 
 const API = "https://api.github.com";
@@ -79,7 +80,7 @@ function credential(raw: unknown): string {
 
 export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typeof fetch; now?: () => number } = {}) {
   const now = deps.now ?? Date.now;
-  async function request(path: string, bearer?: string, body?: unknown, signal?: AbortSignal, oauth = false): Promise<Record<string, unknown>> {
+  async function request(path: string, bearer?: string, body?: unknown, signal?: AbortSignal, oauth = false, array = false): Promise<Record<string, unknown>> {
     const deadline = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(15_000)]);
     let res: Response | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
@@ -101,7 +102,9 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
         if (bytes > MAX_JSON) throw new GithubSourceError("unavailable");
         chunks.push(chunk.value);
       }
-      return object(JSON.parse(Buffer.concat(chunks, bytes).toString("utf8")));
+      const parsed: unknown = JSON.parse(Buffer.concat(chunks, bytes).toString("utf8"));
+      if (array) { if (!Array.isArray(parsed)) throw new GithubSourceError("unavailable"); return { items: parsed }; }
+      return object(parsed);
     } catch { throw new GithubSourceError("unavailable"); }
     finally { if (reader) { void reader.cancel().catch(() => undefined); reader.releaseLock(); } else { void res?.body?.cancel().catch(() => undefined); } }
   }
@@ -111,7 +114,7 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
     if (result.id !== installationId || String(result.app_id) !== config.appId || result.suspended_at !== null) throw new GithubSourceError("refused");
     return jwt;
   }
-  return {
+  const app = {
     async installUrl(state: string, signal?: AbortSignal): Promise<string> {
       const result = await request("/app", await appJwt(config, now()), undefined, signal);
       if (String(result.id) !== config.appId || typeof result.slug !== "string" || !/^[a-z0-9-]{1,100}$/.test(result.slug)) throw new GithubSourceError("unavailable");
@@ -133,6 +136,9 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
           for (const raw of result.repositories) {
             const item = object(raw);
             if (typeof item.full_name === "string" && item.full_name.toLowerCase() === `${repo.owner}/${repo.repo}`) {
+              // A reader cannot delegate an organization's source to an unrelated workspace.
+              // GitHub's user-token permissions, never a browser claim, prove repository administration.
+              if (!item.permissions || object(item.permissions).admin !== true) throw new GithubSourceError("refused", "A GitHub repository administrator must connect this repository to the workspace.");
               await installation(repo, input.installationId, signal);
               return numericId(item.id);
             }
@@ -141,6 +147,49 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
         }
         throw new GithubSourceError("refused");
       } finally { bytes.fill(0); token = undefined; }
+    },
+    async discoverUserRepositories(input: { code: string; verifier: string; callbackUrl: string; installationId: number }, signal?: AbortSignal): Promise<{ repositories: GithubDiscoveredRepository[]; truncated: boolean }> {
+      numericId(input.installationId);
+      if (!config.clientId || !/^[A-Za-z0-9._-]{1,100}$/.test(config.clientId) || !config.clientSecretFile) throw new GithubSourceError("unavailable");
+      const bytes = await secretFile(config.clientSecretFile);
+      let token: string | undefined;
+      try {
+        const result = await request("", undefined, { client_id: config.clientId, client_secret: bytes.toString("utf8").trim(), code: input.code, code_verifier: input.verifier, redirect_uri: input.callbackUrl }, signal, true);
+        if (result.token_type !== "bearer" || result.error) throw new GithubSourceError("refused");
+        token = credential(result.access_token);
+        const installed = await request(`/app/installations/${input.installationId}`, await appJwt(config, now()), undefined, signal);
+        if (installed.id !== input.installationId || String(installed.app_id) !== config.appId || installed.suspended_at !== null) throw new GithubSourceError("refused");
+        const repositories: GithubDiscoveredRepository[] = [];
+        for (let page = 1; page <= 10; page++) {
+          const result = await request(`/user/installations/${input.installationId}/repositories?per_page=100&page=${page}`, token, undefined, signal);
+          if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new GithubSourceError("unavailable");
+          for (const raw of result.repositories) {
+            const item = object(raw);
+            if (!item.permissions || object(item.permissions).admin !== true) continue;
+            if (typeof item.full_name !== "string" || typeof item.private !== "boolean") throw new GithubSourceError("unavailable");
+            const parts = item.full_name.split("/");
+            if (parts.length !== 2) throw new GithubSourceError("unavailable");
+            const location = repository(parts[0], parts[1]);
+            const defaultBranch = typeof item.default_branch === "string" && item.default_branch.length <= 250 ? item.default_branch : "main";
+            repositories.push({ ...location, repositoryId: numericId(item.id), private: item.private, defaultBranch });
+          }
+          if (result.repositories.length < 100) return { repositories, truncated: false };
+        }
+        return { repositories, truncated: true };
+      } finally { bytes.fill(0); token = undefined; }
+    },
+    async branches(binding: GithubSourceBinding, page = 1, signal?: AbortSignal): Promise<{ branches: { name: string; commitSha: string; protected: boolean }[]; nextCursor: string | null }> {
+      if (!Number.isSafeInteger(page) || page < 1 || page > 1000) throw new GithubSourceError("invalid");
+      return app.withRepositoryAccess(binding, async token => {
+        const result = await request(`/repos/${binding.owner}/${binding.repo}/branches?per_page=100&page=${page}`, token, undefined, signal, false, true);
+        if (!Array.isArray(result.items) || result.items.length > 100) throw new GithubSourceError("unavailable");
+        const branches = result.items.map(raw => {
+          const branch = object(raw), commit = object(branch.commit);
+          if (typeof branch.name !== "string" || branch.name.length > 250 || typeof commit.sha !== "string" || !/^[a-f0-9]{40}$/.test(commit.sha) || typeof branch.protected !== "boolean") throw new GithubSourceError("unavailable");
+          return { name: branch.name, commitSha: commit.sha, protected: branch.protected };
+        });
+        return { branches, nextCursor: branches.length === 100 && page < 1000 ? String(page + 1) : null };
+      }, signal);
     },
     async withRepositoryAccess<T>(binding: GithubSourceBinding, fn: (token?: string) => Promise<T>, signal?: AbortSignal): Promise<T> {
       const repo = repository(binding.owner, binding.repo);
@@ -160,4 +209,5 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
       finally { token = undefined; }
     },
   };
+  return app;
 }

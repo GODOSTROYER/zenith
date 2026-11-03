@@ -30,6 +30,11 @@ const browserRoutes = [
   ["POST", "/operations/op_1/approve"], ["POST", "/operations/op_1/reject"],
   ["PUT", "/environments/env_1/autonomy"], ["PUT", "/workspace/policy"],
   ["GET", "/github/callback"], ["POST", "/github/callback"],
+  ["GET", "/github/discovery"], ["POST", "/github/discovery"],
+  ["GET", "/github/project-source"], ["POST", "/github/project-source"],
+  ["GET", "/github/branches"], ["POST", "/github/binding/sync"],
+  ["POST", "/coding-agent/runs/run_1/handoff"],
+  ["DELETE", "/coding-agent/runs/run_1"],
   ["GET", "/runners"], ["GET", "/machines"], ["POST", "/runners/tokens"],
   ["POST", "/runners/run_1/revoke"], ["POST", "/machines/mac_1/revoke"],
   ["GET", "/runners/run_1/update"], ["POST", "/runners/run_1/update"],
@@ -172,7 +177,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(116);
+    expect(seen.size).toBe(124);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

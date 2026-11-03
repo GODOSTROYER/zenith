@@ -75,6 +75,17 @@ describe.skipIf(!posix)("GitHub source binding lifecycle", () => {
     expect(use).not.toHaveBeenCalled(); expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("removing repository A preserves repository B in the same workspace and installation", async () => {
+    await db.query(`insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by)
+      values($1,$2,7,100,'acme','other',1,'human')`, [WS,APP]);
+    expect(await send("installation_repositories", "removed")).toBe(204);
+    const store = createGithubSourceStore(db);
+    expect(await store.getState(WS, { repositoryId: 99 })).toMatchObject({ revoked: true, binding: { version: 2 } });
+    expect(await store.getState(WS, { repositoryId: 100 })).toMatchObject({ revoked: false, binding: { version: 1 } });
+    expect(await db.query("select repository_id,action from platform.github_binding_events where workspace_id=$1", [WS]))
+      .toEqual([{ repository_id: 99, action: "revoked" }]);
+  });
+
   it("unsuspend, install creation and repository addition never restore a revoked binding", async () => {
     expect(await send("installation", "suspend")).toBe(204);
     for (const [event, action] of [["installation", "unsuspend"], ["installation", "created"], ["installation_repositories", "added"]]) expect(await send(event, action)).toBe(204);

@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
-import { Activity, AppWindow, BookOpen, Boxes, Code2, GitCompareArrows, LayoutDashboard, Plus, Radar, Rocket, Settings, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, AppWindow, BookOpen, Boxes, Code2, GitCompareArrows, Github, LayoutDashboard, Plus, Radar, Rocket, Settings, ShieldCheck, Sparkles } from "lucide-react";
 import { cx } from "@/lib/format";
 
 export const PROJECT_DESTINATIONS = [
   { seg: "", label: "System", icon: Boxes },
-  { seg: "source", label: "Source", icon: Code2 },
+  { seg: "source", label: "Infrastructure", icon: Code2 },
+  { seg: "repository", label: "Repository", icon: Github },
   { seg: "deploys", label: "Deploys", icon: Rocket },
   { seg: "revisions", label: "Revisions", icon: GitCompareArrows },
   { seg: "observe", label: "Observe", icon: Radar },

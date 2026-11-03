@@ -15,10 +15,11 @@ export function api() {
   return vi.fn<typeof fetch>(async (url) => {
     const value = String(url);
     if (value === "https://api.github.com/app") return json({ id: 42, slug: "zenith-test" });
+    if (value === "https://api.github.com/app/installations/7") return json({ id: 7, app_id: 42, suspended_at: null });
     if (value === "https://api.github.com/repos/acme/app/installation") return json({ id: 7, app_id: 42, suspended_at: null });
     if (value === "https://api.github.com/app/installations/7/access_tokens") return json(tokenResponse());
     if (value === "https://github.com/login/oauth/access_token") return json({ access_token: USER_TOKEN, token_type: "bearer" });
-    if (value.startsWith("https://api.github.com/user/installations/7/repositories?")) return json({ repositories: [{ id: 99, full_name: "acme/app" }] });
+    if (value.startsWith("https://api.github.com/user/installations/7/repositories?")) return json({ repositories: [{ id: 99, full_name: "acme/app", private: true, default_branch: "main", permissions: { admin: true } }] });
     throw new Error("Unexpected synthetic GitHub request.");
   });
 }

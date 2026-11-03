@@ -9,6 +9,7 @@ import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
 import * as repo from "@/lib/controlplane/db/repos/coding-agent-runs";
 import type { CodingAgentRunRow, CreateRunInput, SaveRunInput } from "@/lib/controlplane/db/repos/coding-agent-runs";
+import { withRunAdmission } from "./lifecycle";
 
 export type { CodingAgentRunRow, CreateRunInput, SaveRunInput };
 
@@ -24,12 +25,16 @@ export interface RunStore {
 }
 
 export const platformRunStore = (sql: Sql): RunStore => ({
-  create: (i) => repo.createRun(sql, i),
+  create: (i) => repo.createRun(sql, { ...i, admit: true }),
   get: (w, id) => repo.getRun(sql, w, id),
   list: (w, n) => repo.listRuns(sql, w, n),
   save: (i) => repo.saveRun(sql, i),
   attachOutcome: (i) => repo.attachOutcome(sql, i),
-  claimResume: (i) => repo.claimResume(sql, i),
+  claimResume: async (i) => {
+    const row = await repo.getRun(sql, i.workspaceId, i.id);
+    const spend = (row?.checkpoint as { analysisMode?: string } | undefined)?.analysisMode === "static" ? 0 : Number((i.limits as { spendMicroUsd?: number }).spendMicroUsd ?? 0);
+    return withRunAdmission(sql, i.workspaceId, spend, i.id, tx => repo.claimResume(tx, i));
+  },
   cancel: (i) => repo.cancelRun(sql, i),
   fail: (i) => repo.failRun(sql, i),
 });
@@ -42,10 +47,16 @@ export function memoryRunStore(): RunStore {
   const find = (w: string, id: string): CodingAgentRunRow | undefined => rows.get(key(w, id));
   return {
     async create(i) {
+      const existing = rows.get(key(i.workspaceId, i.id));
+      if (existing && i.idempotent) {
+        if (existing.requestDigest !== repo.runRequestDigest(i)) throw new ControlStoreError("conflict", "Request key was reused.");
+        return clone(existing);
+      }
       const row: CodingAgentRunRow = {
         id: i.id, workspaceId: i.workspaceId, ...(i.projectId ? { projectId: i.projectId } : {}), ...(i.environmentId ? { environmentId: i.environmentId } : {}),
         createdBy: i.createdBy, status: "running", model: i.model, task: i.task, source: clone(i.source), limits: clone(i.limits), usage: clone(i.usage), checkpoint: clone(i.checkpoint),
-        workflowId: i.workflowId, version: 1, createdAt: stamp(), updatedAt: stamp(),
+        workflowId: i.workflowId, version: 1, createdAt: stamp(), updatedAt: stamp(), requestDigest: repo.runRequestDigest(i),
+        payloadExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
       };
       if (rows.has(key(i.workspaceId, i.id))) throw new ControlStoreError("conflict", "Run exists.", { id: i.id });
       rows.set(key(i.workspaceId, i.id), row);

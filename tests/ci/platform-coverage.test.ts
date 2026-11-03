@@ -12,7 +12,7 @@ import { load } from "js-yaml";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import vitestConfig from "../../vitest.config";
-import { AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+import { GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
 
 interface Step {
@@ -139,8 +139,12 @@ const ownershipSnapshotCasIds = new Set([
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7049bff8d926",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:10a59cc38f80"
 ]);
+const githubAnalysisIds = new Set(GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
+function priorGithubAnalysisRequirements(requirements: ReturnType<typeof requirementsFor>) {
+  return requirements.filter(item => !githubAnalysisIds.has(item.id));
+}
 function priorOwnershipSnapshotRequirements(requirements: ReturnType<typeof requirementsFor>) {
-  return requirements.filter(item => !ownershipSnapshotCasIds.has(item.id));
+  return priorGithubAnalysisRequirements(requirements).filter(item => !ownershipSnapshotCasIds.has(item.id));
 }
 function withoutIncomingPlatform(requirements: ReturnType<typeof requirementsFor>) {
   return withoutIncomingPlatformCohort(priorOwnershipSnapshotRequirements(requirements));
@@ -854,7 +858,7 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
     const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
     expect(declaration).toBeDefined();
     expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
-    expect(committed.slice(-12)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql", "0026_platform_core.sql", "0027_platform_core.sql"]);
+    expect(committed.slice(-14)).toEqual(["0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql", "0019_platform_core.sql", "0020_platform_core.sql", "0021_platform_core.sql", "0022_platform_core.sql", "0023_platform_core.sql", "0024_platform_core.sql", "0025_platform_core.sql", "0026_platform_core.sql", "0027_platform_core.sql", "0028_github_waitlist_identity.sql", "0029_platform_core.sql"]);
     expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
     expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
   });
@@ -862,16 +866,33 @@ describe("mandatory native custody, retention and Kubernetes target execution", 
 
 
 describe("saved builtin settlement mandatory CI admission", () => {
+  it("requires repository isolation, project attachment and analysis lifecycle on actual PostgreSQL", () => {
+    const manifest = manifestFor("platform-postgres", root);
+    const expected = GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
+    expect(expected).toHaveLength(3);
+    expect(githubAnalysisIds.size).toBe(3);
+    expect(manifest.requirements.filter(item => githubAnalysisIds.has(item.id))).toEqual(expected);
+    expect(reportFailures(expected, { success: true, testResults: [] }, root)).toHaveLength(3);
+    for (const item of expected) {
+      expect(item.postgres).toBe(true);
+      expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
+      expect(manifest.excludeFiles).not.toContain(item.file);
+    }
+    const unknown = { ...expected[0], id: "unknown-github-analysis-successor" };
+    expect(priorGithubAnalysisRequirements([...manifest.requirements, unknown])).toContainEqual(unknown);
+    expect(priorGithubAnalysisRequirements(manifest.requirements)).toHaveLength(1160);
+  });
+
   it("keeps all six current discovery successors in the executable strict platform lane", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1160);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1160);
+    expect(manifest.requirements).toHaveLength(1163);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1163);
     const mixedStore = manifest.requirements.filter(item => item.file === "tests/execution/mixed-run-store.test.ts");
     expect(mixedStore).toHaveLength(5);
     expect(mixedStore.every(item => item.postgres && item.suite === "mixed run store validation [postgres]" && item.test)).toBe(true);
-    const beforeMixedStore = manifest.requirements.filter(item => !mixedStore.some(addition => addition.id === item.id));
+    const beforeMixedStore = priorGithubAnalysisRequirements(manifest.requirements).filter(item => !mixedStore.some(addition => addition.id === item.id));
     expect(beforeMixedStore).toHaveLength(1155);
     expect(beforeMixedStore.filter(item => !wave5PlatformIds.has(item.id))).toHaveLength(1152);
     const prior = priorOwnershipSnapshotRequirements(manifest.requirements);

@@ -57,6 +57,10 @@ export const TOOL_NAMES = [
   "zenith_recommend_placement",
   "zenith_get_operation",
   "zenith_get_operation_events",
+  "zenith_get_source_context",
+  "zenith_get_analysis",
+  "zenith_get_handoff",
+  "zenith_submit_source_proposal",
 ] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 

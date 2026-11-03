@@ -6,7 +6,7 @@
  * GitHub (uninstalling there arrives as a signed webhook and revokes the same way).
  */
 import { route } from "@/lib/server/request";
-import { numericId } from "@/lib/sources/github/types";
+import { numericId, identifier } from "@/lib/sources/github/types";
 import { browserCaller, cookieOptions, currentAdminMutation, safeFailure, GITHUB_INSTALL_COOKIE } from "../../_lib/admin";
 import { jsonResponse, onlyKeys, readSmallJson } from "../../_lib/json";
 
@@ -17,9 +17,10 @@ export const POST = route({ workspaceRole: "admin" }, async (req) => {
   const caller = await browserCaller(req, true);
   try {
     const body = await readSmallJson(req);
-    onlyKeys(body, ["version"]);
+    onlyKeys(body, ["version", "bindingId"]);
+    const bindingId = body.bindingId === undefined ? undefined : typeof body.bindingId === "string" ? identifier(body.bindingId) : identifier("");
     const expectedVersion = numericId(body.version);
-    await currentAdminMutation(req, caller, true, current => current.revoke({ workspaceId: caller.workspaceId, actorId: caller.principal.id, expectedVersion }));
+    await currentAdminMutation(req, caller, true, current => current.revoke({ workspaceId: caller.workspaceId, actorId: caller.principal.id, expectedVersion, bindingId }));
     const out = jsonResponse({ state: "revoked" });
     out.cookies.set(GITHUB_INSTALL_COOKIE, "", { ...cookieOptions(req), maxAge: 0 });
     return out;

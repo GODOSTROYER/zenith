@@ -32,6 +32,7 @@ const { createGithubSourceStore } = await import("@/lib/sources/github/store");
 const { digest } = await import("@/lib/sources/github/store");
 const { captureGithubWebhookFence } = await import("@/lib/sources/github/webhook-store");
 const { GET, POST } = await import("@/app/api/platform/v1/github/callback/route");
+const { GET: DISCOVERY_GET, POST: DISCOVERY_POST } = await import("@/app/api/platform/v1/github/discovery/route");
 const ROOT = "https://zenith.test/api/platform/v1/github/callback";
 const AGENT_HEADERS: Record<string, string>[] = [{ authorization: "Bearer synthetic-agent-canary" }, { authorization: "" }, { "x-zenith-actor": "navigator" }, { "x-zenith-actor-key": "synthetic-navigator-canary" }];
 const CROSS_SITE_HEADERS: Record<string, string>[] = [{ origin: "https://evil.test" }, { origin: "null" }, { origin: "" }, { "sec-fetch-site": "cross-site" }];
@@ -54,7 +55,7 @@ beforeEach(async () => {
     { id: "human", workspaceId: "ws-a", email: "human@zenith.test", name: "Human", role: "admin" },
     { id: "editor", workspaceId: "ws-a", email: "editor@zenith.test", name: "Editor", role: "editor" },
   ] as Member[] });
-  for (const table of ["github_binding_events", "github_install_intents", "github_source_bindings"]) await state.db!.query(`delete from platform.${table} where workspace_id = $1`, ["ws-a"]);
+  for (const table of ["github_discovery_sessions", "github_binding_events", "github_install_intents", "github_source_bindings"]) await state.db!.query(`delete from platform.${table} where workspace_id = $1`, ["ws-a"]);
 });
 async function call(method: "GET" | "POST", query = "", opts: { cookie?: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal } = {}) {
   return (method === "GET" ? GET : POST)(new NextRequest(ROOT + query, {
@@ -239,5 +240,46 @@ describe("GitHub browser install callback", () => {
   it("refuses duplicate parameters and direct callbacks without install state", async () => {
     const started = await start(); expect((await call("GET", `?installation_id=7&state=${started.state}&state=${started.state}`, { cookie: started.cookie })).status).toBe(400);
     expect((await call("GET", "?installation_id=7")).status).toBe(400);
+  });
+});
+
+
+describe("GitHub authorized repository discovery", () => {
+  const discovery = (method: "GET" | "POST", body?: unknown, query = "") => (method === "GET" ? DISCOVERY_GET : DISCOVERY_POST)(new NextRequest(`https://zenith.test/api/platform/v1/github/discovery${query}`, {
+    method, headers: { cookie: "zenith-workspace=ws-a", ...(method === "POST" ? { origin: "https://zenith.test", "content-type": "application/json" } : {}) },
+    ...(method === "POST" ? { body: JSON.stringify(body ?? {}) } : {}),
+  }), { params: Promise.resolve({}) });
+
+  it("discovers metadata, then reauthorizes an exact selected repository before binding", async () => {
+    const begun = await discovery("POST", {}); expect(begun.status).toBe(200);
+    const installUrl = new URL((await begun.json()).installUrl);
+    const pending = { state: installUrl.searchParams.get("state")!, cookie: begun.headers.get("set-cookie")!.split(";")[0] };
+    expect((await authorize(pending)).status).toBe(303);
+    const discovered = await call("GET", `?code=discovery-code&state=${pending.state}`, { cookie: pending.cookie });
+    expect(discovered.status).toBe(303);
+    const session = new URL(discovered.headers.get("location")!, "https://zenith.test").searchParams.get("discovery")!;
+    expect(session).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const listed = await discovery("GET", undefined, `?session=${session}&q=acme`);
+    expect(listed.status).toBe(200);
+    expect(await listed.json()).toMatchObject({ repositories: [{ repositoryId: 99, owner: "acme", repo: "app", private: true }], nextCursor: null });
+    expect(await createGithubSourceStore(state.db!).getState("ws-a")).toBeUndefined();
+    const selected = await discovery("POST", { session, repositoryId: 99 }); expect(selected.status).toBe(200);
+    const authorization = new URL((await selected.json()).authorizeUrl);
+    expect(authorization.origin).toBe("https://github.com"); expect(authorization.pathname).toBe("/login/oauth/authorize");
+    const completed = await call("GET", `?code=selected-code&state=${authorization.searchParams.get("state")}`, { cookie: selected.headers.get("set-cookie")!.split(";")[0] });
+    expect(completed.status).toBe(303); expect(completed.headers.get("location")).toBe("/platform/source");
+    expect(await createGithubSourceStore(state.db!).getBinding("ws-a", { repositoryId: 99 })).toMatchObject({ owner: "acme", repo: "app" });
+    const stored = JSON.stringify(await state.db!.query("select * from platform.github_discovery_sessions"));
+    expect(stored).not.toContain(USER_TOKEN); expect(stored).not.toContain(session);
+  });
+
+  it("rejects foreign session selection and external return destinations before beginning OAuth", async () => {
+    expect((await discovery("POST", { session: "a".repeat(43), repositoryId: 99 })).status).toBe(403);
+    const fence = await captureGithubWebhookFence(state.db!, "42", 7);
+    const session = await createGithubSourceStore(state.db!).saveDiscovery({ workspaceId: "ws-a", actorId: "human", appId: "42", installationId: 7, installationGeneration: fence.generation,
+      repositories: [{ owner: "acme", repo: "app", repositoryId: 99, private: true, defaultBranch: "main" }], truncated: false });
+    expect((await discovery("POST", { session, repositoryId: 100 })).status).toBe(403);
+    expect((await discovery("POST", { session, repositoryId: 99, returnTo: "https://evil.test" })).status).toBe(400);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

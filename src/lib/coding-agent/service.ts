@@ -29,6 +29,9 @@ import { runAgent, type ProposalSink } from "./runner";
 import type { CodingAgentRunRow, RunStore } from "./store";
 import type { AgentSourceRef, BudgetLimits, Checkpoint, ModelProvider, RunStatus } from "./types";
 import { newCheckpoint } from "./types";
+import type { GithubImmutableSource } from "@/lib/sources/github/types";
+import { digest } from "@/lib/controlplane/digest";
+import { redactSourceText } from "./redaction";
 
 export const TASK_MAX = 2_000;
 /** A `running` row untouched this long belongs to a dead worker and can be resumed. */
@@ -41,6 +44,15 @@ export interface SourceRequest {
   /** branch, tag or commit; resolved to an exact commit before any byte is read */
   ref: string;
   root?: string;
+  accessKind?: "installed" | "public";
+  bindingId?: string;
+  bindingVersion?: number;
+  repositoryId?: number;
+  contextDir?: string;
+  contextDigest?: string;
+  dockerfile?: string;
+  expected?: GithubImmutableSource;
+  signal?: AbortSignal;
 }
 
 export type SourceReader = <T>(request: SourceRequest, use: (snapshot: RepoSnapshot, ref: AgentSourceRef) => Promise<T>) => Promise<T>;
@@ -64,7 +76,7 @@ export interface AgentControlDeps {
   launcher: RunLauncher;
   newId?: () => string;
   /** Whether a model is configured for runs. Absent means "assume yes" (tests). */
-  modelConfigured?: () => boolean;
+  modelConfigured?: () => boolean | Promise<boolean>;
 }
 
 export interface AgentWorkerDeps {
@@ -73,6 +85,8 @@ export interface AgentWorkerDeps {
   readSource: SourceReader;
   /** The capability broker. Runs with a target submit their proposal through it. */
   broker?: () => Promise<Pick<Broker, "propose">>;
+  authorizeCaller?: (row: CodingAgentRunRow) => Promise<void>;
+  authorizeSource?: SourceResolver;
 }
 
 export interface CreateRunRequest {
@@ -82,6 +96,11 @@ export interface CreateRunRequest {
   target?: { projectId: string; environmentId: string };
   model?: string;
   limits?: Partial<BudgetLimits>;
+  mode?: "static" | "model";
+  /** Set only by trusted server code after resolving the target in the current workspace. */
+  targetBase?: Checkpoint["targetBase"];
+  environmentClass?: Checkpoint["environmentClass"];
+  idempotencyKey?: string;
 }
 
 export class AgentServiceError extends Error {
@@ -130,23 +149,30 @@ async function launchOrFail(deps: AgentControlDeps, row: CodingAgentRunRow): Pro
 /** Pin the source, record the run and start its workflow. Returns immediately; no model or repository work happens here. */
 export async function createRun(deps: AgentControlDeps, caller: AgentCaller, req: CreateRunRequest): Promise<CodingAgentRunRow> {
   const { model, limits } = validate(req);
-  if (deps.modelConfigured && !deps.modelConfigured()) throw new AgentServiceError("model_not_configured", "model_not_configured: no model key is configured on this deployment, so coding-agent runs are refused.");
+  if (req.mode !== "static" && deps.modelConfigured && !await deps.modelConfigured()) throw new AgentServiceError("model_not_configured", "model_not_configured: no model-enabled execution worker is available. Static analysis remains available.");
   const ref = await deps.resolveSource({ workspaceId: caller.workspaceId, ...req.source });
+  const checkpoint = newCheckpoint();
+  if (req.idempotencyKey && !/^[A-Za-z0-9_.:-]{8,100}$/.test(req.idempotencyKey)) throw new AgentServiceError("invalid_request", "Invalid analysis request key.");
+  checkpoint.analysisMode = req.mode ?? "model";
+  checkpoint.environmentClass = req.environmentClass ?? "staging";
+  if (req.targetBase) checkpoint.targetBase = structuredClone(req.targetBase);
   const id = deps.newId?.() ?? `car_${randomUUID()}`;
+  const requestId = req.idempotencyKey ? "car_" + digest([caller.workspaceId, caller.userId, req.idempotencyKey]).slice(0, 32) : id;
   const row = await deps.store.create({
-    id,
+    id: requestId,
     workspaceId: caller.workspaceId,
     ...(req.target ? { projectId: req.target.projectId, environmentId: req.target.environmentId } : {}),
     createdBy: caller.userId,
     model,
-    task: req.task.trim(),
+    task: redactSourceText(req.task.trim()),
     source: ref,
     limits,
     usage: newCheckpoint().usage,
-    checkpoint: newCheckpoint(),
-    workflowId: firstWorkflowId(id),
+    checkpoint,
+    workflowId: firstWorkflowId(requestId),
+    ...(req.idempotencyKey ? { idempotent: true } : {}),
   });
-  await launchOrFail(deps, row);
+  if (row.status === "running") await launchOrFail(deps, row);
   return row;
 }
 
@@ -154,6 +180,13 @@ export async function createRun(deps: AgentControlDeps, caller: AgentCaller, req
 export async function resumeRun(deps: AgentControlDeps, caller: AgentCaller, runId: string, options: { limits?: Partial<BudgetLimits> } = {}): Promise<CodingAgentRunRow> {
   const existing = await deps.store.get(caller.workspaceId, runId);
   if (!existing) throw new AgentServiceError("not_found", "Run not found.");
+  if ((existing.stopReason as { detail?: string } | undefined)?.detail === "legacy_thinking_requires_new_analysis") throw new AgentServiceError("invalid_state", "This legacy analysis cannot continue with the current model protocol. Start a fresh analysis.");
+  if (existing.payloadPurgedAt || (existing.payloadExpiresAt && Date.parse(existing.payloadExpiresAt) <= Date.now())) throw new AgentServiceError("invalid_state", "Analysis content expired or was deleted. Start a new analysis.");
+  const source = existing.source as AgentSourceRef;
+  const currentSource = await deps.resolveSource({ workspaceId: caller.workspaceId, repository: source.repository, ref: source.commit,
+    root: source.root, expected: source.sourceIdentity, bindingId: source.bindingId, bindingVersion: source.bindingVersion, repositoryId: source.repositoryId,
+    ...(source.sourceIdentity?.binding === null ? { accessKind: "public" } : {}) });
+  if (currentSource.commit !== source.commit || (source.sourceIdentity && digest(currentSource.sourceIdentity) !== digest(source.sourceIdentity))) throw new AgentServiceError("invalid_state", "Source authority changed. Start a new analysis.");
   const crashed = existing.status === "running" && Date.now() - Date.parse(existing.updatedAt) > STALE_RUNNING_MS;
   if (existing.status !== "budget_exhausted" && existing.status !== "failed" && !crashed) throw new AgentServiceError("invalid_state", "Only a stopped run (budget, error or a crashed worker) can be resumed.");
   let limits: BudgetLimits;
@@ -209,33 +242,59 @@ export async function executeRunStep(deps: AgentWorkerDeps, options: StepOptions
   const record = await deps.store.get(options.workspaceId, options.runId);
   if (!record) throw new AgentServiceError("not_found", "Run not found.");
   if (record.status !== "running") return { status: record.status };
+  if (record.payloadPurgedAt || (record.payloadExpiresAt && Date.parse(record.payloadExpiresAt) <= Date.now())) {
+    await deps.store.cancel({ workspaceId: record.workspaceId, id: record.id });
+    return { status: "cancelled" };
+  }
   const ref = record.source as AgentSourceRef;
+  await deps.authorizeCaller?.(record);
+  const cp = record.checkpoint as Checkpoint;
+  const sourceRequest: SourceRequest = {
+    workspaceId: record.workspaceId, repository: ref.repository, ref: ref.commit,
+    root: ref.root, bindingId: ref.bindingId, bindingVersion: ref.bindingVersion, repositoryId: ref.repositoryId,
+    contextDir: ref.contextDir, contextDigest: ref.contextDigest, dockerfile: ref.dockerfile,
+    expected: ref.sourceIdentity, ...(ref.sourceIdentity?.binding === null ? { accessKind: "public" } : {}),
+    ...(options.signal ? { signal: options.signal } : {}),
+  };
   let version = record.version;
+  const reauthorize = async (): Promise<void> => {
+    const current = await deps.store.get(record.workspaceId, record.id);
+    if (!current || current.status !== "running" || current.version !== version || current.payloadPurgedAt) throw new RunSuperseded();
+    if (current.payloadExpiresAt && Date.parse(current.payloadExpiresAt) <= Date.now()) throw new AgentServiceError("invalid_state", "Analysis content expired.");
+    await deps.authorizeCaller?.(record);
+    if (deps.authorizeSource) {
+      const identity = await deps.authorizeSource(sourceRequest);
+      if (identity.commit !== ref.commit || (ref.sourceIdentity && digest(identity.sourceIdentity) !== digest(ref.sourceIdentity))) throw new AgentServiceError("invalid_state", "Source authority changed.");
+    }
+  };
   const sink: ProposalSink | undefined =
     record.projectId && record.environmentId && deps.broker
       ? {
-          submit: async (artifact, context) =>
-            createBrokerProposalSink({
+          submit: async (artifact, context) => {
+            await reauthorize();
+            return createBrokerProposalSink({
               broker: await deps.broker!(),
               // The creator, re-resolved by the broker against CURRENT workspace membership on every call.
               principal: { kind: "user", id: record.createdBy, name: record.createdBy },
               runId: record.id,
+              baseManifestHash: cp.targetBase?.manifestHash,
               scope: { workspaceId: record.workspaceId, projectId: record.projectId!, environmentId: record.environmentId! },
-            }).submit(artifact, context),
+            }).submit(artifact, context);
+          },
         }
       : undefined;
   // Fail fast and explicitly when there is no model: no repository read, no retry loop, a resumable run.
   try {
-    deps.provider();
+    if (cp.analysisMode !== "static") deps.provider();
   } catch (error) {
     if (!(error instanceof ModelNotConfiguredError)) throw error;
     await deps.store.fail({ workspaceId: record.workspaceId, id: record.id, stopReason: { kind: "provider_error", detail: "model_not_configured" } });
     return { status: "failed" };
   }
   try {
-    return await deps.readSource({ workspaceId: record.workspaceId, repository: ref.repository, ref: ref.commit, ...(ref.root ? { root: ref.root } : {}) }, async (snapshot, readRef) => {
+    return await deps.readSource(sourceRequest, async (snapshot, readRef) => {
       // The pinned commit or nothing: a moved ref cannot smuggle different bytes into a resumed run.
-      if (readRef.commit !== ref.commit) {
+      if (readRef.commit !== ref.commit || (ref.sourceIdentity && digest(ref.sourceIdentity) !== digest(readRef.sourceIdentity))) {
         await deps.store.fail({ workspaceId: record.workspaceId, id: record.id, stopReason: { kind: "provider_error", detail: "source_commit_moved" } });
         return { status: "failed" as RunStatus };
       }
@@ -243,7 +302,8 @@ export async function executeRunStep(deps: AgentWorkerDeps, options: StepOptions
         task: record.task,
         source: ref,
         snapshot,
-        provider: deps.provider(),
+        provider: cp.analysisMode === "static" ? { id: "static", complete: async () => { throw new Error("Static analysis cannot call a model."); } } : deps.provider(),
+        staticOnly: cp.analysisMode === "static",
         model: record.model,
         limits: record.limits as BudgetLimits,
         checkpoint: record.checkpoint as Checkpoint,
@@ -251,6 +311,8 @@ export async function executeRunStep(deps: AgentWorkerDeps, options: StepOptions
         ...(sink ? { proposals: sink } : {}),
         ...(options.signal ? { signal: options.signal } : {}),
         onCheckpoint: async (s) => {
+          // Revocation or offboarding during an in-flight model call blocks publication.
+          await reauthorize();
           const result = s.status === "completed" ? { artifact: s.checkpoint.artifact ?? null, finalText: s.checkpoint.finalText ?? "", proposalError: s.proposalError ?? null, injectionSignals: s.checkpoint.injectionSignals, unsafeAttempts: s.checkpoint.unsafeAttempts.length } : undefined;
           try {
             const saved = await deps.store.save({

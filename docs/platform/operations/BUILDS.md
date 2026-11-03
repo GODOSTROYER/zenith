@@ -3,6 +3,7 @@
 Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 Image pinning and its guard updated on `ws/image-pins` (2026-10-01).
 Azure source storage, broker audience and default composition updated by `WS-AZURE-SOURCE-WIRE` (2026-10-01).
+Repository grants, project source selection and Gimbal analysis updated on 2026-11-03.
 
 Customer repository code runs in the provider's build service, not in the
 control-plane or worker process. The worker downloads, validates and packages
@@ -20,11 +21,12 @@ intent preserved. Unsafe paths, links, duplicate entries, oversized archives
 and missing requested Dockerfiles are refused. The digest is SHA-256 of the
 canonical archive bytes, not a claim that a mutable branch is immutable.
 
-Public GitHub archives are the default source. Private repositories require
-the tenant-scoped GitHub App source binding described below. C3's default
-acquisition hook supplies the connector when App configuration and a workspace
-binding are present; an explicit `withGithubAccess` override remains authoritative.
-A download refusal produces no fake source bundle.
+Public GitHub archives can be selected explicitly. Private repositories require
+the matching workspace GitHub App repository grant described below. Production
+build admission resolves the exact repository ID, commit and grant version through
+the owning database connector, then retains immutable approved-source authority.
+Revoked or changed grants refuse source acquisition; there is no anonymous retry
+for remembered private access. A download refusal produces no source bundle.
 Repository text, Dockerfile paths and cloud responses are data, never worker
 instructions; secrets must not be embedded in source or build diagnostics.
 
@@ -34,7 +36,11 @@ execution (`src/lib/execution/release.ts`). A successful build must return a
 verified image digest and URI before release; dispatch or a bootstrap image is
 not deployment evidence.
 
-## GitHub App registration and workspace binding
+## GitHub App registration and repository grants
+
+The current connection, project attachment, Gimbal analysis, revocation and rollout
+procedure is in [GITHUB-ANALYSIS.md](GITHUB-ANALYSIS.md). GitHub sign-in and GitHub
+repository access are configured separately; signing in does not grant source access.
 
 The operator registers the App in GitHub; Zenith cannot register it on the
 operator's behalf. Configure **Contents: read-only** (Metadata: read-only is
@@ -65,30 +71,41 @@ npm run migrate:platform
 npm run migrate:platform -- --status
 ```
 
-Platform migration 6 (`github_sources`) includes the source-binding tables and
-expiring install intents. Alternatively, re-apply the generated
-`supabase/migrations/0016_platform_core.sql` as described in
-[DEPLOYING.md](DEPLOYING.md#32-migrating). No separate GitHub schema installer is
-required. Migration 6 is additive and idempotent: it preserves tables and rows
-from earlier manual installations and records its checksum in the platform ledger.
+Platform migration 60 (`github_repository_grants`) upgrades the original singleton
+source model to stable per-repository grants, preserves event history, and adds
+expiring discovery sessions and project-source references. Migration 61 adds Gimbal
+analysis retention and worker availability. Apply the current migration set, or
+the new generated `supabase/migrations/0029_platform_core.sql`, as described in
+[DEPLOYING.md](DEPLOYING.md#32-migrating). Historical Supabase migrations, including
+`0027_platform_core.sql`, remain unchanged; GitHub sign-in's separate waitlist
+identity migration is `0028_github_waitlist_identity.sql`. No separate GitHub schema
+installer is required.
 The old `src/lib/sources/github/migrate.ts` command remains a compatibility
 entrypoint that now applies the normal platform migrations. Runtime requests never
-run GitHub schema DDL; a Postgres ledger behind migration 6 fails closed before
+run GitHub schema DDL; a Postgres ledger behind the current schema fails closed before
 source access. A failed database read refuses source access rather than silently
 switching a configured workspace to anonymous access.
 Production uses shared Postgres; a PGlite directory still belongs to one process.
 
-As a signed-in **workspace admin**, select the workspace, then choose **GitHub source**
-in the Platform navigation (opens `/api/platform/v1/github/callback` in the browser).
-Enter `owner/repository`, install the App for that repository and authorize the
-GitHub user-access check. This
-single endpoint serves the form, starts installation via a same-origin POST,
-handles GitHub's setup redirect, and exchanges the OAuth code server-side.
-The binding saves only workspace, App, installation and repository identifiers.
-No access token is sent to the browser, stored, logged or placed in a URL.
+As a signed-in **workspace admin**, open **Repositories** in the Platform navigation
+at `/platform/source`.
+Install or configure the App for selected repositories, authorize discovery, search
+the available repositories, and connect exactly one repository at a time. Each
+selection repeats user OAuth verification before creating or updating that grant.
+The connecting GitHub user must have repository-admin permission to share its code
+with the workspace. A project can attach a repository, select a branch or commit,
+and choose an application root separately from its build context. Gimbal can then
+inspect the pinned source and propose a deployment plan; source inspection does
+not execute repository code. See [GITHUB-ANALYSIS.md](GITHUB-ANALYSIS.md) for the
+analysis and Claude Code handoff flow.
+
+The grant stores workspace, App, installation and repository identifiers, a stable
+binding ID and a monotonic version. Discovery stores short-lived actor-scoped
+repository metadata. No OAuth or installation token is sent to the browser, stored,
+logged or placed in a URL.
 
 The installation ID in the setup query is untrusted: Zenith verifies that the
-GitHub user can access the requested repository in that installation, then
+GitHub user can administer the requested repository in that installation, then
 checks the installation with the App JWT. State is hashed in SQL, expires after
 ten minutes, and is bound to the initiating human, selected workspace and a
 protected browser PKCE cookie. Each phase is single-use. A changed binding
@@ -102,17 +119,20 @@ with exactly one `repository_ids` entry and `contents: read`. Token receipt
 scope and expiration are checked. The token is passed to C3's archive request
 in the initial Authorization header, omitted from redirects, and discarded
 after the callback. No token cache or anonymous retry of failed private access
-exists. Public downloads need no App configuration; an unbound workspace or an
-unscoped standalone reader uses anonymous access. A bound workspace refuses a
-different repository. App removal, suspension or repository removal is checked
+exists. Public downloads need no App configuration. Each workspace lookup selects
+the exact repository; unrelated grants cannot supply credentials or prevent another
+authorized source from running. App removal, suspension or repository removal is checked
 again on acquisition. See GitHub's
 [installation token contract](https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app).
 
-Limits: one repository binding per workspace; reconnecting replaces it. The
-form is at the endpoint above and linked from Platform navigation. The browser form
-provides exact-version workspace revocation; signed uninstall, suspension and
-repository-removal webhooks are wired in this source candidate. Required
-current-source and live acceptance remain pending. The connector uses GitHub.com,
+Multiple repository grants can coexist in a workspace. Reconnecting one repository
+preserves its binding ID and advances only its version, including a rename recovered
+through discovery. Per-grant revocation stops new source reads and analyses without
+stopping existing deployments. Signed uninstall, suspension and repository-removal
+webhooks invalidate the affected grants; removing one repository leaves the others
+usable. GitHub's hosted installation settings manage which repositories the App can
+access. Discovery is capped at 1,000 repositories and clearly reports truncation.
+Required current-source and live acceptance remain pending. The connector uses GitHub.com,
 not Enterprise Server. Standalone private readers must inject
 an explicitly workspace-bound callback. Authorization, archive transport and
 production Postgres behavior have **not** been verified against live GitHub or

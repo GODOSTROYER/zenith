@@ -238,6 +238,7 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `placement.solve` | low | no | — | 0 | project | no driver |
 | `process.list` | low | no | — | 0 | resource | no driver |
 | `service.status` | low | no | — | 0 | resource | no driver |
+| `source.context.read` | low | no | — | 0 | environment | no driver |
 | `system.logs` | low | no | — | 0 | resource | no driver |
 | `system.metrics` | low | no | — | 0 | resource | no driver |
 | `topology.read` | low | no | — | 0 | project | no driver |

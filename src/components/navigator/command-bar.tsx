@@ -1,6 +1,7 @@
 "use client";
 import { useRef, type KeyboardEvent } from "react";
-import { CornerDownLeft } from "lucide-react";
+import Link from "next/link";
+import { CornerDownLeft, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { cx } from "@/lib/format";
@@ -21,6 +22,7 @@ export interface CommandBarProps {
   /** set when the field cannot be submitted; becomes the button's tooltip */
   disabledReason?: string;
   showExamples?: boolean;
+  repositoryHref?: string;
 }
 
 /** The Navigator's one input. Enter plans; nothing here executes. */
@@ -32,6 +34,7 @@ export function CommandBar({
   gimbalState = null,
   disabledReason,
   showExamples = true,
+  repositoryHref,
 }: CommandBarProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -91,6 +94,8 @@ export function CommandBar({
           </span>
         </div>
       </div>
+
+      {repositoryHref && <Link href={repositoryHref} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-ctl border border-line px-3 text-[12px] text-signal hover:underline"><Github size={14} aria-hidden="true" />Attach repository to Gimbal</Link>}
 
       {showExamples && <details className="mt-3 text-[12px] text-ink-mute">
         <summary className="min-h-8 cursor-pointer py-1">Example requests</summary>

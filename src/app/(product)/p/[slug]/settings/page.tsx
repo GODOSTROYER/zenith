@@ -213,14 +213,14 @@ export default function SettingsPage() {
                 The bundle for{" "}
                 <span className="text-ink">{env?.name ?? "the selected environment"}</span> is
                 generated on request: every file, plus a README naming the provider that produced
-                them and whether they came from a deployed revision or the working copy. The Source
+                them and whether they came from a deployed revision or the working copy. The Infrastructure
                 screen carries the same panel under its Export tab.
               </p>
               <Link
                 href={`/p/${slug}/source`}
                 className="text-[12.5px] text-signal underline-offset-2 hover:underline"
               >
-                Open Source
+                Open Infrastructure
               </Link>
             </div>
             {showBundle ? (

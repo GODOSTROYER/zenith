@@ -13,6 +13,7 @@ import type { OperationStatus } from "@/lib/controlplane/types";
 import { intParam } from "@/lib/server/request";
 import { platformRoute } from "../_lib/http";
 import { callerOf } from "../_lib/principal";
+import { operationForRest } from "../_lib/source-read";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,5 +49,5 @@ export const GET = platformRoute(async (req) => {
     limit: intParam(req, "limit", 50, { min: 1, max: 200 }),
     cursor,
   });
-  return { body: { operations: page.items, ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}) } };
+  return { body: { operations: page.items.map(operation => operationForRest(operation, caller)), ...(page.nextCursor ? { nextCursor: page.nextCursor } : {}) } };
 });

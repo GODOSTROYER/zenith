@@ -2,16 +2,18 @@
  * Streaming, resumable replies and client cancellation for MCP v3 (PROD-UX-02).
  *
  * What streams: a `tools/call` that carries `params._meta.progressToken` and
- * accepts `text/event-stream` is answered as Server-Sent Events: `notifications/
+ * accepts `text/event-stream` can be answered as Server-Sent Events: `notifications/
  * progress` while the tool runs, then the result. Every event is stored
  * (platform.mcp_stream_events) under an id `<streamId>.<seq>` BEFORE it is
- * written, so a dropped connection never loses the result.
+ * written, so a dropped connection never loses the result. Source-capable
+ * calls are excluded by server.ts and always reauthorize a fresh JSON read.
  *
  * Resume: `GET /api/agent/v3/mcp` with `Last-Event-ID` and the same bearer
  * replays everything after that id and, while the request is still running,
  * follows it until the result (or the time budget) and then ends the stream;
  * the client reconnects again with its newest id. A stream is bound to the
- * principal that opened it (workspace + subject + credential [+ plugin grant]).
+ * principal and grant restrictions that opened it (workspace + subject +
+ * credential + scopes + targets [+ plugin grant and allowed tools]).
  * Another principal, another workspace, an expired stream and a made-up id are
  * the same 404.
  *
@@ -31,7 +33,12 @@ import type { AgentIdentity } from "./principal";
 
 export function principalKeyOf(identity: AgentIdentity): string {
   return createHash("sha256")
-    .update(JSON.stringify(["zenith-mcp-stream/1", identity.workspaceId, identity.subject, identity.integrationId, identity.plugin?.grantId ?? null]))
+    // A changed grant cannot replay results obtained under its earlier scope.
+    // v2 also invalidates older streams whose source payloads were resumable.
+    .update(JSON.stringify(["zenith-mcp-stream/2", identity.workspaceId, identity.subject, identity.integrationId, identity.plugin?.grantId ?? null,
+      [...(identity.scopes ?? [])].sort(), identity.projectIds ? [...identity.projectIds].sort() : null,
+      identity.environmentIds ? [...identity.environmentIds].sort() : null,
+      [...(identity.plugin?.tools ?? [])].sort()]))
     .digest("hex");
 }
 

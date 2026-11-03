@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { ArrowRight, Lock, RefreshCw } from "lucide-react";
 import { api, useJson } from "@/lib/client/api";
 import type { CloudConnection } from "@/lib/domain/types";
@@ -52,6 +53,7 @@ export function StepProvider({ providers, connections, loading, initialChoice, o
     : ["Select a provider to see its access and execution limits."]);
   if (loading && !providers.length) return <Skeleton height={240} />;
   return <div className="max-w-[760px] space-y-6">
+    <div className="rounded-card border border-line bg-bg2 p-4"><h2 className="text-sm font-medium">Start with your code</h2><p className="mt-2 text-[13px] text-ink-mute">Inspect a GitHub repository before choosing infrastructure. Gimbal can identify services, dependencies, and open questions first.</p><Link href="/platform/coding-agent" className="mt-3 inline-block text-[13px] text-signal hover:underline">Import a GitHub repository →</Link></div>
     <p className="max-w-[65ch] text-sm leading-relaxed text-ink-mute">Choose what this project should use. Gimbal will keep the distinction between a local emulator, an AWS preview and a simulation visible throughout your workspace.</p>
     <div role="radiogroup" aria-label="Provider choices" className="space-y-2">
       {selectable.map((p) => <button type="button" key={p.id} role="radio" aria-checked={picked === p.id} onClick={() => setPicked(p.id)}

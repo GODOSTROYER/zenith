@@ -5,6 +5,7 @@ import { afterEach, vi } from "vitest";
 import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
 afterEach(() => setDestroyReviewDispatcherForTests(undefined));
 import { digest } from "@/lib/controlplane/digest";
+import { buildRunHandoff } from "@/lib/coding-agent/handoff";
 import { parseRequest } from "@/lib/capabilities/broker";
 import { BrokerError } from "@/lib/capabilities/errors";
 import { graphFor } from "@/lib/agent-access/v3/context";
@@ -56,7 +57,7 @@ export class World implements ScopeResolver, RoleResolver {
   environments = new Map([[ids.env, ids.project], [ids.foreignEnv, ids.foreignProject]]);
   resources = new Map([[ids.service, ids.env], [ids.foreignService, ids.foreignEnv]]);
   members = new Map<string, ResolvedAccess["role"]>([[`${ids.ws}|bob`, "editor"], [`${ids.ws}|alice`, "admin"], [`${ids.foreignWs}|mallory`, "admin"]]);
-  integrations = new Map([[`${ids.ws}|${ids.integration}`, { subject: "bob", scopes: ["read", "plan", "logs", "write"], projectIds: [ids.project], environmentIds: [ids.env] }]]);
+  integrations = new Map([[`${ids.ws}|${ids.integration}`, { subject: "bob", scopes: ["read", "plan", "logs", "write", "export"], projectIds: [ids.project], environmentIds: [ids.env] }]]);
   resolve(scope: Scope): Promise<ResolvedScope | null>;
   resolve(principal: Principal, workspaceId: string): Promise<ResolvedAccess>;
   async resolve(value: Scope | Principal, workspaceId?: string): Promise<ResolvedScope | ResolvedAccess | null> {
@@ -82,7 +83,7 @@ export class World implements ScopeResolver, RoleResolver {
 
 export function identity(extra: Partial<AgentIdentity> = {}): AgentIdentity {
   return { subject: "bob", integrationId: ids.integration, workspaceId: ids.ws, projectIds: [ids.project], environmentIds: [ids.env],
-    scopes: ["read", "plan", "logs", "write"], expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(), ...extra };
+    scopes: ["read", "plan", "logs", "write", "export"], expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(), ...extra };
 }
 let key: Promise<Record<string, string>> | undefined;
 const controlKey = () => (key ??= generateSigningJwk("EdDSA").then((k) => ({ ZENITH_CONTROL_SIGNING_JWK: serializePrivateJwk(k) })));
@@ -163,6 +164,13 @@ export async function makeHarness(decide: (input: PolicyInput) => PolicyDecision
       revision: vi.fn(async (ws: string, p: string, r: string) => { trace.push("revision"); const row = revisions.get(r); return row && projects.get(p)?.workspaceId === ws && row.projectId === p ? row : null; }),
       revisions: vi.fn(async (ws, p, limit) => { trace.push("revisions"); return projects.get(p)?.workspaceId === ws ? [...revisions.values()].filter((r) => r.projectId === p).slice(0, limit) : []; }),
     },
+    sourceContext: { get: vi.fn(async request => {
+      trace.push("sourceContext");
+      if (request.workspaceId !== ids.ws || request.runId !== "run-a" || request.target?.projectId !== ids.project || request.target?.environmentId !== ids.env) throw notFound();
+      return buildRunHandoff({ id: "run-a", workspaceId: ids.ws, projectId: ids.project, environmentId: ids.env, createdBy: "bob", status: "completed", model: "test", task: "Prepare deployment",
+        source: { repository: "owner/repo", commit: "a".repeat(40), sourceIdentity: { owner: "owner", repo: "repo", repositoryId: 17, commitSha: "a".repeat(40), binding: null } },
+        limits: {}, usage: {}, checkpoint: { targetBase: { manifestHash: "d".repeat(64) } }, result: { finalText: "Analysis summary", artifact: { unresolved: ["Confirm traffic"] } }, workflowId: "wf-a", version: 1, createdAt: clock.now().toISOString(), updatedAt: clock.now().toISOString() }, clock.now());
+    }) },
     deployments: {
       prepare: vi.fn(async request => {
         const input = preparedInput(request);
@@ -215,6 +223,8 @@ export async function approve(h: Harness, id: string, proposalDigest: string) {
 export function argsFor(name: ToolName, operationId = "op-missing", expectedDigest = "a".repeat(64)): Record<string, unknown> {
   const base = { target: { ...target } };
   switch (name) {
+    case "zenith_get_source_context": case "zenith_get_analysis": case "zenith_get_handoff": return { ...base, runId: "run-a" };
+    case "zenith_submit_source_proposal": return { ...base, runId: "run-a", expectedVersion: 1, expectedDigest: "b".repeat(64), baseCommit: "a".repeat(40), result: { kind: "commit", newCommit: "c".repeat(40) }, changedFiles: [{ path: "Dockerfile", change: "added" }], verification: [], description: "Prepare container build", idempotencyKey: "intent-source-0001" };
     case "zenith_plan_runner_connection": return { target: { workspaceId: ids.ws, projectId: ids.project }, action: "connection.createRunner", input: { provider: "oci", mode: "runner", runnerId: "run_registered", region: "us-ashburn-1", tenancyOcid: "ocid1.tenancy.oc1..aaaaaaaafixture", compartmentOcid: "ocid1.compartment.oc1..aaaaaaaafixture" } };
     case "zenith_review_teardown": return { ...base, idempotencyKey: "intent-review-0001" };
     case "zenith_plan_change": return { ...base, revisionId: ids.revision, description: "Propose this saved change.", idempotencyKey: "intent-plan-0001" };
@@ -228,7 +238,7 @@ export function argsFor(name: ToolName, operationId = "op-missing", expectedDige
     default: return base;
   }
 }
-export const READ_TOOLS = TOOL_NAMES.filter((name) => !["zenith_execute_approved_operation", "zenith_review_teardown", "zenith_plan_change", "zenith_prepare_deploy", "zenith_restart_service", "zenith_scale_service"].includes(name));
+export const READ_TOOLS = TOOL_NAMES.filter((name) => !["zenith_submit_source_proposal", "zenith_execute_approved_operation", "zenith_review_teardown", "zenith_plan_change", "zenith_prepare_deploy", "zenith_restart_service", "zenith_scale_service"].includes(name));
 export async function proposeDeploy(h: Harness) {
   const result = await h.invoke("zenith_prepare_deploy", argsFor("zenith_prepare_deploy"));
   if (!result.ok) throw new Error(`Proposal failed: ${result.error?.code}`);

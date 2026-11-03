@@ -5,6 +5,7 @@
  * be byte-identical to what the emitter renders now and must apply cleanly.
  */
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -59,6 +60,8 @@ const EXPECTED_TABLES = [
   "mixed_output_records", "slo_samples", "slo_measurements", "recovery_epochs", "recovery_items", "legal_holds", "retention_archives", "retention_destinations", "retention_restores", "audit_exports", "managed_domains", "managed_storage_keys", "billing_accounts", "billing_account_events", "billing_invoices", "billing_usage_events", "billing_webhook_events",
   // Wave 6 integration, schemas 53..58.
   "agent_update_controls", "isolation_plan_custody", "workspace_mfa_controls",
+  // Repository grants and bounded Gimbal analysis, schemas 60 and 61.
+  "github_discovery_sessions", "github_project_sources", "coding_agent_workers", "coding_agent_workspace_limits",
   // Platform schemas 37 to 41 (wave 4).
   "actual_spend_snapshots", "ops_maintenance", "ops_maintenance_history", "tenant_quotas", "key_custody_keys", "key_rewrap_jobs", "mixed_parent_plans", "mixed_child_plans", "mixed_child_receipts", "mixed_addresses", "mixed_runs", "mixed_run_events", "mixed_output_preauthorizations",
 ];
@@ -68,7 +71,7 @@ const EXPECTED_TABLES = [
 // are global App-scoped fences/receipts, never tenant-addressable resources.
 // The cleanup writer epoch is one installation-wide singleton, not a tenant row.
 // Maintenance mode/history and non-secret key custody are installation-wide; tenant_quotas and key_rewrap_jobs remain tenant-scoped.
-const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs", "ops_maintenance", "ops_maintenance_history", "key_custody_keys", "slo_samples", "slo_measurements", "recovery_epochs", "billing_webhook_events"]);
+const NO_WORKSPACE_COLUMN = new Set(["schema_migrations", "agent_nonces", "github_webhook_deliveries", "github_webhook_installation_epochs", "cleanup_writer_epoch", "scheduled_job_runs", "ops_maintenance", "ops_maintenance_history", "key_custody_keys", "slo_samples", "slo_measurements", "recovery_epochs", "billing_webhook_events", "coding_agent_workers"]);
 
 interface Lane {
   name: string;
@@ -226,6 +229,9 @@ describe("migration set", () => {
     const committed = fs.readFileSync(path.join(process.cwd(), EMITTED_RELATIVE_PATH), "utf8");
     expect(committed).toBe(renderSupabaseMigration());
     expect(EMITTED_RELATIVE_PATH).toBe(`supabase/migrations/${EMITTED_FILE}`);
+    expect(EMITTED_FILE).toBe("0029_platform_core.sql");
+    expect(createHash("sha256").update(fs.readFileSync(path.join(process.cwd(), "supabase/migrations/0027_platform_core.sql"))).digest("hex"))
+      .toBe("5e740886cb5eb637f0680c503ac900a3cbdeb0802e22dd4dff8376c687f66039");
     // and it carries this build's checksum for every migration (so the TS migrator recognises it)
     for (const m of PLATFORM_MIGRATIONS) expect(committed).toContain(migrationChecksum(m));
     expect(committed).toContain("enable row level security");

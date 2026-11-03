@@ -263,6 +263,7 @@ export function defaultPorts(): McpPorts {
       return registry().investigator ?? unavailableInvestigator;
     },
     workflows: workflowPort(),
+    sourceContext: { get: async request => (await import("@/lib/coding-agent/handoff-platform")).authorizedRunHandoff(request) },
     origin: () => controlOrigin(),
     scope<T>(identity: AgentIdentity, fn: () => Promise<T>): Promise<T> {
       return inAgentScope(identity as unknown as Parameters<typeof inAgentScope>[0], fn);

@@ -18,6 +18,7 @@ import { anthropicKeyPresent, anthropicProvider } from "./anthropic";
 import { createGithubSource } from "./github-source";
 import { AgentServiceError, ModelNotConfiguredError, executeRunStep, failRunStep, type AgentWorkerDeps } from "./service";
 import { platformRunStore } from "./store";
+import { currentProductRoleResolver } from "@/lib/capabilities/current-product-roles";
 
 const ID = /^[A-Za-z0-9_.:-]{1,128}$/;
 
@@ -81,6 +82,11 @@ export function createProductionCodingAgentActivities(db: Sql): CodingAgentActiv
       return anthropicProvider();
     },
     readSource: source.read,
+    authorizeSource: source.resolve,
+    authorizeCaller: async row => {
+      const access = await currentProductRoleResolver().resolve({ kind: "user", id: row.createdBy, name: row.createdBy }, row.workspaceId);
+      if (access.role !== "admin") throw new AgentServiceError("invalid_state", "Current workspace admin access is required for this analysis.");
+    },
     broker: platformBroker,
   });
 }

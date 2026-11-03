@@ -25,7 +25,7 @@ function contracts(kind: "pglite" | "postgres") {
   it("persists only identifiers and proof digests, and resolves bindings by workspace", async () => {
     expect(await store.getBinding("ws-a")).toBeUndefined();
     const input = await begin(); await store.authorize(input, 7, binding.appId); const intent = await store.consume(input);
-    expect(intent).toEqual({ owner: "acme", repo: "app", installationId: 7, expectedVersion: 0, appId: binding.appId, installationGeneration: (await captureGithubWebhookFence(db, binding.appId, 7)).generation });
+    expect(intent).toEqual({ owner: "acme", repo: "app", installationId: 7, expectedVersion: 0, expectedRepositoryId: 99, appId: binding.appId, installationGeneration: (await captureGithubWebhookFence(db, binding.appId, 7)).generation });
     expect(await bind()).toEqual(binding); expect(await store.getBinding("ws-a")).toEqual(binding); expect(await store.getBinding("ws-b")).toBeUndefined();
     const rows = await db.query("select * from platform.github_source_bindings where workspace_id = $1", ["ws-a"]);
     expect(JSON.stringify(rows).includes(input.browserProof) || JSON.stringify(rows).includes(input.state)).toBe(false);

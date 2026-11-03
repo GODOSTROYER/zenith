@@ -30,6 +30,8 @@ import { assertInGrant } from "../principal";
 import type { PlanChangeArgs, PrepareDeployArgs, RestartServiceArgs, ScaleServiceArgs } from "../schemas";
 import { estimateSummary, tryEstimate } from "./estimate";
 import { nextStepFor } from "./operations";
+import { isSourceOperation } from "@/lib/coding-agent/source-operation";
+import { sourceOperationDetailsAllowed, SOURCE_DETAILS_OMITTED } from "../source-visibility";
 
 interface Submission {
   capability: string;
@@ -68,7 +70,7 @@ function refuseIfCancelled(ctx: ToolContext): void {
 }
 
 /** Submit to the broker and render what a model needs: the id, the status, the digest, the reasons and where a person approves. */
-async function submit(ctx: ToolContext, s: Submission): Promise<ToolOutput> {
+export async function submit(ctx: ToolContext, s: Submission): Promise<ToolOutput> {
   refuseIfCancelled(ctx);
   await ctx.progress?.("submitting the proposal to the capability broker");
   const result: ProposeResult = await ctx.broker.propose(
@@ -77,7 +79,13 @@ async function submit(ctx: ToolContext, s: Submission): Promise<ToolOutput> {
     { via: "mcp" }
   );
   await honourCancellation(ctx, result);
-  return proposalOutput(ctx, result);
+  const output = proposalOutput(ctx, result);
+  if (isSourceOperation(result.operation) && !await sourceOperationDetailsAllowed(result.operation, ctx)) {
+    delete output.untrusted;
+    output.data.sourceDetailsAvailable = false;
+    output.notes = [...(output.notes ?? []), SOURCE_DETAILS_OMITTED];
+  }
+  return output;
 }
 
 export function proposalOutput(ctx: Pick<ToolContext, "ports">, result: ProposeResult): ToolOutput {

@@ -78,10 +78,10 @@ async function assertSourceColumns(db: PlatformDbHandle): Promise<void> {
     "select table_name, column_name from information_schema.columns where table_schema = 'platform' and table_name in ('github_source_bindings', 'github_install_intents') order by table_name, ordinal_position"
   );
   expect(columns.filter((column) => column.table_name === "github_source_bindings").map((column) => column.column_name)).toEqual([
-    "workspace_id", "app_id", "installation_id", "repository_id", "owner", "repo", "version", "bound_by", "updated_at", "revoked_at", "revoked_by", "revoked_reason",
+    "workspace_id", "app_id", "installation_id", "repository_id", "owner", "repo", "version", "bound_by", "updated_at", "revoked_at", "revoked_by", "revoked_reason", "binding_id",
   ]);
   expect(columns.filter((column) => column.table_name === "github_install_intents").map((column) => column.column_name)).toEqual([
-    "workspace_id", "state_digest", "actor_id", "browser_digest", "owner", "repo", "expected_version", "installation_id", "phase", "expires_at", "app_id", "installation_generation",
+    "workspace_id", "state_digest", "actor_id", "browser_digest", "owner", "repo", "expected_version", "installation_id", "phase", "expires_at", "app_id", "installation_generation", "purpose", "return_to", "expected_repository_id",
   ]);
 }
 

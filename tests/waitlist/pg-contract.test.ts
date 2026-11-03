@@ -1,5 +1,5 @@
 /**
- * Real PostgreSQL contracts for migrations 0009 through 0012. The two explicit environment
+ * Real PostgreSQL contracts for waitlist migrations through 0028. The two explicit environment
  * gates are required; the lane report recognizes the WaitlistPostgres label.
  * Each connection has its own single-socket pool, so races reach the database.
  * Fixtures use a unique email/actor namespace and cleanup never truncates data.
@@ -217,7 +217,7 @@ describe.skipIf(!enabled)("WaitlistPostgres", () => {
       const rows = await sql<{ present: boolean }[]>`
         select to_regprocedure(${signature}) is not null as present
       `;
-      expect(rows[0].present, "Apply supabase/migrations/0009 through 0012 before this suite.").toBe(true);
+      expect(rows[0].present, "Apply the current Supabase migrations, including 0028, before this suite.").toBe(true);
     }
     schemaReady = true;
     const roles = await sql<{ rolname: string; rolbypassrls: boolean; rolsuper: boolean }[]>`
@@ -285,10 +285,10 @@ describe.skipIf(!enabled)("WaitlistPostgres", () => {
     const address = email("hook-flow");
     const event = { user: { email: address, app_metadata: { provider: "email" } } };
     expect(await invoke(event)).toEqual(refusal);
-    // Only Auth's Google provider may create a waiting identity. This does
+    // Only Auth's supported OAuth providers may create a waiting identity. This does
     // not insert or admit a waitlist entry, nor create product membership.
     expect(await invoke({ user: { email: address, app_metadata: { provider: "google" } } })).toEqual({});
-    expect(await invoke({ user: { email: address, app_metadata: { provider: "github" } } })).toEqual(refusal);
+    expect(await invoke({ user: { email: address, app_metadata: { provider: "github" } } })).toEqual({});
     expect(await invoke({ user: { email: address, user_metadata: { provider: "google", app_metadata: { provider: "google" } } } })).toEqual(refusal);
     expect(await invoke({ user: { email: "", app_metadata: { provider: "google" } } })).toEqual(refusal);
     expect((await asService(beta, (tx) => list(tx, "queued"))).entries).toHaveLength(0);

@@ -18,6 +18,8 @@ import { authorizeReadOrThrow, type ToolContext } from "../context";
 import type { ToolOutput } from "../envelope";
 import { assertInGrant } from "../principal";
 import type { GetOperationArgs, GetOperationEventsArgs } from "../schemas";
+import { isSourceOperation } from "@/lib/coding-agent/source-operation";
+import { sourceOperationDetailsAllowed, SOURCE_DETAILS_OMITTED } from "../source-visibility";
 
 /** Guidance for the model, authored by Zenith, keyed by status. Never derived from untrusted text. */
 export function nextStepFor(op: Pick<OperationView, "status" | "id" | "proposalDigest">, approvalUrl: string): string {
@@ -63,11 +65,13 @@ export async function getOperation(args: GetOperationArgs, ctx: ToolContext): Pr
   const detail = await loadAuthorized(ctx, args.workspaceId, args.operationId);
   const op = detail.operation;
   const approvalUrl = `${ctx.ports.origin()}/platform/operations/${encodeURIComponent(op.id)}`;
+  const sourceOperation = isSourceOperation(op);
+  const detailsAllowed = await sourceOperationDetailsAllowed(op, ctx);
 
   const unavailable: { source: string; reason: string }[] = [];
   let progress: { status: string; steps: { step: string; status: string; startedAt?: string; endedAt?: string }[] } | undefined;
   let progressDetails: { step: string; detail: string }[] = [];
-  if (op.status === "running" || op.status === "queued") {
+  if (detailsAllowed && (op.status === "running" || op.status === "queued")) {
     try {
       const p = await ctx.ports.workflows.progress(op.id);
       if (p) {
@@ -124,22 +128,24 @@ export async function getOperation(args: GetOperationArgs, ctx: ToolContext): Pr
       })),
       ...(progress ? { progress } : {}),
       ...(op.status === "awaiting_approval" ? { approvalUrl } : {}),
-      nextStep: nextStepFor(op, approvalUrl),
+      ...(sourceOperation ? { sourceDetailsAvailable: detailsAllowed } : {}),
+      nextStep: sourceOperation ? "Review this source proposal in Zenith. A separate reviewed deployment plan is required; this operation cannot be executed through MCP." : nextStepFor(op, approvalUrl),
     },
-    untrusted: {
+    ...(detailsAllowed ? { untrusted: {
       proposal: { summary: op.proposal.summary, details: op.proposal.details, input: op.proposal.input },
       ...(op.result !== undefined ? { result: op.result } : {}),
       ...(op.error !== undefined ? { error: op.error } : {}),
       approvals: detail.approvals.map((a) => ({ id: a.id, approverName: a.approverName, ...(a.reason ? { reason: a.reason } : {}) })),
       ...(progressDetails.length > 0 ? { progress: progressDetails } : {}),
-    },
+    } } : { notes: [SOURCE_DETAILS_OMITTED] }),
     simulated: false,
     unavailable,
   };
 }
 
 export async function getOperationEvents(args: GetOperationEventsArgs, ctx: ToolContext): Promise<ToolOutput> {
-  await loadAuthorized(ctx, args.workspaceId, args.operationId);
+  const detail = await loadAuthorized(ctx, args.workspaceId, args.operationId);
+  const detailsAllowed = await sourceOperationDetailsAllowed(detail.operation, ctx);
   const limit = args.limit ?? 100;
   const page = await ctx.broker.listOperationEvents({
     workspaceId: args.workspaceId,
@@ -158,8 +164,8 @@ export async function getOperationEvents(args: GetOperationEventsArgs, ctx: Tool
       ...(last ? { nextAfterSeq: last.seq } : {}),
       events: events.map((e) => ({ seq: e.seq, id: e.id, ts: e.ts, type: e.type, correlationId: e.correlationId })),
     },
-    untrusted: { events: events.map((e) => ({ seq: e.seq, ...(e.actor ? { actor: e.actor } : {}), data: e.data })) },
+    ...(detailsAllowed ? { untrusted: { events: events.map((e) => ({ seq: e.seq, ...(e.actor ? { actor: e.actor } : {}), data: e.data })) } } : {}),
     truncated: events.length >= limit,
-    notes: events.length >= limit ? ["There may be more events: call again with afterSeq set to nextAfterSeq."] : [],
+    notes: [...(detailsAllowed ? [] : [SOURCE_DETAILS_OMITTED]), ...(events.length >= limit ? ["There may be more events: call again with afterSeq set to nextAfterSeq."] : [])],
   };
 }

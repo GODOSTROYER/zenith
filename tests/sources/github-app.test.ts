@@ -65,10 +65,53 @@ describe("GitHub App credentials", () => {
     await expect(createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" })).rejects.toThrow("refused");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+  it("does not let a repository reader delegate private code to a shared workspace", async () => {
+    const fetchImpl = api();
+    fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" }))
+      .mockResolvedValueOnce(json({ repositories: [{ id: 99, full_name: "acme/app", permissions: { pull: true, admin: false } }] }));
+    await expect(createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" }))
+      .rejects.toMatchObject({ code: "refused" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+  it("discovers only user-and-installation repositories administrable by the initiating user", async () => {
+    const fetchImpl = api();
+    fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" }))
+      .mockResolvedValueOnce(json({ id: 7, app_id: 42, suspended_at: null }))
+      .mockResolvedValueOnce(json({ repositories: [
+        { id: 99, full_name: "acme/app", private: true, default_branch: "develop", permissions: { admin: true } },
+        { id: 100, full_name: "foreign/reader", private: true, permissions: { admin: false } },
+      ] }));
+    const result = await createGithubApp(material.config, { fetchImpl }).discoverUserRepositories({ installationId: 7, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" });
+    expect(result).toEqual({ repositories: [{ owner: "acme", repo: "app", repositoryId: 99, private: true, defaultBranch: "develop" }], truncated: false });
+    expect(JSON.stringify(result)).not.toContain(USER_TOKEN);
+    expect(fetchImpl.mock.calls.every(([url]) => !String(url).includes(USER_TOKEN))).toBe(true);
+  });
   it("paginates with fixed URLs and does not follow externally supplied Link headers", async () => {
     const fetchImpl = api(); fetchImpl.mockResolvedValueOnce(json({ access_token: USER_TOKEN, token_type: "bearer" })).mockResolvedValueOnce(json({ repositories: Array.from({ length: 100 }, (_, id) => ({ id: id + 100, full_name: "other/repo" })) }));
     expect(await createGithubApp(material.config, { fetchImpl }).verifyUserRepository({ ...binding, code: "code", verifier: "proof", callbackUrl: "https://zenith.test/callback" })).toBe(99);
     expect(String(fetchImpl.mock.calls[2][0])).toBe("https://api.github.com/user/installations/7/repositories?per_page=100&page=2");
+  });
+  it("lists branch metadata with an exact repository token and fixed pagination URLs", async () => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (url, init) => String(url).includes("/branches?")
+      ? json([{ name: "release/school", commit: { sha: "a".repeat(40) }, protected: true }])
+      : delegate(url, init));
+    const result = await createGithubApp(material.config, { fetchImpl }).branches(binding, 2);
+    expect(result).toEqual({ branches: [{ name: "release/school", commitSha: "a".repeat(40), protected: true }], nextCursor: null });
+    expect(JSON.parse(String(fetchImpl.mock.calls[1][1]?.body))).toEqual({ repository_ids: [99], permissions: { contents: "read" } });
+    expect(String(fetchImpl.mock.calls[2][0])).toBe("https://api.github.com/repos/acme/app/branches?per_page=100&page=2");
+    expect((fetchImpl.mock.calls[2][1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${INSTALL_TOKEN}`);
+    expect(JSON.stringify(result)).not.toContain(INSTALL_TOKEN);
+  });
+  it("refuses malformed branch metadata and invalid pagination before it can reach a picker", async () => {
+    const fetchImpl = api(), delegate = fetchImpl.getMockImplementation()!;
+    fetchImpl.mockImplementation(async (url, init) => String(url).includes("/branches?")
+      ? json([{ name: "main", commit: { sha: "mutable-reference" }, protected: true }])
+      : delegate(url, init));
+    const app = createGithubApp(material.config, { fetchImpl });
+    for (const page of [0, -1, 1.1, 1001]) await expect(app.branches(binding, page)).rejects.toMatchObject({ code: "invalid" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    await expect(app.branches(binding)).rejects.toMatchObject({ code: "unavailable" });
   });
   it("scrubs transport, response and consumer failures and produces no logs", async () => {
     const logs = [vi.spyOn(console, "log"), vi.spyOn(console, "warn"), vi.spyOn(console, "error")];

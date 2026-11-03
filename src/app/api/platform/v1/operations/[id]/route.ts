@@ -12,6 +12,7 @@ import { isMemoryStoreEnabled, platformBroker } from "@/lib/capabilities/platfor
 import { projectOperation } from "@/lib/controlplane/authority";
 import { platformRoute } from "../../_lib/http";
 import { callerOf } from "../../_lib/principal";
+import { operationForRest, restrictedSourceRead } from "../../_lib/source-read";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +23,12 @@ export const GET = platformRoute<{ id: string }>(async (req, { id }) => {
   const caller = await callerOf(req);
   if (!ID.test(id)) throw notFound();
   const detail = await (await platformBroker()).getOperationDetail({ workspaceId: caller.workspaceId, operationId: id, principal: caller.principal });
+  if (restrictedSourceRead(detail.operation, caller)) return { body: {
+    operation: operationForRest(detail.operation, caller), sourceContextOmitted: true,
+    approvals: detail.approvals.map(a => ({ id: a.id, decision: a.decision, approverId: a.approverId,
+      approverRole: a.approverRole, policyVersion: a.policyVersion, createdAt: a.createdAt,
+      expiresAt: a.expiresAt, consumed: a.consumed, approvalRound: a.approvalRound })),
+  } };
   // Read only after the broker proved the caller may see this operation.
   const authority = isMemoryStoreEnabled() ? null : await (async () => {
     try { const { platformDb } = await import("@/lib/controlplane/db"); return await projectOperation(await platformDb(), caller.workspaceId, id); }

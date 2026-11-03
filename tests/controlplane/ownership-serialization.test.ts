@@ -492,7 +492,7 @@ describe.skipIf(!PG_URL)("environment ownership serialization [postgres, indepen
         // Current emitter/service-role behavior is a distinct phase from 54 to the latest registered migration;
         // no current aggregate is presented as historical schema-53 SQL.
         const latest = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1]!.version;
-        expect(await migrateOwnedRange(latest, [57, 58])).toMatchObject({ applied: PLATFORM_MIGRATIONS.filter(m => m.version > 53).map(m => m.version) });
+        expect(await migrateOwnedRange(latest, [57, 58, 60, 62, 63])).toMatchObject({ applied: PLATFORM_MIGRATIONS.filter(m => m.version > 53).map(m => m.version) });
         const currentLedger = await db.query("select version,name,checksum from platform.schema_migrations order by version");
         await db.exec(renderSupabaseMigration());
         expect(await db.query("select version,name,checksum from platform.schema_migrations order by version")).toEqual(currentLedger);

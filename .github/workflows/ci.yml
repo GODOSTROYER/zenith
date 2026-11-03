@@ -1641,7 +1641,9 @@ jobs:
   #   - Any PostgreSQL version but 16.15.
   platform-postgres:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The full native suite took 23m40s; allow setup, real restore checks,
+    # evidence collection and owned cleanup to finish within the job budget.
+    timeout-minutes: 35
 
     services:
       postgres:
@@ -1700,7 +1702,7 @@ jobs:
             cat > "$RUNNER_TEMP/pg-tools/$tool" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
+          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGHOST --env PGPORT --env PGUSER --env PGDATABASE --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
           EOF
             chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
           done
@@ -1961,7 +1963,7 @@ jobs:
             cat > "$RUNNER_TEMP/pg-tools/$tool" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
+          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGHOST --env PGPORT --env PGUSER --env PGDATABASE --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
           EOF
             chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
           done

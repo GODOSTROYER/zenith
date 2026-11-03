@@ -329,6 +329,7 @@ export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string):
   input = captureArtifactAccess(input);
   return sql.tx(async (tx) => {
     const row = await read(tx,input);
+    const sourceAuthority = await captureSourceDispatch(tx,row);
     let productAuthority: PlanProductDispatchAuthority;
     try { productAuthority = await retainClaimedPlanProductAuthority(tx, row, input.custody.operationId, attemptId); } catch { return refuse(); }
     const owned = await tx.query(`select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2 and phase='ready' for update`,
@@ -339,9 +340,9 @@ export async function claim(sql: Sql, input: ArtifactAccess, attemptId: string):
     }
     const changed = await tx.query(`update platform.plan_artifact_uses set phase='claimed',attempt_id=$3,holder=$4,fence_token=$5,updated_at=clock_timestamp()
       where workspace_id=$1 and operation_id=$2 and phase='ready' and (${LIVE_USE_AUTHORITY})
-      and $6::text is null and $7::text is null
+      and $6::text is null and (${DISPATCH_SOURCE_AUTHORITY})
       and (${planProductDispatchPredicate(productAuthority)}) returning operation_id`,
-      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,null,null,JSON.stringify(productAuthority)]);
+      [input.custody.workspaceId,input.custody.operationId,attemptId,input.lease.holder,input.lease.fenceToken,null,JSON.stringify(sourceAuthority),JSON.stringify(productAuthority)]);
     if (!changed.length) refuse();
     return row;
   });

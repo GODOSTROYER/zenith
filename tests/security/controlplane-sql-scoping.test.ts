@@ -358,6 +358,10 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
   const owning = repo.statements.filter(ts.isFunctionDeclaration).filter(node => node.name?.text === fn.name);
   if (owning.length !== 1 || !owning[0].body || !fn.body.trimStart().startsWith(owning[0].getText(repo))) return false;
   if (fn.name !== "claim" && !fixedStandaloneBindings(repo)) return false;
+  // Claim returns the encrypted original and consumes its sole ready attempt.
+  // Its source capture and final post-wait authority predicate must stay bound.
+  if (fn.name === "claim" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
+    !== "16675ae76250ef9d77f3b540eba7b35b4c1e0c3cd37dfc68c40e3c428deef6b6") return false;
   // The dispatch proof also includes authenticated settlements. Pin its full
   // original transaction and exact current-authority parameter binding.
   if (fn.name === "dispatch" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
@@ -632,6 +636,13 @@ describe("control-store repositories: workspace scoping is present in every func
       expect(isFixedPlanProductInterpolation(changedRepo("JSON.stringify(productAuthority)", "JSON.stringify(input)"), expression, query, composerSource)).toBe(false);
       const directValue = query.replace("planProductDispatchPredicate(productAuthority)", "productAuthority.witness.id");
       expect(isFixedPlanProductInterpolation(changedRepo(query, directValue), "productAuthority.witness.id", directValue, composerSource)).toBe(false);
+      if (fn.name === "claim") {
+        const bypassSource = query.replace("and (${DISPATCH_SOURCE_AUTHORITY})", "and true");
+        expect(bypassSource).not.toBe(query);
+        expect(isFixedPlanProductInterpolation(changedRepo(query, bypassSource), expression, bypassSource, composerSource)).toBe(false);
+        expect(isFixedPlanProductInterpolation(changedRepo("JSON.stringify(sourceAuthority)", "JSON.stringify(input)"), expression, query, composerSource)).toBe(false);
+        expect(isFixedPlanProductInterpolation(changedRepo("const sourceAuthority = await captureSourceDispatch(tx,row);", "const sourceAuthority = input;"), expression, query, composerSource)).toBe(false);
+      }
     }
     const cleanupWrites = fns.filter(fn => fn.file === "plan-artifacts.ts"
       && ["retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name));

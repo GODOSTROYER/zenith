@@ -7593,7 +7593,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; tenant_fairness_alerting_and_control_plane_outage_proven_live_sandbox_2026-10-31; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; tenant_fairness_alerting_and_control_plane_outage_proven_live_sandbox_2026-10-31; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
       "implementationNote": "J11: gated local Grafana/Prometheus/OTel import and offline contracts; Docker import, fairness and outage rehearsal remain pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7663,6 +7663,18 @@
           "result": "PROD-OPS-02 operational rehearsal at 3b7fc395 on a fresh owned lean J1 stack with real browser identities: read_only maintenance with step-up (a write answers 503 with Retry-After, a read is served, the drain reports drained, mode back to off); a flood of one workspace under a tight operator quota (/api/admin/ops/quotas) is answered 429 while a second workspace on the defaults never is, quota deleted; a control-store outage (unreachable ZENITH_PLATFORM_DB_URL) reports zenith_control_store_up 0 while /api/me stays below 500; the composition is restored. Status codes only: no hosted app, no alert firing, no p95. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-04-operational-rehearsal-3b7fc395/release-evidence-PROD-OPS-02.json",
           "sha256": "e1dc07a953d4ae8b39d39be4e93d1b83620048c1c9611de13d5b13035a110e4c"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "3b7fc3957e5f2a1c903c3adc96befd2e149ac005",
+          "runId": 41700399946,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41700399946",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario ops-02 and run_id zlive-202611031907-a90a (lane live); plan sha256 e72b70b3a39bba18bb3a81d16525d517987c33984232ed0aa87ae3418abc94f4; permission sha256 b0b48bbec81ee116daea2135b609d1526817439c15f4c642f6bf2e8679908d54",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 2.8 (provisional, billing not measured); 60 minute window (plan)",
+          "result": "Live AWS sandbox at 3b7fc395, the commit of its contract, local_engine and operational_rehearsal receipts. OPS-02 proven on AWS: with the repository's alert rules loaded into Prometheus scraping the API's metrics, one tenant sent 600 requests 40 at a time and was refused 114 times (HTTP 429) while a second tenant's 20 concurrent requests were all served (p95 5020 ms); the dashboard's tenant-filtered refusal panel showed 114 refusals for the flooding tenant and none for the quiet one; public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66 on ECS Fargate behind an ALB served all 187 HTTP probes (one a second) through a 234 s control-plane outage: the control store stopped (ZenithControlStoreDown fired after 140 s), then the API and worker stopped too for 70 s; after the restart the store reported up and the tenant was served again. Not covered: traces in a trace backend, worker-side metrics, Grafana UI import (proven locally by the import harness), Temporal-backed fairness Cleanup complete. Not operational_rehearsal.",
+          "logs": "docs/build/production/evidence/PROD-OPS-02/2026-11-03-live-aws-41700399946/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-03-live-aws-41700399946/release-evidence-PROD-OPS-02.json",
+          "sha256": "049e40144514b680557f220c4460475d358fc0d648e13d8b03279a616fec2988"
         }
       ],
       "requiredEvidence": [
@@ -7891,7 +7903,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; key_rotation_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; key_rotation_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7961,6 +7973,18 @@
           "result": "PROD-OPS-05 operational rehearsal at 3b7fc395 on a fresh owned lean J1 stack with real browser identities: a vault secret and a sandbox deploy under the first keys; key-custody sync and diagnose; every generated key rotated with the installation's rotateKeys and the API and worker recreated together; diagnose shows a new current key for every rotated purpose with the old key kept decrypt-only or verify-only, no error finding and Temporal and results on their own roots; the workspace vault re-wrap completed; a second deploy under the new keys; no operator output contained key material. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-04-operational-rehearsal-3b7fc395/release-evidence-PROD-OPS-05.json",
           "sha256": "7c3b8aa2525839ad3cf98398ba71878df7c6a244615a24a8336bb8f490e08f93"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "3b7fc3957e5f2a1c903c3adc96befd2e149ac005",
+          "runId": 41706229278,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41706229278",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario ops-05 and run_id zlive-202611031944-cfe9 (lane live); plan sha256 5db00df6b529badccbcc2b1f94595d61321af7cb2e25a089544e7316ab38735e; permission sha256 b231c59466740431e42da5926465fcee09e74e344ee956e11ab50a394d058818",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 0.75 (provisional, billing not measured); 50 minute window (plan)",
+          "result": "Live AWS sandbox at 3b7fc395, the commit of its contract, local_engine and operational_rehearsal receipts. OPS-05 key custody proven on AWS: one vault secret and one managed S3 bucket under the first keys; every generated key rotated (7 purposes) and the API and worker recreated together; diagnose showed a new current key per purpose with the old one decrypt-only or verify-only, no error finding, and Temporal and results on their own roots; the first deploy's history (123 payloads) needed only the decrypt-only Temporal key and decrypted (123 ok); the AWS connection verified and a second bucket deployed under the new keys (history on the new key only); the vault re-wrap completed (1 re-sealed); no operator output contained key material Cleanup complete. Not operational_rehearsal.",
+          "logs": "docs/build/production/evidence/PROD-OPS-05/2026-11-03-live-aws-41706229278/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-03-live-aws-41706229278/release-evidence-PROD-OPS-05.json",
+          "sha256": "f73d3e9fb3d959eac1785411e2c92e7b54d330252ef784b0d636e95aa4c87b7a"
         }
       ],
       "requiredEvidence": [
@@ -7983,7 +8007,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: the payload minimizer now requires an approved retention policy plus ZENITH_DATA_MINIMIZE_APPLY=1, defaults to the approved 72 hours, and skips results under a legal hold.",
       "evidence": [
         {
@@ -8053,6 +8077,18 @@
           "result": "PROD-OPS-06 operational rehearsal at 3b7fc395 on a fresh owned lean J1 stack with real browser identities: one canary sent through system.setSecret and one through system.setEnvVar then moved with system.setSecret moveExistingValue, then a sandbox deploy; owned volumes, container logs and stack files scanned: the setSecret canary appears nowhere, the moved canary only in the database volume (documented in SENSITIVE-DATA.md), with a control volume proving the scan finds a planted value. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-04-operational-rehearsal-3b7fc395/release-evidence-PROD-OPS-06.json",
           "sha256": "c6744145604814f8b1bc6a286f7541b287acba7d162c5d1efa488578bab0aaff"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "3b7fc3957e5f2a1c903c3adc96befd2e149ac005",
+          "runId": 41695907211,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41695907211",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario ops-06 and run_id zlive-202611031839-213e (lane live2); plan sha256 4f7fc3c4847c898c75c2f51fe631b46f19f03c8be34e6be8fdb9fdff872f6e8a; permission sha256 151f94fa0af91b0298627210a4070bf394784951113edf02fa085583ee49e673",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 2.5 (provisional, billing not measured); 50 minute window (plan)",
+          "result": "Live AWS sandbox at 3b7fc395, the commit of its contract, local_engine and operational_rehearsal receipts. OPS-06 proven on AWS: ZENITH_OPS06_CANARY was set through system.setSecret and deployed to ECS Fargate behind an ALB with two-person approval, served HTTP 200; the recorded OpenTofu state holds only the Secrets Manager reference and no copy of the value; a raw-byte scan of Docker's data root (container logs, volumes, written files), the runner temp and the checkout found the value only in its own control file Cleanup complete. Not operational_rehearsal.",
+          "logs": "docs/build/production/evidence/PROD-OPS-06/2026-11-03-live-aws-41695907211/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-03-live-aws-41695907211/release-evidence-PROD-OPS-06.json",
+          "sha256": "95cd7bddff098b8f4406ae50fbd8b39d15f489058070ab119c45c31039701fea"
         }
       ],
       "requiredEvidence": [
@@ -8075,7 +8111,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: default policy ships logs at 30 days with a built-in approval; audit-evidence classes cannot be pruned before 365 days; legal holds now stop archive copies (the watermark never passes a held row); the job pages through workspaces so held workspaces cannot starve others. Deletion still needs ZENITH_RETENTION_APPLY=1.",
       "evidence": [
         {
@@ -8147,6 +8183,18 @@
           "result": "PROD-OPS-07 operational rehearsal at 3b7fc395 on a fresh owned lean J1 stack with real browser identities: an operator with step-up reads the retention policy, previews it, places a legal hold on a workspace, previews again, lists and releases the hold (the release is kept with releasedAt); nothing is deleted (no ZENITH_RETENTION_APPLY, no DEC-RETENTION apply); archive, verify and restore need a tenant-owned S3 store and are covered by the live run. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-04-operational-rehearsal-3b7fc395/release-evidence-PROD-OPS-07.json",
           "sha256": "1b1976ed484954420c8e5f8deed2e6f62b92ece7b71c9f5881c60efd4eb48f98"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "3b7fc3957e5f2a1c903c3adc96befd2e149ac005",
+          "runId": 41695859666,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41695859666",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario retention-s3 and run_id zlive-202611031838-d24d (lane live); plan sha256 5d1ecd138d2a17809feda23147a06cf8687284f1c2165b37ea09b2d8e4988d81; permission sha256 c49e4ef46338ab6201867f7d4dc47526776be943a4512a3ff158b2d874319571",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 0.4 (provisional, billing not measured); 15 minute window (plan)",
+          "result": "Live AWS sandbox at 3b7fc395, the commit of its contract, local_engine and operational_rehearsal receipts. PROD-OPS-07 proven by independent readback: sealed objects are listed under retention/zlive-202611031838-d24d/ for both classes and match their archive records; verify passes with the archive key and refuses a wrong key; the staging restore returns the unheld out-of-window ids; with ZENITH_RETENTION_APPLY unset nothing is removed; with it set, 6 archived unheld rows removed; 1 legal-hold row and 4 in-window rows kept; audit and receipt row counts are unchanged. Gates: built-in DEC-RETENTION baseline (approval recorded for Arnav Bule), the apply switch, and one legal hold. No in-product proposal or approval was used in this flow. Cleanup complete. Not operational_rehearsal.",
+          "logs": "docs/build/production/evidence/PROD-OPS-07/2026-11-03-live-aws-41695859666/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-03-live-aws-41695859666/release-evidence-PROD-OPS-07.json",
+          "sha256": "1eea53d77341f736cad8cb9d88f3ad0de18080231b0d9d4cdd2311b46bafa249"
         }
       ],
       "requiredEvidence": [

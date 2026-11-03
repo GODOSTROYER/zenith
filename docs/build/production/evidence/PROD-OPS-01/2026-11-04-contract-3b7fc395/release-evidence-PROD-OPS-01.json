@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-OPS-01",
+  "level": "contract",
+  "commit": "3b7fc3957e5f2a1c903c3adc96befd2e149ac005",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/slo/definitions.test.ts tests/slo/sli-budget.test.ts tests/slo/slo-artifacts.test.ts tests/slo/restore-sink.test.ts tests/slo/slo.engine.test.ts tests/acceptance/ops01-measure.test.ts tests/ops/recovery-manifest.test.ts tests/ops/recovery-health.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "contract",
+  "status": "passed",
+  "passed": 129,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-contract-3b7fc395/lane-source-PROD-OPS-01.json",
+      "sha256": "9fbf7ecb788877d955c1d3d7a4ef83900314d91ce679b940ea074affeed4bea8"
+    }
+  ]
+}

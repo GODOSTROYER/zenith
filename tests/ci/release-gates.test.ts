@@ -119,10 +119,11 @@ const requiredCommands: Record<string, string[]> = {
     INSTALL,
     coreRun("typecheck"),
     coreRun("lint"),
-    coreRun("unit"),
     coreRun("smoke"),
     coreRun("gimbal"),
   ],
+  // The unit suites run in three Vitest shards; `verify` waits for all of them (see the shard guard test).
+  "verify-unit": [INSTALL, "node scripts/ci/run-gate.mjs core --run --step unit --shard ${{ matrix.shard }}/3"],
   build: [INSTALL, "npm run build"],
   docker: ["docker build -t zenith:ci ."],
   hosted: [
@@ -157,7 +158,8 @@ describe("release gate policy", () => {
   it.each(Object.entries(requiredCommands))("keeps %s mandatory and preserves failure exit codes", (name, commands) => {
     const job = workflow.jobs[name];
     expect(job).toBeDefined();
-    expect(job.if).toBeUndefined();
+    // Only `verify` may run unconditionally after its unit shards, and then its first step fails unless all passed.
+    expect(job.if).toBe(name === "verify" ? "always()" : undefined);
     expect(job["continue-on-error"] ?? false).toBe(false);
     for (const command of commands) {
       // Exact standalone commands reject accidental `|| true`, shell wrappers,
@@ -167,6 +169,19 @@ describe("release gate policy", () => {
       expect(matches[0].if).toBeUndefined();
       expect(matches[0]["continue-on-error"] ?? false).toBe(false);
     }
+  });
+
+  it("runs the unit suites as three shards that the required verify check waits for and refuses unless all passed", () => {
+    const unit = workflow.jobs["verify-unit"] as unknown as { strategy?: { "fail-fast"?: boolean; matrix?: { shard?: number[] } } };
+    expect(unit.strategy).toEqual({ "fail-fast": false, matrix: { shard: [1, 2, 3] } });
+    const verify = workflow.jobs.verify as unknown as { needs?: unknown; if?: string };
+    expect(verify.needs).toBe("verify-unit");
+    expect(verify.if).toBe("always()");
+    const guard = workflow.jobs.verify.steps[0]!;
+    expect(guard.name).toBe("Require every unit shard to have passed");
+    expect(guard.run?.trim()).toBe('test "$UNIT_RESULT" = success');
+    expect((guard as unknown as { env?: Record<string, string> }).env).toEqual({ UNIT_RESULT: "${{ needs.verify-unit.result }}" });
+    expect(guard.if).toBeUndefined();
   });
 
   it("grants only source read access, with no job escalation or retained checkout token", () => {
@@ -832,7 +847,9 @@ describe("canonical execution and evidence in CI", () => {
   });
 
   it("keeps every core command in the same manifest and invokes each mandatory step", () => {
-    for (const check of CORE_CHECKS) expect(workflow.jobs.verify.steps.map(cmd)).toContain(coreRun(check.id));
+    // Every core step runs in verify, except unit, which runs as the verify-unit shards that verify waits for.
+    for (const check of CORE_CHECKS) expect(workflow.jobs[check.id === "unit" ? "verify-unit" : "verify"].steps.map(cmd))
+      .toContain(check.id === "unit" ? `${coreRun("unit")} --shard \${{ matrix.shard }}/3` : coreRun(check.id));
     const typecheck = workflow.jobs.verify.steps.find(step => step.name === "Typecheck");
     expect(typecheck?.env).toEqual({ NODE_OPTIONS: "--max-old-space-size=5120" });
     expect(workflow.jobs.verify.env?.NODE_OPTIONS).toBeUndefined();

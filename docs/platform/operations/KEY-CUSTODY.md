@@ -65,6 +65,8 @@ decrypts; a verify-only key only verifies. Asking the registry for anything else
 4. Schedule retirement: `scripts/key-custody.ts retire-after --purpose enc:vault --key-id <id> --date <ISO>`. The diagnostic and the job's health counts report `overdue` (past its date and still configured) and `unscheduled` historical keys.
 5. After the history that needs the old key is gone (rewrap complete; no open or replayable Temporal history; results window passed) remove it from the previous list, then record `scripts/key-custody.ts retire --purpose ... --key-id ... --by <name>`.
 
+The PROD-OPS-05 operated rehearsal (`tests/acceptance/ops05-rehearsal.operated.test.ts`) runs steps 1 to 3 on a local stack, with a vault secret and a deploy before the rotation and another deploy after it. The rotation stays in place, so run it last on a stack.
+
 Temporal history is immutable: it cannot be re-wrapped, only kept readable. `scripts/key-custody.ts codec --file history.json [--verify]` reads a `temporal workflow show --output json` document and reports which key id each payload needs, whether that key is current, decrypt-only or missing, and (with `--verify`) whether it decrypts, without printing any payload.
 
 ## Diagnostics

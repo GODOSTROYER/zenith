@@ -155,6 +155,11 @@ What is NOT claimed, and needs the live acceptance harness (deferred by the user
    `zenith_control_store_up` is 0, `ZenithControlStoreDown` fires, requests degrade to defaults.
 4. Flood one workspace past its limits. Confirm only that workspace sees 429s and another workspace's p95 is flat.
 
+The PROD-OPS-02 operated rehearsal (`tests/acceptance/ops02-rehearsal.operated.test.ts`) runs steps 2 to 4 on a local
+stack. A browser sends only a few requests at a time, which the default burst (200) absorbs, so for step 4 the operator
+first gives the flooding workspace a tight quota with `PUT /api/admin/ops/quotas` and deletes it afterwards. It checks
+status codes only: it does not deploy a hosted app, fire the `ZenithControlStoreDown` alert or measure p95.
+
 ## Telemetry
 
 OpenTelemetry-compatible and dependency-free: `ops/telemetry/` implements the OTel data model (cumulative sums,

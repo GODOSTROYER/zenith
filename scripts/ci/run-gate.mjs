@@ -52,17 +52,20 @@ export function main(args) {
         continue;
       }
       const value = options.shift();
-      if (!["--report", "--evidence", "--step"].includes(flag) || !value || value.startsWith("--") || Object.hasOwn(values, flag.slice(2))) throw new Error("usage");
+      if (!["--report", "--evidence", "--step", "--shard"].includes(flag) || !value || value.startsWith("--") || Object.hasOwn(values, flag.slice(2))) throw new Error("usage");
       values[flag.slice(2)] = value;
     }
     if (lane === "core" || lane === "fresh") {
       if (mode !== "--run" || values.report || values.evidence || !values.step) throw new Error("usage");
       const step = manifest.steps.find((step) => step.id === values.step);
       if (!step) throw new Error("usage");
+      // CI splits the unit suites across parallel jobs with Vitest's own --shard; only that step takes it.
+      const shard = values.shard === undefined ? [] : values.step === "unit" && /^[1-9]\/[1-9]$/.test(values.shard) && Number(values.shard[0]) <= Number(values.shard[2]) ? [`--shard=${values.shard}`] : null;
+      if (!shard) throw new Error("usage");
       const [binary, ...command] = step.command;
-      return spawnSync(binary === "node" ? process.execPath : binary, command, { cwd: process.cwd(), env: process.env, stdio: "inherit" }).status ?? 1;
+      return spawnSync(binary === "node" ? process.execPath : binary, [...command, ...shard], { cwd: process.cwd(), env: process.env, stdio: "inherit" }).status ?? 1;
     }
-    if (values.step) throw new Error("usage");
+    if (values.step || values.shard) throw new Error("usage");
     const reportPath = values.report ?? manifest.report;
     if (mode === "--validate") return validateGate(lane, reportPath, values.evidence, process.cwd(), { requireExecution: values.requireExecution });
     const runnable = manifestFor(lane, process.cwd(), reportPath);
@@ -86,7 +89,7 @@ export function main(args) {
     const status = validateGate(lane, reportPath, values.evidence, process.cwd(), { requireExecution: true });
     return run.status === 0 && status === 0 ? 0 : 1;
   } catch {
-    console.error("usage: node scripts/ci/run-gate.mjs <fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres> <--run [--report PATH]|--validate REPORT [--require-execution]> [--evidence PATH] [--step CORE_CHECK]");
+    console.error("usage: node scripts/ci/run-gate.mjs <fresh|core|postgres|policy|tofu|workflows|reconciliation|workflow-intents|platform-postgres> <--run [--report PATH]|--validate REPORT [--require-execution]> [--evidence PATH] [--step CORE_CHECK [--shard N/M]]");
     return 2;
   }
 }

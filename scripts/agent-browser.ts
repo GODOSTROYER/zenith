@@ -424,6 +424,15 @@ async function main(): Promise<number> {
         await context.addCookies([
           ...cookie.map(([name, value]) => ({ name, value, domain: "localhost", path: "/" })),
         ]);
+        // Compile the POST-only module before measuring the browser interaction.
+        // Next dev can take longer than the 20s consent wait on its first route
+        // compilation. GET cannot issue a credential; require its real 405
+        // response, with the normal session middleware, before proceeding.
+        const approvalReady = await context.request.get(`${origin}${APPROVAL_ROUTE}`, { timeout: 60_000, maxRedirects: 0 });
+        try {
+          if (!record(label, "the approval endpoint rejects GET before consent", approvalReady.status() === 405,
+            `HTTP ${approvalReady.status()}; the POST-only route is ready`)) continue;
+        } finally { await approvalReady.dispose(); }
         const page = await context.newPage();
         const approvalRequests = new WeakMap<Request, number>();
         let approvalDiagnosticEvents = 0;

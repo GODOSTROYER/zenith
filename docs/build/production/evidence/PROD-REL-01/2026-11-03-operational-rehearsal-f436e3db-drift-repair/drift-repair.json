@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "evidenceLabel": "local_operated_rehearsal",
+  "scenarioId": "drift-repair",
+  "runId": "r1-drift-repair-0802",
+  "sourceCommit": "f436e3dbeda2f40007301bd05d23048b10ec70b0",
+  "sourceDigest": "903d3e8820c4bcd72bba9deb2ba507bb59b850042177e63ce860558d386fe26d",
+  "dirty": false,
+  "checks": [
+    {
+      "id": "prerequisites",
+      "status": "passed"
+    },
+    {
+      "id": "approved-workload",
+      "status": "passed"
+    },
+    {
+      "id": "drift-injected",
+      "status": "passed"
+    },
+    {
+      "id": "drift-observed",
+      "status": "passed"
+    },
+    {
+      "id": "repair-browser-approved",
+      "status": "passed"
+    },
+    {
+      "id": "repair-independent-readback",
+      "status": "passed"
+    },
+    {
+      "id": "fresh-clean-observation",
+      "status": "passed"
+    },
+    {
+      "id": "cleanup",
+      "status": "passed"
+    }
+  ],
+  "limits": [
+    "Owned lean J1 stack and J2 kind workload only; no live cloud or production acceptance.",
+    "Kubernetes replica drift is repaired by an approved service.scale operation; Kubernetes has no drift.repair handler. Automatic repair and escalation are separate component lanes."
+  ],
+  "readbacks": [
+    {
+      "target": "baseline",
+      "sha256": "9eaaf290461290928670ab937229acff71eaae339fecf559b9eaf59d7846cc78"
+    },
+    {
+      "target": "drift",
+      "sha256": "f3215593b3a046cfc837d9c2d64037da4de5eb1d024a326e8083e2095ad1ab75"
+    },
+    {
+      "target": "repaired",
+      "sha256": "d7dfd58979d03a759cf6efbd4a64ac8457c81fb03a96e05f61b73953b815b993"
+    },
+    {
+      "target": "clean",
+      "sha256": "c303774ffb1155eedd6ef5747c231be87bbeed96e993ac2a4e3f63f243225b39"
+    }
+  ]
+}

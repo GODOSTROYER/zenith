@@ -173,3 +173,28 @@ Source `f436e3db`, the commit of this requirement's `live_sandbox` receipt, so t
 Limits: the engine lane runs the release orchestrator's `local_engine` lane files except `tests/runners/late-effect-receipts.test.ts` (per-lane structural skips) and `tests/portability/postgres-engine.test.ts`. Its opt-in `ZENITH_TEST_POSTGRES_URL` lane is not run by CI, and two of its cases failed here with a statement error; that is still open.
 
 `operational_rehearsal` is still not done. Not a promotion.
+
+## Operational rehearsal receipts at f436e3db (2026-11-03)
+
+Five operated scenarios ran on a clean checkout of f436e3db, the commit of REL-01's live_sandbox, contract and local_engine receipts. Each used a fresh owned lean J1 stack and a J2 kind fixture, with real browser identities and the stack CA trusted SSL-only by the owner. Each gave 1 passed, 0 failed, 0 skipped:
+
+| Scenario | Driver test | Operated checks |
+| --- | --- | --- |
+| upgrade | `tests/acceptance/operated-upgrade.engine.test.ts` | 10/10 |
+| restore | `tests/acceptance/operated-restore.engine.test.ts` | 15/15 |
+| drift-repair | `tests/acceptance/drift-repair.operated.test.ts` | 8/8 |
+| crash-partition | `tests/acceptance/crash-partition.operated.test.ts` | 11/11 |
+| update-rollback | `tests/acceptance/drv1-update-rollback.operated.test.ts` | 8/8 |
+
+The receipts are under `docs/build/production/evidence/PROD-REL-01/2026-11-03-operational-rehearsal-f436e3db-<scenario>/`, each with the driver's sanitized operated receipt.
+
+Earlier failed attempts are not counted:
+- drift-repair: the test process lacked the stack CA (`NODE_EXTRA_CA_CERTS`, as `verify/DRV-2.md` sets it). This showed as an unclassified TypeError at prerequisites.
+- crash-partition: `survivor-readback` hit `journey:command-timeout` while a heavy typecheck ran on the same machine. The retry, with the machine otherwise idle, passed.
+
+Limits:
+- Three operated scenarios were not run:
+  - **private-source:** its build pod needs AppArmor, which Docker Desktop's Linux VM does not have. The owner's 2026-10-23 decision runs it on a hosted Linux runner, which is CI evidence, not a local rehearsal.
+  - **two-tenants and export:** `tests/release/drivers/d4.operated.test.ts` declares all three DRV-4 cases in one file, so a single-case run counts the others as skipped. No skip-free receipt can be made at this commit.
+- The owner approved recording these as coverage limits (2026-11-03).
+- Scripted local rehearsal on the owner's Mac. The ledger state is unchanged. Not a promotion.

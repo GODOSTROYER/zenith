@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-01",
+  "level": "operational_rehearsal",
+  "commit": "f436e3dbeda2f40007301bd05d23048b10ec70b0",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 and kind v0.33.0 (release checksums verified), Temporal CLI 1.9.1; fresh lean J1 default stack (readiness 16/0/0 before the gate) and private J2 journey fixture (kind zenith-j2) per docs/build/production/verify/DRV-2.md, stack CA trusted SSL-only in the login keychain by the owner; operated scenario drift-repair; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_JOINED_DRIVERS ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_DEFAULT_JOURNEY ZENITH_TEST_DRV2_OPERATED ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_LOCAL_JOURNEY_CONFIG_FILE NODE_EXTRA_CA_CERTS=stack CA",
+  "command": "vitest run tests/acceptance/drift-repair.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "local",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-01/2026-11-03-operational-rehearsal-f436e3db-drift-repair/lane-source-PROD-REL-01.json",
+      "sha256": "c55eb870e060e7476e5e87eed2b1447e9f880d2509593e96a62bead6e93f5815"
+    }
+  ]
+}

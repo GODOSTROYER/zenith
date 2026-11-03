@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-REL-01"
+  ],
+  "mode": "local",
+  "commit": "f436e3dbeda2f40007301bd05d23048b10ec70b0",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 and kind v0.33.0 (release checksums verified), Temporal CLI 1.9.1; fresh lean J1 default stack (readiness 16/0/0 before the gate) and private J2 journey fixture (kind zenith-j2) per docs/build/production/verify/DRV-3.md, stack CA trusted SSL-only in the login keychain by the owner; operated scenario upgrade; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_JOINED_DRIVERS ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_DEFAULT_JOURNEY ZENITH_LOCAL_OPERATED ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_LOCAL_JOURNEY_CONFIG_FILE",
+  "command": "vitest run tests/acceptance/operated-upgrade.engine.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/acceptance/operated-upgrade.engine.test.ts",
+      "sha256": "48e7dd974d7ec320331bacb2cb36d31328fb28d153eb71168d89f94b3ad9c4aa"
+    }
+  ]
+}

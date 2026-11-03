@@ -126,3 +126,14 @@ Independent readback:
 - Each child's OpenTofu state is in its own connection's state bucket only.
 
 The second stack's STS session call is no longer planned, since there is no consumer package to upload.
+
+### Live, contract and local_engine receipts at f3b8fae6 (2026-11-03)
+
+- `live_sandbox`: run [41617473729](https://github.com/saivedant169/zenith/actions/runs/41617473729), scenario `mix-01`, cap USD 1.3, cleanup complete. Two connections were verified, with two independent partitions and one tagged bucket per environment. Each child's state is in its own connection's state bucket only. Files: `docs/build/production/evidence/PROD-MIX-01/2026-11-03-live-aws-41617473729/`.
+- `contract`: 192 passed, 0 failed, 0 skipped. Files: `tests/execution/mixed-partitions.test.ts`, `tests/execution/mixed/parent-plan.test.ts`, `tests/acceptance/mixed-evidence.test.ts`, `tests/acceptance/aws-mix03-port.test.ts`.
+- `local_engine`: 101 passed, 0 failed, 0 skipped, on disposable PostgreSQL 16.15 with the committed Supabase migrations. Files: `tests/controlplane/mixed-parent-plans.test.ts`, `tests/controlplane/mixed-child-admission.test.ts`.
+
+Limits:
+- `operational_rehearsal` is not done yet.
+- One account and one provider, per the owner's ruling for the AWS beta.
+- Status unchanged. Not a promotion.

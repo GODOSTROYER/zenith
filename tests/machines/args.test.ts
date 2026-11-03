@@ -32,6 +32,13 @@ describe("operation vocabulary", () => {
     expect([...UNIMPLEMENTED_OPERATIONS].sort()).toEqual([]);
   });
 
+  it("reports enum/type/unknown-key errors without echoing supplied values or key names", () => {
+    const secret = "PRIVATE_ARGUMENT_VALUE";
+    expect(bad("process.list", { sortBy: secret })).toEqual(["sortBy: is not one of the allowed values"]);
+    expect(bad("process.list", { limit: secret })).toEqual(["limit: expected number"]);
+    expect(bad("process.list", { [secret]: secret })).toEqual(["(args): has unrecognized keys (1)"]);
+  });
+
   it("rejects unknown keys on every operation (no silent widening)", () => {
     const minimal: Record<ImplementedOperation, unknown> = {
       "machine.inspect": {},

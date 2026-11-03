@@ -50,11 +50,11 @@ function asStep(err: unknown): unknown {
   return err instanceof PortabilityError ? refuse(err.message) : err;
 }
 
-interface SchemaLike<T> { safeParse(value: unknown): { success: true; data: T } | { success: false; error: { issues: { path: (string | number)[]; code: string }[] } } }
+interface SchemaLike<T> { safeParse(value: unknown): { success: true; data: T } | { success: false; error: { issues: { path: PropertyKey[]; code: string }[] } } }
 
 function parseInput<T>(schema: SchemaLike<T>, raw: unknown, what: string): T {
   const parsed = schema.safeParse(raw ?? {});
-  if (!parsed.success) throw refuse(`The ${what} input is invalid (${parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "(root)"}: ${i.code}`).join(", ")}).`);
+  if (!parsed.success) throw refuse(`The ${what} input is invalid (${parsed.error.issues.slice(0, 6).map((i) => `${i.path.map(part => typeof part === "symbol" ? "[symbol]" : part).join(".") || "(root)"}: ${i.code}`).join(", ")}).`);
   return parsed.data;
 }
 

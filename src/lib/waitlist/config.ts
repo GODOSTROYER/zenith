@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-const Flag = z.enum(["0", "1"]).default("0");
+const Flag = z.enum(["0", "1"]).prefault("0");
 const Schema = z.object({
   enabled: Flag,
   gateEnabled: Flag,
-  adminIds: z.string().default(""),
+  adminIds: z.string().prefault(""),
   existingUsersBefore: z.string().datetime({ offset: true }).optional(),
   rateLimitSecret: z.string().min(32).optional(),
   trustedIpHeader: z.enum(["x-forwarded-for", "x-real-ip", "x-vercel-forwarded-for"]).optional(),

@@ -4,9 +4,10 @@ import { assessPlatformMigration, assertPendingMigrationsCompatible } from "@/li
 
 describe("Wave 5 migration admission", () => {
   it("keeps the verifier baseline and the complete contiguous assembly", () => {
-    expect(PLATFORM_MIGRATIONS.map(m => m.version)).toEqual(Array.from({ length: 59 }, (_, i) => i + 1));
+    expect(PLATFORM_MIGRATIONS.map(m => m.version)).toEqual(Array.from({ length: 63 }, (_, i) => i + 1));
     expect(PLATFORM_MIGRATIONS[41].name).toBe("external_effect_key_bounds");
     expect(PLATFORM_MIGRATIONS[42].name).toBe("mcp_stream_events_tenant_index");
+    expect(PLATFORM_MIGRATIONS.slice(59).map(m => m.name)).toEqual(["github_repository_grants", "coding_agent_lifecycle", "coding_agent_jsonb_shapes", "github_repository_name_history"]);
   });
 
   it.each([44, 45, 46, 47, 48, 50, 52, 54, 55, 56])("admits only the exact additive migration %i", version => {
@@ -17,7 +18,7 @@ describe("Wave 5 migration admission", () => {
     expect(() => assertPendingMigrationsCompatible([{ ...migration, sql: migration.sql.replace("revoke", "grant") }], { baseline: 43, allowed: new Set([version]) })).toThrow();
   });
 
-  it.each([49, 51, 57, 58])("requires exact registry custody and drained-writer admission for CHECK widening %i", version => {
+  it.each([49, 51, 57, 58, 60, 62, 63])("requires exact registry custody and drained-writer admission for contract migration %i", version => {
     const migration = PLATFORM_MIGRATIONS.find(m => m.version === version)!;
     expect(() => assertPendingMigrationsCompatible([migration], { baseline: 43, allowed: new Set() })).toThrow("previous release is drained");
     expect(() => assertPendingMigrationsCompatible([migration], { baseline: 43, allowed: new Set([version]) })).not.toThrow();

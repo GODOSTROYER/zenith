@@ -159,7 +159,7 @@ async function captureSource(tx:Sql,b:BuildLaunchBinding,projectId:string,nodes:
   if(!snapshot || !service || !pipeline || snapshot.archiveFormat!=="zip" || snapshot.provider!=="aws" || snapshot.region!==b.region || snapshot.archiveDigest!==b.sourceDigest
     || snapshot.serviceSpecDigest!==b.serviceSpecDigest || snapshot.pipelineSpecDigest!==b.pipelineSpecDigest || snapshot.pipelineAddress!==b.pipelineAddress
     || !sourceRecipeMatches(snapshot,{...service,provider:"aws",region:b.region,specDigest:service.spec_digest},{...pipeline,provider:"aws",region:b.region,specDigest:pipeline.spec_digest}))refuse();
-  const bindings=await tx.query<{app_id:string;installation_id:string|number;repository_id:string|number;version:number;owner:string;repo:string;revoked_at:unknown}>("select app_id,installation_id,repository_id,version,owner,repo,revoked_at from platform.github_source_bindings where workspace_id=$1 and (repository_id=$2 or (owner=$3 and repo=$4))",[b.workspaceId,snapshot.repositoryId,snapshot.owner,snapshot.repo]);
+  const bindings=await tx.query<{app_id:string;installation_id:string|number;repository_id:string|number;version:number;owner:string;repo:string;revoked_at:unknown}>("select app_id,installation_id,repository_id,version,owner,repo,revoked_at from platform.github_source_bindings where workspace_id=$1 and (repository_id=$2 or (name_current and owner=$3 and repo=$4))",[b.workspaceId,snapshot.repositoryId,snapshot.owner,snapshot.repo]);
   if(bindings.length>1)refuse();
   const current=bindings[0],remembered=snapshot.githubBinding;
   if(remembered ? !current || current.revoked_at || current.app_id!==remembered.appId || Number(current.installation_id)!==remembered.installationId
@@ -180,8 +180,8 @@ function sourceChecks(p:"$15::text::jsonb"|"$12::text::jsonb",plan:"$10"|"$9"):s
     and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=${s}->>'environmentId' and r.project_id=${s}->>'projectId'
       and r.address=${s}->>'pipelineAddress' and r.spec_digest=${s}->>'pipelineSpecDigest' and r.spec=${p}->'pipelineSpec' and r.provider='aws'
       and r.region=${s}->>'region' and r.ownership='managed' and r.status<>'deleted')
-    and ((${s}->'githubBinding'='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=(${s}->>'repositoryId')::bigint or (b.owner=${s}->>'owner' and b.repo=${s}->>'repo'))))
-      or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null and b.owner=${s}->>'owner' and b.repo=${s}->>'repo'
+    and ((${s}->'githubBinding'='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=(${s}->>'repositoryId')::bigint or (b.name_current and b.owner=${s}->>'owner' and b.repo=${s}->>'repo'))))
+      or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.name_current and b.revoked_at is null and b.owner=${s}->>'owner' and b.repo=${s}->>'repo'
         and b.app_id=${s}->'githubBinding'->>'appId' and b.installation_id=(${s}->'githubBinding'->>'installationId')::bigint
         and b.repository_id=(${s}->'githubBinding'->>'repositoryId')::bigint and b.version=(${s}->'githubBinding'->>'version')::integer))`;
 }

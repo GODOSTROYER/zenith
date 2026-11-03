@@ -18,6 +18,7 @@ export interface SourceBindingView {
   installationId: number;
   version: number;
   state: "connected" | "revoked";
+  nameCurrent?: boolean;
   manageUrl?: string;
   affectedProjectCount?: number;
   revokedReason?: "user_unbind" | "installation_deleted" | "installation_suspended" | "repositories_removed";
@@ -92,15 +93,17 @@ export function githubUrl(value: string | undefined): string | undefined {
   } catch { return undefined; }
 }
 
-export function RepositoryPicker({ workspaceId, initialBindings, initialSource, disabled = false, onChange }: {
+export function RepositoryPicker({ workspaceId, initialBindings, initialNextCursor, initialSource, disabled = false, onChange }: {
   workspaceId: string;
   initialBindings?: SourceBindingView[];
+  initialNextCursor?: string | null;
   initialSource?: RepositoryDraft;
   disabled?: boolean;
   onChange: (selection: RepositorySelection | null) => void;
 }) {
   const id = useId();
   const [bindings, setBindings] = useState<SourceBindingView[]>(initialBindings ?? []);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor ?? null);
   const [bindingId, setBindingId] = useState(initialSource?.bindingId ?? "");
   const [publicRepository, setPublicRepository] = useState(initialSource?.repository ?? "");
   const [requestedRef, setRequestedRef] = useState(initialSource?.ref ?? "HEAD");
@@ -114,11 +117,15 @@ export function RepositoryPicker({ workspaceId, initialBindings, initialSource, 
   const [error, setError] = useState<string>();
   const serial = useRef(0);
   const abort = useRef<AbortController | null>(null);
+  const connectionsAbort = useRef<AbortController | null>(null);
+  const paging = useRef(false);
   const change = useRef(onChange);
   change.current = onChange;
 
   useEffect(() => {
     const controller = new AbortController();
+    connectionsAbort.current = controller;
+    paging.current = false;
     serial.current++;
     abort.current?.abort();
     const cancel = () => { controller.abort(); abort.current?.abort(); };
@@ -129,16 +136,45 @@ export function RepositoryPicker({ workspaceId, initialBindings, initialSource, 
     change.current(null);
     if (initialBindings !== undefined) {
       setBindings(initialBindings);
+      setNextCursor(initialNextCursor ?? null);
       return cancel;
     }
     setBindings([]);
+    setNextCursor(null);
     setBusy("connections");
-    void api<{ bindings: SourceBindingView[] }>("/api/platform/v1/github/binding", { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal: controller.signal })
-      .then(out => { if (!controller.signal.aborted) setBindings(out.bindings ?? []); })
+    void api<{ bindings: SourceBindingView[]; nextCursor?: string | null }>("/api/platform/v1/github/binding", { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal: controller.signal })
+      .then(async out => {
+        let rows = out.bindings ?? [];
+        // A deep link can refer to a grant beyond the first page. Fetch that
+        // exact workspace-scoped identity without scanning connection history.
+        const selected = initialSource?.bindingId;
+        if (!controller.signal.aborted && selected && selected !== "public" && !rows.some(row => row.bindingId === selected)) {
+          const query = new URLSearchParams({ bindingId: selected });
+          const exact = await api<{ bindings: SourceBindingView[] }>(`/api/platform/v1/github/binding?${query}`, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal: controller.signal });
+          rows = [...new Map([...rows, ...exact.bindings].map(row => [row.bindingId, row])).values()];
+        }
+        if (!controller.signal.aborted) { setBindings(rows); setNextCursor(out.nextCursor ?? null); }
+      })
       .catch(failure => { if (!controller.signal.aborted) setError(sourceError(failure)); })
       .finally(() => { if (!controller.signal.aborted) setBusy(undefined); });
     return cancel;
-  }, [workspaceId, initialBindings]);
+  }, [workspaceId, initialBindings, initialNextCursor, initialSource?.bindingId]);
+
+  const loadMoreConnections = async () => {
+    const controller = connectionsAbort.current;
+    if (!nextCursor || disabled || busy || paging.current || !controller || controller.signal.aborted) return;
+    paging.current = true; setBusy("connections"); setError(undefined);
+    const current = () => !controller.signal.aborted && controller === connectionsAbort.current;
+    try {
+      const query = new URLSearchParams({ cursor: nextCursor });
+      const out = await api<{ bindings: SourceBindingView[]; nextCursor?: string | null }>(`/api/platform/v1/github/binding?${query}`, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal: controller.signal });
+      if (current()) {
+        setBindings(previous => [...new Map([...previous, ...out.bindings].map(row => [row.bindingId, row])).values()]);
+        setNextCursor(out.nextCursor ?? null);
+      }
+    } catch (failure) { if (current()) setError(sourceError(failure)); }
+    finally { if (current()) { paging.current = false; setBusy(undefined); } }
+  };
 
   const binding = bindings.find(row => row.bindingId === bindingId);
   const isPublic = bindingId === "public";
@@ -212,10 +248,11 @@ export function RepositoryPicker({ workspaceId, initialBindings, initialSource, 
   return <div className="space-y-4" aria-label="Repository input">
     <Field label="Repository" help="Only repositories connected to this workspace can be used as private source.">
       <Select value={bindingId} disabled={disabled || !!busy} placeholder="Select a repository" onChange={event => { invalidate(); setBindingId(event.target.value); setRoot(""); setContextDir(""); }} options={[
-        ...bindings.map(row => ({ value: row.bindingId, label: `${row.owner}/${row.repo}${row.state === "revoked" ? " · access revoked" : ""}`, disabled: row.state !== "connected" })),
+        ...bindings.map(row => ({ value: row.bindingId, label: `${row.owner}/${row.repo}${row.nameCurrent === false ? ` · previous repository ${row.repositoryId}` : ""}${row.state === "revoked" ? " · access revoked" : ""}`, disabled: row.state !== "connected" })),
         { value: "public", label: "Inspect a public repository" },
       ]} />
     </Field>
+    {nextCursor && <Button size="sm" variant="ghost" busy={busy === "connections"} disabled={disabled || !!busy} onClick={() => void loadMoreConnections()}>Load more authorized repositories</Button>}
     {!bindings.length && busy !== "connections" && <p className="text-[13px] text-ink-mute">No private repositories connected. <Link href="/platform/source" className="text-signal hover:underline">Connect GitHub access</Link> to choose which repositories Zenith may read.</p>}
     {isPublic && <Field label="Public repository (owner/name)" help="Choose public access explicitly. A revoked private connection never falls back to public access.">
       <Input value={publicRepository} maxLength={140} autoComplete="off" disabled={disabled || !!busy} onChange={event => { invalidate(); setPublicRepository(event.target.value); }} />

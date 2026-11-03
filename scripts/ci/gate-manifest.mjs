@@ -526,6 +526,17 @@ export const GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS = [
   { file: "tests/coding-agent/lifecycle.test.ts", suite: "analysis lifecycle and admissions on postgres", postgres: true },
   { file: "tests/sources/github-project-source.test.ts", suite: "project repository attachments on postgres", postgres: true },
   { file: "tests/controlplane/approved-source-snapshots.test.ts", suite: "permanent approved source snapshots [postgres]", test: "keeps the selected source current when another repository in the workspace is revoked", postgres: true },
+  {"file": "tests/controlplane/approved-source-snapshots.test.ts", "suite": "permanent approved source snapshots [postgres]", "test": "ignores a superseded name belonging to a different stable ID for bound=true capture and current checks", "postgres": true},
+  {"file": "tests/controlplane/approved-source-snapshots.test.ts", "suite": "permanent approved source snapshots [postgres]", "test": "ignores a superseded name belonging to a different stable ID for bound=false capture and current checks", "postgres": true},
+  {"file": "tests/controlplane/approved-source-snapshots.test.ts", "suite": "permanent approved source snapshots [postgres]", "test": "still refuses public capture of a historical revoked stable ID even when its name was superseded", "postgres": true},
+  {"file": "tests/controlplane/build-launches.test.ts", "suite": "build launch authority [postgres]", "test": "source dispatch distinguishes a superseded name from revoked stable repository ID 98", "postgres": true},
+  {"file": "tests/controlplane/build-launches.test.ts", "suite": "build launch authority [postgres]", "test": "source dispatch distinguishes a superseded name from revoked stable repository ID 99", "postgres": true},
+  {"file": "tests/controlplane/plan-artifact-source-authority.test.ts", "suite": "original plan source dispatch authority [postgres]", "test": "current original-plan source dispatch ignores a different ID's superseded name, bound=true", "postgres": true},
+  {"file": "tests/controlplane/plan-artifact-source-authority.test.ts", "suite": "original plan source dispatch authority [postgres]", "test": "current original-plan source dispatch ignores a different ID's superseded name, bound=false", "postgres": true},
+  {"file": "tests/controlplane/plan-artifact-source-authority.test.ts", "suite": "original plan source dispatch authority [postgres]", "test": "refuses an original public plan retaining a historical revoked repository ID", "postgres": true},
+  {"file": "tests/controlplane/mcp-start-source-authority.test.ts", "suite": "MCP final start source authority [postgres; modeled external protocols]", "test": "retained source start ignores another ID's superseded name, bound=true", "backend": "postgres"},
+  {"file": "tests/controlplane/mcp-start-source-authority.test.ts", "suite": "MCP final start source authority [postgres; modeled external protocols]", "test": "retained source start ignores another ID's superseded name, bound=false", "backend": "postgres"},
+  {"file": "tests/controlplane/mcp-start-source-authority.test.ts", "suite": "MCP final start source authority [postgres; modeled external protocols]", "test": "retained public source start still refuses a historical revoked stable ID", "backend": "postgres"},
 ];
 
 // Committed source13 scenarios are mandatory even when a suite/source file is

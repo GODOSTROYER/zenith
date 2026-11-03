@@ -54,7 +54,7 @@ APT_BUILD_FAILURE_SIGNATURES=(
 DIAGNOSTIC_OPERATIONS={
  'prepare','bind','disk-admission','docker-admission','resolve-build-tools','build-original-fixtures',
  'validate-build-output','binary-build-metadata','prepare-build-context','create-context','verify-context','create-builder',
- 'verify-builder','build-apt-image','load-apt-image','release-builder','create-pid1','verify-pid1','guest-baseline',
+ 'verify-builder','build-apt-image','load-apt-image','load-apt-image-id','load-apt-image-platform','load-apt-image-owner','load-apt-image-references','load-apt-image-custody','release-builder','create-pid1','verify-pid1','guest-baseline',
  'guest-baseline-pid1','guest-baseline-architecture','guest-baseline-cgroup','guest-baseline-no-owned-paths',
  'guest-baseline-container-identity','guest-baseline-running-idle','guest-baseline-exec-settlement',
  'guest-baseline-container-id','guest-baseline-container-created','guest-baseline-container-name','guest-baseline-container-image',
@@ -97,6 +97,44 @@ RUN_STAGES={
  'independent-guest-fixture-absence':'guest-postcondition'
 }
 def sha(p):return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+def owned_image_snapshot(loaded,arch,token,tag,baseline_images,expected=None):
+ """Admit only this attempt's image, including containerd's local digest refs.
+
+ A local --load may populate RepoDigests. Pin those exact references on first
+ inspection; never accept extra repositories or a changed reference at cleanup.
+ """
+ def check(condition,operation):
+  set_diagnostic_operation(operation)
+  assert condition
+ check(isinstance(loaded,dict),'load-apt-image-id')
+ identity=loaded.get('Id')
+ check(isinstance(identity,str) and re.fullmatch(r'sha256:[a-f0-9]{64}',identity) and identity.encode() not in baseline_images and identity[7:].encode() not in baseline_images,'load-apt-image-id')
+ check(loaded.get('Os')=='linux' and loaded.get('Architecture')==arch,'load-apt-image-platform')
+ config=loaded.get('Config');labels=config.get('Labels') if isinstance(config,dict) else None
+ check(isinstance(labels,dict) and labels.get('zenith.mach04.owner')==token,'load-apt-image-owner')
+ check(re.fullmatch(r'zenith-mach04-[a-f0-9]{12}:fixture',tag) and tag=='zenith-mach04-'+token+':fixture','load-apt-image-owner')
+ tags=loaded.get('RepoTags');digests=loaded.get('RepoDigests')
+ check(isinstance(tags,list) and len(tags)==1 and tags[0] in (tag,'docker.io/library/'+tag),'load-apt-image-references')
+ check(digests is None or isinstance(digests,list) and len(digests)<=2 and all(isinstance(value,str) for value in digests),'load-apt-image-references')
+ digests=digests or []
+ repository=tag.rsplit(':',1)[0];accepted_repositories={repository,'docker.io/library/'+repository}
+ check(len(set(digests))==len(digests),'load-apt-image-references')
+ digest_values=set()
+ for reference in digests:
+  name,separator,digest=reference.partition('@')
+  check(name in accepted_repositories and separator=='@' and re.fullmatch(r'sha256:[a-f0-9]{64}',digest),'load-apt-image-references')
+  digest_values.add(digest)
+ check(len(digest_values)<=1,'load-apt-image-references')
+ snapshot={'Id':identity,'Os':loaded['Os'],'Architecture':loaded['Architecture'],'Config':config,'RepoTags':sorted(tags),'RepoDigests':sorted(digests)}
+ check(expected is None or snapshot==expected,'load-apt-image-custody')
+ # Detach from the mutable inspect document before a later custody comparison.
+ return json.loads(json.dumps(snapshot,sort_keys=True))
+def assert_image_id_absent(identity,listing):
+ """A missing tag does not prove that a digest-addressable image is gone."""
+ assert re.fullmatch(r'sha256:[a-f0-9]{64}',identity)
+ values=listing.decode('ascii').splitlines()
+ assert all(re.fullmatch(r'(?:sha256:)?[a-f0-9]{64}',value) for value in values)
+ assert identity not in {'sha256:'+value.removeprefix('sha256:') for value in values}
 def _output_tree_size_once(root):
  flags=os.O_RDONLY|getattr(os,'O_DIRECTORY',0)|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_CLOEXEC',0)
  pending=[os.open(os.fspath(root),flags)];total=0
@@ -415,7 +453,7 @@ def main():
  command=[f['tools']['docker']['path'],'--host='+ENDPOINT]
  set_diagnostic_stage('docker-admission');set_diagnostic_operation('docker-admission')
  guard=OwnedGuard(out,floor=FLOOR,socket_path=ENDPOINT[7:],socket_owner=0,source_contract=P/'SOURCE-CONTRACT.json');assert guard.sourceStartMatched
- pin=None;exec_pin=None;builder_snapshot=None;container_snapshot=None;image=None;context_snapshot=None;cleaning=False;baseline=None
+ pin=None;exec_pin=None;builder_snapshot=None;container_snapshot=None;image=None;image_snapshot=None;image_may_exist=False;context_snapshot=None;cleaning=False;baseline=None
  def save():write(out/'receipt.private.json',receipt)
  def interrupt(signum,frame):raise InterruptedError('owned interrupt')
  signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
@@ -507,7 +545,7 @@ def main():
   assert not host.get('Binds') and not host.get('Devices') and not host.get('CapAdd') and host.get('ReadonlyRootfs') is False
  def reconcile_delivery():
   """Resolve a command whose client outcome was lost; unknown objects stay untouched."""
-  nonlocal pin,exec_pin,builder_snapshot,container_snapshot,image,context_snapshot
+  nonlocal pin,exec_pin,builder_snapshot,container_snapshot,image,image_snapshot,image_may_exist,context_snapshot
   if exec_pin is not None:
    assert container_snapshot is not None
    owned_container('recover-exec-container')
@@ -534,10 +572,10 @@ def main():
   elif phase=='apt-image-build':
    ids=run(['image','ls','-q','--no-trunc','--filter','reference='+tag],'recover-image-list').decode().splitlines()
    if ids:
-    assert len(ids)==1 and re.fullmatch('[a-f0-9]{64}',ids[0]);loaded=obj(['image','inspect',ids[0]],'recover-image-inspect')[0]
-    assert loaded['Os']=='linux' and loaded['Architecture']==f['arch'] and loaded['Config']['Labels']['zenith.mach04.owner']==token and loaded['RepoTags']==[tag] and not loaded.get('RepoDigests')
-    image=loaded['Id']
-   else:image=None
+    assert len(ids)==1 and re.fullmatch(r'(?:sha256:)?[a-f0-9]{64}',ids[0]);loaded=obj(['image','inspect',ids[0]],'recover-image-inspect')[0]
+    assert loaded['Id']=='sha256:'+ids[0].removeprefix('sha256:')
+    image_snapshot=owned_image_snapshot(loaded,f['arch'],token,tag,baseline['images'],image_snapshot);image=loaded['Id'];image_may_exist=True
+   else:image=None;image_snapshot=None;image_may_exist=False
   elif phase=='create-disposable-pid1':
    ids=run(['container','ls','-aq','--no-trunc','--filter','name=^/'+name+'$'],'recover-pid1-list').decode().splitlines()
    if ids:
@@ -555,8 +593,12 @@ def main():
   elif phase=='remove-exact-owned-image':
    if image:
     ids=run(['image','ls','-q','--no-trunc','--filter','reference='+tag],'recover-remove-image-list').decode().splitlines()
-    if ids:assert ids==[image] and obj(['image','inspect',image],'recover-remove-image-inspect')[0]['RepoTags']==[tag]
-    else:image=None
+    if ids:
+     assert len(ids)==1 and 'sha256:'+ids[0].removeprefix('sha256:')==image
+     owned_image_snapshot(obj(['image','inspect',image],'recover-remove-image-inspect')[0],f['arch'],token,tag,baseline['images'],image_snapshot)
+    else:
+     assert_image_id_absent(image,run(['image','ls','-aq','--no-trunc'],'recover-remove-image-ids'))
+     image=None;image_snapshot=None;image_may_exist=False
   elif phase=='remove-owned-context':
    names=run(['context','ls','--format','{{.Name}}'],'recover-remove-context-list').decode().splitlines()
    if context in names:assert context_snapshot is not None and obj(['context','inspect',context],'recover-remove-context-inspect')==context_snapshot
@@ -624,8 +666,9 @@ def main():
    target=src/n;target.parent.mkdir(mode=0o700,parents=True,exist_ok=True);shutil.copyfile(root/n,target);assert sha(target)==sha(root/n)
   mutate(['context','create',context,'--docker','host='+ENDPOINT],'create-owned-context');context_snapshot=obj(['context','inspect',context],'context-identity');assert context_snapshot[0]['Endpoints']['docker']['Host']==ENDPOINT
   mutate(['buildx','create','--name',builder,'--driver','docker-container','--driver-opt','default-load=true,image='+BUILD_IMAGE+',memory=1g','--bootstrap',context],'create-owned-builder',180);builder_snapshot=capture_builder('builder-captured');receipt['builder']=builder_snapshot;save()
+  image_may_exist=True
   mutate(['buildx','build','--builder',builder,'--progress=plain','--platform','linux/'+f['arch'],'--pull','--no-cache','--build-arg','SYSTEMD_BASE='+base_image,'--label','zenith.mach04.owner='+token,'--load','-t',tag,str(contextdir)],'apt-image-build',600)
-  loaded=obj(['image','inspect',tag],'loaded-image')[0];assert loaded['Os']=='linux' and loaded['Architecture']==f['arch'] and loaded['Config']['Labels']['zenith.mach04.owner']==token and loaded['RepoTags']==[tag] and not loaded.get('RepoDigests');image=loaded['Id'];receipt['imageInspectSha256']=hashlib.sha256(json.dumps(loaded,sort_keys=True).encode()).hexdigest();receipt['imageId']=image;save()
+  loaded=obj(['image','inspect',tag],'loaded-image')[0];image_snapshot=owned_image_snapshot(loaded,f['arch'],token,tag,baseline['images']);image=loaded['Id'];receipt['imageInspectSha256']=hashlib.sha256(json.dumps(loaded,sort_keys=True).encode()).hexdigest();receipt['imageId']=image;save()
   release_builder() # The 1GiB apt-only builder is gone before the 512MiB test.
   result=mutate(['run','-d','--name',name,'--label','zenith.mach04.owner='+token,'--platform','linux/'+f['arch'],'--privileged','--cgroupns','private','--network','none','--memory','512m','--memory-swap','512m','--cpus','2','--pids-limit','512','--log-driver','json-file','--log-opt','max-size=1m','--log-opt','max-file=1','--tmpfs','/run:rw,nosuid,nodev,size=64m','--tmpfs','/run/lock:rw,nosuid,nodev,size=16m','--tmpfs','/tmp:rw,nosuid,nodev,size=64m','--mount','type=bind,source='+str(src)+',target=/src,readonly','--mount','type=bind,source='+str(binaries)+',target=/fixtures,readonly',image],'create-disposable-pid1')
   cid=result.decode().strip();assert re.fullmatch('[a-f0-9]{64}',cid)
@@ -668,9 +711,16 @@ def main():
     set_cleanup_operation('cleanup-remove-pid1');mutate(['rm',name],'remove-owned-container');absent('container',name,'container-absent-after')
    if builder_snapshot:
     set_cleanup_operation('cleanup-release-builder');release_builder()
+   # A delivered build with unverified ownership is retained and cannot be
+   # reported as completed cleanup merely because image assignment failed.
+   if image_may_exist and image is None:
+    set_cleanup_operation('cleanup-remove-image');raise AssertionError('unverified-image-preserved')
    if image:
     set_cleanup_operation('cleanup-remove-image')
-    current=obj(['image','inspect',image],'image-before-remove')[0];assert current['Id']==image and current['RepoTags']==[tag] and not current.get('RepoDigests') and image.encode() not in baseline['images'];assert not run(['container','ls','-aq','--filter','ancestor='+image],'image-unused').strip();mutate(['image','rm',image],'remove-exact-owned-image')
+    current=obj(['image','inspect',image],'image-before-remove')[0];assert image_snapshot is not None
+    owned_image_snapshot(current,f['arch'],token,tag,baseline['images'],image_snapshot)
+    assert not run(['container','ls','-aq','--filter','ancestor='+image],'image-unused').strip();mutate(['image','rm',image],'remove-exact-owned-image')
+    assert_image_id_absent(image,run(['image','ls','-aq','--no-trunc'],'owned-image-absent'));image_may_exist=False
    if context_snapshot:
     set_cleanup_operation('cleanup-remove-context')
     assert obj(['context','inspect',context],'context-before-remove')==context_snapshot;mutate(['context','rm',context],'remove-owned-context')

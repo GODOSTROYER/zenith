@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import { analyzeRepository, type AppRequirements, type RepoSnapshot } from "@/lib/analysis";
+import { checkEntryPath } from "@/lib/analysis/snapshot";
 import type { AnyManifest } from "@/lib/domain/types";
 import type { AgentSourceRef, ProposalArtifact, ToolSpec } from "./types";
 import { RefinementArgs, refineRequirements, requirementsForRoot } from "./refinements";
@@ -54,7 +55,6 @@ const invalid = (name: string, error: z.ZodError): ToolOutcome => ({
   isError: true, unsafe: "invalid_arguments",
 });
 const note = (state: ToolState, text: string): void => { for (const code of scanInjection(text)) state.injectionSignals.add(code); };
-const SAFE_PATH = /^[A-Za-z0-9._/@+~ -]{1,300}$/;
 const requirements = (state: ToolState): AppRequirements =>
   state.requirements ??= requirementsForRoot(analyzeRepository(state.snapshot), state.source?.root);
 
@@ -83,7 +83,10 @@ function runToolUnchecked(name: string, input: unknown, state: ToolState): ToolO
       const a = ReadArgs.safeParse(input);
       if (!a.success) return invalid(name, a.error);
       const p = a.data.path;
-      if (p.startsWith("/") || p.split("/").includes("..") || p.includes("\\") || !SAFE_PATH.test(p)) return { text: "Refused: only repository-relative paths can be read.", isError: true, unsafe: "path_escape" };
+      const checked = checkEntryPath(p);
+      // Match intake's grammar (including Next route groups/dynamic segments and
+      // Unicode), then require an exact retained path. No filesystem is opened.
+      if (!checked.ok || checked.path !== p) return { text: "Refused: only repository-relative paths can be read.", isError: true, unsafe: "path_escape" };
       const content = files.get(p);
       if (content === undefined) return { text: "No such file in the snapshot.", isError: true };
       const lines = content.split("\n");

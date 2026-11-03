@@ -38,11 +38,11 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 
 describe("workbench navigation", () => {
-  it("matches complete sections and retains all nine project destinations", () => {
+  it("matches complete sections and retains all ten project destinations", () => {
     expect(isDestinationActive("/p/atlas/source-export", "/p/atlas/source")).toBe(false);
     expect(isDestinationActive("/p/atlas/source/history", "/p/atlas/source")).toBe(true);
     expect(isDestinationActive("/p/atlas/source", "/p/atlas", true)).toBe(false);
-    expect(PROJECT_DESTINATIONS.map((entry) => entry.seg)).toEqual(["", "source", "deploys", "revisions", "observe", "security", "activity", "navigator", "settings"]);
+    expect(PROJECT_DESTINATIONS.map((entry) => entry.seg)).toEqual(["", "source", "repository", "deploys", "revisions", "observe", "security", "activity", "navigator", "settings"]);
   });
 
   it("collapses without replacing a draft or losing the control's keyboard focus", async () => {
@@ -59,8 +59,8 @@ describe("workbench navigation", () => {
     expect(draft.value).toBe("unsaved resource");
     expect(mounts).toBe(1);
     expect(localStorage.getItem("zenith-shell-collapsed")).toBe("true");
-    expect(host.querySelector('[aria-current="page"]')?.textContent).toBe("Source");
-    expect(host.querySelectorAll('nav a[href^="/p/atlas"]')).toHaveLength(9);
+    expect(host.querySelector('[aria-current="page"]')?.textContent).toBe("Infrastructure");
+    expect(host.querySelectorAll('nav a[href^="/p/atlas"]')).toHaveLength(10);
   });
 
   it("opens the mobile navigation as a dialog and Escape restores menu focus", async () => {
@@ -71,7 +71,7 @@ describe("workbench navigation", () => {
     const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
     expect(dialog).not.toBeNull();
     expect(dialog?.contains(document.activeElement)).toBe(true);
-    expect(dialog?.querySelectorAll('nav a[href^="/p/atlas"]')).toHaveLength(9);
+    expect(dialog?.querySelectorAll('nav a[href^="/p/atlas"]')).toHaveLength(10);
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(trigger);

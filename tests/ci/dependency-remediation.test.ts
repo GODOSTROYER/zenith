@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 const require = createRequire(import.meta.url);
 const root = process.cwd();
@@ -10,33 +11,40 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
 const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
 
 describe("approved dependency remediation", () => {
+  it("rejects oversized collections before allocating per-element validation errors", () => {
+    let visited = 0;
+    const bounded = z.array(z.unknown().superRefine(() => { visited++; })).max(8);
+    const result = bounded.safeParse(Array(10_000).fill("item"));
+    expect(require("zod/package.json").version).toBe("4.6.7");
+    expect(result.success).toBe(false);
+    expect(visited).toBe(0);
+    if (!result.success) expect(result.error.issues).toHaveLength(1);
+  });
+
   it("preserves the supported runtime and pins both major migrations", () => {
     expect(pkg.engines.node).toBe(">=22.22.2 <23");
     expect(lock.packages[""].engines.node).toBe(pkg.engines.node);
-    expect(pkg.dependencies.nodemailer).toBe("10.0.9");
-    expect(pkg.devDependencies.vitest).toBe("4.1.11");
-    expect(require("nodemailer/package.json").version).toBe("10.0.9");
-    expect(require("vitest/package.json").version).toBe("4.1.11");
-    expect(require("@vitest/mocker/package.json").version).toBe("4.1.11");
+    expect(pkg.dependencies.nodemailer).toBe("10.3.1");
+    expect(pkg.devDependencies.vitest).toBe("4.1.12");
+    expect(require("nodemailer/package.json").version).toBe("10.3.1");
+    expect(require("vitest/package.json").version).toBe("4.1.12");
+    expect(require("@vitest/mocker/package.json").version).toBe("4.1.12");
   });
 
-  it("resolves the root HTTP client and the E2B alias to the fixed branch without replacing Undici 7", () => {
-    expect(require("undici/package.json").version).toBe("8.10.2");
-    expect(require("undici8/package.json").version).toBe("8.10.2");
+  it("resolves every HTTP client to the patched supported branch", () => {
+    expect(require("undici/package.json").version).toBe("8.12.3");
     expect(typeof require("undici").fetch).toBe("function");
-    expect(typeof require("undici8").fetch).toBe("function");
     const e2bRequire = createRequire(require.resolve("e2b/package.json"));
-    expect(e2bRequire("undici/package.json").version).toBe("7.29.1");
-    expect(pkg.overrides.e2b.undici8).toBe("npm:undici@8.10.2");
+    expect(e2bRequire("undici/package.json").version).toBe("8.12.3");
+    expect(typeof e2bRequire("undici").fetch).toBe("function");
+    expect(Object.keys(lock.packages).some((entry) => /node_modules\/undici8$/.test(entry))).toBe(false);
   });
 
-  it.each([
-    ["brace-expansion", "1.1.21"],
-    ["glob/node_modules/brace-expansion", "5.0.12"],
-    ["@typescript-eslint/typescript-estree/node_modules/brace-expansion", "5.0.12"],
-  ])("retains normal expansion behavior in %s", (modulePath, version) => {
-    const directory = path.join(root, "node_modules", modulePath);
-    expect(JSON.parse(fs.readFileSync(path.join(directory, "package.json"), "utf8")).version).toBe(version);
+  it.each(["minimatch", "glob", "@typescript-eslint/typescript-estree"])("retains normal expansion through the patched %s resolver", (moduleName) => {
+    const parentRequire = createRequire(require.resolve(moduleName));
+    const matcherRequire = createRequire(parentRequire.resolve("minimatch"));
+    expect(matcherRequire("brace-expansion/package.json").version).toBe("5.0.12");
+    const directory = matcherRequire.resolve("brace-expansion");
     const loaded = require(directory);
     const expand = typeof loaded === "function" ? loaded : loaded.expand ?? loaded.default;
     expect(expand("src/{one,two}/file{1,2}.ts")).toEqual([

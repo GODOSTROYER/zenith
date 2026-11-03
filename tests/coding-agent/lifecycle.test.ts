@@ -36,6 +36,49 @@ describe.each(LANES)("analysis lifecycle and admissions on $name", lane => {
     await ctx.db.query("insert into platform.coding_agent_workspace_limits(workspace_id,concurrent_runs,daily_spend_micro_usd) values($1,$2,$3)", [workspaceId, concurrentRuns, dailySpend]);
   }
 
+  it("stores SQL-queryable JSONB objects through create, save, resume and outcome attachment", async () => {
+    const workspaceId = newWorkspace(), store = platformRunStore(ctx.db);
+    const input = runInput(workspaceId);
+    input.source = { ...(input.source as object), bindingId: "grant-shape", bindingVersion: 4 };
+    const shape = async (resultType: string | null, budget: number, spent: number) => {
+      const [row] = await ctx.db.query(
+        "select jsonb_typeof(source) as source_type,jsonb_typeof(limits) as limits_type,jsonb_typeof(usage) as usage_type,jsonb_typeof(checkpoint) as checkpoint_type,jsonb_typeof(result) as result_type,source->>'bindingId' as binding_id,limits->>'spendMicroUsd' as budget,usage->>'spendMicroUsd' as spent,checkpoint->>'analysisMode' as mode from platform.coding_agent_runs where workspace_id=$1 and id=$2",
+        [workspaceId, input.id],
+      );
+      expect(row).toEqual({ source_type: "object", limits_type: "object", usage_type: "object", checkpoint_type: "object", result_type: resultType,
+        binding_id: "grant-shape", budget: String(budget), spent: String(spent), mode: "model" });
+    };
+    const initial = await store.create(input);
+    await shape(null, 400_000, 0);
+    const stopped = await store.save({ ...progress(initial), status: "budget_exhausted", stopReason: { kind: "budget", dimension: "spendMicroUsd" }, usage: { spendMicroUsd: 125_000 }, result: { finalText: "Retained findings" } });
+    expect(stopped.stopReason).toEqual({ kind: "budget", dimension: "spendMicroUsd" });
+    await shape("object", 400_000, 125_000);
+    const resumed = await store.claimResume({ workspaceId, id: input.id, limits: { spendMicroUsd: 600_000 }, workflowId: uid("resume") });
+    await shape("object", 600_000, 125_000);
+    await store.save({ ...progress(resumed), status: "completed" });
+    const noResult = await store.create(runInput(workspaceId));
+    await store.save({ ...progress(noResult), status: "completed" });
+    await store.attachOutcome({ workspaceId, id: noResult.id, result: { artifact: { manifestDigest: digest("attached") } } });
+    expect(await ctx.db.query("select jsonb_typeof(result) as result_type,result->'artifact'->>'manifestDigest' as manifest_digest from platform.coding_agent_runs where workspace_id=$1 and id=$2", [workspaceId, noResult.id]))
+      .toEqual([{ result_type: "object", manifest_digest: digest("attached") }]);
+  });
+
+  it("rejects scalar JSONB and invalid spend metadata instead of silently admitting a zero budget", async () => {
+    const workspaceId = newWorkspace(), store = platformRunStore(ctx.db);
+    const run = await store.create(runInput(workspaceId));
+    for (const column of ["source", "limits", "usage", "checkpoint", "result"] as const) {
+      await expect(ctx.db.query(`update platform.coding_agent_runs set ${column}=$3::text::jsonb where workspace_id=$1 and id=$2`, [workspaceId, run.id, JSON.stringify(JSON.stringify({ spendMicroUsd: 0 }))]))
+        .rejects.toMatchObject({ sqlstate: "23514", constraint: "coding_agent_runs_jsonb_objects_check" });
+    }
+    for (const spend of [null, -1, 0.5, "100", 9_007_199_254_740_992]) {
+      await expect(ctx.db.query("update platform.coding_agent_runs set limits=$3::text::jsonb where workspace_id=$1 and id=$2", [workspaceId, run.id, JSON.stringify({ spendMicroUsd: spend })]))
+        .rejects.toMatchObject({ sqlstate: "23514", constraint: "coding_agent_runs_spend_metadata_check" });
+    }
+    await expect(store.create(runInput(workspaceId, { limits: { spendMicroUsd: Number.NaN } })))
+      .rejects.toMatchObject({ code: "invalid_state" });
+    expect(await store.get(workspaceId, run.id)).toEqual(run);
+  });
+
   it("purges disposable content by tenant/version while preserving usage and the permanent authority ledger", async () => {
     const workspaceId = newWorkspace(), store = platformRunStore(ctx.db);
     const authority = await seedAwaitingApproval(ctx.db, { workspaceId });
@@ -49,7 +92,7 @@ describe.each(LANES)("analysis lifecycle and admissions on $name", lane => {
       dockerfileDigest: digest("dockerfile"), recipeDigest: digest("recipe"), archiveFormat: "zip", archiveDigest: digest("archive"), archiveBytes: 128,
     };
     await ctx.db.query(
-      "insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values($1,$2,$3,$4,$5,$6::jsonb,$7)",
+      "insert into platform.approved_source_snapshots(workspace_id,operation_id,project_id,environment_id,service_address,snapshot,snapshot_digest) values($1,$2,$3,$4,$5,$6::text::jsonb,$7)",
       [workspaceId, authority.operation.id, snapshot.projectId, snapshot.environmentId, snapshot.serviceAddress, JSON.stringify(snapshot), digest(snapshot)],
     );
     const ledger = async () => Promise.all([

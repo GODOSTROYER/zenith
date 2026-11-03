@@ -92,6 +92,21 @@ export const CONTRACT_MIGRATION_APPROVALS: readonly ContractMigrationApproval[] 
   sqlSha256: "78d3690342ffc5f35e73f67566ccfc48087095cfec2acf191468e560a99bb16a",
   approvalRef: "user-2026-10-08-w5-assembly-isolation-family-widen",
   rationale: "Assembly explicitly assigns the isolation_apply effect-family widening. Previous effect families remain valid; drain previous writers before the drop/recreate DDL.",
+}, {
+  version: 60,
+  sqlSha256: "dfda693933bd2ea37e99a07ac719ddc9647d7bbaf101d2192467013e8056851c",
+  approvalRef: "user-2026-11-03-fix-verification-findings",
+  rationale: "The authorized verification repair gates the already published repository-grant primary-key replacement: previous ON CONFLICT(workspace_id) writers break. Drain previous writers and explicitly admit version 60; its historical SQL remains unchanged.",
+}, {
+  version: 62,
+  sqlSha256: "a467e8301ff2026d75fe3fc7a87576aaf00ffcaacfdcd80518b677cdb0e32494",
+  approvalRef: "user-2026-11-03-fix-verification-findings",
+  rationale: "The authorized repair preserves valid legacy coding-agent JSON and rejects unknown budget data. Validated JSONB/spend guards reject the previous double-encoding writers, which must be drained before explicit admission.",
+}, {
+  version: 63,
+  sqlSha256: "9d64a37be7cc411375b8e6d0b5cee8f9fbcef458a187180c163e6339088a2c5b",
+  approvalRef: "user-2026-11-03-fix-verification-findings",
+  rationale: "The authorized repository-name reuse repair retains stable grant history and changes unique-name authority to the current row. Previous name-based writers do not understand that distinction; drain them and explicitly admit the index/constraint replacement.",
 }];
 
 /** Exact reviewed Wave 5 blocks only: role grants/revokes on newly created tables.
@@ -153,17 +168,20 @@ function targetTable(stmt: string): string | undefined {
 /** Classify one platform migration for N-1 compatibility. Pure. */
 export function assessPlatformMigration(migration: PlatformMigration, baseline: number = compatBaseline()): MigrationCompatAssessment {
   const statements = splitStatements(migration.sql);
-  // This exact migration replaces an existing CHECK inside an anonymous block.
-  // It must not inherit the generic data-block class and bypass contract admission.
-  const sourceWiden = (migration.version === 49 && migration.name === "managed_source_provider") || (migration.version === 58 && migration.name === "kubernetes_source_provider");
+  // Existing-table key/constraint replacements and validated guards inside an
+  // anonymous block must never inherit the generic data-block classification.
+  // Version-specific classification remains conservative even if a name changes;
+  // admission still requires the reviewed exact SQL digest below.
+  const contractBlock = [49, 58, 60, 62, 63].includes(migration.version);
   const created = new Set<string>();
   for (const stmt of statements) {
     const t = createdTable(stmt);
     if (t) created.add(t);
   }
-  let cls: MigrationClass = sourceWiden ? "contract" : "none";
+  let cls: MigrationClass = contractBlock ? "contract" : "none";
   let local = 0;
   const findings = new Set<string>();
+  if (contractBlock) findings.add("contract: reviewed existing-table key, index or validated constraint change inside an anonymous block");
   for (const stmt of statements) {
     const target = targetTable(stmt);
     if (target && created.has(target)) { local += 1; continue; }

@@ -80,19 +80,20 @@ function credential(raw: unknown): string {
 
 export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typeof fetch; now?: () => number } = {}) {
   const now = deps.now ?? Date.now;
-  async function request(path: string, bearer?: string, body?: unknown, signal?: AbortSignal, oauth = false, array = false): Promise<Record<string, unknown>> {
+  async function request(path: string, bearer?: string, body?: unknown, signal?: AbortSignal, oauth = false, array = false, method?: "DELETE"): Promise<Record<string, unknown>> {
     const deadline = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(15_000)]);
     let res: Response | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
       if (deadline.aborted) throw new GithubSourceError("unavailable");
       const pending = (deps.fetchImpl ?? fetch)(oauth ? OAUTH : `${API}${path}`, {
-        method: body === undefined ? "GET" : "POST", redirect: "error", signal: deadline,
+        method: method ?? (body === undefined ? "GET" : "POST"), redirect: "error", signal: deadline,
         headers: { Accept: "application/vnd.github+json", "User-Agent": "zenith-github-source", "X-GitHub-Api-Version": "2026-03-10", ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
       void pending.then((late) => { if (deadline.aborted) void late.body?.cancel().catch(() => undefined); }, () => undefined);
       res = await bounded(pending, deadline);
+      if (method === "DELETE") { if (res.status !== 204) throw new GithubSourceError("unavailable"); return {}; }
       if (!res.ok || !res.body || Number(res.headers.get("content-length")) > MAX_JSON) throw new GithubSourceError("unavailable");
       reader = res.body.getReader(); const chunks: Uint8Array[] = []; let bytes = 0;
       for (;;) {
@@ -114,6 +115,23 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
     if (result.id !== installationId || String(result.app_id) !== config.appId || result.suspended_at !== null) throw new GithubSourceError("refused");
     return jwt;
   }
+  async function repositoryToken(repo: GithubRepository, installationId: number, repositoryId: number, jwt: string, signal?: AbortSignal, proofOnly = false): Promise<string> {
+    const result = await request(`/app/installations/${installationId}/access_tokens`, jwt, { repository_ids: [repositoryId], permissions: { contents: "read" } }, signal);
+    let token: string | undefined;
+    try {
+      token = credential(result.token);
+      const permissions = object(result.permissions);
+      if (permissions.contents !== "read" || Object.entries(permissions).some(([key, value]) => !["contents", "metadata"].includes(key) || value !== "read") || !Array.isArray(result.repositories) || result.repositories.length !== 1) throw new GithubSourceError("refused");
+      const item = object(result.repositories[0]);
+      if (item.id !== repositoryId || typeof item.full_name !== "string" || item.full_name.toLowerCase() !== `${repo.owner}/${repo.repo}` || typeof result.expires_at !== "string" || !Number.isFinite(Date.parse(result.expires_at)) || Date.parse(result.expires_at) <= now() + 60_000) throw new GithubSourceError("refused");
+      return token;
+    } finally {
+      // A verification credential is immediately revoked even if the returned
+      // repository metadata fails validation. Cleanup has a fresh short bound.
+      if (proofOnly && token) try { await request("/installation/token", token, undefined, AbortSignal.timeout(5_000), false, false, "DELETE"); }
+      finally { token = undefined; }
+    }
+  }
   const app = {
     async installUrl(state: string, signal?: AbortSignal): Promise<string> {
       const result = await request("/app", await appJwt(config, now()), undefined, signal);
@@ -129,23 +147,19 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
         const result = await request("", undefined, { client_id: config.clientId, client_secret: bytes.toString("utf8").trim(), code: input.code, code_verifier: input.verifier, redirect_uri: input.callbackUrl }, signal, true);
         if (result.token_type !== "bearer" || result.error) throw new GithubSourceError("refused");
         token = credential(result.access_token);
-        // Fixed pagination URLs, never provider-supplied Link URLs. Bound at 1,000 repositories.
-        for (let page = 1; page <= 10; page++) {
-          const result = await request(`/user/installations/${input.installationId}/repositories?per_page=100&page=${page}`, token, undefined, signal);
-          if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new GithubSourceError("unavailable");
-          for (const raw of result.repositories) {
-            const item = object(raw);
-            if (typeof item.full_name === "string" && item.full_name.toLowerCase() === `${repo.owner}/${repo.repo}`) {
-              // A reader cannot delegate an organization's source to an unrelated workspace.
-              // GitHub's user-token permissions, never a browser claim, prove repository administration.
-              if (!item.permissions || object(item.permissions).admin !== true) throw new GithubSourceError("refused", "A GitHub repository administrator must connect this repository to the workspace.");
-              await installation(repo, input.installationId, signal);
-              return numericId(item.id);
-            }
-          }
-          if (result.repositories.length < 100) break;
-        }
-        throw new GithubSourceError("refused");
+        // The explicit owner/name path is independent of the bounded discovery
+        // list. A user token proves current visibility and administration; an
+        // App-authenticated lookup independently proves this installation's
+        // selection. The callback pins the returned stable repository ID.
+        const item = await request(`/repos/${repo.owner}/${repo.repo}`, token, undefined, signal);
+        if (typeof item.full_name !== "string" || item.full_name.toLowerCase() !== `${repo.owner}/${repo.repo}`) throw new GithubSourceError("refused");
+        if (!item.permissions || object(item.permissions).admin !== true) throw new GithubSourceError("refused", "A GitHub repository administrator must connect this repository to the workspace.");
+        const repositoryId = numericId(item.id);
+        const jwt = await installation(repo, input.installationId, signal);
+        // Name-based installation lookup alone cannot prove stable identity if
+        // a repository is renamed/recreated between the two provider reads.
+        await repositoryToken(repo, input.installationId, repositoryId, jwt, signal, true);
+        return repositoryId;
       } finally { bytes.fill(0); token = undefined; }
     },
     async discoverUserRepositories(input: { code: string; verifier: string; callbackUrl: string; installationId: number }, signal?: AbortSignal): Promise<{ repositories: GithubDiscoveredRepository[]; truncated: boolean }> {
@@ -198,12 +212,7 @@ export function createGithubApp(config: GithubAppConfig, deps: { fetchImpl?: typ
       let token: string | undefined;
       try {
         const jwt = await installation(repo, binding.installationId, signal);
-        const result = await request(`/app/installations/${binding.installationId}/access_tokens`, jwt, { repository_ids: [binding.repositoryId], permissions: { contents: "read" } }, signal);
-        const permissions = object(result.permissions);
-        if (permissions.contents !== "read" || Object.entries(permissions).some(([key, value]) => !["contents", "metadata"].includes(key) || value !== "read") || !Array.isArray(result.repositories) || result.repositories.length !== 1) throw new GithubSourceError("refused");
-        const item = object(result.repositories[0]);
-        if (item.id !== binding.repositoryId || typeof item.full_name !== "string" || item.full_name.toLowerCase() !== `${repo.owner}/${repo.repo}` || typeof result.expires_at !== "string" || !Number.isFinite(Date.parse(result.expires_at)) || Date.parse(result.expires_at) <= now() + 60_000) throw new GithubSourceError("refused");
-        token = credential(result.token);
+        token = await repositoryToken(repo, binding.installationId, binding.repositoryId, jwt, signal);
         return await fn(token);
       } catch (error) { if (error instanceof GithubSourceError && error.detail) throw error; throw new GithubSourceError("unavailable"); }
       finally { token = undefined; }

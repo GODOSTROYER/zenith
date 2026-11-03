@@ -149,6 +149,19 @@ describe.skipIf(!PG_URL)("original plan source dispatch authority [postgres]", (
     expect(current.approved).toBe(true); expect(current.rejected).toBe(false); expect(current.dispatchApproval?.requiredApprovalCount).toBe(1);
     await artifacts.dispatch(sql, f.access, "source-attempt", current.dispatchApproval);
   }
+  it.each([true, false])("current original-plan source dispatch ignores a different ID's superseded name, bound=%s", async bound => {
+    const f = await fixture(bound);
+    await observer.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,98,'acme','app',2,'fixture-admin',clock_timestamp(),false)", [f.op.workspaceId]);
+    await artifacts.claim(db, f.access, "source-attempt");
+    await dispatch(f);
+    expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [f.op.workspaceId, f.op.id])).toEqual([{ phase: "dispatched" }]);
+  });
+  it("refuses an original public plan retaining a historical revoked repository ID", async () => {
+    const f = await fixture(false);
+    await observer.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,99,'acme','old-name',2,'fixture-admin',clock_timestamp(),false)", [f.op.workspaceId]);
+    await expect(artifacts.claim(db, f.access, "source-attempt")).rejects.toMatchObject({ code: "plan_artifact_unavailable" });
+    expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [f.op.workspaceId, f.op.id])).toEqual([{ phase: "ready" }]);
+  });
   it.each(["unchanged private binding", "revoked private binding", "removed private binding", "replaced private binding", "introduced public binding"] as const)("final original-plan source admission fences %s during delayed current human role lookup", async change => {
     const f = await fixture(change !== "introduced public binding"); await artifacts.claim(db, f.access, "source-attempt");
     const wait = delayRole(f); let mutations = 0;

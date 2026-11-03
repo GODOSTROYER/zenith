@@ -41,8 +41,8 @@ export const GET = route({ workspaceRole: "admin" }, async (req) => {
     const state = parameter(req, "state");
     if (state === undefined) {
       if (req.nextUrl.searchParams.size) throw new GithubSourceError("invalid");
-      const states = await createGithubSourceStore(await platformDb()).listStates(caller.workspaceId);
-      const current = states.length === 1 ? states[0] : undefined;
+      const page = await createGithubSourceStore(await platformDb()).listStatesPage(caller.workspaceId, { limit: 2 });
+      const current = page.bindings.length === 1 && !page.nextCursor ? page.bindings[0] : undefined;
       return new NextResponse(form(current), { headers: { ...HEADERS, "content-type": "text/html; charset=utf-8" } });
     }
     const config = githubAppConfig();

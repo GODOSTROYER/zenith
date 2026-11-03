@@ -8,13 +8,14 @@ import type { EnqueueJobInput } from "@/lib/controlplane/db/repos/jobs";
 import { LANES, newWorkspace, openLane, seedApprovedOperation, uid } from "./_support/harness";
 
 it("freezes exactly the current catalog's non-mutating capabilities", () => {
-  // Migration 5 freezes runner queue reads. The newer connection draft executes in-process,
-  // requires browser confirmation, and does not expand that published SQL constraint.
+  // Migration 5 freezes runner queue reads. Connection drafts and authorized source
+  // exports execute in-process and must not expand that published runner constraint.
   const reads = Object.values(CAPABILITIES).filter((c) => !c.mutates).map((c) => c.name).sort();
   expect(READ_JOB_CAPABILITIES).toHaveLength(22);
-  expect(reads.filter((name) => !(READ_JOB_CAPABILITIES as readonly string[]).includes(name))).toEqual(["connection.plan"]);
-  expect(reads).toEqual([...READ_JOB_CAPABILITIES, "connection.plan"].sort());
+  expect(reads.filter((name) => !(READ_JOB_CAPABILITIES as readonly string[]).includes(name))).toEqual(["connection.plan", "source.context.read"]);
+  expect(reads).toEqual([...READ_JOB_CAPABILITIES, "connection.plan", "source.context.read"].sort());
   expect(CAPABILITIES["connection.plan"]).toMatchObject({ name: "connection.plan", mutates: false, risk: "low", scopeLevel: "project", integrationScope: "plan", defaultAutonomy: 0 });
+  expect(CAPABILITIES["source.context.read"]).toMatchObject({ name: "source.context.read", mutates: false, risk: "low", scopeLevel: "environment", integrationScope: "export", defaultAutonomy: 0 });
 });
 
 it("upgrades migration 4 without changing existing operation jobs and reapplies safely", async () => {

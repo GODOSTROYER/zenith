@@ -262,7 +262,9 @@ function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.Func
   if (captureOwners.size !== 3) return false;
   const literalClauses: Record<string, string> = {
     LIVE_USE_AUTHORITY: "83c59ac088fd79302d4e35ee4be2c92ab61ea180dbdd0ea3134bd2e2d22f0b77",
-    DISPATCH_SOURCE_AUTHORITY: "f8e290362c74a3fe7ac1bf511b4f90ace2aaad54b91c8d3e9f2afe5026d8c34c",
+    // Repository IDs remain authoritative after name reuse; name-only matches
+    // require the current name, so revoked history cannot select another repo.
+    DISPATCH_SOURCE_AUTHORITY: "ed72d514b439142d33232e49c211e2d2022b163821a9ef16d33912b05b7af03b",
   };
   for (const [name, expected] of Object.entries(literalClauses)) {
     const found: ts.VariableDeclaration[] = [];
@@ -556,6 +558,8 @@ describe("control-store repositories: workspace scoping is present in every func
     expect(job).toContain("markStorageKeyRevoked(db, key.workspaceId, key.id, now)");
   });
 
+  // Parse every tenant query plus hundreds of hostile AST variants, with a
+  // bounded budget independent of the shorter unit-test default.
   it("SQL that carries a tenant id takes it as a bound parameter, never by string concatenation", () => {
     const start = fns.find(fn => fn.file === "workflow-start-intents.ts" && fn.name === "get")!;
     expect(isFixedStartAuthorityInterpolation(start, "currentAuthority", "where ")).toBe(true);
@@ -821,5 +825,5 @@ describe("control-store repositories: workspace scoping is present in every func
       }
     }
     expect(risky, "interpolating anything but a constant column list into SQL text is an injection risk: use $n parameters").toEqual([]);
-  });
+  }, 60_000);
 });

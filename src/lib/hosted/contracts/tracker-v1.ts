@@ -59,14 +59,14 @@ const isoDate = z
 export const EquipmentRequestInput = z
   .object({
     title: z.string().trim().min(1).max(TRACKER_LIMITS.title),
-    details: z.string().trim().max(TRACKER_LIMITS.details).default(""),
+    details: z.string().trim().max(TRACKER_LIMITS.details).prefault(""),
     category: RequestCategory,
-    quantity: z.number().int().min(1).max(TRACKER_LIMITS.quantityMax).default(1),
-    priority: RequestPriority.default("normal"),
-    status: RequestStatus.default("requested"),
+    quantity: z.number().int().min(1).max(TRACKER_LIMITS.quantityMax).prefault(1),
+    priority: RequestPriority.prefault("normal"),
+    status: RequestStatus.prefault("requested"),
     /** who the item is for; free text, not an identity */
-    requestedFor: z.string().trim().max(TRACKER_LIMITS.requestedFor).default(""),
-    neededBy: isoDate.nullable().default(null),
+    requestedFor: z.string().trim().max(TRACKER_LIMITS.requestedFor).prefault(""),
+    neededBy: isoDate.nullable().prefault(null),
   })
   .strict();
 export type EquipmentRequestInput = z.infer<typeof EquipmentRequestInput>;
@@ -104,7 +104,7 @@ export type UpdateRequestBody = z.infer<typeof UpdateRequestBody>;
 
 export const ListRequestsQuery = z
   .object({
-    limit: z.coerce.number().int().min(1).max(TRACKER_LIMITS.listMax).default(TRACKER_LIMITS.listDefault),
+    limit: z.coerce.number().int().min(1).max(TRACKER_LIMITS.listMax).prefault(TRACKER_LIMITS.listDefault),
     cursor: z.string().max(200).optional(),
     status: RequestStatus.optional(),
     category: RequestCategory.optional(),

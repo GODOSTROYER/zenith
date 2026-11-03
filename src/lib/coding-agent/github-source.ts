@@ -23,7 +23,7 @@ function assertSameGrant(state: GithubBindingState | undefined, identity: Github
   if (!binding && pinned || binding && (!pinned || binding.appId !== pinned.appId || binding.installationId !== pinned.installationId || binding.repositoryId !== pinned.repositoryId || binding.version !== pinned.version)) throw new GithubSourceError("conflict");
 }
 
-export function createGithubSource(deps: { db: () => Promise<Sql>; fetchImpl?: typeof fetch; env?: Readonly<Record<string, string | undefined>> }): { read: SourceReader; resolve: SourceResolver } {
+export function createGithubSource(deps: { db: () => Promise<Sql>; fetchImpl?: typeof fetch; env?: Readonly<Record<string, string | undefined>> }): { read: SourceReader; resolve: SourceResolver; assertLocalAccess: (request: SourceRequest) => Promise<void> } {
   const access = createGithubImmutableSourceAccess(deps);
   const verifyContext = createGithubContextVerifier(deps);
   const cache = new Map<string, { snapshot: RepoSnapshot; bytes: number; expiresAt: number }>();
@@ -33,7 +33,8 @@ export function createGithubSource(deps: { db: () => Promise<Sql>; fetchImpl?: t
     if (parts.length !== 2) throw new GithubSourceError("invalid");
     const location = repository(parts[0], parts[1]);
     const root = normalizeInspectionRoot(request.root);
-    const state = await createGithubSourceStore(await deps.db()).getState(request.workspaceId,
+    const store = createGithubSourceStore(await deps.db());
+    const state = await store.getState(request.workspaceId,
       request.bindingId ? { bindingId: request.bindingId } : location);
     if (state?.revoked) throw new GithubSourceError("refused");
     if (state && (state.binding.owner !== location.owner || state.binding.repo !== location.repo)) throw new GithubSourceError("refused");
@@ -41,7 +42,9 @@ export function createGithubSource(deps: { db: () => Promise<Sql>; fetchImpl?: t
     if (request.bindingVersion !== undefined && state?.binding.version !== request.bindingVersion) throw new GithubSourceError("conflict");
     if (request.repositoryId !== undefined && state?.binding.repositoryId !== request.repositoryId && request.accessKind !== "public") throw new GithubSourceError("conflict");
     if (!state && request.accessKind !== "public" && request.expected?.binding !== null) throw new GithubSourceError("refused", "Select an authorized repository or explicitly select public access.");
-    if (request.accessKind === "public" && state) throw new GithubSourceError("refused", "This repository has a workspace binding; use its current authorization.");
+    const publicSource = request.accessKind === "public" || request.expected?.binding === null;
+    const pinnedId = request.repositoryId ?? request.expected?.repositoryId;
+    if (publicSource && (state || pinnedId !== undefined && await store.getState(request.workspaceId, { repositoryId: pinnedId }))) throw new GithubSourceError("refused", "This repository has a workspace binding; use its current authorization.");
     return { location, root, state };
   }
 
@@ -65,17 +68,17 @@ export function createGithubSource(deps: { db: () => Promise<Sql>; fetchImpl?: t
     });
   };
 
-  const read: SourceReader = async (request, use) => {
+  const read: SourceReader = async (request, consume) => {
     const { location, root, state } = await authorize(request);
     if (!request.expected) throw new GithubSourceError("refused", "This legacy run has no pinned source authorization. Start a new analysis.");
-    return access({ ...location, workspaceId: request.workspaceId, ref: request.ref, expected: request.expected, signal: request.signal, accessKind: request.accessKind }, async (identity, token) => {
+    const acquired = await access({ ...location, workspaceId: request.workspaceId, ref: request.ref, expected: request.expected, signal: request.signal, accessKind: request.accessKind }, async (identity, token, acquisitionSignal) => {
       assertSameGrant(state, identity);
       const key = JSON.stringify([request.workspaceId, identity, SOURCE_REDACTION_VERSION]);
       for (const [k, value] of cache) if (value.expiresAt < Date.now()) cache.delete(k);
       let entry = cache.get(key);
       if (!entry) {
         const full = await snapshotFromGithub({ owner: identity.owner, repo: identity.repo, ref: identity.commitSha, token,
-          fetchImpl: deps.fetchImpl, timeoutMs: 45_000, includeEvidence: true, signal: request.signal });
+          fetchImpl: deps.fetchImpl, timeoutMs: 45_000, includeEvidence: true, signal: acquisitionSignal ?? request.signal });
         // Analyze the complete retained workspace so shared-library dependencies remain visible.
         // requirementsForRoot selects the requested application's services after static analysis.
         const snapshot = redactedSnapshot(full);
@@ -95,8 +98,17 @@ export function createGithubSource(deps: { db: () => Promise<Sql>; fetchImpl?: t
         ...(state ? { bindingId: state.bindingId, bindingVersion: state.binding.version } : {}),
         ...(request.contextDigest ? { contextDir: request.contextDir ?? "", contextDigest: request.contextDigest, dockerfile: request.dockerfile } : {}),
       };
-      return use(entry.snapshot, ref);
+      return { snapshot: entry.snapshot, ref };
     });
+    // A repository download deadline must never abandon an in-flight paid model
+    // call. Only redacted data leaves the credential/deadline scope; the worker
+    // owns model cancellation and rechecks authority before each checkpoint and
+    // proposal. Preserve consumer control-flow errors (including RunSuperseded).
+    const result = await consume(acquired.snapshot, acquired.ref);
+    // Consumers other than the durable worker also retain a fresh authorization
+    // check before their result is released, with a new source-only deadline.
+    await resolve({ ...request, ref: acquired.ref.commit, expected: acquired.ref.sourceIdentity });
+    return result;
   };
-  return { read, resolve };
+  return { read, resolve, assertLocalAccess: async request => { await authorize(request); } };
 }

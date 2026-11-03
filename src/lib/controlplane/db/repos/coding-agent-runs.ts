@@ -12,6 +12,7 @@
  */
 import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, requireText } from "../errors";
+import { textArray } from "../sql";
 import { digest } from "@/lib/controlplane/digest";
 import { withRunAdmission } from "@/lib/coding-agent/lifecycle";
 
@@ -103,7 +104,7 @@ export async function createRun(sql: Sql, input: CreateRunInput): Promise<Coding
 async function insertRun(sql: Sql, input: CreateRunInput): Promise<CodingAgentRunRow> {
   const rows = await sql.query<Row>(
     `insert into platform.coding_agent_runs (id, workspace_id, project_id, environment_id, created_by, status, model, task, source, limits, usage, checkpoint, workflow_id, request_digest)
-     values ($1,$2,$3,$4,$5,'running',$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13) returning ${COLUMNS}`,
+     values ($1,$2,$3,$4,$5,'running',$6,$7,$8::text::jsonb,$9::text::jsonb,$10::text::jsonb,$11::text::jsonb,$12,$13) returning ${COLUMNS}`,
     [requireText("id", input.id), requireText("workspaceId", input.workspaceId), input.projectId ?? null, input.environmentId ?? null, requireText("createdBy", input.createdBy),
       requireText("model", input.model), input.task, json(input.source), json(input.limits), json(input.usage), json(input.checkpoint), requireText("workflowId", input.workflowId), runRequestDigest(input)]
   );
@@ -119,6 +120,23 @@ export async function listRuns(sql: Sql, workspaceId: string, limit = 25): Promi
   const n = Math.min(Math.max(Math.trunc(limit), 1), 100);
   const rows = await sql.query<Row>(`select ${COLUMNS} from platform.coding_agent_runs where workspace_id = $1 order by created_at desc, id limit $2`, [requireText("workspaceId", workspaceId), n]);
   return rows.map(toRow);
+}
+
+export type CodingAgentRunStatus = Pick<CodingAgentRunRow, "id" | "status" | "version" | "updatedAt">;
+
+/** Browser progress polling does not load tasks, source, checkpoints or model output. */
+export async function listRunStatuses(sql: Sql, workspaceId: string, ids: readonly string[]): Promise<CodingAgentRunStatus[]> {
+  requireText("workspaceId", workspaceId);
+  if (!ids.length || ids.length > 50 || ids.some(id => !/^[A-Za-z0-9_-]{1,100}$/.test(id))) {
+    throw new ControlStoreError("invalid_input", "Select between one and fifty analysis runs.");
+  }
+  const rows = await sql.query<{ id: string; status: CodingAgentRunRow["status"]; version: number; updated_at: string }>(
+    `select id, status, version, updated_at from platform.coding_agent_runs
+     where workspace_id = $1 and id = any($2::text[]) and payload_purged_at is null
+       and (payload_expires_at is null or payload_expires_at > clock_timestamp())`,
+    [workspaceId, textArray([...new Set(ids)])],
+  );
+  return rows.map(row => ({ id: row.id, status: row.status, version: Number(row.version), updatedAt: String(row.updated_at) }));
 }
 
 export interface SaveRunInput {
@@ -138,8 +156,8 @@ export interface SaveRunInput {
 export async function saveRun(sql: Sql, input: SaveRunInput): Promise<CodingAgentRunRow> {
   const ws = requireText("workspaceId", input.workspaceId);
   const rows = await sql.query<Row>(
-    `update platform.coding_agent_runs set status = $4, stop_reason = $5, limits = $6::jsonb, usage = $7::jsonb, checkpoint = $8::jsonb,
-       result = coalesce($9::jsonb, result), proposal_operation_id = coalesce($10, proposal_operation_id), version = version + 1, updated_at = clock_timestamp()
+    `update platform.coding_agent_runs set status = $4, stop_reason = $5, limits = $6::text::jsonb, usage = $7::text::jsonb, checkpoint = $8::text::jsonb,
+       result = coalesce($9::text::jsonb, result), proposal_operation_id = coalesce($10, proposal_operation_id), version = version + 1, updated_at = clock_timestamp()
      where workspace_id = $1 and id = $2 and version = $3 and status = 'running' and payload_purged_at is null and payload_expires_at > clock_timestamp() returning ${COLUMNS}`,
     [ws, requireText("id", input.id), input.expectedVersion, input.status, input.stopReason === undefined ? null : json(input.stopReason), json(input.limits), json(input.usage), json(input.checkpoint),
       input.result === undefined ? null : json(input.result), input.proposalOperationId ?? null]
@@ -154,7 +172,7 @@ export async function saveRun(sql: Sql, input: SaveRunInput): Promise<CodingAgen
 export async function attachOutcome(sql: Sql, input: { workspaceId: string; id: string; result?: unknown; proposalOperationId?: string }): Promise<CodingAgentRunRow> {
   const ws = requireText("workspaceId", input.workspaceId);
   const rows = await sql.query<Row>(
-    `update platform.coding_agent_runs set result = coalesce(result, $3::jsonb), proposal_operation_id = coalesce(proposal_operation_id, $4), version = version + 1, updated_at = clock_timestamp()
+    `update platform.coding_agent_runs set result = coalesce(result, $3::text::jsonb), proposal_operation_id = coalesce(proposal_operation_id, $4), version = version + 1, updated_at = clock_timestamp()
      where workspace_id = $1 and id = $2 and status <> 'running' and payload_purged_at is null and payload_expires_at > clock_timestamp() returning ${COLUMNS}`,
     [ws, requireText("id", input.id), input.result === undefined ? null : json(input.result), input.proposalOperationId ?? null]
   );
@@ -166,7 +184,7 @@ export async function attachOutcome(sql: Sql, input: { workspaceId: string; id: 
 export async function claimResume(sql: Sql, input: { workspaceId: string; id: string; limits: unknown; workflowId: string }): Promise<CodingAgentRunRow> {
   const ws = requireText("workspaceId", input.workspaceId);
   const rows = await sql.query<Row>(
-    `update platform.coding_agent_runs set status = 'running', stop_reason = null, limits = $3::jsonb, workflow_id = $4, version = version + 1, updated_at = clock_timestamp()
+    `update platform.coding_agent_runs set status = 'running', stop_reason = null, limits = $3::text::jsonb, workflow_id = $4, version = version + 1, updated_at = clock_timestamp()
      where workspace_id = $1 and id = $2 and payload_purged_at is null and payload_expires_at > clock_timestamp() and (status in ('budget_exhausted','failed') or (status = 'running' and updated_at < clock_timestamp() - interval '10 minutes')) returning ${COLUMNS}`,
     [ws, requireText("id", input.id), json(input.limits), requireText("workflowId", input.workflowId)]
   );

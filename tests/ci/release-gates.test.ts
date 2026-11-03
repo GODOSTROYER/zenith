@@ -819,6 +819,8 @@ describe("canonical execution and evidence in CI", () => {
     for (const check of CORE_CHECKS) expect(workflow.jobs.verify.steps.map(cmd)).toContain(coreRun(check.id));
     const typecheck = workflow.jobs.verify.steps.find(step => step.name === "Typecheck");
     expect(typecheck?.env).toEqual({ NODE_OPTIONS: "--max-old-space-size=5120" });
+    const agentTypecheck = agentControl.jobs.verify.steps.find(step => step.run === "npm run typecheck");
+    expect(agentTypecheck?.env).toEqual(typecheck?.env);
     expect(workflow.jobs.verify.env?.NODE_OPTIONS).toBeUndefined();
     for (const step of workflow.jobs.verify.steps.filter(step => step !== typecheck))
       expect(step.env?.NODE_OPTIONS).toBeUndefined();
@@ -1268,9 +1270,9 @@ describe("the ledger and supply-chain jobs", () => {
  * assume an AWS role, so what matters is what can reach it: a person, by hand,
  * through an environment with reviewers, never a pull request.
  */
-describe("generated recovery clients", () => {
-  it("executes a generated PostgreSQL16 client with runtime identity and unchanged arguments", () => {
-    const step = workflow.jobs.recovery.steps.find(step => step.name === "Use matching PostgreSQL16 recovery clients");
+describe("generated PostgreSQL clients", () => {
+  it.each([{ job: "recovery", label: "recovery" }, { job: "platform-postgres", label: "platform" }])("executes the $job PostgreSQL16 client with runtime identity and unchanged arguments", ({ job, label }) => {
+    const step = workflow.jobs[job].steps.find(step => step.name === `Use matching PostgreSQL16 ${label} clients`);
     expect(step?.run).toBeDefined();
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-recovery-client-"));
     try {
@@ -1291,7 +1293,7 @@ printf '%s\\n' "$@" > "$CAPTURE"
       }));
       expect(Object.keys(exported).sort()).toEqual(["TMPDIR", "ZENITH_TEST_PG_DUMP_BIN", "ZENITH_TEST_PG_RESTORE_BIN"]);
       expect(path.dirname(exported.TMPDIR)).toBe(scratch);
-      expect(path.basename(exported.TMPDIR)).toMatch(/^zenith-recovery\.[A-Za-z0-9]{6}$/);
+      expect(path.basename(exported.TMPDIR)).toMatch(new RegExp(`^zenith-${label}\\.[A-Za-z0-9]{6}$`));
       expect(fs.lstatSync(exported.TMPDIR).isDirectory()).toBe(true);
       expect(fs.statSync(exported.TMPDIR).mode & 0o777).toBe(0o700);
       expect(fs.readdirSync(exported.TMPDIR)).toEqual([]);

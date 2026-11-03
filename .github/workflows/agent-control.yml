@@ -43,6 +43,9 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
+        env:
+          # Match the canonical core lane for this repository's TypeScript graph.
+          NODE_OPTIONS: --max-old-space-size=5120
       - run: node scripts/test-agent-reader.mjs
       # `tests/agent-control` is a path filter, not a file: it matches the
       # `tests/agent-control-*.test.ts` files and the `tests/agent-control/`

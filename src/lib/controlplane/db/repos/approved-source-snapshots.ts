@@ -44,7 +44,7 @@ export function createApprovedSourceSnapshotStore(db: PlatformDbHandle): Approve
   };
   const authority = async (tx: Sql, s: ApprovedSourceSnapshot): Promise<void> => {
     await tx.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [`zenith:github-binding:${s.workspaceId}`]);
-    const binding = await tx.query<{ app_id:string;installation_id:number;repository_id:number;version:number;revoked_at:unknown;owner:string;repo:string }>("select app_id,installation_id,repository_id,version,revoked_at,owner,repo from platform.github_source_bindings where workspace_id=$1 and (repository_id=$2 or (owner=$3 and repo=$4)) for share",[s.workspaceId,s.repositoryId,s.owner,s.repo]);
+    const binding = await tx.query<{ app_id:string;installation_id:number;repository_id:number;version:number;revoked_at:unknown;owner:string;repo:string }>("select app_id,installation_id,repository_id,version,revoked_at,owner,repo from platform.github_source_bindings where workspace_id=$1 and (repository_id=$2 or (name_current and owner=$3 and repo=$4)) for share",[s.workspaceId,s.repositoryId,s.owner,s.repo]);
     if (binding.length > 1) refuse();
     const b = binding[0];
     if (s.githubBinding ? !b || b.revoked_at || b.app_id !== s.githubBinding.appId || Number(b.installation_id) !== s.githubBinding.installationId
@@ -62,8 +62,8 @@ export function createApprovedSourceSnapshotStore(db: PlatformDbHandle): Approve
             and l.fence_token=o.fence_token and l.expires_at>clock_timestamp() and l.released_at is null)
           and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=$4 and r.project_id=$3 and r.address=$5 and r.spec_digest=$6 and r.provider=$7 and r.region=$8 and r.ownership='managed' and r.status<>'deleted')
           and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=$4 and r.project_id=$3 and r.address=$9 and r.spec_digest=$10 and r.provider=$7 and r.region=$8 and r.ownership='managed' and r.status<>'deleted')
-          and (($11::text::jsonb='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=$15 or (b.owner=$12 and b.repo=$13))))
-            or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null and b.owner=$12 and b.repo=$13
+          and (($11::text::jsonb='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=$15 or (b.name_current and b.owner=$12 and b.repo=$13))))
+            or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.name_current and b.revoked_at is null and b.owner=$12 and b.repo=$13
               and b.app_id=$11::text::jsonb->>'appId' and b.installation_id=($11::text::jsonb->>'installationId')::bigint
               and b.repository_id=($11::text::jsonb->>'repositoryId')::bigint and b.version=($11::text::jsonb->>'version')::integer))
           and ($14::text is null or exists(select 1 from platform.evidence e where e.workspace_id=$1 and e.operation_id=$2
@@ -92,8 +92,8 @@ export function createApprovedSourceSnapshotStore(db: PlatformDbHandle): Approve
           and exists(select 1 from platform.leases l where l.workspace_id=$1 and l.scope=$5 and l.holder=$7 and l.fence_token=$6 and l.expires_at>clock_timestamp() and l.released_at is null)
           and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=$4 and r.project_id=$3 and r.address=$8 and r.spec_digest=$9 and r.provider=$10 and r.region=$11 and r.ownership='managed' and r.status<>'deleted')
           and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=$4 and r.project_id=$3 and r.address=$12 and r.spec_digest=$13 and r.provider=$10 and r.region=$11 and r.ownership='managed' and r.status<>'deleted')
-          and (($14::text::jsonb='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=$17 or (b.owner=$15 and b.repo=$16))))
-            or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null and b.owner=$15 and b.repo=$16
+          and (($14::text::jsonb='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=$17 or (b.name_current and b.owner=$15 and b.repo=$16))))
+            or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.name_current and b.revoked_at is null and b.owner=$15 and b.repo=$16
               and b.app_id=$14::text::jsonb->>'appId' and b.installation_id=($14::text::jsonb->>'installationId')::bigint
               and b.repository_id=($14::text::jsonb->>'repositoryId')::bigint and b.version=($14::text::jsonb->>'version')::integer))`,
           [s.workspaceId,s.operationId,s.projectId,s.environmentId,lease.scope,lease.fenceToken,lease.holder,s.serviceAddress,s.serviceSpecDigest,s.provider,s.region,s.pipelineAddress,s.pipelineSpecDigest,JSON.stringify(s.githubBinding),s.owner,s.repo,s.repositoryId]);
@@ -110,8 +110,8 @@ export function createApprovedSourceSnapshotStore(db: PlatformDbHandle): Approve
             and l.expires_at>clock_timestamp() and l.released_at is null)
           and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=$4 and r.project_id=$3 and r.address=$5 and r.spec_digest=$11 and r.provider=$12 and r.region=$13 and r.ownership='managed' and r.status<>'deleted')
           and exists(select 1 from platform.resources r where r.workspace_id=$1 and r.environment_id=$4 and r.project_id=$3 and r.address=$14 and r.spec_digest=$15 and r.provider=$12 and r.region=$13 and r.ownership='managed' and r.status<>'deleted')
-          and (($16::text::jsonb='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=($6::text::jsonb->>'repositoryId')::bigint or (b.owner=$17 and b.repo=$18))))
-            or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null and b.owner=$17 and b.repo=$18
+          and (($16::text::jsonb='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=($6::text::jsonb->>'repositoryId')::bigint or (b.name_current and b.owner=$17 and b.repo=$18))))
+            or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.name_current and b.revoked_at is null and b.owner=$17 and b.repo=$18
               and b.app_id=$16::text::jsonb->>'appId' and b.installation_id=($16::text::jsonb->>'installationId')::bigint
               and b.repository_id=($16::text::jsonb->>'repositoryId')::bigint and b.version=($16::text::jsonb->>'version')::integer))
           on conflict(workspace_id,operation_id,service_address) do nothing returning snapshot,snapshot_digest`,

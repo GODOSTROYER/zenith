@@ -286,6 +286,19 @@ describe.skipIf(!PG_URL)("MCP final start source authority [postgres; modeled ex
     expect((await store.claim(f.db, f.request)).dispatch).toBe(false); expect(starts).toBe(1);
     expect((await observer.query<{ manifest: unknown }>("select manifest from public.revision_manifests where workspace_id=$1 and revision_id=$2", [f.h.ids.wsA, f.revisionId]))[0].manifest).toEqual(f.manifest);
   });
+  it.each([true, false])("retained source start ignores another ID's superseded name, bound=%s", async bound => {
+    const f = await fixture({ git: true, bound }), store = storeFor(f);
+    await observer.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,98,'acme','app',2,'fixture-admin',clock_timestamp(),false)", [f.h.ids.wsA]);
+    await store.prepare(f.db, f.request);
+    expect((await store.claim(peer, f.request)).dispatch).toBe(true);
+    expect((await store.claim(f.db, f.request)).dispatch).toBe(false);
+  });
+  it("retained public source start still refuses a historical revoked stable ID", async () => {
+    const f = await fixture({ git: true, bound: false });
+    await observer.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,99,'acme','old-name',2,'fixture-admin',clock_timestamp(),false)", [f.h.ids.wsA]);
+    await expect(storeFor(f).prepare(f.db, f.request)).rejects.toMatchObject({ code: "workflow_start_intent" });
+    expect(await inventory(f)).toBeNull();
+  });
   it.each(["unchanged private binding", "revoked private binding", "removed private binding", "replaced private binding", "introduced public binding"] as const)("retained native source start fences %s during delayed human role lookup", async change => {
     const f = await fixture({ git: true, bound: change !== "introduced public binding" });
     await storeFor(f).prepare(f.db, f.request);

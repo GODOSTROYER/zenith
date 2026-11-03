@@ -268,10 +268,10 @@ async function captureSourceDispatch(tx: Sql, row: ArtifactRow): Promise<SourceD
   const resources = await tx.query<{ address: string; kind: string; provider: string; region: string; spec_digest: string; spec: Record<string, unknown>; ownership: string; status: string }>(
     "select address,kind,provider,region,spec_digest,spec,ownership,status from platform.resources where workspace_id=$1 and project_id=$2 and environment_id=$3 and address=any($4::text[]) order by address for share",
     [m.workspaceId, m.projectId, m.environmentId, textArray(addresses)]);
-  const bindings = await tx.query<{ app_id: string; installation_id: number; repository_id: number; version: number; owner: string; repo: string; revoked_at: unknown }>(
-    "select app_id,installation_id,repository_id,version,owner,repo,revoked_at from platform.github_source_bindings where workspace_id=$1", [m.workspaceId]);
+  const bindings = await tx.query<{ app_id: string; installation_id: number; repository_id: number; version: number; owner: string; repo: string; revoked_at: unknown; name_current: boolean }>(
+    "select app_id,installation_id,repository_id,version,owner,repo,revoked_at,name_current from platform.github_source_bindings where workspace_id=$1", [m.workspaceId]);
   const recipes = sources.map(snapshot => {
-    const matching = bindings.filter(b => Number(b.repository_id) === snapshot.repositoryId || b.owner === snapshot.owner && b.repo === snapshot.repo);
+    const matching = bindings.filter(b => Number(b.repository_id) === snapshot.repositoryId || b.name_current && b.owner === snapshot.owner && b.repo === snapshot.repo);
     if (matching.length > 1) refuse();
     const current = matching[0];
     const service = resources.find(resource => resource.address === snapshot.serviceAddress), pipeline = resources.find(resource => resource.address === snapshot.pipelineAddress);
@@ -318,8 +318,8 @@ const DISPATCH_SOURCE_AUTHORITY = `exists(select 1 from platform.plan_artifacts 
       and r.environment_id=$7::text::jsonb->>'environmentId' and r.address=recipe->'snapshot'->>'pipelineAddress'
       and r.kind='build_pipeline' and r.spec_digest=recipe->'snapshot'->>'pipelineSpecDigest' and r.spec=recipe->'pipelineSpec'
       and r.provider=recipe->'snapshot'->>'provider' and r.region=recipe->'snapshot'->>'region' and r.ownership='managed' and r.status<>'deleted')
-    or not ((recipe->'snapshot'->'githubBinding'='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=(recipe->'snapshot'->>'repositoryId')::bigint or (b.owner=recipe->'snapshot'->>'owner' and b.repo=recipe->'snapshot'->>'repo'))))
-      or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.revoked_at is null
+    or not ((recipe->'snapshot'->'githubBinding'='null'::jsonb and not exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and (b.repository_id=(recipe->'snapshot'->>'repositoryId')::bigint or (b.name_current and b.owner=recipe->'snapshot'->>'owner' and b.repo=recipe->'snapshot'->>'repo'))))
+      or exists(select 1 from platform.github_source_bindings b where b.workspace_id=$1 and b.name_current and b.revoked_at is null
         and b.owner=recipe->'snapshot'->>'owner' and b.repo=recipe->'snapshot'->>'repo'
         and b.app_id=recipe->'snapshot'->'githubBinding'->>'appId'
         and b.installation_id=(recipe->'snapshot'->'githubBinding'->>'installationId')::bigint

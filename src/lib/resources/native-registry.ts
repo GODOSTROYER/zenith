@@ -60,7 +60,7 @@ const SEEDS: NativeTypeEntry[] = [
         name: z.string().regex(NAME).optional(),
         hashKey: z.object({ name: z.string().regex(NAME), type: z.enum(["S", "N", "B"]) }).strict(),
         rangeKey: z.object({ name: z.string().regex(NAME), type: z.enum(["S", "N", "B"]) }).strict().optional(),
-        billingMode: z.enum(["PAY_PER_REQUEST", "PROVISIONED"]).default("PAY_PER_REQUEST"),
+        billingMode: z.enum(["PAY_PER_REQUEST", "PROVISIONED"]).prefault("PAY_PER_REQUEST"),
         pointInTimeRecovery: z.boolean().optional(),
         ttlAttribute: z.string().regex(NAME).optional(),
       })
@@ -123,11 +123,15 @@ function assertRegistrable(provider: ProviderKey, type: string, schema: z.ZodTyp
   if (prefix === undefined) throw new Error(`Unknown provider "${provider}".`);
   if (!new RegExp(`^${prefix}:[A-Za-z][A-Za-z0-9_]{0,80}$`).test(type))
     throw new Error(`Native type "${type}" must look like "${prefix}:<name>" for provider ${provider}.`);
-  // Unwrap effects (refine/transform) so a `.strict().refine(...)` schema is still recognised as strict.
-  let inner: z.ZodTypeAny = schema;
-  while (inner instanceof z.ZodEffects) inner = inner._def.schema as z.ZodTypeAny;
-  if (inner instanceof z.ZodObject && inner._def.unknownKeys !== "strict")
-    throw new Error(`Native schema for ${provider} ${type} must be .strict(): unknown keys must be rejected, not passed to a provider API.`);
+  // Zod 4 keeps refinements on their object and represents transformations and
+  // preprocessing as pipes. Inspect both ends so neither wrapper hides a loose
+  // object. Strict objects reject their catchall through ZodNever.
+  const inspect = (inner: z.core.$ZodType): void => {
+    if (inner instanceof z.ZodPipe) { inspect(inner.in); inspect(inner.out); }
+    if (inner instanceof z.ZodObject && !(inner._zod.def.catchall instanceof z.ZodNever))
+      throw new Error(`Native schema for ${provider} ${type} must be .strict(): unknown keys must be rejected, not passed to a provider API.`);
+  };
+  inspect(schema);
 }
 
 function registry(): Map<string, NativeTypeEntry> {
@@ -191,6 +195,6 @@ export function parseNativeConfig(provider: ProviderKey, type: string, config: u
     };
   }
   const parsed = entry.schema.safeParse(config);
-  if (!parsed.success) return { ok: false, issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })) };
+  if (!parsed.success) return { ok: false, issues: parsed.error.issues.map((i) => ({ path: i.path.map(part => typeof part === "symbol" ? "[symbol]" : part), message: i.message })) };
   return { ok: true, config: parsed.data as Record<string, unknown> };
 }

@@ -87,7 +87,7 @@ function github() {
 
 async function inspected() {
   const source = github();
-  const result = await source.inspect({ workspaceId: WS, environmentId: ENV, owner: "acme", repo: "api", ref: "main", root: CONTEXT });
+  const result = await source.inspect({ workspaceId: WS, environmentId: ENV, owner: "acme", repo: "api", ref: "main", root: CONTEXT, contextDir: CONTEXT });
   expect(result.execution).toBe("static_only");
   expect(result.viaBinding).toBe(false);
   expect(result.buildSource).toBeDefined();

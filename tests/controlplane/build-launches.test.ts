@@ -77,6 +77,12 @@ describe.skipIf(!PG_URL)("build launch authority [postgres]",()=>{
     expect(new Set(results.map(r=>r.launch.attempt_id)).size).toBe(1);
     expect(results.every(r=>r.launch.phase==="dispatched" && r.launch.build_id===null)).toBe(true);
   });
+  it.each([98,99])("source dispatch distinguishes a superseded name from revoked stable repository ID %s",async repositoryId=>{
+    const f=await fixture();
+    await world.db.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,$2,'acme','web',2,'fixture-admin',clock_timestamp(),false)",[f.binding.workspaceId,repositoryId]);
+    if(repositoryId===99)await expect(f.claim(world.db2,f.binding,f.fence)).rejects.toThrow();
+    else expect((await f.claim(world.db2,f.binding,f.fence)).claimed).toBe(true);
+  });
   it("a committed claim without a provider receipt never becomes dispatchable again",async()=>{
     const f=await fixture(); const first=await f.claim(world.db,f.binding,f.fence);
     expect(first.claimed).toBe(true);

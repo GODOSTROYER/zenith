@@ -3,7 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db/store";
 import { platformDb, repos } from "@/lib/controlplane/db";
 import { runView } from "@/lib/coding-agent/view";
-import { assertRunSourceAccess } from "@/lib/coding-agent/platform";
+import { createRunSourceAccessChecker } from "@/lib/coding-agent/platform";
 import { Card } from "@/components/ui/card";
 import { loadPage } from "../_lib/loaders";
 import { PageState } from "../_components/page-state";
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 interface Row {
   id: string;
+  version: number;
   status: string;
   task: string;
   repository: string;
@@ -36,11 +37,12 @@ export default async function CodingAgentPage({ searchParams }: { searchParams?:
     if (!admin) return { admin, rows: [] as Row[], targets: [] as StartTarget[], unavailable: false };
     const stored = await repos.codingAgentRuns.listRuns(await platformDb(), context.workspaceId, 50);
     const visible: typeof stored = [];
+    const assertSourceAccess = createRunSourceAccessChecker();
     // Retention belongs to each run, even when several runs share one source.
     // Check every row independently, with at most four provider reads in flight.
     for (let offset = 0; offset < stored.length; offset += 4) {
       const batch = await Promise.all(stored.slice(offset, offset + 4).map(async row => {
-        try { await assertRunSourceAccess(row); return row; } catch { return null; }
+        try { await assertSourceAccess(row); return row; } catch { return null; }
       }));
       for (const row of batch) if (row) visible.push(row);
     }
@@ -55,6 +57,7 @@ export default async function CodingAgentPage({ searchParams }: { searchParams?:
       targets,
       rows: rows.map((r): Row => ({
         id: String(r.id),
+        version: Number(r.version),
         status: String(r.status),
         task: String(r.task),
         repository: String((r.source as { repository?: string }).repository ?? ""),
@@ -78,7 +81,7 @@ export default async function CodingAgentPage({ searchParams }: { searchParams?:
         <PageState error="Only workspace admins can start or manage coding agent runs." missing />
       ) : (
         <>
-          <AutoRefresh active={rows.some((r) => r.status === "running")} />
+          <AutoRefresh workspaceId={result.context.workspaceId} runs={rows.filter(r => r.status === "running")} />
           <Card title="Analyze your code" subtitle="Repository access and project choices stay attached to the analysis.">
             <StartRun workspaceId={result.context.workspaceId} targets={targets} initialSource={initialSource} initialEnvironmentId={value("environmentId")} />
           </Card>

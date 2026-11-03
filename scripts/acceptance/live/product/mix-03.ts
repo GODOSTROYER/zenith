@@ -47,7 +47,7 @@ export interface Mix03Product {
    * Sets the producer and consumer manifests, creates the sandbox parent and the two AWS children, proposes the parent plan and
    * queues one deploy operation per child. Returns the child environments (producer first) and the parent operation to approve.
    */
-  proposeMixed(tenant: Mix03Tenant, input: { connectionId: string; consumerConnectionId?: string; accountId: string; region: string; artifact: Mix03Artifact }): Promise<{ environmentIds: string[]; planId: string; parentOperationId: string }>;
+  proposeMixed(tenant: Mix03Tenant, input: { connectionId: string; consumerConnectionId?: string; independent?: boolean; accountId: string; region: string; artifact?: Mix03Artifact }): Promise<{ environmentIds: string[]; planId: string; parentOperationId: string }>;
   /** A person's approval, performed by the CI test approver through the browser path. */
   approve(tenant: Mix03Tenant, operationId: string): Promise<void>;
   /** Adopts every child operation and starts the parent through the browser-only routes. */
@@ -645,25 +645,21 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
         if (attempt >= propagation.attempts) refuse("connection.verifyAws did not pass after the trust update within the propagation bound");
         await sleep(propagation.intervalMs);
       }
-      // The consumer's package goes to the consumer connection's state bucket, uploaded with that connection's deploy role.
-      step = "consumer package";
-      const assumed = field(await invoke(planned("mix01-live2-sts-assume"), { externalId: consumerConnection.externalId }), "Credentials");
-      const accessKeyId = field(assumed, "AccessKeyId"), secretAccessKey = field(assumed, "SecretAccessKey"), sessionToken = field(assumed, "SessionToken");
-      if (typeof accessKeyId !== "string" || typeof secretAccessKey !== "string" || typeof sessionToken !== "string") refuse("the deploy role session could not be read");
-      const pkg = consumerPackage(), key = `zenith-live/${plan.settings.runId}/consumer.zip`;
-      const versionId = await upload({ region, credentials: { accessKeyId, secretAccessKey, sessionToken }, bucket: consumerConnection.stateBucket, key, body: pkg.zip });
-      if (!versionId || versionId === "null" || !ARTIFACT_VERSION.test(versionId)) refuse("the state bucket did not return an object version for the consumer's package");
-      const artifact: Mix03Artifact = { bucket: consumerConnection.stateBucket, key, versionId, sha256: pkg.sha256, sourceDigest: pkg.sourceDigest };
+      // Two independent children (one bucket each): a dependency across connections would need declared protected
+      // connectivity (PROD-MIX-05), which the product rightly refuses to derive.
       step = "mixed plan";
       run.attempted = true;
-      const proposal = await product.proposeMixed(tenant, { connectionId: producerConnection.connectionId, consumerConnectionId: consumerConnection.connectionId, accountId: account, region, artifact });
+      const proposal = await product.proposeMixed(tenant, { connectionId: producerConnection.connectionId, consumerConnectionId: consumerConnection.connectionId, independent: true, accountId: account, region });
       if (proposal.environmentIds.length !== 2) refuse("the mixed proposal did not name exactly the producer and consumer environments");
       run.environmentIds = proposal.environmentIds;
       const [producerEnv, consumerEnv] = proposal.environmentIds as [string, string];
       step = "stored plan";
       const proposed = product.planReadback ? await product.planReadback(tenant, proposal.planId) : refuse("the product driver cannot read the stored plan back");
-      const order = mix02Order(proposed);
-      if (order.producer.partitionId === order.consumer.partitionId) refuse("the producer and consumer share one partition");
+      if (proposed.children.length !== 2) refuse("the stored plan does not have exactly two children");
+      const [one, two] = proposed.children as [MixedChildReadback, MixedChildReadback];
+      if (one.partitionId === two.partitionId) refuse("the two children share one partition");
+      if (one.dependsOn.length || two.dependsOn.length) refuse("a child depends on the other; this proof needs independent partitions");
+      if (!one.nodes.length || !two.nodes.length) refuse("a child has no stable resource addresses");
       step = "mixed plan";
       await product.approve(tenant, proposal.parentOperationId);
       const started = await product.startMixed(tenant, proposal.planId, proposal.parentOperationId);
@@ -674,8 +670,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
         const children = await product.children(tenant, proposal.planId);
         producer = children.find(child => child.role === "producer");
         consumer = children.find(child => child.role === "consumer");
-        if (!producer || !consumer) refuse("the plan does not have one producer and one consumer child");
-        if (producer.status !== "succeeded" && (consumer.status === "running" || consumer.status === "succeeded")) refuse("the consumer started before the producer receipt");
+        if (!producer || !consumer) refuse("the plan does not have one child on each connection");
         if ([producer, consumer].some(child => ["failed", "uncertain", "cancelled", "blocked"].includes(child.status))) refuse(`a child operation did not succeed (${[producer, consumer].map(childState).join(", ")})`);
         for (const child of children) if (child.awaitingOperationId) await product.approve(tenant, child.awaitingOperationId);
         if (producer.status === "succeeded" && consumer.status === "succeeded") break;
@@ -685,8 +680,15 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
       step = "receipts";
       if (!producer!.childOperationId || producer!.receiptOperationId !== producer!.childOperationId) refuse("the producer receipt does not link its child operation");
       if (!consumer!.childOperationId || consumer!.receiptOperationId !== consumer!.childOperationId) refuse("the consumer receipt does not link its child operation");
+      // Each environment holds exactly one tagged, owned bucket: its own child's resource and nothing of the other's.
       step = "AWS readback";
-      await producerConsumerReadback(invoke, planned, region, account, run.environmentIds);
+      for (const environmentId of [producerEnv, consumerEnv]) {
+        const buckets = (await inventoryOf(invoke, planned("mix03-tag-read"), [environmentId])).filter(m => /^arn:aws:s3:::zenith-/.test(m.arn) && owned(m.tags, [environmentId]));
+        if (buckets.length !== 1) refuse("an environment does not hold exactly one tagged bucket of its own");
+        const bucketName = buckets[0]!.arn.split(":::")[1]!;
+        await invoke(planned("mix03-bucket-head"), { bucketName });
+        if (!owned(tagMap(field(await invoke(planned("mix03-bucket-tags"), { bucketName }), "TagSet")), [environmentId])) refuse("a bucket lacks its environment's ownership tags");
+      }
       // Each child's state object (src/lib/execution/compile.ts: zenith/<workspace>/<environment>/terraform.tfstate) must exist in
       // its own connection's state bucket only. The listing is bounded and independent of the product.
       step = "state partition";
@@ -699,7 +701,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
       if (await hasState(consumerConnection.stateBucket, producerEnv)) refuse("the producer's state is also in the consumer connection's state bucket");
       if (!await hasState(consumerConnection.stateBucket, consumerEnv)) refuse("the consumer's state is not in its own connection's state bucket");
       if (await hasState(producerConnection.stateBucket, consumerEnv)) refuse("the consumer's state is also in the producer connection's state bucket");
-      outcome = { complete: true, reason: "PROD-MIX-01 proven on the live AWS sandbox: one tenant created two AWS connections on the two connection stacks of one account (-live, -live2); the trust change touched only the ExternalId of each stack's observe and deploy roles and was restored; connection.verifyAws passed for both. The stored parent plan put the producer child (S3 bucket, first connection) and the consumer child (Lambda function, second connection) in separate partitions, the consumer depending on the producer; the producer finished before the consumer started and both receipts link their child operations. By independent readback the consumer's deployed PRODUCER_BUCKET_ARN equals the producer bucket ARN, and each child's OpenTofu state object exists in its own connection's state bucket and not in the other's. Approvals by an automated test approver through the browser path. One AWS account and provider: separate accounts and cross-provider partitions are outside this run" };
+      outcome = { complete: true, reason: "PROD-MIX-01 proven on the live AWS sandbox: one tenant created two AWS connections on the two connection stacks of one account (-live, -live2); the trust change touched only the ExternalId of each stack's observe and deploy roles and was restored; connection.verifyAws passed for both. The stored parent plan put one child on each connection (one S3 bucket each) in two separate, independent partitions; both children succeeded and both receipts link their child operations. By independent readback each environment holds exactly one tagged bucket of its own, and each child's OpenTofu state object exists in its own connection's state bucket and not in the other's. A dependency between partitions on different connections is refused by the product unless protected connectivity is declared (PROD-MIX-05), as live run 41611302755 showed. Approvals by an automated test approver through the browser path. One AWS account and provider: separate accounts and cross-provider partitions are outside this run" };
     } catch (error) {
       outcome = { complete: false, reason: `PROD-MIX-01 not proven at ${step}: ${error instanceof Refusal ? error.message : "unexpected failure (details withheld; no completion claim)"}` };
     }

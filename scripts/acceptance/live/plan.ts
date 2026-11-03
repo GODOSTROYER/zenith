@@ -80,8 +80,8 @@ export function mix03ProductCalls(account: string, region: string, runId: string
     c("mix03-bucket-delete", "s3", "DeleteBucket", "s3:DeleteBucket", bucket, { Bucket: runtime("bucketName") }, 4),
   ];
 }/**
- * PROD-MIX-01 product-scope calls: the mix-03 calls for the first connection (-live roles), the same trust change and deploy-role
- * session for the second connection (-live2 roles), and a bounded listing of a state bucket under one environment's state prefix,
+ * PROD-MIX-01 product-scope calls: the mix-03 calls for the first connection (-live roles), the same trust change for the second
+ * connection (-live2 roles), and a bounded listing of a state bucket under one environment's state prefix,
  * which shows each child's OpenTofu state in its own connection's backend only. The run uses both lanes' roles: dispatch it only
  * while no other lane run is active.
  */
@@ -95,7 +95,6 @@ export function mix01ProductCalls(account: string, region: string, runId: string
     c("mix01-live2-iam-read-deploy", "iam", "GetRole", "iam:GetRole", roleArn(second.deploy), { RoleName: second.deploy }, 3),
     c("mix01-live2-iam-trust-observe", "iam", "UpdateAssumeRolePolicy", "iam:UpdateAssumeRolePolicy", roleArn(second.observe), { RoleName: second.observe, PolicyDocument: runtime("trustDocument") }, 3),
     c("mix01-live2-iam-trust-deploy", "iam", "UpdateAssumeRolePolicy", "iam:UpdateAssumeRolePolicy", roleArn(second.deploy), { RoleName: second.deploy, PolicyDocument: runtime("trustDocument") }, 3),
-    c("mix01-live2-sts-assume", "sts", "AssumeRole", "sts:AssumeRole", roleArn(second.deploy), { RoleArn: roleArn(second.deploy), RoleSessionName: `zenith-${runId}`.slice(0, 64), ExternalId: runtime("externalId"), DurationSeconds: 3600 }, 2),
     c("mix01-state-list", "s3", "ListObjectsV2", "s3:ListBucket", "arn:aws:s3:::zenith-*", { Bucket: runtime("bucketName"), Prefix: runtime("prefix"), MaxKeys: 10 }, 8),
   ];
 }

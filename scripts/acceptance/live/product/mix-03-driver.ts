@@ -201,6 +201,18 @@ export const MIX03_REFERENCE = {
  * The producer, the consumer and the one graph they form. The parent's revision is the graph (`graph`); each child's revision is
  * its own part, and the planner's pins bind every node of the graph to exactly one of those two children.
  */
+/**
+ * PROD-MIX-01: two independent children, one S3 bucket each, so each partition binds only its own connection and backend. No
+ * reference joins them: a dependency between partitions on different connections needs declared protected connectivity
+ * (PROD-MIX-05), which this account-local proof does not exercise.
+ */
+export function mix01Manifests(region: string) {
+  const nodePlacement = { first: { provider: "aws", region }, second: { provider: "aws", region } };
+  const producer = { version: 2, resources: [{ id: "first", name: "first", kind: "object_store" }], nodePlacement: { first: nodePlacement.first } };
+  const consumer = { version: 2, resources: [{ id: "second", name: "second", kind: "object_store" }], nodePlacement: { second: nodePlacement.second } };
+  return { producer, consumer, graph: { version: 2, resources: [...producer.resources, ...consumer.resources], nodePlacement } };
+}
+
 export function mix03Manifests(region: string, artifact: Mix03Artifact) {
   // A resource has no provider of its own: without the override the sandbox parent would place the bucket on sandbox, which
   // cannot take part in a mixed plan (unbound_partition).
@@ -237,6 +249,8 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
   const sessions = new Map<string, TenantSession>();
   /** The two child operations per mixed plan, adopted in order by startMixed: { partitionId, operationId }. */
   const adoptions = new Map<string, { partitionId: string; operationId: string }[]>();
+  /** The consumer child's environment per mixed plan: it names the roles when neither child depends on the other (PROD-MIX-01). */
+  const consumers = new Map<string, string>();
   const closers: (() => Promise<void>)[] = [];
 
   const sessionOf = (tenant: Mix03Tenant): TenantSession => sessions.get(tenant.workspaceId) ?? refuse("no signed-in session exists for this tenant");
@@ -318,7 +332,8 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
       return step("mixed proposal", async () => {
         const session = sessionOf(tenant);
         const projectId = session.projectId, scope = { projectId };
-        const { producer, consumer, graph } = mix03Manifests(input.region, input.artifact);
+        const { producer, consumer, graph } = input.independent ? mix01Manifests(input.region)
+          : mix03Manifests(input.region, input.artifact ?? refuse("the consumer's package was not given"));
         // The parent's revision is the whole graph. A sandbox environment deploys it through the simulated provider, so no cloud resource exists.
         await must(session, "project.updateManifest", { projectId, manifest: graph }, scope);
         const parent = idOf((await must(session, "env.create", { projectId, name: "parent", class: "sandbox", approvalRequired: false }, scope)).environmentId, "the parent environment");
@@ -334,8 +349,10 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
 
         const planned = await send(session, session.owner, "/api/platform/v1/mixed/plans", {
           parentEnvironmentId: parent, childEnvironmentIds: [producerEnv, consumerEnv],
-          pins: [{ address: "object_store/bucket", childEnvironmentId: producerEnv }, { address: "function/consumer", childEnvironmentId: consumerEnv }],
-          references: [MIX03_REFERENCE],
+          pins: input.independent
+            ? [{ address: "object_store/first", childEnvironmentId: producerEnv }, { address: "object_store/second", childEnvironmentId: consumerEnv }]
+            : [{ address: "object_store/bucket", childEnvironmentId: producerEnv }, { address: "function/consumer", childEnvironmentId: consumerEnv }],
+          references: input.independent ? [] : [MIX03_REFERENCE],
         });
         if (planned.status < 200 || planned.status >= 300) refuse(`the product refused the mixed plan (${reasonCode(planned.data)})`);
         const proposed = planned.data as { plan?: { parentPlanId?: unknown }; operationId?: unknown };
@@ -355,6 +372,7 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
           const partitionId = readback.children?.find(child => child.childEnvironmentId === environmentId)?.partitionId;
           return typeof partitionId === "string" && PARTITION.test(partitionId) ? partitionId : refuse("the child partition was not returned by the product");
         };
+        consumers.set(planId, consumerEnv);
         adoptions.set(planId, [
           { partitionId: partitionOf(producerEnv), operationId: producerOperationId },
           { partitionId: partitionOf(consumerEnv), operationId: consumerOperationId },
@@ -402,12 +420,13 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         const session = sessionOf(tenant);
         const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: unknown; parentOperationId?: unknown };
         const rows = (Array.isArray(plan.children) ? plan.children : []) as {
-          dependsOn?: unknown[]; state?: string; childOperationId?: string | null; receipt?: { childOperationId?: string; childStatus?: unknown } | null;
+          dependsOn?: unknown[]; childEnvironmentId?: unknown; state?: string; childOperationId?: string | null; receipt?: { childOperationId?: string; childStatus?: unknown } | null;
         }[];
         const children: Mix03Child[] = [];
         for (const row of rows) {
           // The producer is the child nothing depends on; the consumer depends on it.
-          const role = row.dependsOn?.length ? "consumer" : "producer";
+          const consumerEnv = consumers.get(planId);
+          const role = row.dependsOn?.length || (consumerEnv !== undefined && row.childEnvironmentId === consumerEnv) ? "consumer" : "producer";
           let awaitingOperationId: string | undefined, operationStatus: string | undefined, halt: string | undefined;
           const receiptStatus = row.receipt?.childStatus;
           if (typeof receiptStatus === "string" && SAFE_CODE.test(receiptStatus)) operationStatus = receiptStatus;

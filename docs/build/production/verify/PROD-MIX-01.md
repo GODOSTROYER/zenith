@@ -111,3 +111,18 @@ Independent AWS readback decides:
 Dispatch `mix-01` only while no other lane run is active, because it rewrites trust on both lanes' roles. The plan allows 5..40 minutes with a cap of USD 0.5 + 0.02 per minute. Offline coverage is in `tests/acceptance/aws-mix03-port.test.ts` ("PROD-MIX-01 partitions over two connections").
 
 Limits: no live run yet. This is one account and one provider, and only AWS AssumeRole connections. Not a promotion.
+
+### Live run 41611302755 refused at plan time; scenario changed to independent partitions (2026-11-03)
+
+The first `mix-01` run ([41611302755](https://github.com/saivedant169/zenith/actions/runs/41611302755), at df1ed98f) created both connections, rewrote and verified both stacks' trust, and proposed the plan. The product refused it, with `plan_refused`: partitions that depend on each other need protected connectivity, declared as mutual-TLS endpoints with an address allowlist and DNS and TLS pins. The producer bucket's ARN was a typed reference into a consumer on another connection. That refusal is the correct behaviour: protected cross-connection dependencies are PROD-MIX-05.
+
+- Cleanup completed and trust was restored on all four roles.
+- The run's "leak" check reports only that no environment id was recorded. Nothing was deployed before the refusal.
+
+The scenario now proposes two independent children, one S3 bucket each (`object_store/first` on the first connection, `object_store/second` on the second), with no reference. That is what PROD-MIX-01 asks for: partitions bound to separately authorized connections and backends.
+
+Independent readback:
+- Each environment holds exactly one tagged bucket of its own.
+- Each child's OpenTofu state is in its own connection's state bucket only.
+
+The second stack's STS session call is no longer planned, since there is no consumer package to upload.

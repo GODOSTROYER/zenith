@@ -869,12 +869,12 @@ describe("saved builtin settlement mandatory CI admission", () => {
   it("requires repository isolation, project attachment and analysis lifecycle on actual PostgreSQL", () => {
     const manifest = manifestFor("platform-postgres", root);
     const expected = GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
-    expect(expected).toHaveLength(3);
-    expect(githubAnalysisIds.size).toBe(3);
+    expect(expected).toHaveLength(14);
+    expect(githubAnalysisIds.size).toBe(14);
     expect(manifest.requirements.filter(item => githubAnalysisIds.has(item.id))).toEqual(expected);
-    expect(reportFailures(expected, { success: true, testResults: [] }, root)).toHaveLength(3);
+    expect(reportFailures(expected, { success: true, testResults: [] }, root)).toHaveLength(14);
     for (const item of expected) {
-      expect(item.postgres).toBe(true);
+      expect(item.postgres === true || item.backend === "postgres").toBe(true);
       expect(manifest.command.some(argument => argument === item.file || item.file.startsWith(`${argument}/`))).toBe(true);
       expect(manifest.excludeFiles).not.toContain(item.file);
     }
@@ -887,8 +887,8 @@ describe("saved builtin settlement mandatory CI admission", () => {
     const manifest = manifestFor("platform-postgres", root);
     const added = currentSuccessorPlatformCohort.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(manifest.requirements.filter(item => added.some(value => value.id === item.id)).sort((a, b) => a.id.localeCompare(b.id))).toEqual(added.sort((a, b) => a.id.localeCompare(b.id)));
-    expect(manifest.requirements).toHaveLength(1163);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1163);
+    expect(manifest.requirements).toHaveLength(1174);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1174);
     const mixedStore = manifest.requirements.filter(item => item.file === "tests/execution/mixed-run-store.test.ts");
     expect(mixedStore).toHaveLength(5);
     expect(mixedStore.every(item => item.postgres && item.suite === "mixed run store validation [postgres]" && item.test)).toBe(true);

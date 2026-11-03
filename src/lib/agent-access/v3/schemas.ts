@@ -14,8 +14,8 @@
  *     limited to short, length-capped descriptions shown to approvers and to a
  *     plain-substring log filter.
  *
- * Uses `zod/v4` (shipped inside the installed zod 3.25) because it renders JSON
- * Schema natively; the rest of the repository keeps using the v3 API.
+ * Uses the installed Zod 4 API to render the same validation contract as JSON
+ * Schema for clients.
  */
 import { z } from "zod/v4";
 

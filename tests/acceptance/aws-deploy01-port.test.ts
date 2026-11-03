@@ -111,6 +111,21 @@ describe("DEPLOY-01 driver deploy approval", () => {
     expect(conflicts).toBe(-1);
   });
 
+  it("retries deploy.approve while the deployment is still planning, then waits for the terminal status", async () => {
+    const tenant = { workspaceId: "ws1", projectId: "p1", owner: {}, approver: {}, stack: {}, ownerSecret: "o", approverSecret: "a" };
+    let planning = 2;
+    const request = async (_page: unknown, endpoint: string) => {
+      if (endpoint === "/api/actions/deploy.apply") return { status: 200, data: { result: { ok: true, data: { operationId: "op1", deploymentId: "d1" } } } };
+      if (endpoint === "/api/actions/deploy.approve") return planning-- > 0 ? { status: 200, data: { result: { ok: false, error: "This deployment is planning; only a deployment awaiting approval can be approved." } } } : { status: 200, data: { result: { ok: true } } };
+      if (endpoint.startsWith("/api/platform/v1/operations/")) return { status: 200, data: { operation: { status: "succeeded", approvalRound: 1 } } };
+      throw new Error(endpoint);
+    };
+    const product = browserDeploy01Product({}, { request: request as never, approve: async () => undefined, session: async () => ({ tenant: tenant as never, close: async () => undefined }), sleep: async () => undefined });
+    const t = await product.createTenant();
+    await expect(product.deploy(t, "env1", "apply")).resolves.toEqual({ operationId: "op1", status: "succeeded" });
+    expect(planning).toBe(-1);
+  });
+
   it("names the product's sanitized reason when deploy.approve is refused", async () => {
     const tenant = { workspaceId: "ws1", projectId: "p1", owner: {}, approver: {}, stack: {}, ownerSecret: "o", approverSecret: "a" };
     const request = async (_page: unknown, endpoint: string) => {

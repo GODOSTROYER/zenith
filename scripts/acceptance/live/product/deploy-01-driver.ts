@@ -181,11 +181,14 @@ export function browserDeploy01Product(env: EnvLike = process.env, seams: Deploy
   const approveProposal = async (session: TenantSession, tenant: Deploy01Tenant, environmentId: string, operationId: string, deploymentId: string) => {
     const scope = { projectId: tenant.projectId, environmentId };
     await approve(session, operationId);
-    // A 409 right after the proposal approval is the operation still changing state; retry it for up to a minute.
+    // Right after the proposal approval the operation is still changing state: a 409, or a deployment still planning
+    // ("only a deployment awaiting approval can be approved"). Retry either for up to a minute.
     let approved: Awaited<ReturnType<typeof runAction>> | undefined;
     for (let attempt = 1; !approved; attempt++) {
-      try { approved = await runAction(session, session.approver, "deploy.approve", { deploymentId }, scope); }
-      catch (error) {
+      try {
+        approved = await runAction(session, session.approver, "deploy.approve", { deploymentId }, scope);
+        if (!approved.ok && /is planning/.test(approved.why) && attempt < 6) { approved = undefined; await sleep(10_000); }
+      } catch (error) {
         if (!(error instanceof Refusal && /\(HTTP 409\b/.test(error.message)) || attempt >= 6) throw error;
         await sleep(10_000);
       }

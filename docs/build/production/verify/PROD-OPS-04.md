@@ -309,3 +309,18 @@ Source `2cdb66db`, the commit of this requirement's `live_sandbox` receipt, so t
 
 
 `operational_rehearsal` is still not done. Not a promotion.
+
+## Operational rehearsal receipt at 2cdb66db (2026-11-03)
+
+The rehearsal named in `docs/platform/operations/RESTORE-RUNBOOK.md` ("Rehearse it") ran on a clean detached checkout of 2cdb66db, the commit of the live_sandbox, contract and local_engine receipts:
+
+- `tests/ops/recovery-rehearsal.test.ts`: 10 passed, 0 failed, 0 skipped, exit 0.
+- Disposable PostgreSQL 16.15-alpine on loopback, Homebrew pg_dump/pg_restore 16.15 and a Temporal CLI 1.9.1 dev server.
+- `ZENITH_TEST_RECOVERY_REQUIRED=1` and `ZENITH_TEST_TEMPORAL=1` were set, so a missing prerequisite fails instead of skipping.
+- Receipt: `docs/build/production/evidence/PROD-OPS-04/2026-11-03-operational-rehearsal-2cdb66db/`.
+
+With this receipt, all four required levels hold passing receipts at one commit.
+
+Limits:
+- This is a scripted local rehearsal on the owner's Mac. It is not a staging or production restore.
+- The ledger state stays `in_progress`. Promoting it to `verified` is a separate owner decision.

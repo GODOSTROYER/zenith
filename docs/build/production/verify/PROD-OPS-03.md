@@ -203,3 +203,28 @@ Source `d788ff92`, the commit of this requirement's `live_sandbox` receipt, so t
 
 
 `operational_rehearsal` is still not done. Not a promotion.
+
+## Operational rehearsal receipt at d788ff92 (2026-11-03)
+
+The operational rehearsal checklist in `docs/platform/operations/ROLLING-UPGRADES.md` ran through the operated upgrade driver (`tests/acceptance/operated-upgrade.engine.test.ts`). It used a clean checkout of d788ff92, the commit of the live_sandbox, contract and local_engine receipts.
+
+Setup, following `verify/DRV-3.md`:
+- A fresh lean J1 stack. Readiness was 16 passed, 0 failed, 0 skipped before the gate.
+- A private J2 fixture: kind `zenith-j2`, a witness image and real browser identities.
+- Same-source candidate images with distinct build labels.
+- The stack's CA, trusted SSL-only in the owner's login keychain.
+
+Result:
+- 1 passed, 0 failed, 0 skipped, exit 0.
+- The operated receipt (`upgrade-engine-receipt.json`) records all 10 checks passed: preconditions, compatibility gates, browser review in flight, expand worker and API, candidate readback, injected API failure, rollback readback, approved-execution readback, source binding and cleanup.
+- All four required levels now hold passing receipts at one commit.
+
+Two earlier attempts failed at the driver preconditions and are not counted:
+1. `default-stack:port-offset-drift`. The stack ran with port offset 1000 beside the owner's dev Supabase, but the operated drivers' environment allowlist drops `ZENITH_DEFAULT_STACK_PORT_OFFSET`. The dev Supabase was stopped so the stack could use the default ports.
+2. `default-stack:readiness`. The stack's Supabase containers were stopped and restarted around the image builds, and the stack was not ready afterwards. The builds now run without that pause, since this Mac's Docker has 8 GB.
+
+Limits:
+- Scripted local rehearsal on the owner's Mac.
+- Same-source candidates, not a released N-1/N binary matrix.
+- Lean profile: one API and one worker, so there is no high availability claim.
+- The ledger state is unchanged. Not a promotion.

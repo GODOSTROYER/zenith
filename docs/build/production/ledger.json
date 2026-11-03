@@ -7592,7 +7592,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; rolling_upgrade_and_rollback_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01",
+      "implementationStatus": "implementation_complete_verification_pending; rolling_upgrade_and_rollback_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03",
       "implementationNote": "J11: real-digest resolver and fixture-activated history replay manifest lane; registry pins, recorded histories and rollout/rollback acceptance pending on Mac. Integration: the verifier's frozen current-source histories and replay evidence below are retained; previous-release compatibility and rollout/rollback acceptance remain pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7677,6 +7677,16 @@
           "result": "PROD-OPS-03 real-engine suite at the commit of its live_sandbox receipt: 38 passed, 0 failed, 0 skipped, exit 0, over 3 test files (tests/workflows/upgrade-rehearsal.test.ts, tests/workflows/replay.test.ts, tests/workflows/history-replay.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-01-local-engine-d788ff92/release-evidence-PROD-OPS-03.json",
           "sha256": "a21551abc93cc5f53f839f967e3d1cba9a787774833a6ca1640d11a5a09cc8c6"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "d788ff92f67d0f57bae84d91adcc61971f264def",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-03 --mode local -- tests/acceptance/operated-upgrade.engine.test.ts --no-file-parallelism --maxWorkers=1 (fresh lean J1 stack and J2 fixture per verify/DRV-3.md)",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 and kind v0.33.0 (release checksums verified), Temporal CLI 1.9.1; fresh lean J1 default stack (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0 before the gate) and private J2 journey fixture (tests/e2e/default/prepare.mjs, kind zenith-j2) per docs/build/production/verify/DRV-3.md, stack CA trusted SSL-only in the login keychain by the owner; same-source candidate images with distinct build labels; runbook docs/platform/operations/ROLLING-UPGRADES.md operational rehearsal checklist; gates ZENITH_LOCAL_OPERATED ZENITH_LOCAL_TARGETS ZENITH_LOCAL_JOINED_DRIVERS ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_DEFAULT_JOURNEY ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_LOCAL_JOURNEY_CONFIG_FILE ZENITH_LOCAL_UPGRADE_IMAGES_FILE",
+          "logs": "docs/build/production/evidence/PROD-OPS-03/2026-11-03-operational-rehearsal-d788ff92/",
+          "result": "PROD-OPS-03 operational rehearsal (ROLLING-UPGRADES.md checklist) at the commit of its live_sandbox receipt, on a fresh owned lean J1 stack with a J2 kind target and real browser identities: upgrade to same-source candidate images with an in-flight browser review, compatibility gates, injected API failure, rollback and approved-execution readback, owned cleanup. 1 passed, 0 failed, 0 skipped, exit 0; the operated receipt (upgrade-engine-receipt.json) records all 10 checks passed. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-03-operational-rehearsal-d788ff92/release-evidence-PROD-OPS-03.json",
+          "sha256": "59dcc6c942c58820b4ba3083f55d4b213f88ca536b0c444f6403f141a3bf3428"
         }
       ],
       "requiredEvidence": [

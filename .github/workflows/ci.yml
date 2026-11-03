@@ -1641,7 +1641,9 @@ jobs:
   #   - Any PostgreSQL version but 16.15.
   platform-postgres:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The full native suite took 23m40s; allow setup, real restore checks,
+    # evidence collection and owned cleanup to finish within the job budget.
+    timeout-minutes: 35
 
     services:
       postgres:
@@ -1673,9 +1675,6 @@ jobs:
       # describe.each(LANES). Loopback only: apply-platform-migrations.sh
       # refuses any other host.
       ZENITH_TEST_PLATFORM_PG_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci
-      # Use server-major clients explicitly; the restore scenario refuses missing/mismatched versions.
-      ZENITH_TEST_PG_DUMP_BIN: /usr/lib/postgresql/16/bin/pg_dump
-      ZENITH_TEST_PG_RESTORE_BIN: /usr/lib/postgresql/16/bin/pg_restore
       # SUPABASE_DB_URL / ZENITH_PLATFORM_DB* are deliberately unset so nothing
       # can resolve the platform database to anything but the URL above.
 
@@ -1690,6 +1689,25 @@ jobs:
           cache: npm
 
       - run: npm ci --ignore-scripts
+
+      - name: Use matching PostgreSQL16 platform clients
+        shell: bash
+        run: |
+          set -euo pipefail
+          platform_tmp="$(mktemp -d "$RUNNER_TEMP/zenith-platform.XXXXXX")"
+          chmod 700 "$platform_tmp"
+          echo "TMPDIR=$platform_tmp" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pg-tools"
+          for tool in pg_dump pg_restore; do
+            cat > "$RUNNER_TEMP/pg-tools/$tool" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGHOST --env PGPORT --env PGUSER --env PGDATABASE --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
+          EOF
+            chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
+          done
+          echo "ZENITH_TEST_PG_DUMP_BIN=$RUNNER_TEMP/pg-tools/pg_dump" >> "$GITHUB_ENV"
+          echo "ZENITH_TEST_PG_RESTORE_BIN=$RUNNER_TEMP/pg-tools/pg_restore" >> "$GITHUB_ENV"
 
       - name: Install pinned OpenTofu
         shell: bash
@@ -1945,7 +1963,7 @@ jobs:
             cat > "$RUNNER_TEMP/pg-tools/$tool" <<EOF
           #!/usr/bin/env bash
           set -euo pipefail
-          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
+          exec docker run --rm --user "\$(id -u):\$(id -g)" --network host --env PGHOST --env PGPORT --env PGUSER --env PGDATABASE --env PGPASSWORD --env PGSSLMODE -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685 "$tool" "\$@"
           EOF
             chmod 700 "$RUNNER_TEMP/pg-tools/$tool"
           done

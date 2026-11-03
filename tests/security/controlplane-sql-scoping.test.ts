@@ -262,7 +262,9 @@ function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.Func
   if (captureOwners.size !== 3) return false;
   const literalClauses: Record<string, string> = {
     LIVE_USE_AUTHORITY: "83c59ac088fd79302d4e35ee4be2c92ab61ea180dbdd0ea3134bd2e2d22f0b77",
-    DISPATCH_SOURCE_AUTHORITY: "f8e290362c74a3fe7ac1bf511b4f90ace2aaad54b91c8d3e9f2afe5026d8c34c",
+    // Repository IDs remain authoritative after name reuse; name-only matches
+    // require the current name, so revoked history cannot select another repo.
+    DISPATCH_SOURCE_AUTHORITY: "ed72d514b439142d33232e49c211e2d2022b163821a9ef16d33912b05b7af03b",
   };
   for (const [name, expected] of Object.entries(literalClauses)) {
     const found: ts.VariableDeclaration[] = [];
@@ -356,6 +358,10 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
   const owning = repo.statements.filter(ts.isFunctionDeclaration).filter(node => node.name?.text === fn.name);
   if (owning.length !== 1 || !owning[0].body || !fn.body.trimStart().startsWith(owning[0].getText(repo))) return false;
   if (fn.name !== "claim" && !fixedStandaloneBindings(repo)) return false;
+  // Claim returns the encrypted original and consumes its sole ready attempt.
+  // Its source capture and final post-wait authority predicate must stay bound.
+  if (fn.name === "claim" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
+    !== "16675ae76250ef9d77f3b540eba7b35b4c1e0c3cd37dfc68c40e3c428deef6b6") return false;
   // The dispatch proof also includes authenticated settlements. Pin its full
   // original transaction and exact current-authority parameter binding.
   if (fn.name === "dispatch" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
@@ -556,6 +562,8 @@ describe("control-store repositories: workspace scoping is present in every func
     expect(job).toContain("markStorageKeyRevoked(db, key.workspaceId, key.id, now)");
   });
 
+  // Parse every tenant query plus hundreds of hostile AST variants, with a
+  // bounded budget independent of the shorter unit-test default.
   it("SQL that carries a tenant id takes it as a bound parameter, never by string concatenation", () => {
     const start = fns.find(fn => fn.file === "workflow-start-intents.ts" && fn.name === "get")!;
     expect(isFixedStartAuthorityInterpolation(start, "currentAuthority", "where ")).toBe(true);
@@ -628,6 +636,13 @@ describe("control-store repositories: workspace scoping is present in every func
       expect(isFixedPlanProductInterpolation(changedRepo("JSON.stringify(productAuthority)", "JSON.stringify(input)"), expression, query, composerSource)).toBe(false);
       const directValue = query.replace("planProductDispatchPredicate(productAuthority)", "productAuthority.witness.id");
       expect(isFixedPlanProductInterpolation(changedRepo(query, directValue), "productAuthority.witness.id", directValue, composerSource)).toBe(false);
+      if (fn.name === "claim") {
+        const bypassSource = query.replace("and (${DISPATCH_SOURCE_AUTHORITY})", "and true");
+        expect(bypassSource).not.toBe(query);
+        expect(isFixedPlanProductInterpolation(changedRepo(query, bypassSource), expression, bypassSource, composerSource)).toBe(false);
+        expect(isFixedPlanProductInterpolation(changedRepo("JSON.stringify(sourceAuthority)", "JSON.stringify(input)"), expression, query, composerSource)).toBe(false);
+        expect(isFixedPlanProductInterpolation(changedRepo("const sourceAuthority = await captureSourceDispatch(tx,row);", "const sourceAuthority = input;"), expression, query, composerSource)).toBe(false);
+      }
     }
     const cleanupWrites = fns.filter(fn => fn.file === "plan-artifacts.ts"
       && ["retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name));
@@ -821,5 +836,5 @@ describe("control-store repositories: workspace scoping is present in every func
       }
     }
     expect(risky, "interpolating anything but a constant column list into SQL text is an injection risk: use $n parameters").toEqual([]);
-  });
+  }, 60_000);
 });

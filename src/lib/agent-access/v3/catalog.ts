@@ -109,7 +109,9 @@ const SOURCES: Record<ToolName, Source> = {
   },
   zenith_submit_source_proposal: {
     title: "Submit returned source proposal", description: "Record a returned commit or patch digest and verification claims against the exact handoff base for human review. Requires both plan and export scopes. Does not push source, apply a patch, run a model, or deploy.",
-    access: "propose", capability: "infrastructure.plan", requiredScope: "plan", additionalScopes: ["export"], schemaVersion: 1, annotations: { ...PROPOSE, openWorldHint: true }, schema: SubmitSourceProposalInput,
+    // Zod now renders the disjoint commit/patch branches as oneOf. Version the
+    // changed wire schema even though its accepted inputs are unchanged.
+    access: "propose", capability: "infrastructure.plan", requiredScope: "plan", additionalScopes: ["export"], schemaVersion: 2, annotations: { ...PROPOSE, openWorldHint: true }, schema: SubmitSourceProposalInput,
   },
   zenith_get_topology: {
     title: "Get topology",

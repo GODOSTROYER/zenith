@@ -19,7 +19,7 @@ type LockedNode = {
   optionalDependencies?: Record<string, string>; peerDependencies?: Record<string, string>;
   peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 };
-const advisory = (id = ADVISORY, name = "vulnerable") => ({ source: 1000001, name, dependency: name, title: "Synthetic vulnerable dependency advisory", url: `https://github.com/advisories/${id}`, severity: "high", cwe: ["CWE-400"], cvss: { score: 7.5, vectorString: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H" }, range: "<1.0.1" });
+const advisory = (id = ADVISORY, name = "vulnerable") => ({ source: id === ADVISORY ? 1000001 : 1000002, name, dependency: name, title: "Synthetic vulnerable dependency advisory", url: `https://github.com/advisories/${id}`, severity: "high", cwe: ["CWE-400"], cvss: { score: 7.5, vectorString: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H" }, range: "<1.0.1" });
 type Vulnerability = { name: string; severity: string; range: string; isDirect: boolean; nodes: string[]; effects: string[]; fixAvailable: boolean | { name: string; version: string; isSemVerMajor: boolean }; via: (string | ReturnType<typeof advisory>)[] };
 const dirs: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const root of dirs.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });

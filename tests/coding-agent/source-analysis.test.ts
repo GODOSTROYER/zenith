@@ -81,6 +81,22 @@ describe("source redaction boundary", () => {
 });
 
 describe("bounded requirements and proposals", () => {
+  it("reads exactly the retained Next route and Unicode paths while refusing escapes and normalization aliases", () => {
+    const paths = ["src/app/(product)/p/[slug]/page.tsx", "src/app/[...parts]/page.tsx", "src/学校/学生.ts", "src/$feature.ts"];
+    const retained = snapshotFromFiles(Object.fromEntries(paths.map(path => [path, "export const title = 'retained source';"])), { includeEvidence: true });
+    const state: ToolState = { snapshot: retained, repository: "owner/repo", injectionSignals: new Set() };
+    expect(retained.files.map(file => file.path).sort()).toEqual([...paths].sort());
+    const listed = runTool("list_files", {}, state);
+    for (const path of paths) {
+      expect(listed.text).toContain(path);
+      expect(runTool("read_file", { path }, state)).toMatchObject({ text: expect.stringContaining("retained source") });
+      expect(state.readPaths?.has(path)).toBe(true);
+    }
+    for (const path of ["../secret.ts", "src/../secret.ts", "/etc/passwd", "src\\secret.ts", "src/./$feature.ts", "src//$feature.ts", "src/%2e%2e/secret.ts"])
+      expect(runTool("read_file", { path }, state)).toMatchObject({ isError: true, unsafe: "path_escape" });
+    expect(runTool("read_file", { path: "src/学校/先生.ts" }, state)).toMatchObject({ isError: true, text: "No such file in the snapshot." });
+  });
+
   it("refuses a model attempt to downgrade the trusted production target class", () => {
     const state = toolState();
     state.environmentClass = "production";

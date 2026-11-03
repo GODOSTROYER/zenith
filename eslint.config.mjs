@@ -2,7 +2,6 @@ import { dirname, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "node:module";
 import { statSync } from "node:fs";
-import { FlatCompat } from "@eslint/eslintrc";
 
 // Next 15.5.24 uses only globSync(string, { onlyDirectories: true }) from
 // fast-glob, in get-root-dirs. Its scoped npm alias removes the unpatched
@@ -11,11 +10,32 @@ import { FlatCompat } from "@eslint/eslintrc";
 // exclude files and the base of a trailing globstar. This is the module
 // resolved by this exact Next plugin, not the root glob used by E2B.
 const require = createRequire(import.meta.url);
+// The pinned v11 matcher removes the vulnerable pattern preprocessor. Legacy
+// lint plugins still call the CommonJS export directly; retain that calling
+// convention while forwarding all matching to the unchanged v11 implementation.
+const matcherPath = require.resolve("minimatch");
+const matcherApi = require(matcherPath);
+if (require("minimatch/package.json").version !== "11.0.4") {
+  throw new Error("Lint requires the reviewed minimatch 11.0.4 implementation.");
+}
+if (typeof matcherApi !== "function") {
+  const callable = Object.assign(matcherApi.minimatch, matcherApi);
+  // import/no-internal-modules is the sole legacy makeRe consumer in the pinned
+  // lint graph. It uses only .test(path). Preserve that narrow predicate with
+  // v11 matching; do not recreate the removed regex compiler or RegExp API.
+  callable.makeRe = (pattern, options) => {
+    const matcher = new matcherApi.Minimatch(pattern, options);
+    return Object.freeze({ test: (value) => matcher.match(value) });
+  };
+  callable.default = callable;
+  require.cache[matcherPath].exports = callable;
+}
+const { FlatCompat } = require("@eslint/eslintrc");
 const nextRequire = createRequire(require.resolve("@next/eslint-plugin-next"));
 const nextGlob = nextRequire("fast-glob");
 const nextGlobPackage = nextRequire("fast-glob/package.json");
-if (nextGlobPackage.name !== "glob" || nextGlobPackage.version !== "13.0.6") {
-  throw new Error("Next lint requires the reviewed glob 13.0.6 alias.");
+if (nextGlobPackage.name !== "glob" || nextGlobPackage.version !== "14.0.3") {
+  throw new Error("Next lint requires the reviewed glob 14.0.3 alias.");
 }
 const globRequire = createRequire(nextRequire.resolve("fast-glob"));
 const { braceExpand } = globRequire("minimatch");

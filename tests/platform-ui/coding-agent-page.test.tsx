@@ -14,7 +14,7 @@ vi.mock("@/lib/controlplane/db", () => ({ platformDb: async () => ({}), repos: {
   listRuns: async () => state.rows,
   getRun: async (_db: unknown, _workspaceId: string, id: string) => state.rows.find(row => row.id === id),
 } } }));
-vi.mock("@/lib/coding-agent/platform", () => ({ assertRunSourceAccess: (row: CodingAgentRunRow) => state.authorize(row) }));
+vi.mock("@/lib/coding-agent/platform", () => ({ assertRunSourceAccess: (row: CodingAgentRunRow) => state.authorize(row), createRunSourceAccessChecker: () => (row: CodingAgentRunRow) => state.authorize(row) }));
 vi.mock("@/lib/db/store", () => ({ db: () => ({ projects: [], environments: [] }) }));
 vi.mock("@/app/(product)/platform/coding-agent/run-controls", () => ({ AutoRefresh: () => null, StartRun: () => null, RunControls: () => null }));
 vi.mock("@/app/(product)/platform/_lib/loaders", () => ({

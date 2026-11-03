@@ -61,6 +61,42 @@ describe("mandatory dependency audit", () => {
     expect(result.findings[1]).toMatchObject({ package: "parent", advisoryIds: ["GHSA-abcd-2345-ghjk"], scope: { severity: "high", range: "*", via: ["example", "example"] } });
   });
 
+  it("retains multiple npm range records for one GHSA and keeps every affected branch blocking", () => {
+    const finding = direct();
+    finding.range = ">=7.0.0 <7.30.1 || >=8.0.0 <8.12.2";
+    finding.via[0].range = ">=7.0.0 <7.30.1";
+    finding.via.push({ ...finding.via[0], source: 1000002, range: ">=8.0.0 <8.12.2" });
+    child(JSON.stringify(report({ example: finding })), 1);
+    expect(runSecurityAudit(root)).toMatchObject({
+      ok: false, validated: true, accepted: [],
+      unaccepted: [{ package: "example", advisoryIds: ["GHSA-abcd-2345-ghjk"], scope: {
+        range: finding.range, via: [
+          { source: 1000001, range: ">=7.0.0 <7.30.1" },
+          { source: 1000002, range: ">=8.0.0 <8.12.2" },
+        ],
+      } }],
+    });
+  });
+
+  it("refuses one npm source identifier reused for different advisory URLs", () => {
+    const finding = direct();
+    finding.via.push({ ...finding.via[0], url: "https://github.com/advisories/GHSA-hjkm-2345-pqrs" });
+    expect(assessAudit(report({ example: finding }), 1)).toMatchObject({ ok: false, validated: false, reason: "Malformed vulnerability scope." });
+  });
+
+  it("resolves every advisory through cyclic meta-vulnerabilities without clearing any affected package", () => {
+    const example = direct();
+    const parent = { ...direct(), name: "parent", via: ["example"] };
+    Object.assign(example, { via: [...example.via, "parent"] });
+    const result = assessAudit(report({ example, parent }), 1);
+    expect(result).toMatchObject({ ok: false, validated: true });
+    expect(result.findings.map(finding => [finding.package, finding.advisoryIds])).toEqual([
+      ["example", ["GHSA-abcd-2345-ghjk"]], ["parent", ["GHSA-abcd-2345-ghjk"]],
+    ]);
+    expect(assessAudit(report({ example: { ...example, via: ["parent"] }, parent }), 1))
+      .toMatchObject({ ok: false, validated: false, reason: "Unresolvable npm audit dependency advisory." });
+  });
+
   it.each(["missing range", "empty range", "malformed range", "missing advisory range", "missing severity", "missing title", "missing remediation", "inconsistent advisory"])("rejects incomplete or inconsistent advisory scope: %s", (kind) => {
     const finding = direct();
     if (kind === "missing range") Reflect.deleteProperty(finding, "range");

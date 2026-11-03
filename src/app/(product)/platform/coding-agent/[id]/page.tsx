@@ -77,7 +77,7 @@ export default async function CodingAgentRunPage({ params }: { params: Promise<{
     <div className="space-y-5">
       <p className="text-[12px]"><Link className="text-signal hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal" href="/platform/coding-agent">All repository analyses</Link></p>
       <h1 className="app-page-title">Gimbal analysis</h1>
-      <AutoRefresh active={status === "running"} />
+      <AutoRefresh workspaceId={result.context.workspaceId} runs={status === "running" ? [{ id: String(run.id), status, version: Number(run.version) }] : []} refreshOnProgress />
       <section aria-labelledby="run-summary" className="space-y-1 text-[13px]">
         <h2 id="run-summary" className="sr-only">Summary</h2>
         <p><span className="font-medium">{RUN_STATUS_LABEL[status] ?? status}.</span> {reason}</p>

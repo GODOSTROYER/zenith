@@ -865,8 +865,10 @@ describe("operator claims match current wiring", () => {
     expect(builds).toContain("Platform migration 60 (`github_repository_grants`)");
     expect(builds).toContain("No separate GitHub schema installer is required");
     expect(builds).toContain("preserves event history");
-    expect(builds).toContain("`supabase/migrations/0029_platform_core.sql`");
-    expect(builds).toContain("`0027_platform_core.sql`, remain unchanged");
+    expect(builds).toContain("`supabase/migrations/0030_platform_core.sql`");
+    expect(builds).toContain("`0027_platform_core.sql` and `0029_platform_core.sql`, remain unchanged");
+    expect(builds).toContain("ZENITH_ALLOW_CONTRACT_MIGRATIONS=60,62,63");
+    expect(builds).toContain("Do not replace an unknown budget or spend value with zero");
     expect(builds).toContain("**Repositories** in the Platform navigation");
     expect(builds).toContain("[GITHUB-ANALYSIS.md](GITHUB-ANALYSIS.md)");
     expect(builds).not.toContain("separate from the platform migration ledger");

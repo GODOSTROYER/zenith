@@ -140,14 +140,14 @@ export async function captureMcpDeployAuthority(tx: Sql, op: DeployOperation): P
     if (!repository) return refused();
     const location = { owner: repository[1].toLowerCase(), repo: repository[2].replace(/\.git$/, "").toLowerCase() };
     sourceRepositories.push(location);
-    if (allBindings.some(b => b.owner === location.owner && b.repo === location.repo && b.revoked_at != null)) return refused();
+    if (allBindings.some(b => b.name_current === true && b.owner === location.owner && b.repo === location.repo && b.revoked_at != null)) return refused();
   }
   const sourceRows = await tx.query<{ row: Record<string, unknown> }>("select to_jsonb(s) as row from platform.approved_source_snapshots s where workspace_id=$1 and operation_id=$2 order by service_address collate \"C\" limit 10001", [ws, op.id]);
   if (sourceRows.length > 10000) return refused();
   const sourceAddresses = [...new Set(graph.nodes.filter(node => node.ownership === "managed" && ["container_service", "scheduled_job", "build_pipeline"].includes(node.kind)).map(node => node.address))].sort();
   const resources = (await tx.query<{ row: Record<string, unknown> }>("select to_jsonb(r) as row from platform.resources r where workspace_id=$1 and environment_id=$2 and address=any($3::text[]) order by address collate \"C\"", [ws, op.environment_id, textArray(sourceAddresses)])).map(value => value.row);
   const sourceIdentities = sourceRows.map(value => immutableSourceSnapshot(value.row.snapshot));
-  const bindings = allBindings.filter(b => sourceRepositories.some(r => b.owner === r.owner && b.repo === r.repo)
+  const bindings = allBindings.filter(b => b.name_current === true && sourceRepositories.some(r => b.owner === r.owner && b.repo === r.repo)
     || sourceIdentities.some(source => Number(b.repository_id) === source.repositoryId));
   const sources = sourceRows.map(value => {
     const row = value.row, source = immutableSourceSnapshot(row.snapshot);
@@ -162,7 +162,7 @@ export async function captureMcpDeployAuthority(tx: Sql, op: DeployOperation): P
         || digest(native[0].spec) !== digest(node.spec)) return refused();
     }
     const remembered = source.githubBinding;
-    const matches = bindings.filter(b => Number(b.repository_id) === source.repositoryId || b.owner === source.owner && b.repo === source.repo);
+    const matches = bindings.filter(b => Number(b.repository_id) === source.repositoryId || b.name_current === true && b.owner === source.owner && b.repo === source.repo);
     if (matches.length > 1) return refused();
     const current = matches[0];
     if (remembered ? !current || current.revoked_at != null || current.app_id !== remembered.appId || Number(current.installation_id) !== remembered.installationId
@@ -234,7 +234,7 @@ export const MCP_DEPLOY_AUTHORITY = `($12::text::jsonb='null'::jsonb or (
   and exists(select 1 from platform.provider_connections c where c.workspace_id=o.workspace_id and c.id=$12::text::jsonb->'providerConnection'->>'id'
     and c.status='verified' and c.revoked_at is null and jsonb_build_object('id',c.id,'workspace_id',c.workspace_id,'provider',c.provider,'mode',c.mode,'config',c.config,'status',c.status,'revoked_at',c.revoked_at)=$12::text::jsonb->'providerConnection')
   and coalesce((select jsonb_agg(to_jsonb(b) order by b.repository_id) from platform.github_source_bindings b where b.workspace_id=o.workspace_id
-    and (exists(select 1 from jsonb_array_elements($12::text::jsonb->'sourceRepositories') loc where b.owner=loc->>'owner' and b.repo=loc->>'repo')
+    and (b.name_current and exists(select 1 from jsonb_array_elements($12::text::jsonb->'sourceRepositories') loc where b.owner=loc->>'owner' and b.repo=loc->>'repo')
       or exists(select 1 from jsonb_array_elements($12::text::jsonb->'sources') src where b.repository_id=(src->'snapshot'->>'repositoryId')::bigint))),'[]'::jsonb)=$12::text::jsonb->'bindings'
   and coalesce((select jsonb_agg(to_jsonb(s) order by s.service_address collate "C") from platform.approved_source_snapshots s where s.workspace_id=o.workspace_id and s.operation_id=o.id),'[]'::jsonb)=$12::text::jsonb->'sources'
   and coalesce((select jsonb_agg(to_jsonb(r) order by r.address collate "C") from platform.resources r where r.workspace_id=o.workspace_id and r.environment_id=o.environment_id

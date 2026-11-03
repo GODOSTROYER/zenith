@@ -71,6 +71,21 @@ function compose(db: PlatformDbHandle, ports?: Partial<ExecutionDeps>) {
   return composeExecutionActivities({ db, secretKey: "1".repeat(64), workerIdentity: "source-runtime-fixture", planDir: "unused", ports });
 }
 
+function expectScopedGithubReads(run: ReturnType<typeof structuralPostgres>["run"]) {
+  const calls = run.mock.calls.filter(([sql]) => sql.includes("platform.github_source_bindings"));
+  expect(calls.length).toBeGreaterThan(0);
+  for (const [sql, params] of calls) {
+    expect(sql).toMatch(/where workspace_id\s*=\s*\$1/);
+    if (sql.includes("repository_id=$2")) expect(params).toEqual([source.workspaceId, 99]);
+    else {
+      expect(sql).toContain("owner=$2 and repo=$3");
+      expect(params).toEqual([source.workspaceId, "acme", "app"]);
+    }
+    // A workspace-wide lookup could select an unrelated repository's grant.
+    expect(params).not.toEqual([source.workspaceId]);
+  }
+}
+
 describe("default approved source runtime composition", () => {
   it("constructs one recognized store without SQL, HTTP or global opening and routes both authorities to the captured handle", async () => {
     const owning = structuralPostgres(), fetchImpl = http(); vi.stubGlobal("fetch", fetchImpl);
@@ -80,8 +95,7 @@ describe("default approved source runtime composition", () => {
     await runtime.sourceSnapshots!.list({ workspaceId: source.workspaceId, operationId: source.operationId, projectId: source.projectId, environmentId: source.environmentId });
     const captured = await runtime.sourceBundle.capture!(source); await runtime.sourceBundle.verify!(captured);
     expect(owning.run.mock.calls.some(([sql, params]) => sql.includes("platform.approved_source_snapshots") && JSON.stringify(params) === JSON.stringify([source.workspaceId, source.operationId, source.projectId, source.environmentId]))).toBe(true);
-    const github = owning.run.mock.calls.filter(([sql]) => sql.includes("platform.github_source_bindings"));
-    expect(github.length > 0).toBe(true); expect(github.every(([, params]) => JSON.stringify(params) === JSON.stringify([source.workspaceId]))).toBe(true);
+    expectScopedGithubReads(owning.run);
     expect(captured.commitSha).toBe("d".repeat(40)); expect(recorded.globalDb).not.toHaveBeenCalled();
   });
   it("the default activity wiring passes the canonical store and fixed source port without opening global state", () => {
@@ -196,8 +210,7 @@ describe("direct owning source constructor admission", () => {
     await bundles.sourceSnapshots!.list({ workspaceId: source.workspaceId, operationId: source.operationId, projectId: source.projectId, environmentId: source.environmentId });
     const captured = await bundles.port.capture!(source); await bundles.port.verify!(captured);
     expect(owning.run.mock.calls.some(([sql, params]) => sql.includes("platform.approved_source_snapshots") && JSON.stringify(params) === JSON.stringify([source.workspaceId, source.operationId, source.projectId, source.environmentId]))).toBe(true);
-    const github = owning.run.mock.calls.filter(([sql]) => sql.includes("platform.github_source_bindings"));
-    expect(github.length > 0).toBe(true); expect(github.every(([, params]) => JSON.stringify(params) === JSON.stringify([source.workspaceId]))).toBe(true);
+    expectScopedGithubReads(owning.run);
     expect(foreign.run).not.toHaveBeenCalled(); expect(recorded.globalDb).not.toHaveBeenCalled();
   });
   it.each(["development", "production"])("direct construction refuses every explicit store/transport override in %s before source I/O", mode => {

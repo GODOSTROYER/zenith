@@ -126,11 +126,39 @@ describe("C3 default GitHub App acquisition", () => {
       expect(fetchImpl.mock.calls.every(([url]) => !String(url).includes(INSTALL_TOKEN))).toBe(true);
     } finally { s3.restore(); cb.restore(); }
   });
-  it("refuses a different repository before downloading any bytes", async () => {
-    configured(); const githubApi = api(); vi.stubGlobal("fetch", githubApi); const fetchImpl = download();
+  it("reads an unrelated public repository anonymously without borrowing a workspace grant", async () => {
+    configured(); const githubApi = api(); vi.stubGlobal("fetch", githubApi);
+    const fetchImpl = vi.fn<typeof fetch>(async (url, options) => {
+      expect(String(url)).toContain("/foreign/public/");
+      expect(new Headers(options?.headers).has("authorization")).toBe(false);
+      return new Response(new Uint8Array(gzipSync(writeTar([{ path: "root/Dockerfile", bytes: Buffer.from("FROM scratch\n") }]))));
+    });
+    const { defaultGithubAccess } = await import("@/lib/sources/github/runtime");
+    const bundler = createSourceBundles({ fetchImpl, withGithubAccess: (input, fn) => defaultGithubAccess({ ...input, workspaceId: "ws-a" }, fn) });
+    expect((await bundler.read({ ...source, repo: "foreign/public" })).bytes).toBeGreaterThan(0);
+    expect(fetchImpl).toHaveBeenCalledOnce(); expect(githubApi).not.toHaveBeenCalled();
+  });
+  it("refuses an unconnected private repository without issuing or forwarding an installation token", async () => {
+    configured(); const githubApi = api(); vi.stubGlobal("fetch", githubApi);
+    const fetchImpl = vi.fn<typeof fetch>(async (_url, options) => {
+      expect(new Headers(options?.headers).has("authorization")).toBe(false);
+      return new Response(null, { status: 404 });
+    });
     const { defaultGithubAccess } = await import("@/lib/sources/github/runtime");
     const bundler = createSourceBundles({ fetchImpl, withGithubAccess: (input, fn) => defaultGithubAccess({ ...input, workspaceId: "ws-a" }, fn) });
     await expect(bundler.read({ ...source, repo: "foreign/private" })).rejects.toThrow("acquisition failed");
+    expect(fetchImpl).toHaveBeenCalledOnce(); expect(githubApi).not.toHaveBeenCalled();
+  });
+  it("refuses a revoked repository grant before downloading source or issuing a token", async () => {
+    configured(); const githubApi = api(); vi.stubGlobal("fetch", githubApi); const fetchImpl = download();
+    const workspaceId = "ws-revoked-source", store = createGithubSourceStore(capture.db!);
+    const fence = await captureGithubWebhookFence(capture.db!, binding.appId, binding.installationId);
+    await store.bind({ ...binding, workspaceId, actorId: "human", expectedVersion: 0, installationGeneration: fence.generation });
+    const current = await store.getState(workspaceId, { owner: "acme", repo: "app" });
+    await store.revoke({ workspaceId, actorId: "human", bindingId: current!.bindingId, expectedVersion: current!.binding.version });
+    const { defaultGithubAccess } = await import("@/lib/sources/github/runtime");
+    const bundler = createSourceBundles({ fetchImpl, withGithubAccess: (input, fn) => defaultGithubAccess({ ...input, workspaceId }, fn) });
+    await expect(bundler.read(source)).rejects.toThrow("acquisition failed");
     expect(fetchImpl).not.toHaveBeenCalled(); expect(githubApi).not.toHaveBeenCalled();
   });
   it("keeps standalone public archive reads anonymous when the App is configured", async () => {

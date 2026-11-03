@@ -68,6 +68,7 @@ export function SourcePanel({ workspaceId, viewerRole, discoverySession }: { wor
   const router = useRouter();
   const blocked = viewerRole !== "admin";
   const [bindings, setBindings] = useState<SourceBindingView[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [appConfigured, setAppConfigured] = useState(false);
   const [repository, setRepository] = useState("");
   const [error, setError] = useState<string>();
@@ -81,21 +82,23 @@ export function SourcePanel({ workspaceId, viewerRole, discoverySession }: { wor
   const scope = `${workspaceId}:${viewerRole}`;
   const currentScope = useRef(scope);
   currentScope.current = scope;
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async (signal?: AbortSignal, cursor?: string) => {
     if (blocked || currentScope.current !== scope) return;
     const epoch = lifetime.current, request = ++readRequest.current;
     const current = () => !signal?.aborted && epoch === lifetime.current && request === readRequest.current && currentScope.current === scope;
     try {
-      const out = await api<{ appConfigured: boolean; bindings: SourceBindingView[] }>("/api/platform/v1/github/binding", { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal });
+      const url = "/api/platform/v1/github/binding" + (cursor ? `?${new URLSearchParams({ cursor })}` : "");
+      const out = await api<{ appConfigured: boolean; bindings: SourceBindingView[]; nextCursor?: string | null }>(url, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal });
       if (!current()) return;
-      setBindings(out.bindings ?? []); setAppConfigured(out.appConfigured); setSelection(null);
+      setBindings(previous => [...new Map([...(cursor ? previous : []), ...(out.bindings ?? [])].map(binding => [binding.bindingId, binding])).values()]);
+      setNextCursor(out.nextCursor ?? null); setAppConfigured(out.appConfigured); setSelection(null);
     } catch (failure) { if (current()) setError(sourceError(failure)); }
   }, [workspaceId, blocked, scope]);
   useEffect(() => {
     const controller = new AbortController();
     const epoch = ++lifetime.current;
     inFlight.current = false;
-    setBindings([]); setAppConfigured(false); setRepository(""); setSelection(null); setConfirmRevoke(undefined);
+    setBindings([]); setNextCursor(null); setAppConfigured(false); setRepository(""); setSelection(null); setConfirmRevoke(undefined);
     setBusy(undefined); setError(undefined); setNotice(undefined);
     void load(controller.signal);
     return () => { controller.abort(); lifetime.current = epoch + 1; };
@@ -159,11 +162,13 @@ export function SourcePanel({ workspaceId, viewerRole, discoverySession }: { wor
           <div className="flex flex-wrap gap-2">{githubUrl(binding.manageUrl) && <a href={githubUrl(binding.manageUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center rounded-ctl border border-line px-3 text-[13px] text-signal hover:underline">Manage access on GitHub</a>}{binding.state === "connected" && <Button size="sm" busy={busy === `verify-${binding.bindingId}`} disabled={!!busy} onClick={() => void verify(binding)} aria-label={`Verify access to ${binding.owner}/${binding.repo}`}>Verify access</Button>}{binding.state === "connected" && <Button variant="ghost" size="sm" disabled={!!busy} onClick={() => setConfirmRevoke(binding.bindingId)} aria-label={`Stop workspace access to ${binding.owner}/${binding.repo}`}>Stop workspace access</Button>}</div>
         </div>
         {binding.state === "revoked" && <Callout tone="warn">{binding.revokedReason ? WHY[binding.revokedReason] : "Source access was revoked."} Reconnect explicitly to authorize new analysis or builds. Previous approvals do not regain authority.</Callout>}
+        {binding.nameCurrent === false && <p className="text-[12px] text-ink-mute">Historical grant for repository ID {binding.repositoryId}. This name now belongs to a different connected repository; the previous grant remains revoked.</p>}
         {confirmRevoke === binding.bindingId && <div role="group" aria-label={`Confirm access removal for ${binding.owner}/${binding.repo}`} className="space-y-3 rounded-ctl border border-line p-3"><p className="text-[13px]">Stop this workspace from reading {binding.owner}/{binding.repo}? Projects using this connection will need reconnection before new source analysis or builds. Other repository connections and running applications continue.</p><div className="flex gap-2"><Button variant="danger" autoFocus busy={busy === `revoke-${binding.bindingId}`} disabled={!!busy} onClick={() => void revoke(binding)}>Confirm stop access</Button><Button variant="ghost" disabled={!!busy} onClick={() => setConfirmRevoke(undefined)}>Keep access</Button></div></div>}
       </li>)}</ul>}
+      {nextCursor && <Button variant="ghost" busy={busy === "more-connections"} disabled={!!busy} onClick={() => void run("more-connections", () => load(undefined, nextCursor))}>Load more connections</Button>}
     </Card>
     <Card title="Inspect and analyze a repository" subtitle="Select an exact source before Gimbal prepares a deployment proposal.">
-      <RepositoryPicker workspaceId={workspaceId} initialBindings={bindings} disabled={!!busy} onChange={setSelection} />
+      <RepositoryPicker workspaceId={workspaceId} initialBindings={bindings} initialNextCursor={nextCursor} disabled={!!busy} onChange={setSelection} />
       {continueHref && <Link className="mt-4 inline-flex min-h-9 items-center rounded-ctl bg-signal px-3 text-[13px] font-medium text-on-signal" href={continueHref}>Continue with Gimbal</Link>}
     </Card>
     <div aria-live="polite">{error && <Callout tone="err">{error}</Callout>}{notice && <p role="status" className="text-[13px] text-ink-mute">{notice}</p>}</div>

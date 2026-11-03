@@ -30,6 +30,30 @@ beforeEach(() => {
 });
 
 describe("repository input", () => {
+  it("resolves a deep-linked stable binding outside the first connection page", async () => {
+    fetchMock.mockImplementation(async url => String(url).includes("bindingId=")
+      ? reply({ bindings: [second], nextCursor: null })
+      : reply({ bindings: [binding], nextCursor: "next_page" }));
+    const el = mount(<RepositoryPicker workspaceId="ws_one" initialSource={{ bindingId: second.bindingId }} onChange={() => {}} />); await settle();
+    expect(requests()).toHaveLength(2);
+    expect(new URL(requests()[1].url, "https://zenith.test").searchParams.get("bindingId")).toBe(second.bindingId);
+    expect(new Headers(requests()[1].init?.headers).get("x-zenith-workspace")).toBe("ws_one");
+    expect(el.querySelector("select")!.value).toBe(second.bindingId);
+    expect(el.querySelector(`option[value="${binding.bindingId}"]`)).not.toBeNull();
+    expect(text(el)).toContain("Load more authorized repositories");
+  });
+  it("loads another bounded connection page and preserves earlier selections", async () => {
+    fetchMock.mockResolvedValue(reply({ bindings: [second], nextCursor: null }));
+    const el = mount(<RepositoryPicker workspaceId="ws_one" initialBindings={[binding]} initialNextCursor="cursor_one" onChange={() => {}} />);
+    select(el.querySelector("select")!, binding.bindingId);
+    click(button(el, "Load more authorized repositories")); await settle();
+    const request = requests()[0];
+    expect(new URL(request.url, "https://zenith.test").searchParams.get("cursor")).toBe("cursor_one");
+    expect(new Headers(request.init?.headers).get("x-zenith-workspace")).toBe("ws_one");
+    expect(el.querySelector("select")!.value).toBe(binding.bindingId);
+    expect(el.querySelector(`option[value="${second.bindingId}"]`)).not.toBeNull();
+    expect(text(el)).not.toContain("Load more authorized repositories");
+  });
   it("reads only the explicitly selected repository and emits a pinned, authorized source", async () => {
     const changed = vi.fn<(selection: RepositorySelection | null) => void>();
     const el = mount(<RepositoryPicker workspaceId="ws_one" initialBindings={[binding, second]} onChange={changed} />);
@@ -94,6 +118,39 @@ describe("repository input", () => {
     expect(new URL(requests()[1].url, "https://zenith.test").searchParams.get("ref")).toBe("release");
     expect(text(el)).toContain(commit);
   });
+  it.each([false, true])("aborts branch browsing on workspace change and ignores a late error=%s", async lateError => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockImplementation(async (_url, init) => new Headers(init?.headers).get("x-zenith-workspace") === "ws_one"
+      ? new Promise<Response>(resolve => { finish = resolve; })
+      : reply({ branches: [{ name: "current-branch", commitSha: commit, protected: false }], nextCursor: null }));
+    const el = mount(<RepositoryPicker workspaceId="ws_one" initialBindings={[binding]} onChange={() => {}} />);
+    select(el.querySelector("select")!, binding.bindingId); click(button(el, "Browse branches")); await settle();
+    const oldSignal = requests()[0].init!.signal!;
+    rerender(el, <RepositoryPicker workspaceId="ws_two" initialBindings={[second]} onChange={() => {}} />); await settle();
+    select(el.querySelector("select")!, second.bindingId);
+    expect(oldSignal.aborted).toBe(true);
+    expect(button(el, "Browse branches").disabled).toBe(false);
+    click(button(el, "Browse branches")); await settle();
+    finish(lateError ? reply({ error: { message: "Old workspace failed" } }, 503) : reply({ branches: [{ name: "stale-branch", commitSha: commit, protected: false }], nextCursor: null })); await settle();
+    expect(text(el)).toContain("current-branch"); expect(text(el)).not.toContain("stale-branch");
+    expect(text(el)).not.toContain("temporarily unavailable");
+    expect(button(el, "Browse branches").disabled).toBe(false);
+  });
+  it.each(["binding", "version"])("invalidates branch requests when the selected %s changes in the same workspace", async change => {
+    let finish!: (response: Response) => void;
+    fetchMock.mockResolvedValue(reply({ branches: [{ name: "new-branch", commitSha: commit, protected: false }], nextCursor: null }))
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const el = mount(<RepositoryPicker workspaceId="ws_one" initialBindings={[binding, second]} onChange={() => {}} />);
+    select(el.querySelector("select")!, binding.bindingId); click(button(el, "Browse branches")); await settle();
+    const signal = requests()[0].init!.signal!;
+    if (change === "binding") select(el.querySelector("select")!, second.bindingId);
+    else rerender(el, <RepositoryPicker workspaceId="ws_one" initialBindings={[{ ...binding, version: binding.version + 1 }, second]} onChange={() => {}} />);
+    await settle();
+    expect(signal.aborted).toBe(true); expect(button(el, "Browse branches").disabled).toBe(false);
+    finish(reply({ branches: [{ name: "old-branch", commitSha: commit, protected: false }], nextCursor: null })); await settle();
+    expect(text(el)).not.toContain("old-branch");
+    click(button(el, "Browse branches")); await settle(); expect(text(el)).toContain("new-branch");
+  });
 
   it("does not republish a late inspection after connection state changes", async () => {
     let finish!: (response: Response) => void;
@@ -126,6 +183,17 @@ describe("repository input", () => {
 });
 
 describe("workspace connections", () => {
+  it("pages connection history without dropping the first page or re-enabling revoked identities", async () => {
+    fetchMock.mockImplementation(async url => String(url).includes("cursor=")
+      ? reply({ appConfigured: true, bindings: [{ ...second, state: "revoked", nameCurrent: false }], nextCursor: null })
+      : reply({ appConfigured: true, bindings: [binding], nextCursor: "cursor_two" }));
+    const el = mount(<SourcePanel workspaceId="ws_one" viewerRole="admin" />); await settle();
+    click(button(el, "Load more connections")); await settle();
+    expect(text(el)).toContain("acme/web"); expect(text(el)).toContain("acme/api");
+    expect(text(el)).toContain("Historical grant for repository ID 11");
+    expect((el.querySelector('option[value="bind_two"]') as HTMLOptionElement).disabled).toBe(true);
+    expect(text(el)).not.toContain("Load more connections");
+  });
   it("confirms and revokes only the selected binding/version", async () => {
     const el = mount(<SourcePanel workspaceId="ws_one" viewerRole="admin" />); await settle();
     click(button(el, "Stop workspace access to acme/api"));

@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
+import { GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS, OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -339,8 +339,26 @@ const ownershipSnapshotCasIds = new Set([
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:7049bff8d926",
   "platform-postgres:tests/controlplane/ownership-transfers.test.ts:10a59cc38f80"
 ]);
+// Exact additive GitHub/analysis IDs leave predecessor comparisons only. New,
+// unknown requirements remain visible; the complete current lane requires these too.
+const githubAnalysisPlatformIds = new Set([
+  "platform-postgres:tests/coding-agent/lifecycle.test.ts:5174391dfd2d",
+  "platform-postgres:tests/sources/github-project-source.test.ts:d3fb4dc54173",
+  "platform-postgres:tests/controlplane/approved-source-snapshots.test.ts:376efd0a3c74",
+  "platform-postgres:tests/controlplane/approved-source-snapshots.test.ts:f35616759ac1",
+  "platform-postgres:tests/controlplane/approved-source-snapshots.test.ts:18b2abf17a5c",
+  "platform-postgres:tests/controlplane/approved-source-snapshots.test.ts:067d474bd884",
+  "platform-postgres:tests/controlplane/build-launches.test.ts:47f1a4768c31",
+  "platform-postgres:tests/controlplane/build-launches.test.ts:627933aaca77",
+  "platform-postgres:tests/controlplane/plan-artifact-source-authority.test.ts:c2b9bdba2c29",
+  "platform-postgres:tests/controlplane/plan-artifact-source-authority.test.ts:7ba83201ef4a",
+  "platform-postgres:tests/controlplane/plan-artifact-source-authority.test.ts:b52146ba7ec0",
+  "platform-postgres:tests/controlplane/mcp-start-source-authority.test.ts:84628b9ab96a",
+  "platform-postgres:tests/controlplane/mcp-start-source-authority.test.ts:b31232d73870",
+  "platform-postgres:tests/controlplane/mcp-start-source-authority.test.ts:b6ec1996b515",
+]);
 function priorOwnershipSnapshotRequirements(requirements: Requirement[]): Requirement[] {
-  return requirements.filter(item => !ownershipSnapshotCasIds.has(item.id));
+  return requirements.filter(item => !ownershipSnapshotCasIds.has(item.id) && !githubAnalysisPlatformIds.has(item.id));
 }
 function withoutIncomingPlatform(requirements: Requirement[]): Requirement[] {
   return withoutIncomingPlatformCohort(priorOwnershipSnapshotRequirements(requirements));
@@ -461,9 +479,14 @@ function declaredLiteralTests(file: string, suite?: string, untilSuite?: string)
   return [...body.matchAll(/\bit(?:\.each\((\[[^\]]*\])(?: as const)?\))?\(\s*"([^"\n]+)"/g)].flatMap(match => {
     if (!match[1]) return [match[2]];
     const values: unknown = JSON.parse(match[1]);
-    if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Expected committed string test parameters.");
-    return values.map(value => match[2].replace("%s", value));
+    if (!Array.isArray(values) || values.some(value => !["string", "boolean", "number"].includes(typeof value) || typeof value === "number" && !Number.isFinite(value))) throw new Error("Expected committed scalar test parameters.");
+    return values.map(value => match[2].replace("%s", String(value)));
   });
+}
+
+function declaredBeforeGithubAnalysis(file: string, suite?: string, untilSuite?: string): string[] {
+  const successors = new Set(GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS.filter(item => item.file === file && githubAnalysisPlatformIds.has(requirementId("platform-postgres", item))).map(item => item.test));
+  return declaredLiteralTests(file, suite, untilSuite).filter(test => !successors.has(test));
 }
 
 describe("canonical gate manifest", () => {
@@ -715,7 +738,10 @@ describe("mandatory approved source PostgreSQL gates", () => {
       expect(item.postgres).toBe(true);
       expect(declaredLiteralTests(group.file)).toContain(item.test);
     }
-    if (group.label === "native snapshots") expect(required.map(item => item.test)).toEqual(declaredLiteralTests(group.file));
+    if (group.label === "native snapshots") {
+      const successors = new Set(GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS.filter(item => item.file === group.file).map(item => item.test));
+      expect(required.map(item => item.test)).toEqual(declaredLiteralTests(group.file).filter(test => !successors.has(test)));
+    }
     if (group.label === "final source CAS") expect(required.map(item => item.test)).toEqual(declaredLiteralTests(group.file).filter(title =>
       ["final native source CAS", "retained-launch recovery fences", "rechecks ", "same stored digest", "native source CAS"].some(prefix => title.startsWith(prefix))));
     expect(reportFailures(required, contractReport(required), root)).toEqual([]);
@@ -783,7 +809,7 @@ describe("mandatory original-plan source dispatch gates", () => {
     expect(required).toHaveLength(group.count); expect(new Set(required.map(item => item.id)).size).toBe(group.count);
     expect(createHash("sha256").update(JSON.stringify(required.map(item => item.test))).digest("hex")).toBe(group.sha256);
     for (const item of required) { expect(item.postgres).toBe(true); expect(declaredLiteralTests(group.file)).toContain(item.test); }
-    const names = declaredLiteralTests(group.file);
+    const names = declaredBeforeGithubAnalysis(group.file);
     expect(required.map(item => item.test)).toEqual(group.file.includes("/controlplane/") ? names : names.filter(title => title.startsWith("independent saved binary")));
     expect(reportFailures(required, contractReport(required), root)).toEqual([]);
   });
@@ -1236,7 +1262,7 @@ describe("mandatory final MCP source authority and SDK protocol gates", () => {
     const required = finalMcpGroup(group);
     expect(required).toHaveLength(group.count);
     const names = required.map(item => item.test);
-    expect(names).toEqual(declaredLiteralTests(group.file, group.suite, group.untilSuite));
+    expect(names).toEqual(declaredBeforeGithubAnalysis(group.file, group.suite, group.untilSuite));
     expect(createHash("sha256").update(JSON.stringify(names)).digest("hex")).toBe(group.sha256);
     for (const item of required) {
       expect(item).toMatchObject({ file: group.file, suite: group.suite });
@@ -2616,9 +2642,9 @@ describe("current platform discovery successors [report models]", () => {
       try {
         const after = requirementsFor("platform-postgres", sourceRoot);
         expect(after.some(value => value.id === id)).toBe(false);
-        expect(after).toHaveLength(1159);
-        expect(after.filter(value => !mixedRunStorePlatformIds.has(value.id))).toHaveLength(1154);
-        expect(after.filter(value => !mixedRunStorePlatformIds.has(value.id) && !wave5PlatformIds.has(value.id))).toHaveLength(1151);
+        expect(after).toHaveLength(1173);
+        expect(after.filter(value => !mixedRunStorePlatformIds.has(value.id))).toHaveLength(1168);
+        expect(after.filter(value => !mixedRunStorePlatformIds.has(value.id) && !wave5PlatformIds.has(value.id))).toHaveLength(1165);
         expect(priorCurrentSuccessorPlatformRequirements(sourceRoot)).toEqual(priorCurrentSuccessorPlatformRequirements());
       } finally {
         // Each deletion still begins with the complete tree; restore its exact
@@ -2643,7 +2669,7 @@ describe("registered incident and ownership hardening [report models]", () => {
     const current = requirementsFor("platform-postgres", root), previous = priorHardeningPlatformRequirements();
     const added = INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) }));
     expect(previous).toHaveLength(1119); expect(new Set(previous.map(item => item.id)).size).toBe(1119);
-    expect(current).toHaveLength(1160); expect(new Set(current.map(item => item.id)).size).toBe(1160);
+    expect(current).toHaveLength(1174); expect(new Set(current.map(item => item.id)).size).toBe(1174);
     expect(current.filter(item => hardeningPlatformIds.includes(item.id))).toEqual(added);
     expect(withoutIncomingPlatform(current).map(item => item.id).sort()).toEqual([...previous, ...added].map(item => item.id).sort());
     expect(priorCurrentSuccessorPlatformRequirements()).toHaveLength(1113);
@@ -2953,7 +2979,7 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     expect(manifest.excludeFiles).not.toContain(file);
     expect(manifest.command).not.toContain("--passWithNoTests");
     expect(reportFailures(named(), contractReport(named()), root)).toEqual([]);
-    expect(requirementsFor("platform-postgres", root)).toHaveLength(1160);
+    expect(requirementsFor("platform-postgres", root)).toHaveLength(1174);
     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
     expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
     expect(requirementsFor("postgres", root)).toHaveLength(93);
@@ -3138,7 +3164,7 @@ describe("mandatory live agent journal PostgreSQL cases [report models]", () => 
 describe("incoming platform and workflow obligations", () => {
   it("requires every fixed additive native identity without losing historical obligations", () => {
     const current = requirementsFor("platform-postgres", root);
-    expect(current).toHaveLength(1160);
+    expect(current).toHaveLength(1174);
     const added = current.filter(item => incomingPlatformIds.has(item.id));
     expect(added).toHaveLength(23);
     expect(new Set(added.map(item => item.id))).toEqual(incomingPlatformIds);
@@ -3237,7 +3263,7 @@ describe("mixed run store application-boundary gate", () => {
     expect(new Set(required.map(item => item.id))).toEqual(mixedRunStorePlatformIds);
     const prior = priorOwnershipSnapshotRequirements(current).filter(item => !mixedRunStorePlatformIds.has(item.id) && !integrationPlatformIds.has(item.id));
     const verifierPrior = prior.filter(item => !wave5PlatformIds.has(item.id));
-    expect(current).toHaveLength(1160); expect(prior).toHaveLength(1144);
+    expect(current).toHaveLength(1174); expect(prior).toHaveLength(1144);
     expect(createHash("sha256").update(JSON.stringify(prior.map(item => item.id).sort())).digest("hex"))
       .toBe("9853b95bb67ad11ca77d19ead6db0f484fe718abf7c09b9cb144766806be2873");
     expect(verifierPrior).toHaveLength(1141);
@@ -3417,8 +3443,8 @@ describe("ownership snapshot final-statement PostgreSQL requirements", () => {
   it("adds ten exact native cases and preserves the complete 1146 predecessor", () => {
     const current = requirementsFor("platform-postgres", root);
     const required = current.filter(item => ownershipSnapshotCasIds.has(item.id));
-    expect(current).toHaveLength(1160);
-    expect(new Set(current.map(item => item.id)).size).toBe(1160);
+    expect(current).toHaveLength(1174);
+    expect(new Set(current.map(item => item.id)).size).toBe(1174);
     expect(required).toEqual(OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
     expect(required).toHaveLength(10);
     expect(required.every(item => item.postgres === true && item.suite === "ownership transfer immutable service-role custody [postgres]")).toBe(true);
@@ -3450,5 +3476,44 @@ describe("ownership snapshot final-statement PostgreSQL requirements", () => {
       assertion.fullName = [...assertion.ancestorTitles, assertion.title].join(" ");
       expect(reportFailures(required, report, root), item.id).toHaveLength(1);
     }
+  });
+});
+
+
+describe("mandatory GitHub repository and analysis native requirements", () => {
+  it("requires the complete additive cohort while retaining every historical obligation", () => {
+    const current = requirementsFor("platform-postgres", root);
+    const added = current.filter(item => githubAnalysisPlatformIds.has(item.id));
+    expect(new Set(GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)))).toEqual(githubAnalysisPlatformIds);
+    expect(added).toHaveLength(14);
+    expect(current.filter(item => !githubAnalysisPlatformIds.has(item.id))).toHaveLength(1160);
+    expect(current).toHaveLength(1174);
+    for (const item of added) {
+      expect(item.postgres === true || item.backend === "postgres").toBe(true);
+      if (item.test) expect(declaredLiteralTests(item.file)).toContain(item.test);
+      expect(fs.existsSync(path.join(root, item.file))).toBe(true);
+      expect(reportFailures([item], contractReport([item]), root)).toEqual([]);
+      expect(reportFailures([item], { success: true, testResults: [] }, root)).toHaveLength(1);
+      for (const status of ["failed", "skipped", "pending", "todo"]) {
+        const report = contractReport([item]); report.testResults[0].assertionResults[0].status = status;
+        expect(reportFailures([item], report, root), `${item.id}: ${status}`).toHaveLength(1);
+      }
+      const report = contractReport([item]);
+      report.testResults[0].assertionResults[0].ancestorTitles = [item.suite!.replace("postgres", "pglite")];
+      report.testResults[0].assertionResults[0].fullName = [...report.testResults[0].assertionResults[0].ancestorTitles, report.testResults[0].assertionResults[0].title].join(" ");
+      expect(reportFailures([item], report, root)).toHaveLength(1);
+    }
+    const future = { ...current[0], id: "unknown-github-analysis-successor" };
+    expect(priorOwnershipSnapshotRequirements([...current, future])).toContainEqual(future);
+  });
+  it("retains literal native obligations even when their test files disappear", () => {
+    const sourceRoot = modelRoot(path.join(scratch, "github-analysis-native-"));
+    copyDiscoverySources(sourceRoot);
+    for (const item of GITHUB_ANALYSIS_POSTGRES_REQUIREMENTS) {
+      fs.rmSync(path.join(sourceRoot, item.file), { force: true });
+    }
+    const required = requirementsFor("platform-postgres", sourceRoot).filter(item => githubAnalysisPlatformIds.has(item.id));
+    expect(new Set(required.map(item => item.id))).toEqual(githubAnalysisPlatformIds);
+    expect(reportFailures(required, { success: true, testResults: [] }, sourceRoot)).toHaveLength(14);
   });
 });

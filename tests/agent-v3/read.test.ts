@@ -22,7 +22,16 @@ describe.each(READ_TOOLS)("%s read authorization", (name) => {
       });
     }
     const result = await h.invoke(name, argsFor(name, p.id));
-    expect(result.ok).toBe(true); expect(h.authorizeRead).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    const sourceExport = ["zenith_get_source_context", "zenith_get_analysis", "zenith_get_handoff"].includes(name);
+    // Source verification can wait for GitHub. Export authority is checked again
+    // after that read, before protected repository context is returned.
+    expect(h.authorizeRead).toHaveBeenCalledTimes(sourceExport ? 2 : 1);
+    if (sourceExport) {
+      expect(h.trace.at(-1)).toBe("authorizeRead");
+      expect(h.trace.indexOf("sourceContext")).toBeGreaterThan(0);
+      expect(h.trace.indexOf("sourceContext")).toBeLessThan(h.trace.length - 1);
+    }
     // Operation metadata is loaded membership/grant-scoped to discover its
     // environment. No text/events/workflow query is exposed before policy.
     expect(h.trace[0]).toBe("authorizeRead");

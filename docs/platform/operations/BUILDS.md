@@ -74,10 +74,13 @@ npm run migrate:platform -- --status
 Platform migration 60 (`github_repository_grants`) upgrades the original singleton
 source model to stable per-repository grants, preserves event history, and adds
 expiring discovery sessions and project-source references. Migration 61 adds Gimbal
-analysis retention and worker availability. Apply the current migration set, or
-the new generated `supabase/migrations/0029_platform_core.sql`, as described in
+analysis retention and worker availability. Migration 62 (`coding_agent_jsonb_shapes`)
+normalizes valid legacy JSON strings and validates durable run payload shapes.
+Migration 63 (`github_repository_name_history`) preserves revoked repository identities
+when a name is reused. Apply the current migration set, or the new generated
+`supabase/migrations/0030_platform_core.sql`, as described in
 [DEPLOYING.md](DEPLOYING.md#32-migrating). Historical Supabase migrations, including
-`0027_platform_core.sql`, remain unchanged; GitHub sign-in's separate waitlist
+`0027_platform_core.sql` and `0029_platform_core.sql`, remain unchanged; GitHub sign-in's separate waitlist
 identity migration is `0028_github_waitlist_identity.sql`. No separate GitHub schema
 installer is required.
 The old `src/lib/sources/github/migrate.ts` command remains a compatibility
@@ -86,6 +89,47 @@ run GitHub schema DDL; a Postgres ledger behind the current schema fails closed 
 source access. A failed database read refuses source access rather than silently
 switching a configured workspace to anonymous access.
 Production uses shared Postgres; a PGlite directory still belongs to one process.
+
+### Upgrading existing repository grants and analysis runs
+
+Migrations **60, 62 and 63 are contract changes**. They are refused on an existing
+database until the operator confirms the previous release's writers are drained.
+This includes the web processes, execution workers and any controller that can
+write repository grants or analysis progress. Pause new admissions, let existing
+work reach a safe checkpoint, and stop the old writers before changing the schema.
+Take a database backup and rehearse restoration with PostgreSQL clients matching
+the server major version before the maintenance window.
+
+From schema 59, after reviewing the exact pending SQL and draining old writers:
+
+```sh
+ZENITH_ALLOW_CONTRACT_MIGRATIONS=60,62,63 npm run migrate:platform
+npm run migrate:platform -- --status
+```
+
+From schema 61, the pending contract versions are `62,63`. A fresh empty database
+is exempt from the drained-writer confirmation. The confirmation does not waive
+checksum, row-shape, or authority checks. If applying the generated SQL through
+Supabase, use the same maintenance window and restore rehearsal; the SQL snapshot
+does not itself establish that old application writers have stopped.
+
+Migration 62 converts valid legacy JSON strings to JSON objects in place, retaining
+run IDs, versions, timestamps and request identity. It refuses malformed JSON,
+non-object source/checkpoint/result values, and invalid or missing spend counters.
+If it refuses a retained record, keep admission paused, identify the affected run
+without exporting repository text, and restore or repair it from authoritative
+stored evidence. Do not replace an unknown budget or spend value with zero.
+Re-run the migrator only after the record has been reviewed and corrected.
+
+After migration, verify schema 63 and its recorded checksums, start only the new
+web/worker release, and check one existing private binding, one independent public
+repository, retained analysis status, and revoke/reconnect behavior. Name history
+keeps the old repository ID revoked when a new repository takes its owner/name;
+a new name is never permission to revive old runs or approvals. Rolling back the
+application alone to a singleton-grant writer is unsupported; restore the reviewed
+backup and compatible application release together if rollback is required.
+
+### Connecting and managing repository access
 
 As a signed-in **workspace admin**, open **Repositories** in the Platform navigation
 at `/platform/source`.

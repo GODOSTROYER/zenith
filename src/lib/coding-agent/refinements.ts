@@ -12,13 +12,13 @@ export const RefinementArgs = z.object({
     healthPath: z.string().regex(/^\/[A-Za-z0-9/_-]*$/).max(200).optional(),
     startCommand: z.string().min(1).max(300).regex(/^[^\u0000-\u001f\u007f]+$/).optional(),
     ...Proof,
-  }).strict()).max(20).default([]),
+  }).strict()).max(20).prefault([]),
   datastores: z.array(z.object({
     root: z.string().max(200),
     kind: z.enum(["postgres", "redis", "object_store", "queue", "email", "mysql", "mongodb", "rabbitmq", "kafka", "sqlite"]),
     role: z.enum(["publish", "consume", "both"]).optional(), ...Proof,
-  }).strict()).max(20).default([]),
-  questions: z.array(z.string().min(1).max(400)).max(20).default([]),
+  }).strict()).max(20).prefault([]),
+  questions: z.array(z.string().min(1).max(400)).max(20).prefault([]),
 }).strict();
 
 /** Keep global/shared dependency findings, but propose only the selected application's services. */

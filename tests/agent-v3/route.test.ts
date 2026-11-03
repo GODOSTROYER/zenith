@@ -60,17 +60,38 @@ describe("MCP v3 HTTP", () => {
   });
   it("modern protocol requests also use JSON and the same catalog/strict tools", async () => {
     const { h } = await setup();
-    // SDK 2.0 exports the legacy version as LATEST_PROTOCOL_VERSION; its
-    // modern request metadata negotiates the separate 2026 wire protocol.
+    // Modern metadata and the HTTP protocol header name the same wire version.
     const meta = { [PROTOCOL_VERSION_META_KEY]: "2026-07-28", [CLIENT_CAPABILITIES_META_KEY]: {} };
-    const list = await route.POST(request("tools/list", { _meta: meta }, { "mcp-method": "tools/list" }));
+    const list = await route.POST(request("tools/list", { _meta: meta }, { "mcp-method": "tools/list", "mcp-protocol-version": "2026-07-28" }));
     expect(list.status, await list.clone().text()).toBe(200); expect(list.headers.get("content-type")).toContain("application/json");
     const listedTools = (await list.json()).result.tools;
     expect(listedTools).toHaveLength(TOOL_NAMES.length);
     expect(listedTools.map((tool: { name: string }) => tool.name)).toContain("zenith_get_operation_events");
-    const call = await route.POST(request("tools/call", { _meta: meta, name: "zenith_get_topology", arguments: argsFor("zenith_get_topology") }, { "mcp-method": "tools/call", "mcp-name": "zenith_get_topology" }));
+    const call = await route.POST(request("tools/call", { _meta: meta, name: "zenith_get_topology", arguments: argsFor("zenith_get_topology") }, { "mcp-method": "tools/call", "mcp-name": "zenith_get_topology", "mcp-protocol-version": "2026-07-28" }));
     expect(call.status).toBe(200); expect((await call.json()).result.structuredContent.ok).toBe(true);
     expect(h.authorizeRead).toHaveBeenCalledTimes(1);
+  });
+  it.each([undefined, "2025-06-18"])("SDK refuses modern envelope with absent or mismatched protocol header %j before tool effects", async header => {
+    const { h, runtime, verify } = await setup();
+    runtime.streams = { open: vi.fn(async () => {}), append: vi.fn(async () => 1), read: vi.fn(async () => null),
+      status: vi.fn(async () => null), requestCancel: vi.fn(async () => 0), cancelRequested: vi.fn(async () => false), finish: vi.fn(async () => {}) };
+    const meta = { [PROTOCOL_VERSION_META_KEY]: "2026-07-28", [CLIENT_CAPABILITIES_META_KEY]: {}, progressToken: "refused-source-progress" };
+    for (const method of ["tools/list", "tools/call"]) {
+      const name = "zenith_submit_source_proposal";
+      const headers: Record<string, string> = { "mcp-method": method, ...(method === "tools/call" ? { "mcp-name": name } : {}) };
+      if (header !== undefined) headers["mcp-protocol-version"] = header;
+      const response = await route.POST(request(method, { _meta: meta, ...(method === "tools/call" ? { name, arguments: argsFor(name) } : {}) }, headers));
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body).toMatchObject({ jsonrpc: "2.0", id: 1, error: { code: -32020 } });
+      expect(body).not.toHaveProperty("result");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+    expect(verify).toHaveBeenCalledTimes(2); // HTTP authentication only; no tool reauthentication or effects.
+    expect(h.authorizeRead).not.toHaveBeenCalled(); expect(h.propose).not.toHaveBeenCalled(); expect(h.beginExecution).not.toHaveBeenCalled();
+    expect(h.ports.sourceContext!.get).not.toHaveBeenCalled();
+    expect(h.starts).toEqual({ deploy: [], dayTwo: [] });
+    expect(runtime.streams.open).not.toHaveBeenCalled(); expect(runtime.streams.append).not.toHaveBeenCalled();
   });
   it.each(["2025-11-25", "2026-07-28"])("never persists source-capable %s replies for resumable export after revocation", async protocolVersion => {
     const { h, runtime } = await setup();
@@ -80,13 +101,14 @@ describe("MCP v3 HTTP", () => {
     const submitted = await h.invoke("zenith_submit_source_proposal", { ...argsFor("zenith_submit_source_proposal"), expectedDigest: handoff.digest });
     expect(submitted.ok).toBe(true);
     const names = ["zenith_get_source_context", "zenith_get_analysis", "zenith_get_handoff", "zenith_submit_source_proposal", "zenith_get_operation", "zenith_get_operation_events"] as const;
+    const modern = protocolVersion === "2026-07-28";
+    const _meta = { progressToken: "source-progress", ...(modern ? { [PROTOCOL_VERSION_META_KEY]: protocolVersion, [CLIENT_CAPABILITIES_META_KEY]: {} } : {}) };
+    const headers = (name: string): Record<string, string> => ({ "mcp-protocol-version": protocolVersion,
+      ...(modern ? { "mcp-method": "tools/call", "mcp-name": name } : {}) });
     for (const name of names) {
       const args = argsFor(name, submitted.data.operationId as string);
       if (name === "zenith_submit_source_proposal") args.expectedDigest = handoff.digest;
-      const modern = protocolVersion === "2026-07-28";
-      const _meta = { progressToken: "source-progress", ...(modern ? { [PROTOCOL_VERSION_META_KEY]: protocolVersion, [CLIENT_CAPABILITIES_META_KEY]: {} } : {}) };
-      const headers: Record<string, string> = modern ? { "mcp-method": "tools/call", "mcp-name": name } : { "mcp-protocol-version": protocolVersion };
-      const response = await route.POST(request("tools/call", { name, arguments: args, _meta }, headers));
+      const response = await route.POST(request("tools/call", { name, arguments: args, _meta }, headers(name)));
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toContain("application/json");
       expect(response.headers.get("cache-control")).toBe("no-store");
@@ -95,8 +117,9 @@ describe("MCP v3 HTTP", () => {
     expect(runtime.streams.open).not.toHaveBeenCalled();
     expect(runtime.streams.append).not.toHaveBeenCalled();
     vi.mocked(h.ports.sourceContext!.get).mockRejectedValue(new AgentError("forbidden", "Repository access was revoked.", 403));
-    const retry = await route.POST(request("tools/call", { name: "zenith_get_handoff", arguments: argsFor("zenith_get_handoff") }));
+    const retry = await route.POST(request("tools/call", { name: "zenith_get_handoff", arguments: argsFor("zenith_get_handoff"), _meta }, headers("zenith_get_handoff")));
     expect((await retry.json()).result.structuredContent.ok).toBe(false);
+    expect(runtime.streams.open).not.toHaveBeenCalled(); expect(runtime.streams.append).not.toHaveBeenCalled();
   });
   it("HTTP validation refusals redact secret-shaped external member names", async () => {
     await setup();

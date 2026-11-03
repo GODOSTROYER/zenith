@@ -149,6 +149,55 @@ describe.skipIf(!PG_URL)("original plan source dispatch authority [postgres]", (
     expect(current.approved).toBe(true); expect(current.rejected).toBe(false); expect(current.dispatchApproval?.requiredApprovalCount).toBe(1);
     await artifacts.dispatch(sql, f.access, "source-attempt", current.dispatchApproval);
   }
+  it.each([true, false])("current original-plan source dispatch ignores a different ID's superseded name, bound=%s", async bound => {
+    const f = await fixture(bound);
+    await observer.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,98,'acme','app',2,'fixture-admin',clock_timestamp(),false)", [f.op.workspaceId]);
+    await artifacts.claim(db, f.access, "source-attempt");
+    await dispatch(f);
+    expect(await peer.query("select phase from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [f.op.workspaceId, f.op.id])).toEqual([{ phase: "dispatched" }]);
+  });
+  it("refuses an original public plan retaining a historical revoked repository ID", async () => {
+    for (const timing of ["before claim", "while claim waits"] as const) {
+      const f = await fixture(false);
+      const revoke = () => observer.query("insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by,revoked_at,name_current) values($1,'42',7,99,'acme','old-name',2,'fixture-admin',clock_timestamp(),false)", [f.op.workspaceId]);
+      if (timing === "before claim") {
+        await revoke();
+        await expect(artifacts.claim(db, f.access, "source-attempt")).rejects.toMatchObject({ code: "plan_artifact_unavailable" });
+      } else {
+        let claimantPid = 0; const entered = barrier(); let pending!: Promise<unknown>;
+        const claimant: Sql = { query: peer.query.bind(peer), tx: body => peer.tx(async tx => {
+          claimantPid = (await tx.query<{ pid: number }>("select pg_backend_pid() as pid"))[0].pid;
+          entered.release(); return body(tx);
+        }) };
+        const heldQuery = "select operation_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2 and phase='ready' for update";
+        await db.tx(async blocker => {
+          await blocker.query(heldQuery, [f.op.workspaceId, f.op.id]);
+          const blockerPid = (await blocker.query<{ pid: number }>("select pg_backend_pid() as pid"))[0].pid;
+          pending = artifacts.claim(claimant, f.access, "source-attempt").then(() => undefined, error => error);
+          await Promise.race([entered.promise, pending.then(() => { throw new Error("Claim ended before the expected native transaction."); })]);
+          let blocked = false; const deadline = Date.now() + 4_000;
+          while (Date.now() < deadline) {
+            const state = await observer.tx(async fresh => {
+              await fresh.query("select pg_stat_clear_snapshot()");
+              return (await fresh.query<{ pid: number; blocked: boolean }>(`select pg_backend_pid() as pid,exists(select 1 from pg_stat_activity a where a.pid=$1 and a.wait_event_type='Lock'
+                and a.query=$3 and $2=any(pg_blocking_pids(a.pid))) as blocked`, [claimantPid, blockerPid, heldQuery]))[0];
+            });
+            expect(new Set([state.pid, claimantPid, blockerPid]).size).toBe(3);
+            if (state.blocked) { blocked = true; break; }
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+          expect(blocked).toBe(true); await revoke();
+        });
+        expect(await pending).toMatchObject({ code: "plan_artifact_unavailable" });
+      }
+      expect(await peer.query("select phase,attempt_id from platform.plan_artifact_uses where workspace_id=$1 and operation_id=$2", [f.op.workspaceId, f.op.id]))
+        .toEqual([{ phase: "ready", attempt_id: null }]);
+      expect(await peer.query("select id from platform.evidence where workspace_id=$1 and operation_id=$2 and kind='observation' and summary->>'phase'='claimed'", [f.op.workspaceId, f.op.id]))
+        .toEqual([]);
+      expect(await observer.query("select repository_id,name_current,revoked_at is not null as revoked from platform.github_source_bindings where workspace_id=$1", [f.op.workspaceId]))
+        .toEqual([{ repository_id: 99, name_current: false, revoked: true }]);
+    }
+  }, 15_000);
   it.each(["unchanged private binding", "revoked private binding", "removed private binding", "replaced private binding", "introduced public binding"] as const)("final original-plan source admission fences %s during delayed current human role lookup", async change => {
     const f = await fixture(change !== "introduced public binding"); await artifacts.claim(db, f.access, "source-attempt");
     const wait = delayRole(f); let mutations = 0;

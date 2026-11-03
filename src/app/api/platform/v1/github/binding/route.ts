@@ -6,6 +6,7 @@
  * Agent credentials are refused by the browser guard; the response never carries a token.
  */
 import { platformDb } from "@/lib/controlplane/db/open";
+import { textArray } from "@/lib/controlplane/db/sql";
 import { route } from "@/lib/server/request";
 import { createGithubApp, githubAppConfig } from "@/lib/sources/github/app";
 import { createGithubSourceStore, githubReturnTo } from "@/lib/sources/github/store";
@@ -19,19 +20,30 @@ export const runtime = "nodejs";
 export const GET = route({ workspaceRole: "admin" }, async (req) => {
   const caller = await browserCaller(req, false);
   try {
-    if (req.nextUrl.searchParams.size) throw new GithubSourceError("invalid");
+    const query = req.nextUrl.searchParams;
+    if ([...query.keys()].some(key => !["cursor", "limit", "bindingId"].includes(key) || query.getAll(key).length !== 1)) throw new GithubSourceError("invalid");
+    const cursor = query.get("cursor") ?? undefined;
+    const bindingId = query.get("bindingId");
+    const rawLimit = query.get("limit");
+    if (rawLimit !== null && !/^[1-9]\d{0,2}$/.test(rawLimit)) throw new GithubSourceError("invalid");
+    if (bindingId !== null && (cursor !== undefined || rawLimit !== null || !/^[A-Za-z0-9_.:-]{1,200}$/.test(bindingId))) throw new GithubSourceError("invalid");
     const database = await platformDb();
-    const states = await createGithubSourceStore(database).listStates(caller.workspaceId);
-    const counts = await database.query<{ binding_id: string; count: string }>("select binding_id,count(*)::text as count from platform.github_project_sources where workspace_id=$1 and detached_at is null group by binding_id", [caller.workspaceId]);
-    const bindings = states.map(current => ({
+    const store = createGithubSourceStore(database);
+    const selected = bindingId === null ? undefined : await store.getState(caller.workspaceId, { bindingId });
+    const page = bindingId === null
+      ? await store.listStatesPage(caller.workspaceId, { cursor, ...(rawLimit !== null ? { limit: Number(rawLimit) } : {}) })
+      : { bindings: selected ? [selected] : [], nextCursor: null };
+    const counts = page.bindings.length ? await database.query<{ binding_id: string; count: string }>("select binding_id,count(*)::text as count from platform.github_project_sources where workspace_id=$1 and binding_id=any($2::text[]) and detached_at is null group by binding_id", [caller.workspaceId, textArray(page.bindings.map(binding => binding.bindingId))]) : [];
+    const bindings = page.bindings.map(current => ({
       bindingId: current.bindingId, owner: current.binding.owner, repo: current.binding.repo, version: current.binding.version,
       repositoryId: current.binding.repositoryId, installationId: current.binding.installationId,
+      nameCurrent: current.nameCurrent !== false,
       state: current.revoked ? "revoked" : "connected", ...(current.revokedReason ? { revokedReason: current.revokedReason } : {}),
       manageUrl: "https://github.com/settings/installations", affectedProjectCount: Number(counts.find(row => row.binding_id === current.bindingId)?.count ?? 0),
     }));
     let appConfigured = false;
     try { appConfigured = Boolean(githubAppConfig()?.clientId); } catch { appConfigured = false; }
-    return jsonResponse({ appConfigured, bindings, binding: bindings.length === 1 ? bindings[0] : null });
+    return jsonResponse({ appConfigured, bindings, nextCursor: page.nextCursor, binding: !cursor && !page.nextCursor && bindings.length === 1 ? bindings[0] : null });
   } catch (error) { return safeFailure(error); }
 });
 

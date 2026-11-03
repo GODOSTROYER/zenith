@@ -1,9 +1,9 @@
 "use client";
 /** Browser-only Gimbal controls. Source and execution authority are always rechecked by the server. */
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/client/api";
+import { api, ApiError } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Field } from "@/components/ui/field";
@@ -55,14 +55,63 @@ function useCall(workspaceId: string, runId?: string) {
 
 const Status = ({ error, notice }: { error?: string; notice?: string }) => <div aria-live="polite" className="min-h-5">{error && <Callout tone="err">{error}</Callout>}{notice && <p role="status" className="text-[13px] text-ink-mute">{notice}</p>}</div>;
 
-/** Pause background refresh when the browser tab is hidden. */
-export function AutoRefresh({ active }: { active: boolean }) {
+/** Poll only current run metadata; historical source is refreshed when a run stops. */
+export function AutoRefresh({ workspaceId, runs, refreshOnProgress = false }: {
+  workspaceId: string;
+  runs: { id: string; status: string; version: number }[];
+  refreshOnProgress?: boolean;
+}) {
   const router = useRouter();
+  const [refreshPending, startRefresh] = useTransition();
+  const pendingRefresh = useRef(refreshPending);
+  pendingRefresh.current = refreshPending;
+  const snapshot = JSON.stringify(runs.map(({ id, status, version }) => ({ id, status, version })));
   useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => { if (document.visibilityState === "visible") router.refresh(); }, 5_000);
-    return () => clearInterval(id);
-  }, [active, router]);
+    const current: { id: string; status: string; version: number }[] = JSON.parse(snapshot);
+    if (!current.length) return;
+    let stopped = false, failures = 0, refreshRetryAt = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    let pending: AbortController | undefined;
+    const schedule = () => { if (!stopped) timer = setTimeout(() => { void poll(); }, Math.min(60_000, 5_000 * 2 ** failures)); };
+    const refreshPage = () => {
+      // App Router refresh has no completion promise. A successful new snapshot
+      // replaces this effect; a failed/unchanged refresh must remain retryable.
+      // Wait for its transition and a cooldown before starting another request.
+      refreshRetryAt = Date.now() + 30_000;
+      startRefresh(() => router.refresh());
+    };
+    const poll = async () => {
+      if (document.visibilityState !== "visible" || pendingRefresh.current || Date.now() < refreshRetryAt) { schedule(); return; }
+      const controller = new AbortController(); pending = controller;
+      const deadline = setTimeout(() => controller.abort(), 15_000);
+      try {
+        const query = new URLSearchParams({ view: "status", ids: current.map(run => run.id).join(",") });
+        const out = await api<{ runs: { id: string; status: string; version: number }[] }>(`${BASE}?${query}`, {
+          credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId }, signal: controller.signal,
+        });
+        if (stopped || controller.signal.aborted) return;
+        failures = 0;
+        const statuses = new Map(out.runs.map(run => [run.id, run]));
+        if (current.some(run => {
+          const latest = statuses.get(run.id);
+          return !latest || latest.status !== run.status || refreshOnProgress && latest.version !== run.version;
+        })) {
+          refreshPage();
+        }
+      } catch (failure) {
+        if (stopped) return;
+        if (failure instanceof ApiError && (failure.status === 401 || failure.status === 403 || failure.status === 404)) {
+          refreshPage();
+        } else failures = Math.min(failures + 1, 4);
+      } finally {
+        clearTimeout(deadline);
+        pending = undefined;
+        schedule();
+      }
+    };
+    schedule();
+    return () => { stopped = true; clearTimeout(timer); pending?.abort(); };
+  }, [workspaceId, snapshot, refreshOnProgress, router, startRefresh]);
   return null;
 }
 

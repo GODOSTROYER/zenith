@@ -71,6 +71,75 @@ describe("independent repository grants", () => {
     await expect(store.assertCurrent(original)).rejects.toMatchObject({ code: "refused" });
   });
 
+  it.each(["discovery", "manual"] as const)("%s consent can connect a recreated name without inheriting the revoked ID, history or project", async mode => {
+    const store = createGithubSourceStore(db);
+    const original = await connect("alpha", 101);
+    const old = (await store.getState("multi", { repositoryId: 101 }))!;
+    await db.query("insert into platform.github_project_sources(workspace_id,project_id,binding_id,ref,updated_by) values('multi','school-project',$1,'main','admin')", [old.bindingId]);
+    await store.revoke({ workspaceId: "multi", actorId: "admin", bindingId: old.bindingId, expectedVersion: 1 });
+    const history = await db.query("select * from platform.github_binding_events where workspace_id='multi' and repository_id=101 order by version");
+    const selected = { owner: "acme", repo: "alpha", ...(mode === "discovery" ? { repositoryId: 202 } : {}) };
+    const caller = { workspaceId: "multi", actorId: "admin", ...await store.begin("multi", "admin", selected) };
+    await store.authorize(caller, 7, "42");
+    const intent = await store.consume(caller);
+    expect(intent.expectedName).toEqual({ repositoryId: 101, version: 2 });
+    const recreated = await store.bind({ ...intent, workspaceId: "multi", actorId: "admin", repositoryId: 202 });
+    expect(recreated).toMatchObject({ repositoryId: 202, version: 1 });
+    const current = (await store.getState("multi", { owner: "acme", repo: "alpha" }))!;
+    expect(current).toMatchObject({ revoked: false, nameCurrent: true, binding: { repositoryId: 202, version: 1 } });
+    expect(current.bindingId).not.toBe(old.bindingId);
+    expect(await store.getState("multi", { bindingId: old.bindingId })).toMatchObject({ revoked: true, nameCurrent: false, binding: { repositoryId: 101, version: 2 } });
+    await expect(store.assertCurrent(original)).rejects.toMatchObject({ code: "refused" });
+    expect(await db.query("select * from platform.github_binding_events where workspace_id='multi' and repository_id=101 order by version")).toEqual(history);
+    expect(await db.query("select binding_id from platform.github_project_sources where workspace_id='multi' and project_id='school-project'")).toEqual([{ binding_id: old.bindingId }]);
+    // Generated migration replay must not recreate the old unconditional index
+    // or relabel the retained history once two stable IDs share a past name.
+    await db.exec(renderSupabaseMigration());
+    expect((await store.listStates("multi")).map(state => state.binding.repositoryId)).toEqual([101, 202]);
+    expect((await store.getState("multi", { owner: "acme", repo: "alpha" }))?.binding.repositoryId).toBe(202);
+    // A historical grant can later reconnect at its real renamed location;
+    // project association still follows the original ID, with a new version.
+    await connect("old-alpha", 101, 2);
+    expect(await store.getState("multi", { repositoryId: 101 })).toMatchObject({ bindingId: old.bindingId, revoked: false, nameCurrent: true, binding: { repo: "old-alpha", version: 3 } });
+    expect((await store.getBinding("multi", { owner: "acme", repo: "alpha" }))?.repositoryId).toBe(202);
+  });
+
+  it("refuses replacing an active name and stale name consent, without losing the current tombstone", async () => {
+    const store = createGithubSourceStore(db);
+    await connect("alpha", 101);
+    await expect(connect("alpha", 202)).rejects.toMatchObject({ code: "conflict" });
+    const old = (await store.getState("multi", { repositoryId: 101 }))!;
+    await store.revoke({ workspaceId: "multi", actorId: "admin", bindingId: old.bindingId, expectedVersion: 1 });
+    const caller = { workspaceId: "multi", actorId: "admin", ...await store.begin("multi", "admin", { owner: "acme", repo: "alpha" }) };
+    await store.authorize(caller, 7, "42");
+    const intent = await store.consume(caller);
+    await connect("alpha", 101, 2);
+    await store.revoke({ workspaceId: "multi", actorId: "admin", bindingId: old.bindingId, expectedVersion: 3 });
+    await expect(store.bind({ ...intent, workspaceId: "multi", actorId: "admin", repositoryId: 202 })).rejects.toMatchObject({ code: "conflict" });
+    expect(await store.getState("multi", { repositoryId: 202 })).toBeUndefined();
+    expect(await store.getState("multi", { owner: "acme", repo: "alpha" })).toMatchObject({ bindingId: old.bindingId, revoked: true, nameCurrent: true, binding: { version: 4 } });
+  });
+
+  it("pages beyond 1000 grants without omissions, cross-workspace cursor reuse or unbounded page sizes", async () => {
+    const store = createGithubSourceStore(db);
+    await db.query(`insert into platform.github_source_bindings(workspace_id,app_id,installation_id,repository_id,owner,repo,version,bound_by)
+      select 'multi','42',7,n,'acme','repo-'||lpad(n::text,4,'0'),1,'admin' from generate_series(1,1001) as n`);
+    const ids: number[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await store.listStatesPage("multi", { cursor, limit: 200 });
+      expect(page.bindings.length).toBeLessThanOrEqual(200);
+      ids.push(...page.bindings.map(state => state.binding.repositoryId));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(ids).toEqual(Array.from({ length: 1001 }, (_, n) => n + 1));
+    const first = await store.listStatesPage("multi");
+    expect(first.bindings).toHaveLength(100);
+    await expect(store.listStatesPage("other", { cursor: first.nextCursor! })).rejects.toMatchObject({ code: "invalid" });
+    for (const limit of [0, 201, 1.1]) await expect(store.listStatesPage("multi", { limit })).rejects.toMatchObject({ code: "invalid" });
+    await expect(store.listStatesPage("multi", { cursor: "not-a-cursor" })).rejects.toMatchObject({ code: "invalid" });
+  });
+
   it("discovery metadata is actor/tenant scoped, expiring and invalidated by installation generation", async () => {
     const store = createGithubSourceStore(db);
     const fence = await captureGithubWebhookFence(db, "42", 7);

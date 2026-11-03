@@ -79,7 +79,7 @@ describe("Gimbal immutable source adapter", () => {
     const use = vi.fn(async (snapshot: RepoSnapshot) => snapshot.files[0].content);
     expect(await adapter.read(input, use)).not.toContain("private-source-canary");
     expect(await adapter.read(input, use)).toContain("[REDACTED]");
-    expect(hooks.access).toHaveBeenCalledTimes(2);
+    expect(hooks.access).toHaveBeenCalledTimes(4);
     expect(hooks.snapshot).toHaveBeenCalledTimes(1);
     expect(hooks.access.mock.calls[0][0]).toMatchObject({ signal: controller.signal, accessKind: "installed", expected: identity });
     expect(hooks.snapshot.mock.calls[0][0]).toMatchObject({ signal: controller.signal, token: TOKEN, ref: SHA });
@@ -87,5 +87,18 @@ describe("Gimbal immutable source adapter", () => {
     await expect(adapter.read(input, use)).rejects.toMatchObject({ code: "refused" });
     expect(use).toHaveBeenCalledTimes(2);
     expect(hooks.snapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves consumer control-flow errors instead of converting them to GitHub transport failures", async () => {
+    const failure = new Error("run was superseded");
+    await expect(source().read({ ...request, expected: identity }, async () => { throw failure; })).rejects.toBe(failure);
+    expect(hooks.access).toHaveBeenCalledTimes(1);
+  });
+
+  it("rechecks authority after the consumer completes before releasing its result", async () => {
+    await expect(source().read({ ...request, expected: identity }, async () => {
+      hooks.state.mockResolvedValue({ ...state, revoked: true });
+      return "private analysis";
+    })).rejects.toMatchObject({ code: "refused" });
   });
 });

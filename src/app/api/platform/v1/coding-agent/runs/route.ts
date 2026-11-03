@@ -12,7 +12,9 @@
  * 503 when the workflow engine cannot be reached (the run is recorded and can be resumed).
  */
 import { z } from "zod";
-import { assertRunSourceAccess, codingAgentControl, codingAgentStore } from "@/lib/coding-agent/platform";
+import { createRunSourceAccessChecker, codingAgentControl, codingAgentStore } from "@/lib/coding-agent/platform";
+import { platformDb } from "@/lib/controlplane/db/open";
+import { listRunStatuses } from "@/lib/controlplane/db/repos/coding-agent-runs";
 import { createRun, TASK_MAX } from "@/lib/coding-agent/service";
 import { runView } from "@/lib/coding-agent/view";
 import { parseWith, platformRoute, readJson } from "../../_lib/http";
@@ -30,9 +32,9 @@ const Body = z
   .object({
     task: z.string().min(1).max(TASK_MAX),
     repository: z.string().min(3).max(201),
-    ref: z.string().min(1).max(250).default("HEAD"),
+    ref: z.string().min(1).max(250).prefault("HEAD"),
     root: z.string().max(200).optional(),
-    mode: z.enum(["static", "model"]).default("static"),
+    mode: z.enum(["static", "model"]).prefault("static"),
     accessKind: z.enum(["installed", "public"]).optional(),
     bindingId: z.string().max(100).optional(),
     bindingVersion: z.number().int().positive().optional(),
@@ -48,11 +50,19 @@ const Body = z
 
 export const GET = platformRoute(async (req) => {
   const caller = await agentAdmin(req);
+  const query = parseWith(z.object({ view: z.literal("status").optional(), ids: z.string().max(5050).optional() }).strict(), Object.fromEntries(req.nextUrl.searchParams));
+  if (query.view === "status") {
+    const ids = parseWith(z.array(z.string().regex(ID)).min(1).max(50), query.ids?.split(","));
+    const runs = await listRunStatuses(await platformDb(), caller.agent.workspaceId, ids);
+    return { body: { runs } };
+  }
+  if (query.ids !== undefined) throw new BrokerError("invalid_request", "Run IDs require the status view.");
   const rows = await (await codingAgentStore()).list(caller.agent.workspaceId, 25);
+  const assertSourceAccess = createRunSourceAccessChecker();
   const views: Record<string, unknown>[] = [];
   for (let i = 0; i < rows.length; i += 4) {
     const batch = await Promise.all(rows.slice(i, i + 4).map(async row => {
-      try { await assertRunSourceAccess(row); return runView(row); } catch { return null; }
+      try { await assertSourceAccess(row); return runView(row); } catch { return null; }
     }));
     views.push(...batch.filter((value): value is Record<string, unknown> => value !== null));
   }

@@ -337,3 +337,37 @@ describe("operator FIFO batch admission", () => {
     expect(mocks.admit).not.toHaveBeenCalled();
   });
 });
+
+describe("sameOrigin behind a port mapping or proxy", () => {
+  const request = (url: string, origin: string | undefined, site?: string) => new NextRequest(url, { method: "POST",
+    headers: { ...(origin ? { origin } : {}), ...(site ? { "sec-fetch-site": site } : {}) } });
+  const withOrigins = (values: Record<string, string | undefined>, run: () => void) => {
+    const saved = { ZENITH_PLATFORM_ORIGIN: process.env.ZENITH_PLATFORM_ORIGIN, ZENITH_AGENT_ORIGIN: process.env.ZENITH_AGENT_ORIGIN };
+    for (const [key, value] of Object.entries(values)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    try { run(); } finally { for (const [key, value] of Object.entries(saved)) if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  };
+
+  it("accepts the configured public origin although the server binds another address", async () => {
+    const { sameOrigin } = await import("@/lib/waitlist/http");
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: undefined, ZENITH_AGENT_ORIGIN: "http://127.0.0.1:36400" }, () => {
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/api/admin/ops/retention/preview", "http://127.0.0.1:36400"))).not.toThrow();
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/api/admin/ops/retention/preview", "http://0.0.0.0:3400"))).toThrow("same site");
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/x", "https://evil.example"))).toThrow("same site");
+    });
+  });
+
+  it("prefers ZENITH_PLATFORM_ORIGIN, refuses a malformed configured origin and still refuses cross-site", async () => {
+    const { sameOrigin } = await import("@/lib/waitlist/http");
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: "https://zenith.example", ZENITH_AGENT_ORIGIN: "http://127.0.0.1:36400" }, () => {
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/x", "https://zenith.example"))).not.toThrow();
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/x", "http://127.0.0.1:36400"))).toThrow("same site");
+    });
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: "https://zenith.example/path", ZENITH_AGENT_ORIGIN: undefined }, () => {
+      expect(() => sameOrigin(request("https://zenith.example/x", "https://zenith.example"))).toThrow("same site");
+    });
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: undefined, ZENITH_AGENT_ORIGIN: undefined }, () => {
+      expect(() => sameOrigin(request("https://zenith.example/x", "https://zenith.example"))).not.toThrow();
+      expect(() => sameOrigin(request("https://zenith.example/x", undefined, "cross-site"))).toThrow("same site");
+    });
+  });
+});

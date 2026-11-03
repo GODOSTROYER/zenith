@@ -7504,7 +7504,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; slo_targets_measured_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; slo_targets_measured_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; contract_local_engine_and_operational_rehearsal_receipts_at_91548e4e_2026-11-04; live_sandbox_receipt_at_91548e4e_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (service levels) approved 2026-10-13 as engineering targets: control-plane availability 99.9% (lower of request-based and external probe), new managed_runtime_availability objective 99.9%, dispatch latency measured from the last required approval, restore targets default to the approved RPO/RTO. Not a contractual SLA.",
       "evidence": [
         {
@@ -7568,6 +7568,48 @@
           "result": "PROD-OPS-01 operational rehearsal at 3b7fc395 on a fresh owned lean J1 stack with real browser identities: the operator gives the API a run-scoped CRON_SECRET and operator access and raises the admission limits for the window (SLO.md), runs scripts/slo/capacity-test.mjs --report against the stack's metrics route, and reads exactly one fresh capacity-test measurement, within the PROVISIONAL target, back on /api/admin/ops/slo; the original composition is restored. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-operational-rehearsal-3b7fc395/release-evidence-PROD-OPS-01.json",
           "sha256": "15592a34449a2d1e805fcb6228800974abfe2baa06426c85269e902b7d213788"
+        },
+        {
+          "level": "contract",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-01 --mode contract -- tests/slo/definitions.test.ts tests/slo/sli-budget.test.ts tests/slo/slo-artifacts.test.ts tests/slo/restore-sink.test.ts tests/slo/slo.engine.test.ts tests/acceptance/ops01-measure.test.ts tests/ops/recovery-manifest.test.ts tests/ops/recovery-health.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-contract-91548e4e/",
+          "result": "PROD-OPS-01 contract lane at 91548e4e, the commit of its live_sandbox and operational_rehearsal receipts: 129 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-contract-91548e4e/release-evidence-PROD-OPS-01.json",
+          "sha256": "4abc93b8ff394db94898978bd1939154d4d85be2dcb2b2f3480e253b95635aa5"
+        },
+        {
+          "level": "local_engine",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-01 --mode local -- tests/slo/slo.engine.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-local-engine-91548e4e/",
+          "result": "PROD-OPS-01 local_engine lane at 91548e4e, the commit of its live_sandbox and operational_rehearsal receipts: 54 passed, 0 failed, 0 skipped, exit 0. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-local-engine-91548e4e/release-evidence-PROD-OPS-01.json",
+          "sha256": "0cb6cc113967739231f03c2e1508bf97decfc836e67a9afc62efb0a1b4c35d92"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-01 --mode local -- tests/acceptance/ops01-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1 (fresh lean J1 stack built from the clean checkout)",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-operational-rehearsal-91548e4e/",
+          "result": "PROD-OPS-01 operational rehearsal at 91548e4e on a fresh owned lean J1 stack with real browser identities: the operator gives the API a run-scoped CRON_SECRET and operator access and raises the admission limits for the window (SLO.md), runs scripts/slo/capacity-test.mjs --report against the stack's metrics route, and reads exactly one fresh capacity-test measurement, within the PROVISIONAL target, back on /api/admin/ops/slo; the original composition is restored. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-04-operational-rehearsal-91548e4e/release-evidence-PROD-OPS-01.json",
+          "sha256": "7035e13bf47d01c08c0d697a6a3a9e0cb4b2ee2f89b8f1dc1c32edd832fa0333"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "runId": 41730841659,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41730841659",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario ops-04 and run_id zlive-202611032226-5ead (lane live2); plan sha256 ba762e7b8768f88f4fbeacdf78bcaaeaa05f40032187bf37ae879440d43cfd11; permission sha256 80c24ee993c3e540abb554b9f4ca77baa0be99cb0a99140ebdf4c3d89c415bed",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 0.75 (provisional, billing not measured); 50 minute window (plan)",
+          "result": "Live AWS sandbox at 91548e4e, the commit of its contract, local_engine and operational_rehearsal receipts. OPS-01 objectives measured on the live sandbox run: control-plane availability 6951/6951 probes non-5xx (100.00%, 95% lower bound 99.96% vs target 99.90%: demonstrated) from runner-local probes of the API readiness route every 100 ms, paused only for the deliberate database loss (13 s, measured as RTO); API latency p50 12 ms, p95 26 ms, p99 101 ms, 99.99% within 500 ms (lower bound 99.93% vs 95.00%: demonstrated); capacity 30.0 req/s served of 30 offered for 60 s, p95 268 ms, errors 0.00% (targets >= 25 req/s, p95 <= 500 ms, errors <= 0.50%: within_target); RPO 203.613 s of 900 and RTO 20.416 s of 14400 (one restore observation each: within_target, within_target); target file 2026-10-13.1 (approved_targets), measurement label provisional; not evaluated: managed_runtime_availability, dispatch_latency, workflow_completion, scheduler_health Cleanup complete. Not operational_rehearsal.",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-03-live-aws-41730841659/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-03-live-aws-41730841659/release-evidence-PROD-OPS-01.json",
+          "sha256": "c0caa64fe921df37988a679efd450126a0d63a6f050be85e9965ceb6170e4485"
         }
       ],
       "requiredEvidence": [
@@ -7814,7 +7856,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; restore_with_aws_state_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; restore_with_aws_state_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03; contract_local_engine_and_operational_rehearsal_receipts_at_91548e4e_2026-11-04; live_sandbox_receipt_at_91548e4e_2026-11-03",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7878,6 +7920,48 @@
           "result": "PROD-OPS-04 operational rehearsal (RESTORE-RUNBOOK.md 'Rehearse it') at the commit of its live_sandbox receipt: clean-host pg_dump/pg_restore into an empty database, consumed approval refused, pending effect kept uncertain, fresh approval runs once, lost-timeline workflows terminated on a Temporal dev server. 10 passed, 0 failed, 0 skipped, exit 0. Run with ZENITH_TEST_RECOVERY_REQUIRED=1 so a missing prerequisite fails. Scripted local rehearsal on the owner's Mac, not a staging or production restore. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-operational-rehearsal-2cdb66db/release-evidence-PROD-OPS-04.json",
           "sha256": "8ac269010114052426a273119a47ff2e4a7837b001fc48c21940d71d42689f90"
+        },
+        {
+          "level": "contract",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode contract -- tests/controlplane/recovery-epoch.test.ts tests/controlplane/state-backend-recovery.test.ts tests/ops/recovery-manifest.test.ts tests/ops/recovery-health.test.ts tests/platform/recovery-service.test.ts tests/hosted/backup/create-restore.test.ts tests/hosted/backup/reconcile.test.ts tests/hosted/backup/reopen.test.ts tests/hosted/backup/targets.test.ts tests/hosted/authority/backup.test.ts tests/hosted/acceptance/gate-10-restore.test.ts tests/acceptance/aws-ops04-port.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-04-contract-91548e4e/",
+          "result": "PROD-OPS-04 contract lane at 91548e4e, the commit of its live_sandbox and operational_rehearsal receipts: 127 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-04-contract-91548e4e/release-evidence-PROD-OPS-04.json",
+          "sha256": "fec1af149fcdd9fa20269cead4f7a63ca5f78ebc5b8aafa1f26256b2c9366332"
+        },
+        {
+          "level": "local_engine",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode local -- tests/controlplane/recovery-epoch.test.ts tests/controlplane/state-backend-recovery.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-04-local-engine-91548e4e/",
+          "result": "PROD-OPS-04 local_engine lane at 91548e4e, the commit of its live_sandbox and operational_rehearsal receipts: 58 passed, 0 failed, 0 skipped, exit 0. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-04-local-engine-91548e4e/release-evidence-PROD-OPS-04.json",
+          "sha256": "ace2a1a481d15a1af161b84eb33db3ab147cc133cb39468d96db07cb70780a8d"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode local -- tests/ops/recovery-rehearsal.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, removed afterwards; pg_dump/pg_restore 16 (Homebrew postgresql@16); Temporal CLI 1.9.1 dev server (release checksum verified); runbook rehearsal docs/platform/operations/RESTORE-RUNBOOK.md 'Rehearse it'; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_PG_DUMP_BIN ZENITH_TEST_PG_RESTORE_BIN ZENITH_TEST_RECOVERY_REQUIRED=1 ZENITH_TEST_TEMPORAL=1",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-04-operational-rehearsal-91548e4e/",
+          "result": "PROD-OPS-04 operational rehearsal at 91548e4e: the runbook restore rehearsal (RESTORE-RUNBOOK.md 'Rehearse it') against disposable PostgreSQL and a Temporal dev server: a backup with a manifest, verify, gates and keys checks, restore into an empty target, migrate, facts and a new recovery epoch; operations awaiting approval are fenced and need a recovery decision, the lost timeline's operation workflows are terminated, and nothing resumes on its own; 10 checks. 10 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac against disposable PostgreSQL 16 and a Temporal dev server. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-04-operational-rehearsal-91548e4e/release-evidence-PROD-OPS-04.json",
+          "sha256": "d3ef0a082c7efacf68c8af0471a7c0d35014b27b291014a8a6d452edd0781bfa"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+          "runId": 41730841659,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41730841659",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario ops-04 and run_id zlive-202611032226-5ead (lane live2); plan sha256 ba762e7b8768f88f4fbeacdf78bcaaeaa05f40032187bf37ae879440d43cfd11; permission sha256 80c24ee993c3e540abb554b9f4ca77baa0be99cb0a99140ebdf4c3d89c415bed",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 0.75 (provisional, billing not measured); 50 minute window (plan)",
+          "result": "Live AWS sandbox at 91548e4e, the commit of its contract, local_engine and operational_rehearsal receipts. OPS-04 restore proven on AWS: a deploy waiting for its approval was captured in the backup and approved and applied after it; the stores were lost from the control-plane database and restored into it at recovery epoch 1; the restored proposal was fenced (an approval was refused: journey:browser-human-approval), did not execute on its own for 120 s, and came back only through a recovery resume (a stale binding was refused) and a fresh approval; applying it again left AWS unchanged (2 buckets, 16 recorded resources). Measured RPO 203.6 s (target 900) and RTO 20.4 s (target 14400) Cleanup complete. Not operational_rehearsal.",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-live-aws-41730841659/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-live-aws-41730841659/release-evidence-PROD-OPS-04.json",
+          "sha256": "357aec4277e47972b044c5f7b4f9507d44851cbe71d70c2912f4228b272ea6ab"
         }
       ],
       "requiredEvidence": [

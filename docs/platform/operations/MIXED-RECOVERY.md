@@ -32,6 +32,9 @@ to. The route reads each child's environment from the run's stored plan (never f
    behind it.
 5. Repeat for the next step.
 
+Rehearsal: the live scenario `mix-rehearsal` walks this section on the AWS sandbox (a cancelled partial run, then this
+teardown for every run, newest first). See `docs/build/production/verify/PROD-MIX-04.md`, "Operational rehearsal (live)".
+
 The destroy path does not read the run: a person who destroys a producer environment out of order is not stopped there.
 The run never records that as a clean step: release refuses a producer whose consumers are not destroyed and a destroy
 that already ended, so the step stays `planned` and the run still shows the child applied until it is reconciled.
@@ -131,6 +134,9 @@ replan", not as a callable action.
 
 After the child timeout the child is `timed_out`, effects `possible`. A late receipt is evidence it finished and is accepted as such.
 Otherwise reconcile, then replan, as above.
+
+Rehearsal: the live scenario `mix-rehearsal` exercises this section's reconciliation (only when a child ends indeterminate after
+its worker restart), the replan and the refusal of a plan on a revoked connection; see `docs/build/production/verify/PROD-MIX-01.md`.
 
 ### A partition's connection is revoked (`revoked_partition_connection`)
 

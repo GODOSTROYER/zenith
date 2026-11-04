@@ -198,6 +198,10 @@ boundaries remain necessary. Errors use fixed codes/messages and echo no input.
 
 ## Reapproval and distributed failure
 
+Rehearsal: the live scenario `mix-rehearsal` shows the refusal of a cross-connection reference without declared connectivity,
+independent partitions on two connections, a worker restart during a producer's apply and the output review of a changed
+parent digest on the AWS sandbox; see `docs/build/production/verify/PROD-MIX-01.md` to `PROD-MIX-03.md`.
+
 `classifyMixedPlanChange()` returns `unchanged` or `review_required`, exact new
 parent digest, affected partition ids and blocked partitions. Changed scope,
 desired inputs, newly materialized effects, output replacement, receipt/artifact

@@ -27,7 +27,7 @@ export function sha256(bytes: Buffer | string): string;
 export function canonical(value: unknown): string;
 export function readRepositoryFile(root: string, relative: string): Buffer;
 export function releaseSnapshotDigest(ledger: ReleaseLedger): string;
-export function sourceOutcome(source: Record<string, unknown>): { passed: number; failed: number; skipped: number; commit: string; exitCode: number; mode: string; requirements: string[]; command: unknown; environment: unknown; status: unknown };
+export function sourceOutcome(source: Record<string, unknown>): { passed: number; failed: number; skipped: number; commit: string; exitCode: number; mode: string; requirements: string[]; command: unknown; environment: unknown; status: unknown; level?: string };
 export function inspectEvidence(requirementId: string, evidence: ReleaseEvidence, options?: StatusOptions): { valid: boolean; recorded: boolean; file: string | null; sha256: string | null; receipt: EvidenceReceipt | null; errors: string[] };
 export function selectReleaseEvidence(ledger: ReleaseLedger, options?: StatusOptions, includeRehearsals?: boolean): { errors: string[]; refs: EvidenceReference[] };
 export function signSignoff(body: Omit<SignoffRecord, "signature">, seed: Buffer, kid: string): SignoffRecord;

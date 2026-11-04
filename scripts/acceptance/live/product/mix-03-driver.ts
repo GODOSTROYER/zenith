@@ -21,7 +21,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Browser, Page } from "@playwright/test";
 import type { EnvLike } from "../../config";
-import { refuse, Refusal, sanitizedError, type Mix03Artifact, type Mix03Child, type Mix03Product, type Mix03Tenant, type Mix03TeardownStep, type MixedReadback, type MixedReceipt } from "./mix-03";
+import { PlanRefusal, refuse, Refusal, sanitizedError, type Mix03Artifact, type Mix03Child, type Mix03Product, type Mix03RunChild, type Mix03Tenant, type Mix03TeardownStep, type MixedReadback, type MixedReceipt } from "./mix-03";
 import { readState } from "../../default-stack/runtime.mjs";
 import { browserRequest, ensure, localUrl, nonce, ok, operator, privateFile, until, action } from "../../../../tests/e2e/default/support.mjs";
 import { enrollOperator, totp } from "../../../../tests/e2e/default/mfa.mjs";
@@ -263,6 +263,25 @@ const reasonCode = (data: unknown): string => {
   return [code && SAFE_CODE.test(code) ? code.replace(/_/g, " ") : "no code", typeof reason === "string" && SAFE_CODE.test(reason) ? reason : undefined].filter(Boolean).join(", ") + (message ? `: ${message}` : "");
 };
 
+/** The service's own reason code (details.reason), else the error code: fixed words only. */
+const reasonOf = (data: unknown): string => {
+  const reason = (data as { error?: { details?: { reason?: unknown } } } | undefined)?.error?.details?.reason, code = codeOf(data);
+  return typeof reason === "string" && SAFE_CODE.test(reason) ? reason : code && SAFE_CODE.test(code) ? code : "unknown";
+};
+const idList = (value: unknown, what: string): string[] => Array.isArray(value) && value.every(id => typeof id === "string" && REF.test(id)) ? value as string[] : refuse(`the run ${what} has an unexpected shape`);
+const word = (value: unknown, what: string): string => typeof value === "string" && SAFE_CODE.test(value) ? value : refuse(`the run ${what} has an unexpected shape`);
+/** The run state's children in run order: fixed words and whether each started; nothing else leaves the driver. */
+const runChildrenOf = (state: unknown): Mix03RunChild[] => {
+  const order = (state as { order?: unknown } | undefined)?.order, children = (state as { children?: Record<string, unknown> } | undefined)?.children;
+  if (order === undefined && children === undefined) return [];
+  return idList(order, "order").map(id => {
+    const child = children?.[id] as { status?: unknown; effects?: unknown; startedAt?: unknown; reason?: unknown } | undefined;
+    const reason = child?.reason;
+    return { childId: id, status: word(child?.status, "child status"), effects: word(child?.effects, "child effects"), started: typeof child?.startedAt === "string",
+      ...(typeof reason === "string" && HALT_CODE.test(reason) ? { reason } : {}) };
+  });
+};
+
 /** The product's PROD-MIX-03 driver. Create it once per run; `close()` releases the browser after teardown. */
 export function browserMix03Product(env: EnvLike = process.env, seams: Mix03DriverSeams = {}): Mix03Product & { close(): Promise<void> } {
   const request: ProductRequest = seams.request ?? browserRequest;
@@ -394,7 +413,7 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
             : [{ address: "object_store/bucket", childEnvironmentId: producerEnv }, { address: "function/consumer", childEnvironmentId: consumerEnv }],
           references: input.independent ? [] : [MIX03_REFERENCE],
         });
-        if (planned.status < 200 || planned.status >= 300) refuse(`the product refused the mixed plan (${reasonCode(planned.data)})`);
+        if (planned.status < 200 || planned.status >= 300) throw new PlanRefusal(`the product refused the mixed plan (${reasonCode(planned.data)})`, reasonOf(planned.data));
         const proposed = planned.data as { plan?: { parentPlanId?: unknown }; operationId?: unknown };
         const planId = idOf(proposed.plan?.parentPlanId, "the mixed plan id");
         const parentOperationId = idOf(proposed.operationId, "the parent operation");
@@ -468,6 +487,7 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
           const consumerEnv = consumers.get(planId);
           const role = row.dependsOn?.length || (consumerEnv !== undefined && row.childEnvironmentId === consumerEnv) ? "consumer" : "producer";
           let awaitingOperationId: string | undefined, operationStatus: string | undefined, halt: string | undefined;
+          let deployStep: string | undefined;
           const receiptStatus = row.receipt?.childStatus;
           if (typeof receiptStatus === "string" && SAFE_CODE.test(receiptStatus)) operationStatus = receiptStatus;
           if (row.childOperationId && row.state !== "pending" && row.state !== "succeeded") {
@@ -477,6 +497,12 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
             // The error is free text: only a fixed category of it leaves the driver.
             const error = detail.operation?.error;
             if (typeof error === "string") halt = haltOf(error);
+            // While it runs: the deploy step its environment's latest deployment is in (the rehearsal stops the worker during the apply).
+            if (detail.operation?.status === "running" && typeof row.childEnvironmentId === "string" && ID.test(row.childEnvironmentId)) {
+              const latest = ok(await send(session, session.owner, `/api/environments/${encodeURIComponent(row.childEnvironmentId)}/deployments?limit=1`, undefined, "GET")) as { deployments?: { steps?: { id?: unknown; status?: unknown }[] }[] };
+              const running = latest.deployments?.[0]?.steps?.find(item => item.status === "running")?.id;
+              if (typeof running === "string" && /^step-[a-z_]{1,40}$/.test(running)) deployStep = running.slice("step-".length);
+            }
           }
           children.push({
             role, status: CHILD_STATUS[row.state ?? ""] ?? "unknown",
@@ -485,6 +511,7 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
             ...(awaitingOperationId ? { awaitingOperationId } : {}),
             ...(operationStatus ? { operationStatus } : {}),
             ...(halt ? { halt } : {}),
+            ...(deployStep ? { step: deployStep } : {}),
           });
         }
         // The producer's real outputs change the consumer's input, so the parent workflow opens a review operation of the new
@@ -564,10 +591,16 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
     async mixedRun(tenant, parentOperationId) {
       return step("run readback", async () => {
         const session = sessionOf(tenant);
-        const data = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { summary?: { outcome?: unknown; nextSteps?: unknown }; run?: { teardown?: unknown } };
-        const outcome = data.summary?.outcome, nextSteps = data.summary?.nextSteps;
+        const data = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { summary?: Record<string, unknown>; run?: { teardown?: unknown } };
+        const summary = data.summary ?? {}, outcome = summary.outcome, nextSteps = summary.nextSteps;
         if (typeof outcome !== "string" || !SAFE_CODE.test(outcome) || !Array.isArray(nextSteps) || nextSteps.some(word => typeof word !== "string" || !SAFE_CODE.test(word))) refuse("the run summary has an unexpected shape");
-        return { outcome: outcome as string, nextSteps: nextSteps as string[], steps: teardownStepsOf(data.run?.teardown) };
+        if (typeof summary.cancelled !== "boolean") refuse("the run summary has an unexpected shape");
+        return {
+          outcome: outcome as string, nextSteps: nextSteps as string[], steps: teardownStepsOf(data.run?.teardown),
+          atomicity: word(summary.atomicity, "atomicity"), automaticCompensation: word(summary.automaticCompensation, "compensation"), cancelled: summary.cancelled as boolean,
+          appliedWithoutRunCompletion: idList(summary.appliedWithoutRunCompletion, "applied children"), indeterminate: idList(summary.indeterminate, "indeterminate children"),
+          children: runChildrenOf(data.run),
+        };
       });
     },
 
@@ -638,6 +671,46 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         if (response.status < 200 || response.status >= 300) refuse(`the product refused the teardown sync (${reasonCode(response.data)})`);
         const run = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { run?: { teardown?: unknown } };
         return teardownStepsOf(run.run?.teardown).find(item => item.childId === childId) ?? refuse("the synced step is not in the run's teardown");
+      });
+    },
+
+    async teardownBlocked(tenant, planId, childId) {
+      return step("teardown readiness", async () => {
+        const session = sessionOf(tenant);
+        const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: { partitionId?: unknown; childEnvironmentId?: unknown }[] };
+        const environmentId = idOf(plan.children?.find(child => child.partitionId === childId)?.childEnvironmentId, "the child environment");
+        const response = await send(session, session.owner, "/api/actions/env.reviewTeardown",
+          { mode: "plan", input: { environmentId, idempotencyKey: nonce() }, scope: { projectId: session.projectId, environmentId } });
+        if (response.status < 200 || response.status >= 300) refuse(`env.reviewTeardown plan was refused by the product (HTTP ${response.status})`);
+        const reviewed = (response.data as { plan?: unknown } | undefined)?.plan;
+        if (!reviewed || typeof reviewed !== "object") refuse("env.reviewTeardown plan returned no plan");
+        const blocked = (reviewed as { blocked?: unknown }).blocked;
+        if (blocked !== undefined && typeof blocked !== "string") refuse("env.reviewTeardown plan returned an unreadable refusal");
+        return sanitizedError(blocked) ?? (blocked === undefined ? undefined : "refused");
+      });
+    },
+
+    async cancelMixed(tenant, parentOperationId) {
+      return step("run cancel", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/cancel`, {}, "POST");
+        if (response.status < 200 || response.status >= 300) refuse(`the product refused the run cancel (${reasonCode(response.data)})`);
+      });
+    },
+
+    async reconcileChild(tenant, parentOperationId, childId, outcome, evidenceDigest) {
+      return step("run reconcile", async () => {
+        const session = sessionOf(tenant);
+        if (!HEX64.test(evidenceDigest) || !REF.test(childId)) refuse("the reconciliation evidence has an unexpected shape");
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/reconcile`, { childId, outcome, evidenceDigest }, "POST");
+        return response.status >= 200 && response.status < 300 ? { recorded: true as const } : { recorded: false as const, reason: `the product refused the reconciliation (${reasonCode(response.data)})` };
+      });
+    },
+
+    async revokeConnection(tenant, connectionId) {
+      return step("connection revoke", async () => {
+        const data = await must(sessionOf(tenant), "connection.revoke", { connectionId: idOf(connectionId, "the connection"), reason: "PROD-MIX operational rehearsal: revoke one partition connection" });
+        return { status: typeof data.status === "string" && SAFE_CODE.test(data.status) ? data.status : "unknown" };
       });
     },
 

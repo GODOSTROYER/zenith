@@ -26,6 +26,7 @@ import { runProductionCli } from "./live/cli";
 import { SCENARIOS } from "./live/contracts";
 import { retentionS3Port } from "./live/product/retention-s3";
 import { mix03Port } from "./live/product/mix-03";
+import { mixRehearsalPort } from "./live/product/mix-rehearsal";
 import { browserMix03Product } from "./live/product/mix-03-driver";
 import { deploy01Port } from "./live/product/deploy-01";
 import { browserDeploy01Product } from "./live/product/deploy-01-driver";
@@ -95,6 +96,7 @@ export async function runLiveCli(argv: readonly string[], env: EnvLike = process
     const product = env.ZENITH_LIVE_PRODUCT !== "1" ? undefined
       : selected === "retention-s3" ? retentionS3Port(env)
       : selected === "mix-03" || selected === "mix-01" ? mix03Port(env, { product: browserMix03Product(env), worker: runnerWorker(env) })
+      : selected === "mix-rehearsal" ? mixRehearsalPort(env, { product: browserMix03Product(env), worker: runnerWorker(env) })
       : selected === "deploy-01" || selected === "ops-06" || selected === "ops-02" ? deploy01Port(env, { product: browserDeploy01Product(env) })
       : selected === "teardown-01" ? teardown01Port(env, { product: browserDeploy01Product(env) })
       : selected === "ops-04" ? ops04Port(env, { product: browserDeploy01Product(env) })

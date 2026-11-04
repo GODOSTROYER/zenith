@@ -30,11 +30,12 @@ import { laneSuffix, liveRoleNames } from "../plan";
 
 type Values = Record<string, string>;
 type Response = Record<string, unknown>;
-type Invoke = (call: Call, values?: Values, extra?: Record<string, Json>) => Promise<Response>;
+export type Invoke = (call: Call, values?: Values, extra?: Record<string, Json>) => Promise<Response>;
 
 /** Opaque, non-secret product identifiers. The approver is an automated test approver created by CI (decision D1). */
 export interface Mix03Tenant { workspaceId: string; approverId: string }
-export interface Mix03Child { role: "producer" | "consumer"; status: string; childOperationId?: string; receiptOperationId?: string; awaitingOperationId?: string; operationStatus?: string; halt?: string; review?: Mix03Review }
+/** `step`: while the child operation runs, the deploy step its environment's latest deployment is in (e.g. apply_infrastructure). */
+export interface Mix03Child { role: "producer" | "consumer"; status: string; childOperationId?: string; receiptOperationId?: string; awaitingOperationId?: string; operationStatus?: string; halt?: string; review?: Mix03Review; step?: string }
 /** The open review of a changed parent digest the consumer waits on, as its operation's proposal binds it (digests only). */
 export interface Mix03Review { previousParentDigest: string; requiredParentDigest: string; consumers: number; effectChanged: boolean }
 /** The consumer's Lambda package in S3: the object version and both immutable digests the function source must carry. */
@@ -81,12 +82,32 @@ export interface Mix03Product {
   finishChildDestroy?(tenant: Mix03Tenant, destroyOperationId: string): Promise<{ status: string; halt?: string }>;
   /** PROD-MIX-04: records the released step's outcome from the destroy operation's own status and returns the step as stored. */
   syncTeardown?(tenant: Mix03Tenant, parentOperationId: string, childId: string): Promise<Mix03TeardownStep>;
+  /**
+   * The rehearsal: env.reviewTeardown in plan mode for the child's own environment (from the stored plan). Undefined when a
+   * review may start now; otherwise the product's sanitized refusal (e.g. earlier deploy activity has not settled yet).
+   */
+  teardownBlocked?(tenant: Mix03Tenant, planId: string, childId: string): Promise<string | undefined>;
+  /** The rehearsal: POST .../mixed-run/cancel. Unstarted children are cancelled; nothing applied is rolled back. */
+  cancelMixed?(tenant: Mix03Tenant, parentOperationId: string): Promise<void>;
+  /** The rehearsal: POST .../mixed-run/reconcile with what the operator read from AWS (its sha256 only). A refusal is a reason. */
+  reconcileChild?(tenant: Mix03Tenant, parentOperationId: string, childId: string, outcome: "no_effects" | "effects_present", evidenceDigest: string): Promise<{ recorded: true } | { recorded: false; reason: string }>;
+  /** The rehearsal: the connection.revoke action (terminal). Returns the connection status the product reports. */
+  revokeConnection?(tenant: Mix03Tenant, connectionId: string): Promise<{ status: string }>;
   /** Releases the browser. Called once the run is over, after teardown. */
   close?(): Promise<void>;
 }
 /** One teardown step as the run stores it: ids, a fixed status, the steps it waits for and how many addresses it lists. */
 export interface Mix03TeardownStep { childId: string; status: string; after: string[]; addresses: number; destroyOperationId?: string }
-export interface Mix03Run { outcome: string; nextSteps: string[]; steps: Mix03TeardownStep[] }
+/** One child as the run state holds it: fixed words, whether it ever started, and the reason it ended (when it has one). */
+export interface Mix03RunChild { childId: string; status: string; effects: string; started: boolean; reason?: string }
+/**
+ * The run summary and state: outcome and next steps, the constants the run never changes (`atomicity` none, `automaticCompensation`
+ * never), the children left applied without the run completing, the children that need reconciliation, and each child.
+ */
+export interface Mix03Run {
+  outcome: string; nextSteps: string[]; steps: Mix03TeardownStep[]; atomicity: string; automaticCompensation: string; cancelled: boolean;
+  appliedWithoutRunCompletion: string[]; indeterminate: string[]; children: Mix03RunChild[];
+}
 export interface Mix03Teardown { steps: Mix03TeardownStep[]; retained: number; nothingToDestroy: string[] }
 
 /** A durable child receipt as read back (src/lib/execution/mixed/receipt.ts): digests, ids and fixed words, never outputs. */
@@ -136,6 +157,8 @@ function elide(raw: string): string {
 /** A fail-closed stop. Its message is ours and fixed; anything else is withheld. */
 export class Refusal extends Error {}
 export function refuse(message: string): never { throw new Refusal(message); }
+/** The product refused a mixed plan; `reason` is its fixed reason code (error.details.reason, e.g. plan_refused, connection_unverified). */
+export class PlanRefusal extends Refusal { constructor(message: string, readonly reason: string) { super(message); } }
 
 const NOT_WIRED = "the browser product driver is not wired to a running Zenith stack in this build; nothing was changed";
 const refuseUnwired = async (): Promise<never> => refuse(NOT_WIRED);
@@ -146,14 +169,14 @@ export const unwiredProduct: Mix03Product = {
   issueOutputPreauthorization: refuseUnwired, preauthorizationUses: refuseUnwired,
 };
 
-const EXTERNAL_ID_NEW = /^zenith-[0-9a-f]{32}$/;
+export const EXTERNAL_ID_NEW = /^zenith-[0-9a-f]{32}$/;
 const EXTERNAL_ID_TEMPLATE = /^[A-Za-z0-9+=,.@:/_-]{2,1224}$/;
-const FIXED_TEXT = /^[A-Za-z0-9 ,.'()-]{1,200}$/;
+export const FIXED_TEXT = /^[A-Za-z0-9 ,.'()-]{1,200}$/;
 /** Teardown makes about twenty planned calls; five minutes covers them and the tagging index re-list. */
 export const TEARDOWN_RESERVE_MS = 5 * 60_000;
-const STATE_WORD = /^[a-z_]{1,40}$/, HALT_WORD = /^[a-z0-9_]{1,80}$/;
+export const STATE_WORD = /^[a-z_]{1,40}$/, HALT_WORD = /^[a-z0-9_]{1,80}$/;
 /** "producer running/queued": the plan child's state and, when read, its operation's status. Fixed words only. */
-const childState = (child: Mix03Child): string => {
+export const childState = (child: Mix03Child): string => {
   const word = (value: string | undefined) => (value && STATE_WORD.test(value) ? value : "unknown");
   return `${child.role} ${word(child.status)}${child.operationStatus ? `/${word(child.operationStatus)}` : ""}${child.halt ? `:${HALT_WORD.test(child.halt) ? child.halt : "unknown"}` : ""}`;
 };
@@ -167,8 +190,8 @@ export function trustDocument(principalArn: string, externalId: string): string 
 }
 const sorted = (value: unknown): unknown => Array.isArray(value) ? value.map(sorted)
   : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sorted((value as Record<string, unknown>)[key])])) : value;
-const canonical = (value: unknown): string => JSON.stringify(sorted(value));
-const field = (value: unknown, key: string): unknown => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
+export const canonical = (value: unknown): string => JSON.stringify(sorted(value));
+export const field = (value: unknown, key: string): unknown => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
 
 /** IAM returns the trust document URL-encoded; decode only that form. */
 export function parsePolicy(raw: unknown): unknown {
@@ -204,19 +227,19 @@ export function fill(input: Record<string, Json>, values: Values): Record<string
   return walk(input) as Record<string, Json>;
 }
 
-interface Mapping { arn: string; tags: Record<string, string> }
-const tagMap = (list: unknown): Record<string, string> => Object.fromEntries((Array.isArray(list) ? list : []).flatMap(item => {
+export interface Mapping { arn: string; tags: Record<string, string> }
+export const tagMap = (list: unknown): Record<string, string> => Object.fromEntries((Array.isArray(list) ? list : []).flatMap(item => {
   const key = field(item, "Key"), value = field(item, "Value");
   return typeof key === "string" && typeof value === "string" ? [[key, value]] : [];
 }));
 /** Owned by this run: managed by Zenith and tagged with one of the run's child environments (the producer and the consumer). */
 const grants = (g: { total: number; uses: number; maxUses: number; active: number }): string => `${g.total} grant(s), ${g.uses} of ${g.maxUses} uses, ${g.active} active`;
-const owned = (tags: Record<string, string>, environmentIds: string[]): boolean => tags["zenith:managed"] === "true" && environmentIds.includes(tags["zenith:environment"] ?? "");
+export const owned = (tags: Record<string, string>, environmentIds: string[]): boolean => tags["zenith:managed"] === "true" && environmentIds.includes(tags["zenith:environment"] ?? "");
 const errorName = (error: unknown): string => typeof field(error, "name") === "string" ? String(field(error, "name")) : "";
 /** Exact shapes of the exported Lambda package inputs (S3 key, object version, sha256 and the source digest). */
-const ARTIFACT_VERSION = /^[A-Za-z0-9._-]{1,1024}$/;
+export const ARTIFACT_VERSION = /^[A-Za-z0-9._-]{1,1024}$/;
 
-interface RunState { attempted: boolean; environmentIds: string[]; trust: { role: "observe" | "deploy"; original: string; write: Call }[]; functionState?: string }
+export interface RunState { attempted: boolean; environmentIds: string[]; trust: { role: "observe" | "deploy"; original: string; write: Call }[]; functionState?: string }
 const AWS_CODE = /^[A-Za-z]{1,40}$/;
 /** The consumer function's lifecycle as Lambda reports it: fixed AWS enum values only, never StateReason text. */
 const functionStateOf = (config: unknown): string | undefined => {
@@ -227,11 +250,11 @@ const functionStateOf = (config: unknown): string | undefined => {
   return codes.length ? codes.join(" ") : undefined;
 };
 
-function preconditions(env: EnvLike, plan: Plan, scenario: "mix-03" | "mix-01" = "mix-03"): void {
+export function preconditions(env: EnvLike, plan: Plan, scenario: "mix-03" | "mix-01" | "mix-rehearsal" = "mix-03"): void {
   if (env.ZENITH_LIVE_PRODUCT !== "1") refuse("ZENITH_LIVE_PRODUCT=1 is not set; no product scenario ran");
   if (!env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY || !env.AWS_SESSION_TOKEN) refuse("the AWS session must be in the process environment (OIDC path)");
   if (plan.settings.scenario !== scenario) refuse(`the plan is not the ${scenario} scenario`);
-  if (!plan.productCalls?.length) refuse(`the plan has no ${scenario === "mix-01" ? "PROD-MIX-01" : "PROD-MIX-03"} product calls`);
+  if (!plan.productCalls?.length) refuse(`the plan has no ${scenario === "mix-01" ? "PROD-MIX-01" : scenario === "mix-rehearsal" ? "rehearsal" : "PROD-MIX-03"} product calls`);
 }
 
 /** The consumer's handler: it only reports the producer bucket ARN it was given. */
@@ -254,11 +277,22 @@ export function consumerPackage(): { zip: Buffer; sha256: string; sourceDigest: 
   return { zip, sha256: sha(zip), sourceDigest: sha(data) };
 }
 
-const s3Upload: Mix03Upload = async ({ region, credentials, bucket, key, body }) =>
+export const s3Upload: Mix03Upload = async ({ region, credentials, bucket, key, body }) =>
   (await new S3Client({ region, credentials }).send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: "application/zip" }))).VersionId;
 
+/** Uploads the consumer's Lambda package to the connection's state bucket with its deploy role session (the planned STS call). */
+export async function uploadConsumerPackage(invoke: Invoke, planned: (id: string) => Call, upload: Mix03Upload, input: { region: string; runId: string; stateBucket: string; externalId: string }): Promise<Mix03Artifact> {
+  const assumed = field(await invoke(planned("mix03-sts-assume"), { externalId: input.externalId }), "Credentials");
+  const accessKeyId = field(assumed, "AccessKeyId"), secretAccessKey = field(assumed, "SecretAccessKey"), sessionToken = field(assumed, "SessionToken");
+  if (typeof accessKeyId !== "string" || typeof secretAccessKey !== "string" || typeof sessionToken !== "string") refuse("the deploy role session could not be read");
+  const pkg = consumerPackage(), key = `zenith-live/${input.runId}/consumer.zip`;
+  const versionId = await upload({ region: input.region, credentials: { accessKeyId, secretAccessKey, sessionToken }, bucket: input.stateBucket, key, body: pkg.zip });
+  if (!versionId || versionId === "null" || !ARTIFACT_VERSION.test(versionId)) refuse("the state bucket did not return an object version for the consumer's package");
+  return { bucket: input.stateBucket, key, versionId, sha256: pkg.sha256, sourceDigest: pkg.sourceDigest };
+}
+
 /** Only the children's own tagged resources, found through the tag API and matched against exact patterns, one tag value per child. */
-async function inventoryOf(invoke: Invoke, call: Call, environmentIds: string[]): Promise<Mapping[]> {
+export async function inventoryOf(invoke: Invoke, call: Call, environmentIds: string[]): Promise<Mapping[]> {
   const out: Mapping[] = [];
   for (const environmentId of environmentIds) {
     let token: string | undefined;
@@ -278,7 +312,7 @@ async function inventoryOf(invoke: Invoke, call: Call, environmentIds: string[])
 }
 
 /** One parent's environments must hold exactly one consumer function wired to exactly one producer bucket. Returns the bucket ARN. */
-async function producerConsumerReadback(invoke: Invoke, planned: (id: string) => Call, region: string, account: string, environmentIds: string[]): Promise<string> {
+export async function producerConsumerReadback(invoke: Invoke, planned: (id: string) => Call, region: string, account: string, environmentIds: string[]): Promise<string> {
   const mappings = await inventoryOf(invoke, planned("mix03-tag-read"), environmentIds);
   const fnArns = mappings.filter(m => new RegExp(`^arn:aws:lambda:${region}:${account}:function:zenith-`).test(m.arn) && owned(m.tags, environmentIds));
   const bucketArns = mappings.filter(m => /^arn:aws:s3:::zenith-/.test(m.arn) && owned(m.tags, environmentIds));
@@ -293,7 +327,7 @@ async function producerConsumerReadback(invoke: Invoke, planned: (id: string) =>
   return bucketArns[0]!.arn;
 }
 
-async function teardown(run: RunState, plan: Plan, invoke: Invoke, planned: (id: string) => Call, principal: string): Promise<string[]> {
+export async function teardown(run: RunState, plan: Plan, invoke: Invoke, planned: (id: string) => Call, principal: string): Promise<string[]> {
   const leaks: string[] = [];
   // `tolerated`: an error that means the resource is already absent, which is the goal of the delete.
   const attempt = async (what: string, action: () => Promise<unknown>, tolerated: string[] = []): Promise<boolean> => {
@@ -368,7 +402,7 @@ async function teardown(run: RunState, plan: Plan, invoke: Invoke, planned: (id:
 }
 
 /** What the approval bound: digests, dependency order and stable addresses. None of it may change once proposed. */
-const pinned = (plan: MixedReadback) => canonical({
+export const pinned = (plan: MixedReadback) => canonical({
   parentDigest: plan.parentDigest, desiredDigest: plan.desiredDigest, childSetDigest: plan.childSetDigest, executionOrder: plan.executionOrder,
   children: plan.children.map(({ partitionId, dependsOn, subplanDigest, semanticsDigest, effectDigest, nodes }) => ({ partitionId, dependsOn, subplanDigest, semanticsDigest, effectDigest, nodes })),
 });
@@ -385,7 +419,7 @@ export function mix02Order(plan: MixedReadback): { producer: MixedChildReadback;
 }
 
 /** A succeeded child's receipt: it links the child operation and re-derives from its own fields (src/lib/execution/mixed/receipt.ts). */
-function receiptOf(plan: MixedReadback, child: MixedChildReadback, role: string, planId: string): MixedReceipt {
+export function receiptOf(plan: MixedReadback, child: MixedChildReadback, role: string, planId: string): MixedReceipt {
   const receipt = child.receipt ?? refuse(`the ${role} has no durable receipt`);
   if (child.state !== "succeeded" || receipt.outcome !== "succeeded" || receipt.childStatus !== "succeeded") refuse(`the ${role} receipt does not record a success`);
   if (!child.childOperationId || receipt.childOperationId !== child.childOperationId || receipt.partitionId !== child.partitionId || receipt.parentPlanId !== planId) refuse(`the ${role} receipt does not link its child operation`);
@@ -416,6 +450,65 @@ export function mix02Verdict(input: { planId: string; parentOperationId: string;
   if (input.bucketFinal !== input.bucketBeforeStop) refuse("the producer bucket is not the same resource after the resume");
   const addresses = proposed.children.reduce((n, child) => n + child.nodes.length, 0);
   return `PROD-MIX-02 proven on the live sandbox: the stored parent plan put the producer (S3 bucket) before the consumer (Lambda function) that depends on it, with one approved parent operation; its parent, desired and child-set digests, each child's subplan, semantics and effect digests and all ${addresses} stable resource addresses were identical after the proposal, before the execution worker was stopped and at the end; the worker was stopped with the producer done and the consumer waiting for its review, the review was approved while it was down (${Math.round(input.downMs / 1000)} s from stop to healthy) and the parent resumed after the restart; both durable receipts link their child operations, bind the semantics each child ran and re-derive from their own fields; the producer receipt was unchanged across the restart and AWS held the same one producer bucket before and after`;
+}
+
+/** The two connection stacks of one sandbox account and their planned call ids (plan.ts mix01ProductCalls): -live, then -live2. */
+export const LANES = [{ suffix: "-live", ids: "mix03" }, { suffix: "-live2", ids: "mix01-live2" }] as const;
+export interface LaneConnection { connectionId: string; externalId: string; stateBucket: string }
+export interface LaneIo { product: Mix03Product; tenant: Mix03Tenant; invoke: Invoke; planned: (id: string) => Call; run: RunState; account: string; region: string; principal: string; at: (step: string) => void }
+
+/** One lane's connection through the product, with its stack's observe and deploy trust pointed at the new ExternalId (teardown restores it). */
+export async function connectLane(io: LaneIo, lane: (typeof LANES)[number]): Promise<LaneConnection> {
+  const names = liveRoleNames(lane.suffix), stateBucket = `zenith-state-${io.account}-${io.region}${lane.suffix}`;
+  io.at(`connection ${lane.suffix}`);
+  const connection = await io.product.createAwsConnection(io.tenant, { accountId: io.account, region: io.region, stateBucket, bootstrapNameSuffix: lane.suffix,
+    observeRoleArn: `arn:aws:iam::${io.account}:role/${names.observe}`, deployRoleArn: `arn:aws:iam::${io.account}:role/${names.deploy}` });
+  if (!EXTERNAL_ID_NEW.test(connection.externalId)) refuse("the generated ExternalId has an unexpected shape");
+  io.at(`sandbox trust ${lane.suffix}`);
+  for (const role of ["observe", "deploy"] as const) {
+    const current = await io.invoke(io.planned(`${lane.ids}-iam-read-${role}`));
+    const original = templateExternalId(parsePolicy(field(field(current, "Role"), "AssumeRolePolicyDocument")), io.principal);
+    const write = io.planned(`${lane.ids}-iam-trust-${role}`);
+    io.run.trust.push({ role, original, write });
+    await io.invoke(write, { trustDocument: trustDocument(io.principal, connection.externalId) });
+  }
+  return { ...connection, stateBucket };
+}
+
+/** connection.verifyAws until it passes, within the propagation bound of the trust change. */
+export async function verifyConnection(product: Mix03Product, tenant: Mix03Tenant, connectionId: string, propagation: { attempts: number; intervalMs: number }, sleep: (ms: number) => Promise<void>): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    if ((await product.verifyAws(tenant, connectionId)).ok) return;
+    if (attempt >= propagation.attempts) refuse("connection.verifyAws did not pass after the trust update within the propagation bound");
+    await sleep(propagation.intervalMs);
+  }
+}
+
+/**
+ * PROD-MIX-01 readback of two independent children: each environment holds exactly one tagged bucket of its own, and each child's
+ * state object (src/lib/execution/compile.ts: zenith/<workspace>/<environment>/terraform.tfstate) is in its own connection's state
+ * bucket and not in the other's. Bounded listings, independent of the product.
+ */
+export async function partitionReadback(invoke: Invoke, planned: (id: string) => Call, workspaceId: string, children: [{ environmentId: string; stateBucket: string }, { environmentId: string; stateBucket: string }], at: (step: string) => void): Promise<void> {
+  at("AWS readback");
+  for (const { environmentId } of children) {
+    const buckets = (await inventoryOf(invoke, planned("mix03-tag-read"), [environmentId])).filter(m => /^arn:aws:s3:::zenith-/.test(m.arn) && owned(m.tags, [environmentId]));
+    if (buckets.length !== 1) refuse("an environment does not hold exactly one tagged bucket of its own");
+    const bucketName = buckets[0]!.arn.split(":::")[1]!;
+    await invoke(planned("mix03-bucket-head"), { bucketName });
+    if (!owned(tagMap(field(await invoke(planned("mix03-bucket-tags"), { bucketName }), "TagSet")), [environmentId])) refuse("a bucket lacks its environment's ownership tags");
+  }
+  at("state partition");
+  const hasState = async (bucketName: string, environmentId: string): Promise<boolean> => {
+    const prefix = `zenith/${workspaceId}/${environmentId}/`;
+    const contents = field(await invoke(planned("mix01-state-list"), { bucketName, prefix }), "Contents");
+    return Array.isArray(contents) && contents.some(object => field(object, "Key") === `${prefix}terraform.tfstate`);
+  };
+  const [producer, consumer] = children;
+  if (!await hasState(producer.stateBucket, producer.environmentId)) refuse("the producer's state is not in its own connection's state bucket");
+  if (await hasState(consumer.stateBucket, producer.environmentId)) refuse("the producer's state is also in the consumer connection's state bucket");
+  if (!await hasState(consumer.stateBucket, consumer.environmentId)) refuse("the consumer's state is not in its own connection's state bucket");
+  if (await hasState(producer.stateBucket, consumer.environmentId)) refuse("the consumer's state is also in the producer connection's state bucket");
 }
 
 /** PROD-MIX-03 and PROD-MIX-02 from one run. Every other requirement is reported not implemented. Never throws. */
@@ -483,13 +576,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
           await sleep(propagation.intervalMs);
         }
         step = "consumer package";
-        const assumed = field(await invoke(planned("mix03-sts-assume"), { externalId: connection.externalId }), "Credentials");
-        const accessKeyId = field(assumed, "AccessKeyId"), secretAccessKey = field(assumed, "SecretAccessKey"), sessionToken = field(assumed, "SessionToken");
-        if (typeof accessKeyId !== "string" || typeof secretAccessKey !== "string" || typeof sessionToken !== "string") refuse("the deploy role session could not be read");
-        const pkg = consumerPackage(), key = `zenith-live/${plan.settings.runId}/consumer.zip`;
-        const versionId = await upload({ region, credentials: { accessKeyId, secretAccessKey, sessionToken }, bucket: stateBucket, key, body: pkg.zip });
-        if (!versionId || versionId === "null" || !ARTIFACT_VERSION.test(versionId)) refuse("the state bucket did not return an object version for the consumer's package");
-        const artifact: Mix03Artifact = { bucket: stateBucket, key, versionId, sha256: pkg.sha256, sourceDigest: pkg.sourceDigest };
+        const artifact = await uploadConsumerPackage(invoke, planned, upload, { region, runId: plan.settings.runId, stateBucket, externalId: connection.externalId });
         step = "mixed plan";
         run.attempted = true;
         const proposal = await product.proposeMixed(tenant, { connectionId: connection.connectionId, accountId: account, region, artifact });
@@ -636,39 +723,19 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
     const planned = (id: string): Call => plan.productCalls?.find(c => c.id === id) ?? refuse(`the plan has no call ${id}`);
     const account = plan.settings.accountId, region = plan.settings.region;
     const principal = `arn:aws:iam::${account}:role/${liveRoleNames().principal}`;
-    // Planned call ids: mix03-* for the -live roles, mix01-live2-* for the -live2 roles (plan.ts mix01ProductCalls).
-    const lanes = [{ suffix: "-live", ids: "mix03" }, { suffix: "-live2", ids: "mix01-live2" }] as const;
     let step = "preconditions";
     let outcome: { complete: boolean; reason: string };
+    const at = (name: string) => { step = name; };
     try {
       preconditions(env, plan, "mix-01");
       step = "tenant";
       const tenant = await product.createTenant();
-      const connections: { connectionId: string; externalId: string; stateBucket: string }[] = [];
-      for (const lane of lanes) {
-        const names = liveRoleNames(lane.suffix), stateBucket = `zenith-state-${account}-${region}${lane.suffix}`;
-        step = `connection ${lane.suffix}`;
-        const connection = await product.createAwsConnection(tenant, { accountId: account, region, stateBucket, bootstrapNameSuffix: lane.suffix,
-          observeRoleArn: `arn:aws:iam::${account}:role/${names.observe}`, deployRoleArn: `arn:aws:iam::${account}:role/${names.deploy}` });
-        if (!EXTERNAL_ID_NEW.test(connection.externalId)) refuse("the generated ExternalId has an unexpected shape");
-        step = `sandbox trust ${lane.suffix}`;
-        for (const role of ["observe", "deploy"] as const) {
-          const current = await invoke(planned(`${lane.ids}-iam-read-${role}`));
-          const original = templateExternalId(parsePolicy(field(field(current, "Role"), "AssumeRolePolicyDocument")), principal);
-          const write = planned(`${lane.ids}-iam-trust-${role}`);
-          run.trust.push({ role, original, write });
-          await invoke(write, { trustDocument: trustDocument(principal, connection.externalId) });
-        }
-        connections.push({ ...connection, stateBucket });
-      }
-      const [producerConnection, consumerConnection] = connections as [typeof connections[0], typeof connections[0]];
+      const connections: LaneConnection[] = [];
+      for (const lane of LANES) connections.push(await connectLane({ product, tenant, invoke, planned, run, account, region, principal, at }, lane));
+      const [producerConnection, consumerConnection] = connections as [LaneConnection, LaneConnection];
       if (producerConnection.connectionId === consumerConnection.connectionId) refuse("the product returned one connection for two connection stacks");
       step = "connection verification";
-      for (const connection of connections) for (let attempt = 1; ; attempt++) {
-        if ((await product.verifyAws(tenant, connection.connectionId)).ok) break;
-        if (attempt >= propagation.attempts) refuse("connection.verifyAws did not pass after the trust update within the propagation bound");
-        await sleep(propagation.intervalMs);
-      }
+      for (const connection of connections) await verifyConnection(product, tenant, connection.connectionId, propagation, sleep);
       // Two independent children (one bucket each): a dependency across connections would need declared protected
       // connectivity (PROD-MIX-05), which the product rightly refuses to derive.
       step = "mixed plan";
@@ -704,27 +771,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
       step = "receipts";
       if (!producer!.childOperationId || producer!.receiptOperationId !== producer!.childOperationId) refuse("the producer receipt does not link its child operation");
       if (!consumer!.childOperationId || consumer!.receiptOperationId !== consumer!.childOperationId) refuse("the consumer receipt does not link its child operation");
-      // Each environment holds exactly one tagged, owned bucket: its own child's resource and nothing of the other's.
-      step = "AWS readback";
-      for (const environmentId of [producerEnv, consumerEnv]) {
-        const buckets = (await inventoryOf(invoke, planned("mix03-tag-read"), [environmentId])).filter(m => /^arn:aws:s3:::zenith-/.test(m.arn) && owned(m.tags, [environmentId]));
-        if (buckets.length !== 1) refuse("an environment does not hold exactly one tagged bucket of its own");
-        const bucketName = buckets[0]!.arn.split(":::")[1]!;
-        await invoke(planned("mix03-bucket-head"), { bucketName });
-        if (!owned(tagMap(field(await invoke(planned("mix03-bucket-tags"), { bucketName }), "TagSet")), [environmentId])) refuse("a bucket lacks its environment's ownership tags");
-      }
-      // Each child's state object (src/lib/execution/compile.ts: zenith/<workspace>/<environment>/terraform.tfstate) must exist in
-      // its own connection's state bucket only. The listing is bounded and independent of the product.
-      step = "state partition";
-      const hasState = async (bucketName: string, environmentId: string): Promise<boolean> => {
-        const prefix = `zenith/${tenant.workspaceId}/${environmentId}/`;
-        const contents = field(await invoke(planned("mix01-state-list"), { bucketName, prefix }), "Contents");
-        return Array.isArray(contents) && contents.some(object => field(object, "Key") === `${prefix}terraform.tfstate`);
-      };
-      if (!await hasState(producerConnection.stateBucket, producerEnv)) refuse("the producer's state is not in its own connection's state bucket");
-      if (await hasState(consumerConnection.stateBucket, producerEnv)) refuse("the producer's state is also in the consumer connection's state bucket");
-      if (!await hasState(consumerConnection.stateBucket, consumerEnv)) refuse("the consumer's state is not in its own connection's state bucket");
-      if (await hasState(producerConnection.stateBucket, consumerEnv)) refuse("the consumer's state is also in the producer connection's state bucket");
+      await partitionReadback(invoke, planned, tenant.workspaceId, [{ environmentId: producerEnv, stateBucket: producerConnection.stateBucket }, { environmentId: consumerEnv, stateBucket: consumerConnection.stateBucket }], at);
       outcome = { complete: true, reason: "PROD-MIX-01 proven on the live AWS sandbox: one tenant created two AWS connections on the two connection stacks of one account (-live, -live2); the trust change touched only the ExternalId of each stack's observe and deploy roles and was restored; connection.verifyAws passed for both. The stored parent plan put one child on each connection (one S3 bucket each) in two separate, independent partitions; both children succeeded and both receipts link their child operations. By independent readback each environment holds exactly one tagged bucket of its own, and each child's OpenTofu state object exists in its own connection's state bucket and not in the other's. A dependency between partitions on different connections is refused by the product unless protected connectivity is declared (PROD-MIX-05), as live run 41611302755 showed. Approvals by an automated test approver through the browser path. One AWS account and provider: separate accounts and cross-provider partitions are outside this run" };
     } catch (error) {
       outcome = { complete: false, reason: `PROD-MIX-01 not proven at ${step}: ${error instanceof Refusal ? error.message : "unexpected failure (details withheld; no completion claim)"}` };

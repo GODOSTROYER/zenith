@@ -28,9 +28,18 @@ const scenarios: Record<Scenario, { families: Family[]; scope?: string[] }> = {
   // No harness fixtures: one tenant holds two AWS connections (the -live and -live2 connection stacks); the producer child runs
   // on the first and the consumer child on the second, so each partition binds its own connection and state backend.
   "mix-01": { families: [], scope: ["PROD-MIX-01"] },
+  // No harness fixtures: the operator runbook walked on both connection stacks (MIXED-RECOVERY.md sections 1 and 4,
+  // MIXED-PARTITIONS.md); its evidence is operational_rehearsal, not live_sandbox (evidenceLevel).
+  "mix-rehearsal": { families: [], scope: ["PROD-MIX-01", "PROD-MIX-02", "PROD-MIX-03", "PROD-MIX-04"] },
 };
+/** Scenarios whose passed requirements are operational rehearsals; every other scenario's are live_sandbox. */
+export const REHEARSAL_SCENARIOS: readonly Scenario[] = ["mix-rehearsal"];
+/** The evidence level a passed requirement of this run records. */
+export function evidenceLevel(settings: Pick<Settings, "scenario">): "live_sandbox" | "operational_rehearsal" {
+  return settings.scenario && REHEARSAL_SCENARIOS.includes(settings.scenario) ? "operational_rehearsal" : "live_sandbox";
+}
 /** Scenarios that create nothing tagged zenith:purpose=live-acceptance, so a second lane cannot trip the other's leak preflight. */
-export const LANE_SCENARIOS: readonly Scenario[] = ["mix-03", "deploy-01", "teardown-01", "ops-06", "ops-04", "ops-05", "ops-03", "ops-02", "mix-01"];
+export const LANE_SCENARIOS: readonly Scenario[] = ["mix-03", "deploy-01", "teardown-01", "ops-06", "ops-04", "ops-05", "ops-03", "ops-02", "mix-01", "mix-rehearsal"];
 /** The connection stack NameSuffix of a sandbox lane (deploy/aws/zenith-connection.cfn.yaml): zenith-connection-live or -live2. */
 export function laneSuffix(settings: Pick<Settings, "lane">): string { return settings.lane ? `-${settings.lane}` : "-live"; }
 /** Sandbox IAM names installed by deploy/aws/zenith-connection.cfn.yaml with the lane's NameSuffix (verify before a live run). */
@@ -97,6 +106,20 @@ export function mix01ProductCalls(account: string, region: string, runId: string
     c("mix01-live2-iam-trust-deploy", "iam", "UpdateAssumeRolePolicy", "iam:UpdateAssumeRolePolicy", roleArn(second.deploy), { RoleName: second.deploy, PolicyDocument: runtime("trustDocument") }, 3),
     c("mix01-state-list", "s3", "ListObjectsV2", "s3:ListBucket", "arn:aws:s3:::zenith-*", { Bucket: runtime("bucketName"), Prefix: runtime("prefix"), MaxKeys: 10 }, 8),
   ];
+}
+/**
+ * Rehearsal product-scope calls: exactly the PROD-MIX-01 calls (both stacks' trust, the -live deploy-role session for the consumer
+ * package, the tag, bucket, function and state readbacks and the tagged cleanup), with call bounds for one run of four parents
+ * (up to ten child environments: a refused cross-connection plan, two independent children, a producer and consumer, its replan
+ * after a reconciliation, a cancelled producer and consumer) and the tag re-lists after the product teardown.
+ */
+export function mixRehearsalProductCalls(account: string, region: string, runId: string): Call[] {
+  const bounds: Record<string, number> = {
+    "mix03-tag-read": 80, "mix03-lambda-read": 10, "mix03-bucket-head": 10, "mix03-bucket-tags": 10, "mix03-lambda-delete": 4, "mix03-logs-delete": 6,
+    "mix03-role-read": 6, "mix03-role-attached-list": 4, "mix03-role-detach": 8, "mix03-role-inline-list": 4, "mix03-role-inline-delete": 8, "mix03-role-delete": 4,
+    "mix03-bucket-delete": 8, "mix01-state-list": 8,
+  };
+  return mix01ProductCalls(account, region, runId).map(c => ({ ...c, maximumCalls: bounds[c.id] ?? c.maximumCalls }));
 }
 /**
  * DEPLOY-01 product-scope calls: the sandbox trust change (as mix-03), one STS session of the sandbox deploy role for the
@@ -190,15 +213,17 @@ export function buildPlan(input: Settings): Plan {
   const { lane, ...base } = rest;
   // Canonical settings omit the default lane too.
   const settings: Settings = { ...(scenario === "fixtures" ? base : { ...base, scenario }), ...(lane ? { lane: parseLane(lane) } : {}) };
-  if (settings.lane && !LANE_SCENARIOS.includes(scenario)) throw new Error("The second sandbox lane runs only product scenarios (mix-03, deploy-01, teardown-01, ops-06, ops-04, ops-05, ops-03, ops-02, mix-01)");
+  if (settings.lane && !LANE_SCENARIOS.includes(scenario)) throw new Error("The second sandbox lane runs only product scenarios (mix-03, deploy-01, teardown-01, ops-06, ops-04, ops-05, ops-03, ops-02, mix-01, mix-rehearsal)");
   assertRunId(settings.runId);
   if (!/^\d{12}$/.test(settings.accountId)) throw new Error("Explicit 12-digit sandbox account required");
   if (!/^(us|eu|ap|ca|sa|me|af|il|mx)-(central|north|south|east|west|northeast|northwest|southeast|southwest)-\d$/.test(settings.region)) throw new Error("Commercial AWS region required");
   // DEPLOY-01 deploys, updates and rolls back a Fargate service behind an ALB on a fresh VPC: allow up to 60 minutes.
   // TEARDOWN-01 waits about 80 minutes after its deploy for the earlier writers to settle (WP3), then tears down: up to 150.
-  const maxMinutes = scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" || scenario === "ops-02" ? 60 : scenario === "mix-03" || scenario === "mix-01" ? 40 : scenario === "teardown-01" ? 150 : 20;
+  // The rehearsal runs four mixed parents, then waits for the last deploy to settle (about 85 minutes) before its product teardown:
+  // like TEARDOWN-01, 120..150.
+  const maxMinutes = scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" || scenario === "ops-02" ? 60 : scenario === "mix-03" || scenario === "mix-01" ? 40 : scenario === "teardown-01" || scenario === "mix-rehearsal" ? 150 : 20;
   // A shorter TEARDOWN-01 run ends at its envelope before the settlement wait can finish: refuse it before anything is deployed.
-  const minMinutes = scenario === "teardown-01" ? 120 : 5;
+  const minMinutes = scenario === "teardown-01" || scenario === "mix-rehearsal" ? 120 : 5;
   if (!Number.isInteger(settings.durationMinutes) || settings.durationMinutes < minMinutes || settings.durationMinutes > maxMinutes) throw new Error(`Duration must be ${minMinutes}..${maxMinutes} minutes (25 minutes reserved for cleanup)`);
   const { accountId: account, region, runId } = settings;
   const prefix = `zenith-${runId}`;
@@ -302,6 +327,7 @@ export function buildPlan(input: Settings): Plan {
   // OPS-04 and OPS-05 hold only S3 buckets (two at most) for under an hour: the TEARDOWN-01 ceiling formula.
   const estimate: Plan["estimate"] = scenario === "teardown-01" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" ? { usd: 0.5 + settings.durationMinutes * 0.005, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for TEARDOWN-01: one empty managed S3 bucket deployed and torn down by Zenith, a few dozen planned control-plane calls and the fallback destroy from the recorded state." }
     : scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-02" ? { usd: 1 + settings.durationMinutes * 0.03, cleanupReserveUsd: 0.5, provisional: true, basis: "Conservative provisional USD ceiling for DEPLOY-01: one VPC with a single NAT gateway, one ALB and one 0.25 vCPU Fargate task for the run, destroyed from the recorded state." }
+    : scenario === "mix-rehearsal" ? { usd: 0.5 + settings.durationMinutes * 0.015, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for the PROD-MIX-01..04 operational rehearsal: four mixed parents over two AWS connections in one account, at most five owned S3 buckets with no objects and two 128MiB Lambda functions with no invocation and their CloudWatch log groups, held for about two hours while the last deploy settles, IAM roles (no charge) and about two hundred planned control-plane calls; includes 0.25USD cleanup reserve. Owner must validate regional rates." }
     : scenario === "mix-01" ? { usd: 0.5 + settings.durationMinutes * 0.02, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for PROD-MIX-01: one mixed parent over two AWS connections in one account, one owned S3 bucket with no objects, one 128MiB Lambda function with no invocation and one CloudWatch log group, IAM roles (no charge) and a few dozen planned control-plane calls; includes 0.25USD cleanup reserve. Owner must validate regional rates." }
     : scenario === "mix-03" ? { usd: 0.5 + settings.durationMinutes * 0.02, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for PROD-MIX-03: two mixed parents (review path, then preauthorized path), each one owned S3 bucket with no objects, one 128MiB Lambda function with no invocation and one CloudWatch log group, IAM roles (no charge) and a few dozen planned control-plane calls; includes 0.25USD cleanup reserve. A rename of the producer bucket doubles the bucket count for its window. Owner must validate regional rates." } : scenario === "retention-s3" ? { usd: 0.25 + settings.durationMinutes * 0.01, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for one owned S3 bucket, a few sealed objects under retention/, a bounded list/delete drain and a few dozen planned S3 requests; includes 0.25USD cleanup reserve. No RDS, ECS, DNS, IAM or Lambda cost. Owner must validate regional S3 rates." }
     : scenario === "rel-04" ? { usd: 0.25 + settings.durationMinutes * 0.01, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for the PROD-REL-04 drill: one owned S3 bucket with one probe object, a SIGKILL and journal-only resume, a refused replay claim and two read-only readbacks; same S3 envelope as retention-s3, includes 0.25USD cleanup reserve. No RDS, ECS, DNS, IAM or Lambda cost. Owner must validate regional S3 rates." } : { usd: 6 + settings.durationMinutes * 0.03, cleanupReserveUsd: 2, provisional: true, basis: "Conservative provisional USD ceiling: one private 20GiB db.t4g.micro <=45min including cleanup, one 128MiB Lambda invocation, one empty ECS cluster, <=1KiB S3, one disposable hosted zone, managed DB secret; includes 2USD cleanup reserve. Owner must validate regional rates; delayed deletion can exceed estimate." };
@@ -310,6 +336,7 @@ export function buildPlan(input: Settings): Plan {
     // Only the mix-03 body carries productCalls, so every other scenario's digest is unchanged.
     ...(scenario === "mix-03" ? { productCalls: mix03ProductCalls(account, region, runId, liveRoleNames(laneSuffix(settings))) } : {}),
     ...(scenario === "mix-01" ? { productCalls: mix01ProductCalls(account, region, runId) } : {}),
+    ...(scenario === "mix-rehearsal" ? { productCalls: mixRehearsalProductCalls(account, region, runId) } : {}),
     // OPS-06 makes the same sandbox calls as DEPLOY-01 (trust, deploy-role session, tag re-list).
     ...(scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-02" ? { productCalls: deploy01ProductCalls(account, runId, liveRoleNames(laneSuffix(settings)), scenario === "ops-06") } : {}),
     ...(scenario === "teardown-01" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" ? { productCalls: teardown01ProductCalls(account, runId, liveRoleNames(laneSuffix(settings))) } : {}),

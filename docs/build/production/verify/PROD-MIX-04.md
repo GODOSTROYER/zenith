@@ -121,3 +121,21 @@ Source `81529b35`, the commit of this requirement's `live_sandbox` receipt, so t
 Limits: `tests/execution/mixed-run-store.test.ts` is in the engine lane only; its PostgreSQL block skips offline.
 
 `operational_rehearsal` is still not done. Not a promotion.
+
+## Operational rehearsal (live), scenario `mix-rehearsal` (2026-11-04)
+
+This requirement passes when steps 4 and 5 hold.
+
+Scenario `mix-rehearsal` (lane `live`; it uses both connection stacks, `-live` and `-live2`, so dispatch it only while no other lane run is active) produces this requirement's `operational_rehearsal` evidence from one live run that walks the operator runbook on the AWS sandbox: [MIXED-PARTITIONS.md](../../../platform/operations/MIXED-PARTITIONS.md) and [MIXED-RECOVERY.md](../../../platform/operations/MIXED-RECOVERY.md) sections 1 and 4. Port: `scripts/acceptance/live/product/mix-rehearsal.ts`; driver: `browserMix03Product` (`mix-03-driver.ts`).
+
+Steps, in order:
+1. One tenant, connection A on `-live` and B on `-live2`; the trust change and `connection.verifyAws` for both.
+2. P1: a plan whose consumer on B consumes a typed output of a producer on A, without declared connectivity, must be refused (`plan_refused`). An independent plan over A and B runs; each environment holds its own bucket and each child's state is in its own connection's state bucket only.
+3. P2: producer and consumer on A. The execution worker is stopped while the producer's deployment step is `apply_infrastructure`, then restarted. The producer must end succeeded with one tagged bucket and unchanged digests and stable addresses. If it ends indeterminate, the port reads AWS, records `POST .../mixed-run/reconcile` (`reconcileChild`) and replans; PROD-MIX-02 is then not claimed. The consumer waits for the output review of the changed parent digest, a person approves it, and readback proves `PRODUCER_BUCKET_ARN` is the producer bucket.
+4. P3: producer and consumer on A. With the producer succeeded and the consumer waiting for its review, the operator cancels the run (`POST .../mixed-run/cancel`, `cancelMixed`). `GET .../mixed-run` must read `partial`, the producer in `appliedWithoutRunCompletion`, the consumer `cancelled` and never started, `atomicity: none`, `automaticCompensation: never`, `propose_teardown_for_human_approval` in `nextSteps`. AWS still holds the producer bucket.
+5. Teardown of P3, P2 (and its replan) and P1 through the product: `proposeTeardown`; releasing P2's producer before its consumer must be refused (`ordering_blocked`); then per step `openChildDestroy`, `releaseTeardown`, `finishChildDestroy`, `syncTeardown` = `destroyed`, one at a time. Each review opens only once the environment's deploy activity settled (about 85 minutes after its deploy), so the OIDC session is refreshed once before the first destroy. AWS then shows no tagged bucket or function for any of the run's environments.
+6. Connection B is revoked (`connection.revoke`, `revokeConnection`) and a new plan on it must be refused (`connection_unverified`).
+
+The harness cleanup still runs last: it restores the trust on all four roles and deletes anything tagged that is left, which is reported as a leak. Minutes 120..150 (the settlement wait); cap USD 0.5 + 0.015 per minute (2.75 at 150). The evidence packet records `operational_rehearsal` for this run's rows, and the release source carries `level: "operational_rehearsal"`. Bind it with `node scripts/release/evidence-cli.mjs --source <release-source-PROD-MIX-04.json> --requirement PROD-MIX-04 --level operational_rehearsal --mode live --out <receipt>`. The CLI and `scripts/release/status.mjs` refuse that source at any other level, and refuse a live `operational_rehearsal` receipt whose source does not say it is a rehearsal.
+
+Offline: `tests/acceptance/aws-mix-rehearsal-port.test.ts`, `tests/acceptance/aws-mix03-driver.test.ts`. Not run live yet. Approvals come from an automated test approver through the browser path. Not a promotion.

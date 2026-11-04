@@ -267,7 +267,7 @@ describe("PROD-MIX-03 trust update (ExternalId only, restored afterwards)", () =
     const { run, sent } = harness(state, happy({ verifyAws: async () => ({ ok: false, reason: "AssumeRole denied" }) }));
     const result = await run();
     expect(result.complete).toBe(false);
-    expect(result.reason).toContain("propagation bound");
+    expect(result.reason).toContain("propagation bound (last: ");
     expect(state.trustDocs.observe).toBe(trustDocument(PRINCIPAL, OLD_EXT));
     expect(sent.filter(s => s.id === "mix03-iam-trust-deploy")).toHaveLength(2);
   });

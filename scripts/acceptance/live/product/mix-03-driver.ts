@@ -394,7 +394,8 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
     async verifyAws(tenant, connectionId) {
       return step("connection verification", async () => {
         const result = await runAction(sessionOf(tenant), "connection.verifyAws", { connectionId });
-        return result.ok ? { ok: true, reason: "" } : { ok: false, reason: "connection.verifyAws did not pass" };
+        const why = result.ok ? undefined : sanitizedError(result.error);
+        return result.ok ? { ok: true, reason: "" } : { ok: false, reason: `connection.verifyAws did not pass${why ? ` (product: ${why})` : ""}` };
       });
     },
 

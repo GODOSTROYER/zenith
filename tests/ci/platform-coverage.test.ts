@@ -106,8 +106,10 @@ const replayAdditionIds = new Set([
   "workflows:tests/workflows/versioning-audit.test.ts:c336390bb162",
   "workflows:tests/workflows/versioning-audit.test.ts:daf8e7f59be8"
 ]);
+// Reviewed successor fixtures of the frozen replay corpus (PROD-MIX-04 destroy release gate); exact IDs only.
+const replaySuccessorIds = new Set(["workflows:tests/workflows/history-replay.test.ts:9891832a548c"]);
 function withoutReplayAdditions(items: ReturnType<typeof requirementsFor>): ReturnType<typeof requirementsFor> {
-  return items.filter(item => !replayAdditionIds.has(item.id));
+  return items.filter(item => !replayAdditionIds.has(item.id) && !replaySuccessorIds.has(item.id));
 }
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
@@ -946,7 +948,7 @@ describe("saved builtin settlement mandatory CI admission", () => {
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
     gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(113);
+    expect(requirementsFor("workflows", root)).toHaveLength(114);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().requiredCases).toHaveLength(159); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -966,8 +968,8 @@ describe("critical scheduling native admission [workflow source models]", () => 
     const manifest = manifestFor("workflows", root), job = workflow.jobs.workflows;
     expect(manifest.requirements.filter(item => criticalScheduleWorkflowIds.has(item.id)))
       .toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
-    expect(manifest.requirements).toHaveLength(113);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(113);
+    expect(manifest.requirements).toHaveLength(114);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(114);
     const previous = withoutReplayAdditions(manifest.requirements);
     expect(previous).toHaveLength(78);
     const historicalPrevious = previous.filter(item => !integrationWorkflowIds.has(item.id));

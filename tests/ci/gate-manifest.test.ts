@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { load } from "js-yaml";
-import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
+import { OWNERSHIP_SNAPSHOT_CAS_POSTGRES_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS, AGENT_JOURNAL_POSTGRES_REQUIREMENTS, CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, LINUX_GUEST_SERVICE_CASES, LINUX_GUEST_RUNNER_UPDATE_CASES, LINUX_GUEST_PID1_CASES, INCIDENT_OWNERSHIP_HARDENING_POSTGRES_REQUIREMENTS, SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, MIXED_RUN_STORE_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor, WAVE5_CONTRACT_FILES, WAVE5_EXTERNAL_FILES } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 import { validateGoEvents } from "../../scripts/ci/run-guest-file-write-gate.mjs";
 
@@ -301,8 +301,10 @@ const replayAdditionIds = new Set([
   "workflows:tests/workflows/versioning-audit.test.ts:daf8e7f59be8"
 ]);
 const errorBoundaryWorkflowId = "workflows:tests/platform/error-boundary.test.ts:4ee93ed6c454";
+// Reviewed successor fixtures of the frozen replay corpus (PROD-MIX-04 destroy release gate); exact IDs only.
+const replaySuccessorIds = new Set(["workflows:tests/workflows/history-replay.test.ts:9891832a548c"]);
 function withoutKnownWorkflowSuccessors(items: Requirement[]): Requirement[] {
-  return items.filter(item => !replayAdditionIds.has(item.id) && item.id !== errorBoundaryWorkflowId);
+  return items.filter(item => !replayAdditionIds.has(item.id) && !replaySuccessorIds.has(item.id) && item.id !== errorBoundaryWorkflowId);
 }
 const criticalScheduleWorkflowIds = new Set(CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS.map(item => requirementId("workflows", item)));
 function priorCriticalScheduleWorkflowRequirements(sourceRoot = root) {
@@ -2433,12 +2435,12 @@ function workflowNativeSetupProblems(job: WorkflowNativeJob): string[] {
 describe("workflow native PostgreSQL prerequisites [source/report models]", () => {
   it("keeps all 58 workflow identities and exact native source flags while declaring real PostgreSQL", () => {
     const manifest = manifestFor("workflows", root);
-    expect(manifest.requirements).toHaveLength(113);
+    expect(manifest.requirements).toHaveLength(114);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(manifest.requirements.filter(item => wave2WorkflowIds.has(item.id)).map(item => item.id)).toEqual([...wave2WorkflowIds]);
     expect(WORKFLOW_NATIVE_POSTGRES_FILES).toEqual(workflowNativeGroups.map(group => group.file));
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(113);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(114);
     expect(createHash("sha256").update(JSON.stringify(priorWave2WorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("d3a15adf854819fd8577c3b55b48dd55640d6522bdc57cad2c707c867ffecad3");
     expect(manifest.tools).toEqual({ node: "22.23.3", postgres: "16.15", temporal: "1.9.1" });
@@ -2700,7 +2702,7 @@ describe("mandatory saved builtin settlement cases [report models]", () => {
     expect(historical).toEqual([...previous, ...required]);
     expect(cleanupWriterNamed()).toHaveLength(68); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
     expect(manifestFor("postgres", root).requirements).toHaveLength(93);
-    expect(requirementsFor("workflows", root)).toHaveLength(113);
+    expect(requirementsFor("workflows", root)).toHaveLength(114);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(priorWave2WorkflowRequirements()).toHaveLength(58);
     expect(priorServiceLinuxCases(linuxGuestManifest().requiredCases)).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
@@ -2939,8 +2941,8 @@ describe("mandatory owned critical scheduling [source/report models]", () => {
     const manifest = manifestFor("workflows", root);
     expect(named()).toEqual(expected.map(item => ({ ...item, id: requirementId("workflows", item) })));
     expect(new Set(named().map(item => item.id)).size).toBe(2);
-    expect(manifest.requirements).toHaveLength(113);
-    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(113);
+    expect(manifest.requirements).toHaveLength(114);
+    expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(114);
     expect(priorCriticalScheduleWorkflowRequirements()).toHaveLength(60);
     expect(createHash("sha256").update(JSON.stringify(priorCriticalScheduleWorkflowRequirements().map(item => item.id).sort())).digest("hex"))
       .toBe("0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b");
@@ -3156,7 +3158,7 @@ describe("incoming platform and workflow obligations", () => {
   });
   it("keeps all eight added workflow files in the complete mandatory lane", () => {
     const current = manifestFor("workflows", root);
-    expect(current.requirements).toHaveLength(113);
+    expect(current.requirements).toHaveLength(114);
     expect(current.requirements.filter(item => item.id === errorBoundaryWorkflowId)).toEqual([
       { file: "tests/platform/error-boundary.test.ts", id: errorBoundaryWorkflowId },
     ]);
@@ -3176,8 +3178,8 @@ describe("full history codec successor admission", () => {
     const current = manifestFor("workflows", root);
     const codec = current.requirements.filter(item => item.id === historyCodecWorkflowId);
     expect(codec).toHaveLength(1);
-    expect(current.requirements).toHaveLength(113);
-    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(112);
+    expect(current.requirements).toHaveLength(114);
+    expect(current.requirements.filter(item => item.id !== historyCodecWorkflowId)).toHaveLength(113);
     const priorWithoutCodec = withoutKnownWorkflowSuccessors(current.requirements).filter(item => item.id !== historyCodecWorkflowId && !integrationWorkflowIds.has(item.id));
     expect(priorWithoutCodec).toHaveLength(75);
     expect(priorWithoutCodec.filter(item => !wave5WorkflowIds.has(item.id))).toHaveLength(70);
@@ -3292,7 +3294,7 @@ describe("mandatory frozen current-code workflow replay", () => {
   const named = (sourceRoot = root) => requirementsFor("workflows", sourceRoot).filter(item => replayAdditionIds.has(item.id));
   it("appends exactly 34 literal checks and preserves the exact 71 predecessor identities", () => {
     const manifest = manifestFor("workflows", root), added = named(), previous = withoutKnownWorkflowSuccessors(manifest.requirements);
-    expect(manifest.requirements).toHaveLength(113);
+    expect(manifest.requirements).toHaveLength(114);
     expect(previous).toHaveLength(78);
     const historicalPrevious = previous.filter(item => !integrationWorkflowIds.has(item.id));
     expect(historicalPrevious).toHaveLength(76);
@@ -3307,7 +3309,9 @@ describe("mandatory frozen current-code workflow replay", () => {
     expect(WORKFLOW_HISTORY_REPLAY_REQUIREMENTS).toHaveLength(34);
     expect(added).toHaveLength(34);
     expect(new Set(added.map(item => item.id))).toEqual(replayAdditionIds);
-    expect(manifest.requirements.filter(item => item.id !== errorBoundaryWorkflowId)).toEqual([...previous, ...added]);
+    const successors = manifest.requirements.filter(item => replaySuccessorIds.has(item.id));
+    expect(successors.map(({ id: _id, ...item }) => item)).toEqual(WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS);
+    expect(manifest.requirements.filter(item => item.id !== errorBoundaryWorkflowId)).toEqual([...previous, ...added, ...successors]);
     expect(added.filter(item => item.suite === "committed workflow histories: inventory and integrity")).toHaveLength(6);
     expect(added.filter(item => item.suite === "committed workflow histories replay against the current bundle")).toHaveLength(21);
     expect(added.filter(item => item.suite === "the replay gate has teeth")).toHaveLength(2);
@@ -3322,13 +3326,13 @@ describe("mandatory frozen current-code workflow replay", () => {
   });
 
   it("binds all named checks to frozen fixture filenames, declared scenarios and real SDK replay controls", () => {
-    const added = named(), file = "tests/workflows/history-replay.test.ts";
+    const added = [...named(), ...requirementsFor("workflows", root).filter(item => replaySuccessorIds.has(item.id))], file = "tests/workflows/history-replay.test.ts";
     const source = fs.readFileSync(path.join(root, file), "utf8");
     const scenarios = fs.readFileSync(path.join(root, "tests/workflows/history-scenarios.ts"), "utf8");
     const directory = path.join(root, "tests/fixtures/workflow-histories");
     const manifestBytes = fs.readFileSync(path.join(directory, "MANIFEST.json"));
     expect(createHash("sha256").update(manifestBytes).digest("hex"))
-      .toBe("408b0b42800ecdb97f1e5edbd75409879a8b790f7efb0bae4aac3c447c52de02");
+      .toBe("cd1f03f9e330e44b420087ab260aaa9a09f03dca62c4b961eacf5c1627812748");
     const manifest = JSON.parse(manifestBytes.toString("utf8")) as { fixtures: Record<string, string> };
     const filenames = added.filter(item => item.suite === "committed workflow histories replay against the current bundle").map(item => item.test!.replace(/ replays deterministically$/, "")).sort();
     expect(Object.keys(manifest.fixtures).sort()).toEqual(filenames);

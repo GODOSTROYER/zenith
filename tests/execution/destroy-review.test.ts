@@ -1,7 +1,7 @@
 import { operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
 /** Real PGlite ledger, broker and committed OPA; cloud/Tofu/product ports are explicit contract fakes. */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDestroyActivities } from "@/lib/execution/destroy";
+import { createDestroyActivities, workerScopedBroker } from "@/lib/execution/destroy";
 import { createRuntime } from "@/lib/execution/runtime";
 import { createPlatformPorts } from "@/lib/execution/platform";
 import { createExecutionBroker } from "@/lib/platform/broker";
@@ -334,5 +334,26 @@ describe("undecided teardown supersession [isolated memory]",()=>{
     expect(await h.store.cancelOperation({workspaceId:op.workspaceId,id:op.id,expectedStatus:"awaiting_approval",requireUndecidedApprovalRound:true})).toBeNull();
     expect(await h.store.listEvents(op.workspaceId,{operationId:op.id})).toEqual(before);
     expect((await h.store.cancelOperation({workspaceId:op.workspaceId,id:op.id}))?.status).toBe("cancelled");
+  });
+});
+
+describe("teardown review broker on the worker", () => {
+  it("runs each broker call the review makes inside a product-store scope, and leaves the rest bound and unscoped", async () => {
+    const inScope: string[] = [];
+    let depth = 0;
+    const scope = async <T>(body: () => Promise<T>): Promise<T> => { depth++; try { return await body(); } finally { depth--; } };
+    class FakeBroker {
+      #seen = inScope;
+      deps = { store: "store" };
+      async authorizeRead() { this.#seen.push(`authorizeRead:${depth}`); return "auth"; }
+      async propose() { this.#seen.push(`propose:${depth}`); return "proposal"; }
+      async other() { this.#seen.push(`other:${depth}`); return "other"; }
+    }
+    const scoped = workerScopedBroker(new FakeBroker() as never, scope) as unknown as FakeBroker;
+    expect(await scoped.authorizeRead()).toBe("auth");
+    expect(await scoped.propose()).toBe("proposal");
+    expect(await scoped.other()).toBe("other");
+    expect(scoped.deps.store).toBe("store");
+    expect(inScope).toEqual(["authorizeRead:1", "propose:1", "other:0"]);
   });
 });

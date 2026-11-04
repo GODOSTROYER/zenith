@@ -27,6 +27,7 @@ import { loadExecContext, loadOperation, resolveConnection, type ExecContext } f
 import { assertLeaseFor, requireExecutable, tofuSessionFor } from "./desired";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
+import { workerStoreScope, type StoreScope } from "./product-port";
 import { planEvidence, toPlanSummary } from "./plan-evidence";
 import { planCustody, scopeOf, type Runtime } from "./runtime";
 import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
@@ -425,12 +426,31 @@ export async function checkDestroyApproval(rt: Runtime, operationId: string): Pr
   return { approved: status.approved === true && !!approvalId && !status.rejected, rejected: status.rejected === true, ...(approvalId ? { approvalId } : {}) };
 }
 
+/** The broker calls a teardown review makes on the worker. */
+const REVIEW_BROKER_CALLS = new Set<PropertyKey>(["authorizeRead", "propose", "beginExecution", "completeExecution", "getOperationDetail"]);
+
+/**
+ * The broker for a teardown review on the worker. Its scope resolver reads the product store, which on the worker needs a
+ * snapshot in scope (as src/lib/platform/broker.ts does for each call); without one the read refuses unless an earlier
+ * activity in the same worker process happened to prime it.
+ */
+export function workerScopedBroker(broker: Broker, scope: StoreScope = workerStoreScope): Broker {
+  return new Proxy(broker, {
+    get(target, key) {
+      const value: unknown = Reflect.get(target, key, target);
+      if (typeof value !== "function") return value;
+      const call = value as (...args: unknown[]) => unknown;
+      return REVIEW_BROKER_CALLS.has(key) ? (...args: unknown[]) => scope(async () => call.apply(target, args)) : call.bind(target);
+    },
+  });
+}
+
 export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts = (rt.d as typeof rt.d & { destroyProviders?: DestroyProviderPorts }).destroyProviders ?? {}): DestroyActivities & {
   reviewTeardown(input: { workspaceId: string; operationId: string }): Promise<DestroyReviewResult>;
 } {
   return {
     async reviewTeardown(input) {
-      return runDestroyReview(rt, await (ports.reviewBroker ?? platformBroker)(), input,
+      return runDestroyReview(rt, workerScopedBroker(await (ports.reviewBroker ?? platformBroker)()), input,
         (lease) => planStage(rt, input.operationId, lease, ports));
     },
     checkTeardownRelease: ({ operationId, announce }) => checkTeardownRelease(rt, operationId, announce),

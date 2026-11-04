@@ -153,7 +153,10 @@ export async function runDestroyReview(rt: Runtime, broker: Broker, input: { wor
     return result;
   } catch (error) {
     // Product-authored refusals say why (scrubbed and capped); anything else stays generic.
-    const reason = error instanceof BrokerError || error instanceof StepFailedError ? ` ${errorText(error, 300)}` : "";
+    // Anything else keeps only its class and code (the live harness reads "; cause <class>/<code>"), never its text.
+    const shape = (value: unknown): string | undefined => typeof value === "string" && /^[A-Za-z0-9_.:-]{1,64}$/.test(value) ? value : undefined;
+    const reason = error instanceof BrokerError || error instanceof StepFailedError ? ` ${errorText(error, 300)}`
+      : ` (unclassified; cause ${[error instanceof Error ? shape(error.name) ?? "Error" : "Error", shape((error as { code?: unknown } | null)?.code)].filter(Boolean).join("/")})`;
     if (claimed) await broker.completeExecution({ workspaceId: op.workspaceId, operationId: op.id, outcome: "failed", error: `Teardown review did not complete. Nothing was applied.${reason}` }).catch(() => undefined);
     // External diagnostics are data and may contain credentials. Never propagate them.
     if (error instanceof BrokerError) throw error;

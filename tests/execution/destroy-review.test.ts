@@ -250,7 +250,14 @@ describe("first destroy review", () => {
     const raw = await request("raw-intent");
     vi.spyOn(w.tofu, "planWorkspace").mockRejectedValueOnce(new Error("provider said token=" + CANARY_SECRET));
     await expect(run(raw.reviewOperationId)).rejects.toBeTruthy();
-    expect((await h.store.getOperation(scope.workspaceId, raw.reviewOperationId))?.error).toBe("Teardown review did not complete. Nothing was applied.");
+    expect((await h.store.getOperation(scope.workspaceId, raw.reviewOperationId))?.error).toBe("Teardown review did not complete. Nothing was applied. (unclassified; cause Error)");
+    // An unclassified failure keeps only its class and code, never its text.
+    const coded = await request("coded-intent");
+    vi.spyOn(w.tofu, "planWorkspace").mockRejectedValueOnce(Object.assign(new TypeError("token=" + CANARY_SECRET), { code: "ERR_X" }));
+    await expect(run(coded.reviewOperationId)).rejects.toBeTruthy();
+    const error = (await h.store.getOperation(scope.workspaceId, coded.reviewOperationId))?.error;
+    expect(error).toBe("Teardown review did not complete. Nothing was applied. (unclassified; cause TypeError/ERR_X)");
+    expect(error).not.toContain(CANARY_SECRET);
   });
   it("refuses foreign scope, no plan scope and injected approval/plan fields before dispatch", async () => {
     const { h, scope, agent, dispatch } = await setup();

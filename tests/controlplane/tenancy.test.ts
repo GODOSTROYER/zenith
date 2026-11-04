@@ -178,6 +178,8 @@ const WRITES = new Set([
   "mixedOutputRecords.recordOutput", "mixedOutputRecords.getOutput", "mixedOutputRecords.listOutputs", "mixedOutputRecords.readProducerObservation",
   "mixedSignals.latestChildDriftReport", "mixedSignals.childMigrationClasses",
   "mixedRuns.get", "mixedRuns.create", "mixedRuns.save", "mixedRuns.listEvents",
+  // PROD-MIX-04 destroy gate: every joined table is bound to the supplied workspace; the foreign-workspace control is in mixed-follow-up.test.ts.
+  "mixedRuns.listByChildEnvironment",
   "mixedOutputPreauthorizations.create", "mixedOutputPreauthorizations.get", "mixedOutputPreauthorizations.list", "mixedOutputPreauthorizations.revoke", "mixedOutputPreauthorizations.reserveUse",
   "resources.upsertDesired", "runners.createRegistrationToken", "settings.putEnvironmentSettings", "settings.putWorkspacePolicy", "optimizerSettings.putOptimizerSettings",
   "workspaceMfaControls.putWorkspaceMfaControls",

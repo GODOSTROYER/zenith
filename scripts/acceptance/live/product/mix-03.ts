@@ -478,8 +478,9 @@ export async function connectLane(io: LaneIo, lane: (typeof LANES)[number]): Pro
 /** connection.verifyAws until it passes, within the propagation bound of the trust change. */
 export async function verifyConnection(product: Mix03Product, tenant: Mix03Tenant, connectionId: string, propagation: { attempts: number; intervalMs: number }, sleep: (ms: number) => Promise<void>): Promise<void> {
   for (let attempt = 1; ; attempt++) {
-    if ((await product.verifyAws(tenant, connectionId)).ok) return;
-    if (attempt >= propagation.attempts) refuse("connection.verifyAws did not pass after the trust update within the propagation bound");
+    const verified = await product.verifyAws(tenant, connectionId);
+    if (verified.ok) return;
+    if (attempt >= propagation.attempts) refuse(`connection.verifyAws did not pass after the trust update within the propagation bound (last: ${verified.reason})`);
     await sleep(propagation.intervalMs);
   }
 }
@@ -570,11 +571,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
           await invoke(write, { trustDocument: trustDocument(principal, connection.externalId) });
         }
         step = "connection verification";
-        for (let attempt = 1; ; attempt++) {
-          if ((await product.verifyAws(tenant, connection.connectionId)).ok) break;
-          if (attempt >= propagation.attempts) refuse("connection.verifyAws did not pass after the trust update within the propagation bound");
-          await sleep(propagation.intervalMs);
-        }
+        await verifyConnection(product, tenant, connection.connectionId, propagation, sleep);
         step = "consumer package";
         const artifact = await uploadConsumerPackage(invoke, planned, upload, { region, runId: plan.settings.runId, stateBucket, externalId: connection.externalId });
         step = "mixed plan";

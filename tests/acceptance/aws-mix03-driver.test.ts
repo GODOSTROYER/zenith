@@ -142,7 +142,7 @@ describe("connection", () => {
     expect(pass.sent[0]).toMatchObject({ endpoint: "/api/actions/connection.verifyAws", body: expect.objectContaining({ input: { connectionId: "conn-1" } }) });
 
     const refused = transport(() => action({ ok: false, summary: "not yet", error: "sts said no" }));
-    expect(await (await driverWithTenant({ request: refused.request })).verifyAws(TENANT, "conn-1")).toEqual({ ok: false, reason: "connection.verifyAws did not pass" });
+    expect(await (await driverWithTenant({ request: refused.request })).verifyAws(TENANT, "conn-1")).toEqual({ ok: false, reason: "connection.verifyAws did not pass (product: sts said no)" });
   });
 
   it("verifyAws refuses an HTTP failure with the fixed reason", async () => {

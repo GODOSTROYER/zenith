@@ -11,6 +11,8 @@ export function main(argv, root = process.cwd()) {
     const bytes = readRepositoryFile(root, value("--source"));
     const outcome = sourceOutcome(JSON.parse(bytes.toString("utf8")));
     if (value("--mode") !== outcome.mode) throw new Error("Requested mode differs from the original run mode");
+    if (outcome.level && value("--level") !== outcome.level) throw new Error("Requested level differs from the original run level");
+    if (value("--level") === "operational_rehearsal" && outcome.mode === "live" && outcome.level !== "operational_rehearsal") throw new Error("A live operational rehearsal needs a rehearsal run source");
     if (!outcome.requirements.includes(value("--requirement"))) throw new Error("Original run does not cover the requested requirement");
     const status = outcome.exitCode !== 0 || outcome.failed > 0 || outcome.status === "failed" ? "failed" : outcome.skipped > 0 ? "skipped" : outcome.passed === 0 ? "not_run" : outcome.status && outcome.status !== "passed" ? "not_run" : "passed";
     const receipt = EvidenceSchema.parse({ format: EVIDENCE_FORMAT, requirementId: value("--requirement"), level: value("--level"), mode: value("--mode"), commit: outcome.commit,

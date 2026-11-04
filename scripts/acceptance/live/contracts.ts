@@ -2,7 +2,7 @@
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type Family = "s3" | "iam" | "lambda" | "ecs" | "rds" | "dns";
 /** Scenario-specific plans (owner decision D3). "fixtures" is the full plan and the default. */
-export const SCENARIOS = ["fixtures", "retention-s3", "rel-04", "mix-03", "deploy-01", "teardown-01", "ops-06", "ops-04", "ops-05", "ops-03", "ops-02", "mix-01"] as const;
+export const SCENARIOS = ["fixtures", "retention-s3", "rel-04", "mix-03", "deploy-01", "teardown-01", "ops-06", "ops-04", "ops-05", "ops-03", "ops-02", "mix-01", "mix-rehearsal"] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 export interface Call {
   id: string;
@@ -43,7 +43,7 @@ export interface Plan {
   tags: Record<string, string>;
   fixtures: Fixture[];
   preflight: Call[];
-  /** Product-scope calls (mix-03 only): guarded like fixture calls, absent in every other scenario so their digests stay identical. */
+  /** Product-scope calls (product scenarios only): guarded like fixture calls, absent in every other scenario so their digests stay identical. */
   productCalls?: Call[];
   estimate: { usd: number; cleanupReserveUsd: number; basis: string; provisional: true };
   requirements: { id: string; acceptance: string[]; fixtures: Family[]; join: string }[];

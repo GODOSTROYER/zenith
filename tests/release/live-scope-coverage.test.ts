@@ -42,6 +42,8 @@ const COVERED_BY: Record<string, string> = {
   "scripts/acceptance/live/product/mix-03.ts": "scripts/acceptance/live/cli.ts",
   "tests/acceptance/aws-mix03-port.test.ts": "scripts/acceptance/live/scope.ts",
   "tests/acceptance/aws-mix03-driver.test.ts": "scripts/acceptance/live/scope.ts",
+  // The PROD-MIX-01..04 operational rehearsal port runs only behind the production CLI, as mix-03.
+  "tests/acceptance/aws-mix-rehearsal-port.test.ts": "scripts/acceptance/live/scope.ts",
   "scripts/acceptance/live/product/deploy-01.ts": "scripts/acceptance/live/cli.ts",
   "scripts/acceptance/live/product/deploy-01-driver.ts": "scripts/acceptance/live/cli.ts",
   "tests/acceptance/aws-deploy01-port.test.ts": "scripts/acceptance/live/scope.ts",

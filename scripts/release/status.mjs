@@ -71,7 +71,9 @@ export function sourceOutcome(source) {
   if (!Number.isInteger(exitCode) || !environment || !source.command) throw new Error("Original evidence lacks execution/environment/command binding");
   Text.parse(typeof environment === "string" ? environment : canonical(environment));
   Text.parse(typeof source.command === "string" ? source.command : canonical(source.command));
-  return { ...parsed, commit, exitCode, mode, requirements, command: source.command, environment, status: source.verdict ?? source.status };
+  // A source that names its level (a live operational rehearsal) binds only at that level.
+  const level = source.level === undefined ? undefined : Levels.parse(source.level);
+  return { ...parsed, commit, exitCode, mode, requirements, command: source.command, environment, status: source.verdict ?? source.status, ...(level ? { level } : {}) };
 }
 
 export function inspectEvidence(requirementId, evidence, options = {}) {
@@ -104,6 +106,9 @@ export function inspectEvidence(requirementId, evidence, options = {}) {
       if (!outcome.requirements.includes(requirementId)) result.errors.push("original evidence does not cover this requirement");
       sourcePassed += outcome.passed;
       if (outcome.mode !== receipt.mode) result.errors.push("original evidence mode mismatch");
+      if (outcome.level && outcome.level !== receipt.level) result.errors.push("original evidence level mismatch");
+      // A live run is a rehearsal only when it says so; a live_sandbox run never doubles as one.
+      if (receipt.level === "operational_rehearsal" && receipt.mode === "live" && outcome.level !== "operational_rehearsal") result.errors.push("live rehearsal evidence must come from a rehearsal run");
       const text = (v) => typeof v === "string" ? v : JSON.stringify(v);
       if (receipt.sources.length === 1 && (text(outcome.environment) !== receipt.environment || text(outcome.command) !== receipt.command)) result.errors.push("original environment/command binding mismatch");
       if (outcome.commit !== receipt.commit || outcome.exitCode !== 0 || outcome.passed === 0 || outcome.failed !== 0 || outcome.skipped !== 0 || (outcome.status && outcome.status !== "passed")) result.errors.push("original evidence is not a passing run on the candidate");

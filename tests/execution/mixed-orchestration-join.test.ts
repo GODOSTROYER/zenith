@@ -13,7 +13,7 @@ import { digest } from "@/lib/controlplane/digest";
 import { MIXED_PARENT_REVIEW_KEY, MixedPlanError, type ChildReceipt, type MixedParentPlan } from "@/lib/execution/mixed/types";
 import { mixedProposalDetails } from "@/lib/execution/mixed/details";
 import {
-  parentViewOfPlan, recordChildStart, reviewInputOf, syncChildOutcome, type JoinDeps,
+  parentViewOfPlan, recordChildRefusal, recordChildStart, reviewInputOf, syncChildOutcome, type JoinDeps,
 } from "@/lib/execution/mixed/orchestration-join";
 import type { MixedWorld } from "@/lib/execution/mixed/world";
 import { assertParentView, MixedOrchestrationError, openMixedRun, readMixedRun, refusingParentReviewPort, type MixedRunDeps } from "@/lib/execution/mixed-orchestration";
@@ -117,6 +117,23 @@ describe("syncing outcomes", () => {
     expect(state.children[first.partitionId]).toMatchObject({ status: "failed", effects: "possible", reconciliationRequired: true });
     expect(state.children[second.partitionId].status).toBe("blocked");
     expect(state.children[second.partitionId].blockedBy).toContain(first.partitionId);
+  });
+
+  it("records a child refused before its start (revoked connection) once, with no effects, so the summary names it", async () => {
+    const { run, deps, parent } = await opened();
+    const [first] = parent.children;
+    await recordChildRefusal(deps, { ...scope(parent, first.partitionId), reason: "connection_unverified" });
+    await recordChildRefusal(deps, { ...scope(parent, first.partitionId), reason: "connection_unverified" });
+    const state = (await readMixedRun(run, WS, PARENT))!.state;
+    expect(state.children[first.partitionId]).toMatchObject({ status: "failed", reason: "refused_connection_unverified", effects: "none", reconciliationRequired: false, attempts: 0 });
+  });
+
+  it("does not turn a running child into a refusal", async () => {
+    const { run, deps, parent } = await opened();
+    const [first] = parent.children;
+    await recordChildStart(deps, scope(parent, first.partitionId));
+    await recordChildRefusal(deps, { ...scope(parent, first.partitionId), reason: "connection_unverified" });
+    expect(await status(run, first.partitionId)).toBe("running");
   });
 
   it("heals a run opened after the child already ran: the start is recorded first, then the end", async () => {

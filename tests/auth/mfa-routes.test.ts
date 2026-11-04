@@ -61,7 +61,7 @@ const privileged = [
   ["/api/platform/v1/environments/env/domains", "POST"], ["/api/platform/v1/environments/env/domains/verify", "POST"], ["/api/platform/v1/environments/env/domains/revoke", "POST"],
   ["/api/platform/v1/recovery/items/item/decide", "POST"],
   ["/api/platform/v1/operations/op/approve", "POST"], ["/api/platform/v1/operations/op/reject", "POST"], ["/api/platform/v1/operations/op/cancel", "POST"],
-  ["/api/platform/v1/operations/op/mixed-run/teardown", "POST"], ["/api/platform/v1/operations/op/mixed-run/cancel", "POST"],
+  ["/api/platform/v1/operations/op/mixed-run/teardown", "POST"], ["/api/platform/v1/operations/op/mixed-run/reconcile", "POST"], ["/api/platform/v1/operations/op/mixed-run/cancel", "POST"],
   ["/api/platform/v1/operations/op/start-portability", "POST"], ["/api/platform/v1/mixed/plans/plan/start", "POST"], ["/api/platform/v1/mixed/plans", "POST"], ["/api/platform/v1/mixed/plans/plan/children", "POST"],
   ["/api/platform/v1/connections", "POST"], ["/api/platform/v1/connections/conn/rotate", "POST"], ["/api/platform/v1/connections/conn/revoke", "POST"], ["/api/platform/v1/connections/conn/verify", "POST"],
   ["/api/platform/v1/connections/conn/rotation/promote", "POST"], ["/api/platform/v1/connections/conn/rotation/abort", "POST"], ["/platform/connections/aws/action", "POST"],

@@ -22,10 +22,11 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/operations/${ID}/cancel$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations/${ID}/(?:approve|reject)$`), methods: { POST: "browser-only" } },
   // Mixed runs (PROD-MIX-03/04): reads and cancellation accept a person or a human-bound credential; teardown (propose, release,
-  // sync) and output preauthorizations are a person's decisions and stay in the browser.
+  // sync), reconciliation of an indeterminate child and output preauthorizations are a person's decisions and stay in the browser.
   { path: new RegExp(`^${ROOT}/operations/${ID}/mixed-run$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations/${ID}/mixed-run/cancel$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations/${ID}/mixed-run/teardown$`), methods: { POST: "browser-only" } },
+  { path: new RegExp(`^${ROOT}/operations/${ID}/mixed-run/reconcile$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/mixed-output-preauthorizations$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/mixed-output-preauthorizations/${ID}/revoke$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/autonomy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },

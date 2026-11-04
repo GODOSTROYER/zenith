@@ -12,6 +12,7 @@ import { MixedOrchestrationError } from "@/lib/execution/mixed-orchestration/err
 import { platformPreauthorizationStore } from "@/lib/execution/mixed-orchestration/platform";
 import { createRunState, summarizeRun, type MixedRunState } from "@/lib/execution/mixed-orchestration/run";
 import { platformMixedRunStore } from "@/lib/execution/mixed-orchestration/run-store";
+import { recordChildEvent, type MixedRunDeps } from "@/lib/execution/mixed-orchestration";
 import { sweepMixedRunDeadlines } from "@/lib/execution/mixed-orchestration/sweep";
 import { housekeepingPass } from "@/lib/platform/housekeeping";
 import { H, PARENT, world } from "../execution/fakes/mixed-fixture";
@@ -69,6 +70,19 @@ describe.each(LANES)("mixed runs and output preauthorizations [$name]", (lane) =
     expect(await store.get(`ws_${uid("other")}`, parent)).toBeNull();
     await expect(store.create(state, { kind: "run_created", data: {} })).rejects.toMatchObject({ code: "conflict" });
     expect(await store.events(`ws_${uid("other")}`, parent)).toEqual([]);
+  });
+
+  it("stores a child refused before its start under the ledger's fail kind, so the closed kind list still holds", async () => {
+    const { ws, parent, state } = await seededRun();
+    const store = platformMixedRunStore(ctx.db);
+    const w = world();
+    await store.create(state, { kind: "run_created", data: {} });
+    const summary = await recordChildEvent({ runs: store } as unknown as MixedRunDeps, { workspaceId: ws, parentOperationId: parent,
+      event: { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: new Date().toISOString() } });
+    expect(summary.failed).toEqual([{ childId: w.ids.fn, status: "failed", reason: "refused_connection_unverified" }]);
+    const events = await store.events(ws, parent);
+    expect(events.map((event) => event.kind)).toEqual(["run_created", "fail"]);
+    expect((await store.get(ws, parent))!.state.children[w.ids.fn]).toMatchObject({ status: "failed", effects: "none" });
   });
 
   it("saves by compare-and-set and writes an ordered, append-only ledger with each state", async () => {

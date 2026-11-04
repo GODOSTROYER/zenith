@@ -305,6 +305,25 @@ describe("run state machine: failure never becomes a transaction", () => {
     expect(failed.children[w.ids.web].status).toBe("succeeded");
   });
 
+  it("records a child refused before it started (revoked connection) as failed with no new effects, and points to a replan", () => {
+    const w = world();
+    const step = throughWeb(w);
+    const refusedChild = drive(step.state, w.view, { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: at(8) } as AnyRunEvent);
+    expect(refusedChild.children[w.ids.fn]).toMatchObject({ status: "failed", reason: "refused_connection_unverified", effects: "none", reconciliationRequired: false, attempts: 0 });
+    const summary = summarizeRun(refusedChild);
+    expect(summary.outcome).toBe("partial");
+    expect(summary.failed).toEqual([{ childId: w.ids.fn, status: "failed", reason: "refused_connection_unverified" }]);
+    expect(summary.notStarted).toEqual([]);
+    expect(summary.indeterminate).toEqual([]);
+    expect(summary.appliedWithoutRunCompletion).toEqual([w.ids.db, w.ids.web]);
+    // A revoked connection never works again: the runbook step is rebind and replan, not retry.
+    expect(summary.nextSteps).toEqual(["propose_teardown_for_human_approval", "review_replan"]);
+    expect(code(() => drive(refusedChild, w.view, { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: at(9) } as AnyRunEvent))).toBe("illegal_transition");
+    const running = drive(step.state, w.view, start(w.ids.fn, step.state, 7));
+    expect(code(() => drive(running, w.view, { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: at(8) } as AnyRunEvent))).toBe("illegal_transition");
+    expect(code(() => drive(step.state, w.view, { kind: "refuse", childId: w.ids.fn, reason: "connection_unverified", at: at(8) } as AnyRunEvent))).toBe("invalid_input");
+  });
+
   it("needs a recorded reconciliation before an indeterminate child is retried", () => {
     const w = world();
     const step = throughWeb(w);
@@ -519,7 +538,7 @@ describe("teardown: reverse order, ownership, human destructive approval", () =>
     proposalDigest: H("proposal"), approvals: [{ id: "appr-1", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false }], ...over,
   });
   const verify = (state: MixedRunState, childId: string, destroyed: DestroyApprovalFact | null) =>
-    verifyTeardownApproval(port({ [`op-destroy-${addresses[childId]}`]: destroyed }), state, childId, `op-destroy-${addresses[childId]}`, NOW);
+    verifyTeardownApproval(port({ [`op-destroy-${addresses[childId]}`]: destroyed }), state, childId, `op-destroy-${addresses[childId]}`, NOW, ENV);
 
   it("proposes one step per applied child, consumers first, with explicit ordering edges", () => {
     const report = plan();
@@ -603,19 +622,32 @@ describe("teardown: reverse order, ownership, human destructive approval", () =>
       ["an editor", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "editor", expiresAt: at(60), consumed: false }] }],
       ["an approval of another proposal", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("other"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false }] }],
       ["an expired approval", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(-1), consumed: false }] }],
-      ["a consumed approval", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: true }] }],
       ["no approval at all", { approvals: [] }],
       ["an approval alongside a rejection", { approvals: [
         { id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false },
         { id: "b", decision: "reject", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false }] }],
     ];
+    // The destroy path consumes its approval when its workflow claims the operation, before the reviewed list exists.
+    it.each([["consumed", at(60)], ["consumed after it expired", at(-1)]])("accepts the destroy's own approval %s by its claim", async (_label, expiresAt) => {
+      const approval = await verify(planned, w.ids.fn, fact(FN, { status: "running", approvals: [{ id: "appr-1", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt, consumed: true }] }));
+      expect(releaseTeardownStep(planned, w.ids.fn, approval, NONE, NOW).teardown!.steps[0]).toMatchObject({ status: "released", approvalId: "appr-1" });
+    });
+
+    it("binds the check to the child's own environment and the proof to its child", async () => {
+      await expect(verifyTeardownApproval(port({ "op-c": fact(FN, { operationId: "op-c", environmentId: "env-child" }) }), planned, w.ids.fn, "op-c", NOW, ENV)).rejects.toMatchObject({ code: "approval_invalid" });
+      const approval = await verifyTeardownApproval(port({ "op-c": fact(FN, { operationId: "op-c", environmentId: "env-child" }) }), planned, w.ids.fn, "op-c", NOW, "env-child");
+      expect(approval).toMatchObject({ environmentId: "env-child", childId: w.ids.fn });
+      expect(code(() => releaseTeardownStep(planned, w.ids.web, approval, NONE, NOW))).toBe("approval_invalid");
+      expect(releaseTeardownStep(planned, w.ids.fn, approval, NONE, NOW).teardown!.steps[0].status).toBe("released");
+    });
+
     it.each(bad)("refuses %s", async (_label, over) => {
       await expect(verify(planned, w.ids.fn, over === null ? null : fact(FN, over))).rejects.toMatchObject({ code: "approval_invalid" });
     });
 
     it("refuses a step that is not in the proposal and a forged approval object", async () => {
-      await expect(verifyTeardownApproval(port({}), done, w.ids.fn, "op-x", NOW)).rejects.toMatchObject({ code: "teardown_refused" });
-      const forged = { workspaceId: WS, environmentId: ENV, destroyOperationId: "op-x", approvalId: "appr-1", destroyAddresses: [FN] };
+      await expect(verifyTeardownApproval(port({}), done, w.ids.fn, "op-x", NOW, ENV)).rejects.toMatchObject({ code: "teardown_refused" });
+      const forged = { workspaceId: WS, environmentId: ENV, childId: w.ids.fn, destroyOperationId: "op-x", approvalId: "appr-1", destroyAddresses: [FN] };
       expect(code(() => releaseTeardownStep(planned, w.ids.fn, forged, NONE, NOW))).toBe("approval_invalid");
     });
 

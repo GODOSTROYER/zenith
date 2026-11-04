@@ -21,7 +21,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Browser, Page } from "@playwright/test";
 import type { EnvLike } from "../../config";
-import { refuse, Refusal, sanitizedError, type Mix03Artifact, type Mix03Child, type Mix03Product, type Mix03Tenant, type MixedReadback, type MixedReceipt } from "./mix-03";
+import { refuse, Refusal, sanitizedError, type Mix03Artifact, type Mix03Child, type Mix03Product, type Mix03Tenant, type Mix03TeardownStep, type MixedReadback, type MixedReceipt } from "./mix-03";
 import { readState } from "../../default-stack/runtime.mjs";
 import { browserRequest, ensure, localUrl, nonce, ok, operator, privateFile, until, action } from "../../../../tests/e2e/default/support.mjs";
 import { enrollOperator, totp } from "../../../../tests/e2e/default/mfa.mjs";
@@ -196,6 +196,24 @@ const PREAUTH_LIFETIME_MS = 15 * 60_000;
 const PREAUTH_REASON = "PROD-MIX-03 one-use output preauthorization";
 const STANDINGS: ReadonlySet<string> = new Set(["active", "spent", "expired", "revoked", "creator_not_admin"]);
 
+/** Destroy readback bound: 240 polls, 10 seconds apart (the teardown review alone may take 35 minutes). */
+const DESTROY_POLLS = { attempts: 240, intervalMs: 10_000 };
+const TERMINAL = ["succeeded", "failed", "uncertain", "denied", "expired", "cancelled", "rejected"];
+
+/** PROD-MIX-04: the run's teardown steps as stored, ids and fixed words only; anything else refuses. */
+export function teardownStepsOf(raw: unknown): Mix03TeardownStep[] {
+  const steps = (raw as { steps?: unknown } | undefined)?.steps;
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(steps)) refuse("the run's teardown has no steps");
+  return (steps as Record<string, unknown>[]).map(step => {
+    const childId = step.childId, status = step.status, after = step.after, addresses = step.addresses, destroyOperationId = step.destroyOperationId;
+    if (typeof childId !== "string" || !REF.test(childId) || typeof status !== "string" || !SAFE_CODE.test(status)) refuse("a teardown step has an unexpected shape");
+    if (!Array.isArray(after) || after.some(id => typeof id !== "string" || !REF.test(id)) || !Array.isArray(addresses)) refuse("a teardown step has an unexpected shape");
+    if (destroyOperationId !== undefined && (typeof destroyOperationId !== "string" || !ID.test(destroyOperationId))) refuse("a teardown step names an unexpected destroy operation");
+    return { childId: childId as string, status: status as string, after: after as string[], addresses: (addresses as unknown[]).length, ...(destroyOperationId ? { destroyOperationId: destroyOperationId as string } : {}) };
+  });
+}
+
 /** The reference the run declares: the producer bucket's ARN output feeds the consumer function's bucket_arn input. */
 export const MIX03_REFERENCE = {
   id: "bucket-arn",
@@ -291,6 +309,22 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
       if (status === "failed" || status === "rolled_back" || status === "cancelled") refuse("the parent environment's deployment did not succeed");
       if (poll >= DEPLOY_POLLS.attempts) refuse("the parent environment's deployment did not finish within the bound");
       await sleep(DEPLOY_POLLS.intervalMs);
+    }
+  };
+  const runPath = (parentOperationId: string) => `/api/platform/v1/operations/${encodeURIComponent(idOf(parentOperationId, "the parent operation"))}/mixed-run`;
+  /** An operation's status, whether its workflow claimed it, and its error text (kept in the driver; only a category of it leaves). */
+  const operationOf = async (session: TenantSession, operationId: string): Promise<{ status: string; started: boolean; error?: string }> => {
+    const op = (ok(await send(session, session.owner, `/api/platform/v1/operations/${encodeURIComponent(operationId)}`, undefined, "GET")) as { operation?: { status?: unknown; startedAt?: unknown; error?: unknown } }).operation;
+    const status = typeof op?.status === "string" && SAFE_CODE.test(op.status) ? op.status : refuse("the operation readback has no status");
+    return { status, started: typeof op?.startedAt === "string", ...(typeof op?.error === "string" ? { error: op.error } : {}) };
+  };
+  /** Polls until `read` answers, within DESTROY_POLLS; the bound names what it waited for. */
+  const poll = async <T>(what: string, read: () => Promise<T | undefined>): Promise<T> => {
+    for (let attempt = 1; ; attempt++) {
+      const value = await read();
+      if (value !== undefined) return value;
+      if (attempt >= DESTROY_POLLS.attempts) refuse(`${what} did not finish within the bound`);
+      await sleep(DESTROY_POLLS.intervalMs);
     }
   };
   /** Maps any failure to a fixed, short reason. Product messages and data are withheld; only the product's own journey codes pass through. */
@@ -524,6 +558,86 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         const data = ok(await send(session, session.owner, `/api/platform/v1/mixed-output-preauthorizations?parentOperationId=${encodeURIComponent(idOf(parentOperationId, "the parent operation"))}`, undefined, "GET")) as { preauthorizations?: unknown };
         const rows = (Array.isArray(data.preauthorizations) ? data.preauthorizations : []) as { standing?: unknown }[];
         return rows.map((row) => (typeof row.standing === "string" && STANDINGS.has(row.standing) ? row.standing : "unknown")).sort();
+      });
+    },
+
+    async mixedRun(tenant, parentOperationId) {
+      return step("run readback", async () => {
+        const session = sessionOf(tenant);
+        const data = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { summary?: { outcome?: unknown; nextSteps?: unknown }; run?: { teardown?: unknown } };
+        const outcome = data.summary?.outcome, nextSteps = data.summary?.nextSteps;
+        if (typeof outcome !== "string" || !SAFE_CODE.test(outcome) || !Array.isArray(nextSteps) || nextSteps.some(word => typeof word !== "string" || !SAFE_CODE.test(word))) refuse("the run summary has an unexpected shape");
+        return { outcome: outcome as string, nextSteps: nextSteps as string[], steps: teardownStepsOf(data.run?.teardown) };
+      });
+    },
+
+    async proposeTeardown(tenant, parentOperationId) {
+      return step("teardown proposal", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/teardown`, { action: "propose" }, "POST");
+        if (response.status < 200 || response.status >= 300) refuse(`the product refused the teardown proposal (${reasonCode(response.data)})`);
+        const data = response.data as { teardown?: unknown; retained?: unknown; nothingToDestroy?: unknown };
+        const nothing = Array.isArray(data.nothingToDestroy) ? data.nothingToDestroy : refuse("the teardown proposal has an unexpected shape");
+        if (!Array.isArray(data.retained) || nothing.some(id => typeof id !== "string" || !REF.test(id))) refuse("the teardown proposal has an unexpected shape");
+        return { steps: teardownStepsOf(data.teardown ?? refuse("the teardown proposal has no steps")), retained: (data.retained as unknown[]).length, nothingToDestroy: nothing as string[] };
+      });
+    },
+
+    async openChildDestroy(tenant, planId, childId) {
+      return step("child destroy", async () => {
+        const session = sessionOf(tenant);
+        // The child's own environment holds its state: it comes from the stored plan, never from the caller.
+        const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: { partitionId?: unknown; childEnvironmentId?: unknown }[] };
+        const environmentId = idOf(plan.children?.find(child => child.partitionId === childId)?.childEnvironmentId, "the child environment");
+        const scope = { projectId: session.projectId, environmentId };
+        const reviewId = idOf((await must(session, "env.reviewTeardown", { environmentId, idempotencyKey: nonce() }, scope)).reviewOperationId, "the teardown review");
+        const reviewPath = `/api/platform/v1/environments/${encodeURIComponent(environmentId)}/teardown-review?reviewId=${encodeURIComponent(reviewId)}`;
+        const destroyOperationId = await poll("the teardown review", async () => {
+          const review = (ok(await send(session, session.owner, reviewPath, undefined, "GET")) as { review?: { operationId?: unknown; status?: unknown } | null }).review;
+          if (typeof review?.operationId === "string") return idOf(review.operationId, "the destroy operation");
+          if (typeof review?.status === "string" && TERMINAL.includes(review.status)) refuse(`the teardown review ended ${review.status} without a destroy proposal`);
+          return undefined;
+        });
+        // The proposal round: a person approves the reviewed destroy proposal; its workflow then claims it and plans.
+        let view = await poll("the destroy proposal", async () => { const op = await operationOf(session, destroyOperationId); return op.status === "awaiting_approval" || TERMINAL.includes(op.status) ? op : undefined; });
+        if (TERMINAL.includes(view.status)) return { destroyOperationId, status: view.status };
+        await approve(session, destroyOperationId);
+        // The plan round: awaiting approval again once the workflow claimed it (startedAt) and recorded the reviewed list.
+        view = await poll("the destroy plan", async () => { const op = await operationOf(session, destroyOperationId); return (op.status === "awaiting_approval" && op.started) || TERMINAL.includes(op.status) ? op : undefined; });
+        return { destroyOperationId, status: view.status };
+      });
+    },
+
+    async releaseTeardown(tenant, parentOperationId, childId, destroyOperationId) {
+      return step("teardown release", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/teardown`, { action: "release", childId, destroyOperationId: idOf(destroyOperationId, "the destroy operation") }, "POST");
+        return response.status >= 200 && response.status < 300 ? { released: true as const } : { released: false as const, reason: `the product refused the release (${reasonCode(response.data)})` };
+      });
+    },
+
+    async finishChildDestroy(tenant, destroyOperationId) {
+      return step("child destroy", async () => {
+        const session = sessionOf(tenant);
+        let approvals = 0;
+        const view = await poll("the destroy", async () => {
+          const op = await operationOf(session, destroyOperationId);
+          if (TERMINAL.includes(op.status)) return op;
+          // Every round the destroy still asks for is a person's approval, as the web app does; bounded so nothing loops.
+          if (op.status === "awaiting_approval" && approvals < 3) { approvals++; await approve(session, destroyOperationId); }
+          return undefined;
+        });
+        return { status: view.status, ...(view.error ? { halt: haltOf(view.error) } : {}) };
+      });
+    },
+
+    async syncTeardown(tenant, parentOperationId, childId) {
+      return step("teardown sync", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/teardown`, { action: "sync", childId }, "POST");
+        if (response.status < 200 || response.status >= 300) refuse(`the product refused the teardown sync (${reasonCode(response.data)})`);
+        const run = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { run?: { teardown?: unknown } };
+        return teardownStepsOf(run.run?.teardown).find(item => item.childId === childId) ?? refuse("the synced step is not in the run's teardown");
       });
     },
 

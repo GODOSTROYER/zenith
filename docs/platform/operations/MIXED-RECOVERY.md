@@ -13,7 +13,28 @@ A mixed run is not a transaction. `summarizeRun` returns the constants `atomicit
 `automaticCompensation: "never"`. Children that finished stay applied and are reported in
 `appliedWithoutRunCompletion`; nothing is rolled back and nothing is destroyed automatically. Teardown is a proposal in
 reverse dependency order that a person releases step by step against an approved destroy operation
-(`POST /api/platform/v1/operations/:id/mixed-run/teardown`, browser only).
+(`POST /api/platform/v1/operations/:id/mixed-run/teardown`, browser only, editor or admin).
+
+Each child keeps its state and resources in its own child environment, not in the parent environment the run is bound
+to. The route reads each child's environment from the run's stored plan (never from the caller) and uses it at every step:
+
+1. `{ "action": "propose" }` reads ownership from each child's own environment registry and writes one step per applied
+   child, consumers first. Nothing is destroyed.
+2. For the first step, open the destroy of that child's environment the normal way (`env.reviewTeardown` on the child
+   environment) and approve the destroy proposal as a human admin. Its workflow claims it (this consumes that approval),
+   plans, and waits for the plan approval.
+3. `{ "action": "release", "childId", "destroyOperationId" }` while the destroy waits. Release refuses a destroy in any
+   other environment, a reviewed list that is not exactly the step's, an approval that is not a human admin's, a destroy
+   that already ended, a second step while one is released, and a producer whose consumers are not destroyed yet.
+4. Approve the destroy's plan round. When it ends, `{ "action": "sync", "childId" }` records its outcome from the
+   destroy operation's own status: `succeeded` is destroyed; `failed`, `rejected`, `denied` and `expired` are failed;
+   `uncertain` and `cancelled` are uncertain. A failed or uncertain step needs reconciliation and blocks every producer
+   behind it.
+5. Repeat for the next step.
+
+The destroy path does not read the run: a person who destroys a producer environment out of order is not stopped there.
+The run never records that as a clean step: release refuses a producer whose consumers are not destroyed and a destroy
+that already ended, so the step stays `planned` and the run still shows the child applied until it is reconciled.
 
 ## 2. Cross-cloud connectivity (PROD-MIX-05)
 
@@ -71,19 +92,53 @@ Common first steps for every scenario below:
 ### Provider outage while a child is running (`outage_mid_chain`)
 
 The child is `outage`, effects `possible`, reconciliation required; its dependents are `blocked` with the child as root cause.
-- **reconcile-indeterminate-child**: look at the provider for what the child created (read-only). Record the outcome as a
-  `reconciled` event (`no_effects` or `effects_present`) with the evidence digest.
-- **retry-after-reconcile**: only then `retry`; dependents unblock when the child succeeds.
+- **reconcile-indeterminate-child**: look at the provider for what the child created (read-only), keep the evidence outside the
+  platform, then record the outcome with `POST /api/platform/v1/operations/:id/mixed-run/reconcile` (browser session only,
+  editor or admin; see "Recording a reconciliation" below).
+- **retry-after-reconcile**: not an operator action in this build; see "Why there is no retry route" below. Plan again and have a
+  person approve the new plan (**replan-and-reapprove**).
+
+### Recording a reconciliation
+
+`POST /api/platform/v1/operations/:id/mixed-run/reconcile` with
+
+```json
+{ "childId": "<child id from the run summary>", "outcome": "no_effects", "evidenceDigest": "<64 lowercase hex, sha256 of your evidence>" }
+```
+
+`outcome` is `no_effects` (the provider shows nothing the child created) or `effects_present` (it shows something). The child's
+`effects` becomes `none` or `present` and `reconciliationRequired` clears, which lifts the `reconcile_before_retry` step and the
+teardown proposal's refusal for that child. Only the digest is stored; the run ledger records the event kind, child id, outcome,
+digest and the id of the person who recorded it (`reconciledBy`), never provider values. The answer is `{ "summary": ... }`, the
+same run summary as `GET .../mixed-run`. Nothing is started, retried or destroyed by this call.
+
+Refusals are typed and carry the reducer's reason in `error.details.reason`: `400 invalid_request` (unknown field, outcome other
+than the two values, digest not 64 lowercase hex), `403 browser_session_required` (agent credential or foreign origin),
+`403 role_insufficient` (viewer, or a requester who is not an editor or admin), `404 not_found` (foreign or missing operation,
+no run, unknown child), `409 invalid_state` with reason `illegal_transition` (the child does not need reconciliation, e.g. it was
+already reconciled).
+
+### Why there is no retry route
+
+The run reducer has a `retry` event, but nothing can act on it yet. When a child ends `failed` or `uncertain` the parent
+workflow stops, the child's own operation has ended, its row and its receipt are terminal and write-once, and the parent plan's
+status moves forward only. A run-level `retry` would mark the child pending in the run while the platform still holds it
+terminal, with no workflow left to start it. Retrying a child needs a new child operation and a new parent execution under a new
+approval, which is a design change, not a route. `nextSteps` may still list `retry_after_reconcile`; read it as "reconcile, then
+replan", not as a callable action.
 
 ### A child never answers (`blackhole_timeout`)
 
 After the child timeout the child is `timed_out`, effects `possible`. A late receipt is evidence it finished and is accepted as such.
-Otherwise reconcile and retry as above.
+Otherwise reconcile, then replan, as above.
 
 ### A partition's connection is revoked (`revoked_partition_connection`)
 
 The control plane re-verifies each child's connection before it starts; a revoked connection refuses that child, changes nothing and
 leaves earlier children applied. The running application's data plane is independent of the control plane and keeps serving.
+In the run summary (confirm-blast-radius) the refused child is listed under `failed` with reason `refused_connection_unverified`
+and effects `none`; `nextSteps` names `review_replan` (and `propose_teardown_for_human_approval` when earlier children applied),
+never `retry_after_reconcile`, because a revoked connection does not come back.
 - **rebind-connection-and-replan**: create and verify a replacement connection, then plan again. A revoked connection never works
   again; the old plan is not resumed.
 - **resume-after-new-approval**: a person approves the new plan; completed children are not re-applied.

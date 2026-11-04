@@ -203,9 +203,19 @@ parent digest, affected partition ids and blocked partitions. Changed scope,
 desired inputs, newly materialized effects, output replacement, receipt/artifact
 custody, binding, backend, ownership or topology require review. Affected
 partitions include downstream dependants even before they can materialize.
-There is no wildcard preapproval or caller boolean exemption. A future precise
-preauthorization mechanism must be a canonical consumed approval bound to exact
-parent/child/effect constraints and current policy, never an option on this API.
+There is no wildcard preapproval or caller boolean exemption. The precise
+preauthorization (`src/lib/execution/mixed-orchestration/preauthorization.ts`,
+`POST /api/platform/v1/mixed-output-preauthorizations`) is a person's grant bound
+to one parent operation, one reference and its contract digest, both subplan
+digests, the desired digest and the value type; it is never an option on this
+API. It has exactly one use, reserved before the consumer is rebound. A second
+use cannot arise: a plan binds one parent operation, a run is opened once per
+parent operation and each reference is materialized once per run (a succeeded
+producer never re-runs, a retried consumer keeps its bound inputs). Re-planning
+makes a new parent operation, which no earlier grant names, so its consumer
+needs a review. `GET /api/platform/v1/mixed-output-preauthorizations` returns
+each grant's `standing`: `active` (covers a use), `spent`, `expired`, `revoked`
+or `creator_not_admin`; `activeOnly=true` returns exactly the `active` ones.
 Even `unchanged` does not replace fresh broker authorization.
 
 Partial child success does not roll back another cloud. The module only keeps

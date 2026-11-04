@@ -39,17 +39,17 @@ describe("output preauthorizations are a person's precise, bounded decision", ()
   const base = (h: Awaited<ReturnType<typeof makeHarness>>, over: Record<string, unknown> = {}) => ({
     workspaceId: h.ids.wsA, actor: user("alice"), session: sessionFor("alice"), parentOperationId: PARENT, environmentId: h.ids.envAProd,
     desiredDigest: H("desired"), referenceId: "db-host", contractDigest: H("contract"), consumerSubplanDigest: H("consumer"), producerSubplanDigest: H("producer"),
-    valueType: "endpoint" as const, maxUses: 2, lifetimeMs: 3_600_000, ...over,
+    valueType: "endpoint" as const, maxUses: 1, lifetimeMs: 3_600_000, ...over,
   });
 
   it("is created by a human admin with their own browser session, with every bound recorded and audited", async () => {
     const h = await makeHarness({ kind: "memory", engine });
     const store = new MemoryPreauthorizationStore();
     const row = await createOutputPreauthorization(h.deps, store, base(h));
-    expect(row).toMatchObject({ createdBy: "alice", parentOperationId: PARENT, referenceId: "db-host", valueType: "endpoint", maxUses: 2, uses: 0, status: "active" });
+    expect(row).toMatchObject({ createdBy: "alice", parentOperationId: PARENT, referenceId: "db-host", valueType: "endpoint", maxUses: 1, uses: 0, status: "active" });
     expect(Date.parse(row.expiresAt) - Date.parse(row.createdAt)).toBe(3_600_000);
     const events = await h.store.listEvents(h.ids.wsA, { environmentId: h.ids.envAProd });
-    expect(events.find((event) => event.data.kind === "mixed_output_preauthorization_created")?.data).toMatchObject({ preauthorizationId: row.id, parentOperationId: PARENT, maxUses: 2 });
+    expect(events.find((event) => event.data.kind === "mixed_output_preauthorization_created")?.data).toMatchObject({ preauthorizationId: row.id, parentOperationId: PARENT, maxUses: 1 });
   });
 
   it("refuses editors, viewers, agents, a borrowed session and strangers", async () => {
@@ -65,6 +65,8 @@ describe("output preauthorizations are a person's precise, bounded decision", ()
   });
 
   it.each([
+    // A reference materializes once per run and a grant names one parent operation, so a second use can never exist.
+    ["more than one use", { maxUses: 2 }],
     ["more than ten uses", { maxUses: 11 }],
     ["no uses", { maxUses: 0 }],
     ["a lifetime under five minutes", { lifetimeMs: 1000 }],
@@ -105,9 +107,28 @@ describe("output preauthorizations are a person's precise, bounded decision", ()
     expect(await resolveLivePreauthorizations(h.deps, store, h.ids.wsA, [row.id], new Date(Date.parse(row.expiresAt) + 1))).toEqual([]);
     expect(await resolveLivePreauthorizations(h.deps, store, h.ids.wsB, [row.id], new Date())).toEqual([]);
     expect(await store.reserveUse({ workspaceId: h.ids.wsA, id: row.id, now: new Date() })).not.toBeNull();
-    expect(await store.reserveUse({ workspaceId: h.ids.wsA, id: row.id, now: new Date() })).not.toBeNull();
     expect(await store.reserveUse({ workspaceId: h.ids.wsA, id: row.id, now: new Date() })).toBeNull();
     expect(await resolveLivePreauthorizations(h.deps, store, h.ids.wsA, [row.id], new Date())).toEqual([]);
+  });
+
+  it("lists each grant with a typed standing: active, spent, expired, revoked or creator_not_admin", async () => {
+    const h = await makeHarness({ kind: "memory", engine });
+    const store = new MemoryPreauthorizationStore();
+    const make = (over: Record<string, unknown> = {}) => createOutputPreauthorization(h.deps, store, base(h, over));
+    const active = await make();
+    const spent = await make({ referenceId: "spent-ref" });
+    await store.reserveUse({ workspaceId: h.ids.wsA, id: spent.id, now: h.deps.clock.now() });
+    const revoked = await make({ referenceId: "revoked-ref" });
+    await revokeOutputPreauthorization(h.deps, store, { workspaceId: h.ids.wsA, id: revoked.id, actor: user("alice"), session: sessionFor("alice") });
+    const now = h.deps.clock.now();
+    const expired = await store.create({ ...active, id: "mop_expired", referenceId: "expired-ref", createdAt: new Date(now.getTime() - 3_600_000).toISOString(), expiresAt: new Date(now.getTime() - 1).toISOString() });
+    // Its creator is no longer an admin (bob is an editor): the row is unspent and unexpired but covers nothing.
+    const orphaned = await store.create({ ...active, id: "mop_orphaned", referenceId: "orphaned-ref", createdBy: "bob", createdByName: "bob" });
+    const listed = await listOutputPreauthorizations(h.deps, store, { workspaceId: h.ids.wsA, principal: user("alice") });
+    expect(Object.fromEntries(listed.map((row) => [row.id, row.standing]))).toEqual({
+      [active.id]: "active", [spent.id]: "spent", [revoked.id]: "revoked", [expired.id]: "expired", [orphaned.id]: "creator_not_admin",
+    });
+    expect((await listOutputPreauthorizations(h.deps, store, { workspaceId: h.ids.wsA, principal: user("alice"), activeOnly: true })).map((row) => row.id)).toEqual([active.id]);
   });
 });
 

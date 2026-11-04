@@ -157,3 +157,24 @@ Source `8fa3842a`, the commit of this requirement's `live_sandbox` receipt, so t
 
 
 `operational_rehearsal` is still not done. Not a promotion.
+
+## One-use preauthorization by construction; typed standing (2026-11-04)
+
+Owner decision: a second use of an output preauthorization is not a product path, so the guarantee is that none can exist.
+
+Why none can exist on a real run:
+
+- A grant names one parent operation and one reference.
+- A plan binds exactly one parent operation (`attachParentOperation` guards `parent_operation_id is null`), and a run is opened once per parent operation (`openRunForParent`).
+- A reference is materialized once per run: `rebind` (run.ts) refuses a consumer that is not pending or blocked, a succeeded producer has no transition back, and a retried consumer keeps its bound inputs (`materializeIncoming` returns ready).
+- Re-planning the parent, or changing a desired input, makes a new plan and a new parent operation. No earlier grant names it (and a desired-input change is never preauthorizable), so its consumer gets the review that the 2026-10-31 run proved.
+
+What changed:
+
+- `PREAUTH_MAX_USES` is 1. `POST /api/platform/v1/mixed-output-preauthorizations` and `createOutputPreauthorization` refuse `maxUses` above 1 (`invalid_request`). The table's `max_uses between 1 and 10` check is unchanged; no migration.
+- `GET /api/platform/v1/mixed-output-preauthorizations` returns each grant's `standing`: `active`, `spent`, `expired`, `revoked` or `creator_not_admin` (`standingOf`). Only `active` covers a use, and `activeOnly=true` now returns exactly those (it also drops grants whose creator is no longer an admin). The join's own decision path is unchanged: it lists the store's active rows and `resolveLivePreauthorizations` re-checks the creator.
+- Live driver: `Mix03Product.preauthorizationStanding(tenant, parentOperationId)` reads the sorted standings of the parent's grants; an unknown word reads as `unknown`. After the one use, the preauthorized parent's grant reads `spent`. No scenario uses it yet.
+
+The 2026-10-28 note that the producer-change review had no product route is superseded by the 2026-10-31 run: the review opens from the producer's materialized output and is approved through `POST /api/platform/v1/operations/:id/approve`.
+
+Tests: `tests/execution/mixed-orchestration-service.test.ts` (one use only, `maxUses: 2` refused, every standing), `tests/acceptance/aws-mix03-driver.test.ts` (`preauthorizationStanding`). Offline contract tests only. Status is unchanged: `implementation_complete_verification_pending`. Not a promotion.

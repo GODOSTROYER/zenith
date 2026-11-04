@@ -57,6 +57,11 @@ export interface Mix03Product {
   issueOutputPreauthorization(tenant: Mix03Tenant, planId: string): Promise<void>;
   /** The parent's preauthorizations as the product lists them: how many, the uses spent and allowed, and how many still cover a use. */
   preauthorizationUses(tenant: Mix03Tenant, parentOperationId: string): Promise<{ total: number; uses: number; maxUses: number; active: number }>;
+  /**
+   * The typed standing of each of the parent's grants as the product lists them, sorted: `active` covers a use; `spent`,
+   * `expired`, `revoked` and `creator_not_admin` are why one does not. Any other word reads as `unknown`.
+   */
+  preauthorizationStanding?(tenant: Mix03Tenant, parentOperationId: string): Promise<string[]>;
   /** An operation's status and, when it stopped, a fixed category of why (never its text). */
   operationHalt?(tenant: Mix03Tenant, operationId: string): Promise<{ status: string; halt?: string; detail?: string }>;
   /** PROD-MIX-02: the stored parent plan, as GET /api/platform/v1/mixed/plans/:id returns it. */

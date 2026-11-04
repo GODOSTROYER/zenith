@@ -1,0 +1,80 @@
+{
+  "integratedCommit": "ea8f7093d01d0e1f40ee5a665d75e9a4461529eb",
+  "scope": "Reviewed minimal verifier repairs. Scoped evidence does not establish full gates, Linux skipped counterparts, packaged images, default Auth, or live-cloud acceptance.",
+  "sourceCoherence": {
+    "compilerInputs": 3805,
+    "compilerInputMismatches": 0,
+    "nativePostgresInputs": 244,
+    "nativePostgresInputMismatches": 0
+  },
+  "compiler": {
+    "baseCommit": "a15dbd817f69976548b3e594777c205de352fa0c",
+    "heapMiB": 5120,
+    "exitCode": 0,
+    "durationSeconds": 61.98,
+    "endSourceBinding": true,
+    "groupAbsent": true,
+    "minimumFreeBytes": 18203983872
+  },
+  "nativeHistoricalFiles": {
+    "testedBaseCommit": "a15dbd817f69976548b3e594777c205de352fa0c",
+    "reviewedInputHashes": {
+      "tests/controlplane/mcp-stream-tenant-index.test.ts": "674f5c29b6d2c3dc9eebb73aa0a48ea236df5d01fce6ebda36331fb86b2798ce",
+      "tests/controlplane/migrations.test.ts": "87eaa736661ebcf46f40f6439af6bf4d71ab3b742d1d75098bb482affa74a043",
+      "tests/controlplane/read-jobs.test.ts": "61e6afbb107f65df473cabf74e317b09fd4316af39bfa3ea37e667e1f337c828",
+      "tests/controlplane/workflow-start-intents.test.ts": "afea7bd31306514440566fcd6eb1aa239af6cedab8a2afb10c46032a8c25ca44"
+    },
+    "counts": {
+      "passed": 107,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "discovered": 107,
+      "mandatoryNativePostgresCases": 58,
+      "files": 4,
+      "excluded": 0
+    },
+    "reportSha256": "48c2ef57a9a6f12d8443d5b624e8af02ea42877e3af74d8421f49eea630edee6",
+    "receiptSha256": "7961b4a9f71b6f3b54361645ebb69a604f45d844c2bc0c4364ab41d06b8d632b",
+    "cleanupComplete": true,
+    "endSourceBinding": true,
+    "independentlyAbsentGroups": 128,
+    "diskMinBytes": 19205832704
+  },
+  "targetedLanes": {
+    "goInventoryContracts": {
+      "passed": 671,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "7fa8ef4b386196a862d1e95b401e63cf87b8391302b4fad5cfbf4b811b4518ff"
+    },
+    "workflowAuthorityFixtures": {
+      "passed": 82,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "fa5a446ec5abc45a1507fa6a4388fb0363a5cd0deb21a185c9882b65d2c9e6fb"
+    },
+    "packagingModels": {
+      "passed": 135,
+      "failed": 0,
+      "skipped": 6,
+      "reportSha256": "5905842f4a11980771afcbb60893267076b1cf0f1b429b0835cc056558081487"
+    }
+  },
+  "workerAssetComponent": {
+    "beforeExit": 1,
+    "exactMissingAssetObserved": true,
+    "afterExit": 0,
+    "assetSha256": "9fe464bf7a0c6327461f0ec9030fa82f364a9b760223555479e8e8938f395ef4",
+    "compiledOutputSha256": "d7f0a2f797bdbe23655843e34ddccad2af4a4e698201ae423a097e49de47403b",
+    "sourceCommit": "0cc97c4ad395aabd621167371e5fe1776a1cb956",
+    "scope": "Native component bundling from exact Docker COPY source inputs. Not an image or runtime acceptance.",
+    "ownedContextRemoved": true
+  },
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "architecture": "native ARM64 macOS"
+  },
+  "independentReview": "All source packets and actual native receipt accepted; root reran checks. Prior failed105/2 and full CI10/14 remain preserved."
+}

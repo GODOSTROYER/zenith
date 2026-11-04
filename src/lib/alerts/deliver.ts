@@ -214,11 +214,18 @@ export const sign = (body: string, secret: string): string =>
   `sha256=${createHmac("sha256", secret).update(body, "utf8").digest("hex")}`;
 
 /** A Slack incoming-webhook payload: notification text plus rendered blocks. */
+/**
+ * Slack parses `<!channel>`, `<@U...>` and `<url|label>` in mrkdwn. Alert titles, details and close reasons carry text
+ * that originates outside the alerting user (rule and service names, observed values), so the three control
+ * characters Slack documents are escaped: the message cannot page a channel or render a link it did not author.
+ */
+export const slackEscape = (value: string): string => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 export function slackBody(msg: AlertMessage): Record<string, unknown> {
-  const text = messageText(msg);
+  const text = slackEscape(messageText(msg));
   const context = [
     msg.phase === "resolved"
-      ? `Closed${msg.resolvedReason ? `: ${msg.resolvedReason}` : "."}`
+      ? `Closed${msg.resolvedReason ? `: ${slackEscape(msg.resolvedReason)}` : "."}`
       : msg.phase === "test"
         ? "Test message from Settings → Alerts."
         : `Severity ${msg.severity}.`,
@@ -231,7 +238,7 @@ export function slackBody(msg: AlertMessage): Record<string, unknown> {
   return {
     text,
     blocks: [
-      { type: "section", text: { type: "mrkdwn", text: `*${text}*\n${msg.body}` } },
+      { type: "section", text: { type: "mrkdwn", text: `*${text}*\n${slackEscape(msg.body)}` } },
       { type: "context", elements: [{ type: "mrkdwn", text: context }] },
     ],
   };

@@ -1,0 +1,610 @@
+{
+  "sourceCommit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+  "status": "terminal_failed",
+  "jobs": [
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239372752,
+      "name": "verify",
+      "conclusion": "failure"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373006,
+      "name": "supply-chain",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373018,
+      "name": "agent",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373025,
+      "name": "postgres",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373134,
+      "name": "workflows",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373136,
+      "name": "docker",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373209,
+      "name": "operation-gates (reconciliation)",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373246,
+      "name": "policy",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373252,
+      "name": "hosted",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373263,
+      "name": "operation-gates (workflow-intents)",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373278,
+      "name": "platform-postgres",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373279,
+      "name": "tofu",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373346,
+      "name": "go",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373481,
+      "name": "ledger",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373482,
+      "name": "generated",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Main CI",
+      "runId": 37755641326,
+      "jobId": 113239373659,
+      "name": "build",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Packaged workers",
+      "runId": 37755641401,
+      "jobId": 113239372516,
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Packaged workers",
+      "runId": 37755641401,
+      "jobId": 113239372953,
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Skipped platforms",
+      "runId": 37755641378,
+      "jobId": 113239372412,
+      "name": "windows-acl",
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Skipped platforms",
+      "runId": 37755641378,
+      "jobId": 113239372671,
+      "name": "linux-systemd",
+      "conclusion": "success"
+    }
+  ],
+  "successfulJobs": 19,
+  "failedJobs": 1,
+  "verify": {
+    "passed": 21827,
+    "failed": 1,
+    "skipped": 1647,
+    "files": {
+      "passed": 988,
+      "failed": 1,
+      "skipped": 57,
+      "total": 1046
+    },
+    "durationSeconds": 2152.79,
+    "failureFile": "tests/ci/gate-manifest.test.ts",
+    "failureLine": 2943,
+    "expectedFixtureSha256": "0584a7f36c4f25f757688f5d6938da3e255000e1a42702c54d0624bec519dc61",
+    "actualFixtureSha256": "ca059bda3200b9ac56be008e9d76230c262ef9138ae2fd18b4afbaa72f583f65",
+    "unexecutedSteps": [
+      "Smoke",
+      "Verify Gimbal assets"
+    ]
+  },
+  "artifacts": [
+    {
+      "lane": "linux-systemd",
+      "binding": {
+        "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+        "sourceSha256": "7c6f603153eb3bae251605fa8cd58d21dbfe1d7331a902588765686ba9e4e241",
+        "lockSha256": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c",
+        "manifestSha256": "30dd1b60d0038a102d75363e82d66ec9559619b2c0a6b2931ee0d568a806f26c",
+        "helperSha256": "de4c1e0b4ea79936bae3cd5f6085cd874b141e5b5029451c03b527ba6affd620",
+        "runId": "e33e693ddccccefc9f1a80a2e6a96477",
+        "uid": 1001,
+        "gid": 1001,
+        "canonicalReceiptSha256": "2294efa01e72c789f920487fcf2b9be109b87eb6f4a6298cf25e191db0681076",
+        "systemdReceiptSha256": "7a533c25c441b53390948f1a5dd6b5d1248cf160be8bc3fba38686c5c3b84374"
+      },
+      "steps": [
+        {
+          "id": "ops",
+          "counts": {
+            "packages": 1,
+            "testEvents": 8,
+            "parents": 1,
+            "leaves": 7,
+            "passedLeaves": 7,
+            "failedLeaves": 0,
+            "skippedLeaves": 0
+          },
+          "requiredPassed": 8
+        },
+        {
+          "id": "signed",
+          "counts": {
+            "packages": 1,
+            "testEvents": 7,
+            "parents": 1,
+            "leaves": 6,
+            "passedLeaves": 6,
+            "failedLeaves": 0,
+            "skippedLeaves": 0
+          },
+          "requiredPassed": 7
+        }
+      ],
+      "cleanup": {
+        "systemd": "cleaned",
+        "canonical": "absent",
+        "receiptSha256": "9e828f8c17558c388a17bc3edcf4a664eb6e18834cd3784e839ad09623408257",
+        "wrapper": {
+          "role": "fixed-fixture-cleanup-transport",
+          "uid": 1001,
+          "gid": 1001,
+          "capabilities": "E/P/I/A-zero",
+          "noNewPrivs": false
+        }
+      }
+    },
+    {
+      "lane": "postgres",
+      "counts": {
+        "total": 379,
+        "passed": 379,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 93,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "c67f9cc20a736695fff14b842afa47c8eda15ae4ffef6e88f367cc91396e86a8",
+        "inventorySha256": "0d35d7866e5871236bb91f53609979a58e9f8d9ae66fd342efe41b5248373a1a",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "workflows",
+      "counts": {
+        "total": 1378,
+        "passed": 1378,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 105,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "1e083323cfecff8904f4beea691965dce29644be27b3d31d0a60b3196fbc3731",
+        "inventorySha256": "a2a9e7b6a09ce752e7ccac40172c144c0cee2152fcd8651c6f448aa5a7599642",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "workflow-intents",
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 141,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "9ebfd4b91326be07bba88c3c98a07e37e4199fdee284f373747ae19b2f43cb48",
+        "inventorySha256": "5644a725e5882675e022c4b0998a4e7e098619448ff5e6854763354c1335d74e",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "linux-guest",
+      "binding": {
+        "commit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+        "sourceSha256": "7c6f603153eb3bae251605fa8cd58d21dbfe1d7331a902588765686ba9e4e241",
+        "lockSha256": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c",
+        "manifestSha256": "db141299ecabe97bf5d15d9c5fddc0a069deaf7cb37451170f0aee6a087a7a7e",
+        "fixtureReceiptSha256": "2294efa01e72c789f920487fcf2b9be109b87eb6f4a6298cf25e191db0681076"
+      },
+      "steps": [
+        {
+          "id": "race",
+          "counts": {
+            "packages": 21,
+            "testEvents": 1126,
+            "parents": 71,
+            "leaves": 1055,
+            "passedLeaves": 1052,
+            "failedLeaves": 0,
+            "skippedLeaves": 3
+          },
+          "requiredPassed": 148
+        },
+        {
+          "id": "package-native",
+          "counts": {
+            "packages": 1,
+            "testEvents": 9,
+            "parents": 1,
+            "leaves": 8,
+            "passedLeaves": 8,
+            "failedLeaves": 0,
+            "skippedLeaves": 0
+          },
+          "requiredPassed": 4
+        },
+        {
+          "id": "goldens",
+          "counts": {
+            "packages": 1,
+            "testEvents": 22,
+            "parents": 1,
+            "leaves": 21,
+            "passedLeaves": 21,
+            "failedLeaves": 0,
+            "skippedLeaves": 0
+          },
+          "requiredPassed": 2
+        },
+        {
+          "id": "golden-diff",
+          "counts": null,
+          "requiredPassed": 0
+        },
+        {
+          "id": "golden-status",
+          "counts": null,
+          "requiredPassed": 0
+        }
+      ],
+      "cleanup": null
+    },
+    {
+      "lane": "platform-postgres",
+      "counts": {
+        "total": 3787,
+        "passed": 3772,
+        "failed": 0,
+        "skipped": 15,
+        "unknown": 0
+      },
+      "requiredPassed": 1156,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "b01d834f88b9ee19876f593b756d70289af8910f8e15f661f86475e4532cbc04",
+        "inventorySha256": "1218c907c921ca8e034c3aedf62b6d974989540e84c97f42edd510f0409b0790",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "tofu",
+      "counts": {
+        "total": 4339,
+        "passed": 4320,
+        "failed": 0,
+        "skipped": 19,
+        "unknown": 0
+      },
+      "requiredPassed": 27,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "9a2b7bc010b84f056a5b871642e9f0d02619febc107668411e3dd3f522a19d8e",
+        "inventorySha256": "53e5c810c11984face367ddd5884b24583e0ca19d81c3c306d382c104a3c4d3d",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "reconciliation",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 26,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "11d15150e4d03f901da1c6ed36c7328df48719c7e3822dbb78939207998fd423",
+        "inventorySha256": "3950279ab40427c9dc8604d5be46caaeeb0daf1a553c692ee24d452126a690b6",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "policy",
+      "counts": {
+        "total": 242,
+        "passed": 242,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 8,
+      "sourceHashesMatched": 6,
+      "environment": {
+        "sha256": "1af55f988058dd5e0cf750130413ec92d36b2ef56869a401cf4a0934055dbe78",
+        "inventorySha256": "e97c791ae7ad97a36b03838dd7f978f1a60518c22c615f94d0c6e95dc6558173",
+        "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+        "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+        "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+        "excludedKeys": [
+          "GITHUB_ACTION",
+          "GITHUB_ENV",
+          "GITHUB_PATH",
+          "GITHUB_OUTPUT",
+          "GITHUB_STEP_SUMMARY",
+          "GITHUB_STATE",
+          "GITHUB_ARTIFACTS",
+          "GITHUB_ARTIFACTS_LIST"
+        ],
+        "platform": "linux",
+        "architecture": "x64",
+        "node": "22.23.3"
+      }
+    },
+    {
+      "lane": "packaged-worker",
+      "platform": "linux/amd64",
+      "environment": {
+        "os": "linux",
+        "processArch": "x64",
+        "dockerOS": "linux",
+        "dockerArch": "amd64",
+        "emulated": false,
+        "node": "22.23.3",
+        "totalRamGiB": 15.61,
+        "availableRamGiB": 14.56,
+        "dockerRamGiB": 15.61,
+        "sourceFreeGiB": 85.84,
+        "temporaryFreeGiB": 85.84,
+        "dockerFreeGiB": 85.84
+      },
+      "checksPassed": 22,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "sourceHashesMatched": 3
+    },
+    {
+      "lane": "packaged-worker",
+      "platform": "linux/arm64",
+      "environment": {
+        "os": "linux",
+        "processArch": "arm64",
+        "dockerOS": "linux",
+        "dockerArch": "arm64",
+        "emulated": false,
+        "node": "22.23.3",
+        "totalRamGiB": 15.57,
+        "availableRamGiB": 14.4,
+        "dockerRamGiB": 15.57,
+        "sourceFreeGiB": 107.76,
+        "temporaryFreeGiB": 107.76,
+        "dockerFreeGiB": 107.76
+      },
+      "checksPassed": 22,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "sourceHashesMatched": 3
+    },
+    {
+      "lane": "windows",
+      "leaf": {
+        "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblingCount": 15
+      },
+      "cleanup": "complete",
+      "sourceHashesMatched": 3
+    },
+    {
+      "lane": "systemd",
+      "leaf": {
+        "name": "TestRealSystemctlAndJournalctl",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblingCount": 0
+      },
+      "cleanup": "complete",
+      "sourceHashesMatched": 3
+    }
+  ],
+  "sourceAggregate": {
+    "sourceCommit": "ed93a676e1b92b8b10c34bc0f7ae5d5437ed59af",
+    "scope": "Read-only exact Git object reconstruction, no runner-untracked parity claim",
+    "fileCount": 5079,
+    "byteCount": 92381344,
+    "fullRepositorySourceSha256": "7c6f603153eb3bae251605fa8cd58d21dbfe1d7331a902588765686ba9e4e241",
+    "matchedBothNativeLinuxArtifacts": true
+  },
+  "rawEvidenceHashes": {
+    "verify-113239372752.private.log": "92e05fe4cbd80cfacd94c9b6cce9c56a7d1aab5828b440098b161032310a8235",
+    "main-jobs-terminal.private.json": "df8e42108f2cd92d3efea546df28b52b74563bd9a10ca78300f7132ae89c5742",
+    "artifact-crosscheck.private.json": "8a25487e5ab4fc906af5b699d813a415b262af8358b1025dd118306294a4fe44",
+    "source-aggregate-crosscheck.private.json": "b24afbd332d73e1ecf780ec3a9cae1b351d88b4f6570ac5262edbfa945232e24"
+  },
+  "limits": [
+    "Separate scoped counts overlap; not summed.",
+    "Skipped and filtered siblings remain explicit; no entire-project zero-skip claim.",
+    "Root independent review required; no production/cloud/default-stack acceptance inferred."
+  ]
+}

@@ -1,0 +1,984 @@
+{
+  "schema": "zenith-production-ci-checkpoint/v1",
+  "checkpointDate": "2026-10-10",
+  "evidenceBoundary": {
+    "purpose": "Sanitized evidence checkpoint for exact-source CI, local full-unit, SYS1 guest-file-write, and agent-browser observations.",
+    "overallAcceptance": "pending",
+    "promotionOrProductionClaim": false,
+    "notes": [
+      "Evidence records distinct source snapshots and does not combine them into a single green result.",
+      "No raw logs, tokens, credentials, environment paths, or private temporary paths are included."
+    ]
+  },
+  "agentBrowser": {
+    "sourceCommit": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+    "workingTreeSourceSha256": "6b8788c90995bb83d1c1f7929419bc2200bc85f4408e0ceaac220a133a7b585c",
+    "copyInventorySha256": "2927c026aaeb72156011cb11199cb9ec92429bb5b1b4dc81e310959418c370f0",
+    "copyInventoryFileCount": 5840,
+    "copyInventorySymlinkCount": 1,
+    "excludedInputs": [
+      ".git",
+      ".next",
+      ".data-agent-browser",
+      "node_modules (fresh owned symlink to pinned root dependencies)"
+    ],
+    "platform": {
+      "architecture": "arm64",
+      "node": "v22.23.3",
+      "playwrightCore": "1.56.1",
+      "chromium": "Chromium 141.0.7390.37"
+    },
+    "execution": {
+      "durationSeconds": 38.4,
+      "exitCode": 0,
+      "gate": "agent-approval",
+      "passed": 44,
+      "failed": 0,
+      "result": "pass",
+      "cases": [
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "signed out, the approval page redirects to /login",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "and the redirect carries the code, not only the path",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the screen shows the code the terminal is showing",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "it names what is being asked",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the client name is marked as unverified text a program supplied",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "it says approving is not deploying",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the workspace and the project are offered by name",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "read: on by default, and locked",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "plan: on by default",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "write: on by default",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "logs: off by default",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "export: off by default",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "publish: off by default",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the expiry defaults to 30 days",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the workspace picker is reachable from the keyboard and labelled",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "so is the project selection",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "and so are Approve and Deny",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the page does not scroll sideways",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "Approve confirms, and sends the person back to their terminal",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the terminal's poll completes with a credential",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "Deny is a real answer and the terminal is told which one",
+          "passed": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "assertion": "the screen logged no console errors",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "signed out, the approval page redirects to /login",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "and the redirect carries the code, not only the path",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the screen shows the code the terminal is showing",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "it names what is being asked",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the client name is marked as unverified text a program supplied",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "it says approving is not deploying",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the workspace and the project are offered by name",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "read: on by default, and locked",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "plan: on by default",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "write: on by default",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "logs: off by default",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "export: off by default",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "publish: off by default",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the expiry defaults to 30 days",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the workspace picker is reachable from the keyboard and labelled",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "so is the project selection",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "and so are Approve and Deny",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the page does not scroll sideways",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "Approve confirms, and sends the person back to their terminal",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the terminal's poll completes with a credential",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "Deny is a real answer and the terminal is told which one",
+          "passed": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "assertion": "the screen logged no console errors",
+          "passed": true
+        }
+      ],
+      "mfaScope": "Synthetic signed AAL2/fresh-AMR and verified-factor fixture; the run does not prove enrollment or a real authenticator ceremony, or default-provider acceptance."
+    },
+    "serverCleanup": {
+      "serverFinalDiagnostic": {
+        "exitCode": 0,
+        "signalCode": null,
+        "directChildReaped": true,
+        "listenerClosed": true,
+        "stopRequested": true,
+        "termDelivered": true,
+        "unexpectedExit": false,
+        "forcedStop": false,
+        "nodeOomObserved": false,
+        "devMemoryRestartCount": 0
+      },
+      "externalInitialIdentityCaptured": false,
+      "externalInitialIdentityLimitation": "Initial PID, birth time, port, and cwd were not captured by the supervisor. The receipt records this as missing; do not infer those fields.",
+      "externalPostcheck": {
+        "port": 55027,
+        "listenerPids": [],
+        "tcpConnectionRefused": true,
+        "cwdScanExitCode": 0,
+        "noProcessCwdUnderOwnedCopy": true,
+        "scope": "Owned copied project cwd and loopback listener only; no worker-tree absence claim."
+      },
+      "disk": {
+        "initialFreeBytes": 393201393664,
+        "minimumFreeBytes": 392490586112,
+        "finalFreeBytes": 392498917376,
+        "requiredFloorBytes": 23622320128
+      },
+      "memory": {
+        "initialFreePercent": 53,
+        "minimumObservedFreePercent": 47,
+        "finalFreePercent": 52,
+        "samples": 79,
+        "stopFloorPercent": 20
+      }
+    },
+    "caseIdentityRecords": [
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "signed out, the approval page redirects to /login",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "and the redirect carries the code, not only the path",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the screen shows the code the terminal is showing",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "it names what is being asked",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the client name is marked as unverified text a program supplied",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "it says approving is not deploying",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the workspace and the project are offered by name",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "read: on by default, and locked",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "plan: on by default",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "write: on by default",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "logs: off by default",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "export: off by default",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "publish: off by default",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the expiry defaults to 30 days",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the workspace picker is reachable from the keyboard and labelled",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "so is the project selection",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "and so are Approve and Deny",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the page does not scroll sideways",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "Approve confirms, and sends the person back to their terminal",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the terminal's poll completes with a credential",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "Deny is a real answer and the terminal is told which one",
+        "passed": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "assertion": "the screen logged no console errors",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "signed out, the approval page redirects to /login",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "and the redirect carries the code, not only the path",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the screen shows the code the terminal is showing",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "it names what is being asked",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the client name is marked as unverified text a program supplied",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "it says approving is not deploying",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the workspace and the project are offered by name",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "read: on by default, and locked",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "plan: on by default",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "write: on by default",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "logs: off by default",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "export: off by default",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "publish: off by default",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the expiry defaults to 30 days",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the workspace picker is reachable from the keyboard and labelled",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "so is the project selection",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "and so are Approve and Deny",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the page does not scroll sideways",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "Approve confirms, and sends the person back to their terminal",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the terminal's poll completes with a credential",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "Deny is a real answer and the terminal is told which one",
+        "passed": true
+      },
+      {
+        "viewport": "narrow 380px",
+        "assertion": "the screen logged no console errors",
+        "passed": true
+      }
+    ],
+    "history": [
+      {
+        "attempt": "original-44-run",
+        "result": "cleanup-counterexample",
+        "server": {
+          "pid": 59527,
+          "ppid": 1,
+          "pgid": 59513,
+          "startedAtLocal": "Sat Oct 10 17:41:30 2026",
+          "port": 53869
+        },
+        "cleanup": {
+          "term": true,
+          "killEscalation": true
+        },
+        "postcondition": {
+          "pidAbsent": true,
+          "listenerAbsent": true
+        },
+        "dataRemoved": false,
+        "evidenceSha256": "00505ecffcdb98065b7c688cf0bf53e9bf12bfc8232bfc296a7d9cdfde211a14"
+      },
+      {
+        "attempt": "receipt-attempt-1",
+        "result": "gate_finished_receipt_generation_failed",
+        "testCaseCounts": "unknown",
+        "testProcessExitCode": "unknown",
+        "reason": "Receipt writer raised after gate completion; raw output was memory-only and unavailable.",
+        "postcheck": {
+          "ownedServerPid": 81551,
+          "ownedServerPort": 54833,
+          "samePidStillPresent": false,
+          "listenerPids": [],
+          "tcpConnectionRefused": true,
+          "diskFreeBytes": 393206632448
+        },
+        "evidenceSha256": "a86bcf8a879f734b9308485619894fe4ccecc7b2c442a07fe1796284125b37dc"
+      },
+      {
+        "attempt": "receipt-attempt-2",
+        "result": "44-passed",
+        "receiptSha256": "171e2238bed2cdb2990b54cd67b883d163209ea73a614f31bce148b0a0f0f7d9",
+        "externalPostcheckSha256": "dd2153d99fd81c0aa61c6a9dcefbe36ae4385fd30032f13f1da44ca1e32629d1"
+      }
+    ]
+  },
+  "remoteCiSnapshot": {
+    "observedCommit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+    "observedAtUTC": "2026-10-10T13:01:38.188331+00:00",
+    "runs": [
+      {
+        "id": 38051420464,
+        "name": "CI",
+        "sourceCommit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+        "status": "completed",
+        "conclusion": "failure",
+        "jobCounts": {
+          "success": 18,
+          "failure": 2,
+          "skipped": 8
+        },
+        "jobs": [
+          {
+            "id": 114211200005,
+            "name": "workflow-history-replay",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200114,
+            "name": "postgres",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200181,
+            "name": "workflows",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200197,
+            "name": "docker",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200236,
+            "name": "ledger",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200240,
+            "name": "adversarial",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200242,
+            "name": "tofu",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200244,
+            "name": "policy",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200246,
+            "name": "recovery",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200256,
+            "name": "agent",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200279,
+            "name": "operation-gates (reconciliation)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200283,
+            "name": "platform-postgres",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200295,
+            "name": "hosted",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200304,
+            "name": "verify",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 114211200307,
+            "name": "go",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 114211200311,
+            "name": "generated",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200344,
+            "name": "operation-gates (workflow-intents)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200346,
+            "name": "supply-chain",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200365,
+            "name": "build",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200416,
+            "name": "wave5-contract",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211200690,
+            "name": "drv1-update-rollback",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211200860,
+            "name": "drv2-drift-repair",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211200901,
+            "name": "drivers-d4-two-tenants",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211219007,
+            "name": "drivers-d4-export",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211221342,
+            "name": "drv2-crash-partition",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211222282,
+            "name": "j15-operated-upgrade",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211226366,
+            "name": "j15-operated-restore",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114211231853,
+            "name": "drv1-private-source",
+            "status": "completed",
+            "conclusion": "skipped"
+          }
+        ]
+      },
+      {
+        "id": 38051420474,
+        "name": "Native packaged workers",
+        "sourceCommit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+        "status": "completed",
+        "conclusion": "success",
+        "jobCounts": {
+          "success": 2
+        },
+        "jobs": [
+          {
+            "id": 114211152367,
+            "name": "packaged-worker (amd64, ubuntu-24.04)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211152552,
+            "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 38051420471,
+        "name": "Native skipped platforms",
+        "sourceCommit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+        "status": "completed",
+        "conclusion": "success",
+        "jobCounts": {
+          "success": 2
+        },
+        "jobs": [
+          {
+            "id": 114211152298,
+            "name": "windows-acl",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114211152446,
+            "name": "linux-systemd",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ],
+    "goPid1Native": {
+      "artifact": "artifacts-go/sanitized.json",
+      "attemptId": "c81265a98883f0b2a320a15e4581e520",
+      "controlScopes": {
+        "packageNative": {
+          "failedLeaves": 0,
+          "leaves": 8,
+          "packages": 1,
+          "parents": 1,
+          "passedLeaves": 8,
+          "skippedLeaves": 0,
+          "testEvents": 9
+        },
+        "race": {
+          "failedLeaves": 0,
+          "leaves": 1077,
+          "packages": 22,
+          "parents": 73,
+          "passedLeaves": 1074,
+          "skippedLeaves": 3,
+          "testEvents": 1150
+        }
+      },
+      "counts": {
+        "failedLeaves": 0,
+        "leaves": 0,
+        "packages": 0,
+        "parents": 0,
+        "passedLeaves": 0,
+        "skippedLeaves": 0,
+        "testEvents": 0
+      },
+      "fixtureDiagnostic": {
+        "cleanupState": "failed",
+        "failureClass": "assertion",
+        "failureStage": "docker-admission"
+      },
+      "goSourceSha256": null,
+      "jobConclusion": "failure",
+      "jobId": 114211200307,
+      "problemCodes": [
+        "process-exit",
+        "required-case",
+        "required-package",
+        "stream",
+        "zero",
+        "zero-package"
+      ],
+      "reportSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requiredCase": {
+        "name": "TestSystemdSignedUpdateAndRollback",
+        "status": "missing"
+      },
+      "runnerExitCode": 1,
+      "sourceSha256": "e1ab2ad45a582bf62a364632a29f70c565a83c474168fb14ca7ab4885f660787",
+      "stepExitCode": 1,
+      "termination": "exit"
+    },
+    "reconciliation": {
+      "artifact": "artifacts-reconciliation/reconciliation-evidence.json",
+      "commit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+      "counts": {
+        "failed": 0,
+        "passed": 39,
+        "skipped": 0,
+        "total": 39,
+        "unknown": 0
+      },
+      "execution": {
+        "binding": "matched",
+        "exitCode": 0,
+        "observed": true,
+        "receiptSha256": "631404574394fa63a250f0220032b604f73b1ba291eeaaf7abb10e264a8d390d",
+        "termination": "exit"
+      },
+      "externalAcceptanceCount": 0,
+      "jobConclusion": "success",
+      "jobId": 114211200279,
+      "requiredCaseCount": 26,
+      "requiredStatusCounts": {
+        "passed": 26
+      },
+      "sourceSha256": "8da0b224b6eef9fe6fbca3ac68bb8161b91b11d7bfe0110830ce7cb9ceb58213",
+      "validation": {
+        "caseIdentity": "not-exported-by-standard-vitest-json",
+        "complete": true,
+        "failureCount": 0
+      },
+      "verdict": "passed"
+    },
+    "limitations": [
+      "Every exact-8bb job is terminal; verify and Go failed. Eight operated jobs skipped.",
+      "Separate native AMD64/ARM64 worker jobs and native platform jobs succeeded within their published scopes.",
+      "Successor de8079cdf6d6637e4e53eaea54a7aa700b50ec92 CI is not accepted by this checkpoint."
+    ],
+    "finalAcceptanceClaim": false,
+    "wholeVerification": {
+      "jobId": 114211200304,
+      "passed": 24341,
+      "failed": 167,
+      "skipped": 1921,
+      "total": 26429,
+      "result": "failed",
+      "rawLogSha256": "3016947dc0a8bc1b60f3eb95592d93a69989047e6d6349756c88949f5c50d4a1"
+    }
+  },
+  "localFullUnitObservation": {
+    "sourceCommit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+    "sourceFreezeSha256": "6635495eaa97f27c3ad5ac818d223859d515787e1e1363e85b974628460cf230",
+    "sourceFreezeAfterSha256": "6635495eaa97f27c3ad5ac818d223859d515787e1e1363e85b974628460cf230",
+    "sourceStable": true,
+    "reportSha256": "70f98a7539fa02eb56923ae4812a694eb8c76af79de0a86047905970cd49a9ec",
+    "status": "failed",
+    "counts": {
+      "numFailedTestSuites": 49,
+      "numFailedTests": 169,
+      "numPassedTests": 24321,
+      "numPendingTests": 1939,
+      "numTodoTests": 0,
+      "numTotalTestSuites": 4865,
+      "numTotalTests": 26429,
+      "success": false
+    },
+    "supervisorExitCode": 2,
+    "testProcessExitCode": null,
+    "reason": "process-identity capture refusal; original supervisor lost custody",
+    "collectedCaseCount": 24710,
+    "identityCounterMatched": false,
+    "identityMismatch": "list omits some report files including gated skipped cases; not waived",
+    "observedSessionAbsentInTwoSnapshots": true,
+    "historicalLineageComplete": false,
+    "ownedRunDataRetained": true,
+    "minimumObservedFreeBytes": 393201176576,
+    "acceptance": "Failed identity-capture supervisor; counts are the retained report counts, but initial collection/report identity mismatch is not waived and process exit remains unknown."
+  },
+  "sys1GuestFileWrite": {
+    "sourceCommit": "8bb8116eb647d3bb8911537eafc2f8ea23efe282",
+    "sourceCandidateFiles": {
+      "scripts/ci/guest-pid1-fixtures.py": "c2ea91c80bed88d91e5d97af59d8fb6a9255576456bbeec78b2b50f014fa2ae7",
+      "scripts/ci/run-guest-file-write-gate.mjs": "0db095ed1f5d1e2d60703ad95dd6d52ed5dfdcd358d20f5a2dc1ce424c61de30",
+      "tests/ci/guest-file-write-gate.test.ts": "72f01ccba6034122614d0af3a29653581ff6a0e89d032db502c55740f080e4fc"
+    },
+    "candidateDiffSha256": "2a7bc86b6d927fd060520022b22b6313a78a732c67cb8ebd5babacc9add6583e",
+    "reviewStatus": "Independent source review completed; reviewed diff is the candidate diff recorded above.",
+    "targetedTestCase": [
+      "tests/ci/guest-file-write-gate.test.ts"
+    ],
+    "passed": 187,
+    "failed": 0,
+    "pending": 0,
+    "total": 187,
+    "exitCode": 0,
+    "receiptSha256": "f9879a838a1049e38f562aa72ae172e5225493e29495d2b3b3e203050764ca5c",
+    "reportSha256": "f9879a838a1049e38f562aa72ae172e5225493e29495d2b3b3e203050764ca5c",
+    "continuousDiskMonitoring": true,
+    "minimumObservedFreeBytes": 394103263232,
+    "diskFloorBytes": 23622320128,
+    "candidateUnchanged": true,
+    "privateReportsRetained": true,
+    "actualPrivilegedEngineExecution": "not run",
+    "acceptance": "187 targeted tests passed; this is not evidence of an actual privileged engine execution."
+  },
+  "evidenceHashes": {
+    "agentBrowserAttempt2Receipt": "171e2238bed2cdb2990b54cd67b883d163209ea73a614f31bce148b0a0f0f7d9",
+    "agentBrowserExternalPostcheck": "dd2153d99fd81c0aa61c6a9dcefbe36ae4385fd30032f13f1da44ca1e32629d1",
+    "agentBrowserAttempt1IncompleteNote": "a86bcf8a879f734b9308485619894fe4ccecc7b2c442a07fe1796284125b37dc",
+    "originalAgentBrowserOrphanCounterexample": "00505ecffcdb98065b7c688cf0bf53e9bf12bfc8232bfc296a7d9cdfde211a14",
+    "remoteCiSanitizedSnapshot": "bafc0f9ce028aeafdf002a0a40bcf6d910ea448560f81346d2987f9db311b386",
+    "fullUnitSummary": "70f98a7539fa02eb56923ae4812a694eb8c76af79de0a86047905970cd49a9ec",
+    "sys1TargetedReceipt": "f9879a838a1049e38f562aa72ae172e5225493e29495d2b3b3e203050764ca5c",
+    "sys1CandidateDiff": "2a7bc86b6d927fd060520022b22b6313a78a732c67cb8ebd5babacc9add6583e",
+    "agentBrowserRawStdout": "e58504434ba02f7e9cb7298e3aec524d658e0e94adf749e1e61019f0abf8fcc7",
+    "agentBrowserRawStderr": "b5c036e222a14cc64bd2c3cd79d940c12ec9656cb7ca68e7c4bee657fc554897"
+  },
+  "currentWorkStateAtCheckpoint": {
+    "reviewedSourcePathsIntegrated": true,
+    "integratedSourceCommit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+    "rootCompilerStatus": "passed with 5120 MiB on the three integrated source paths",
+    "rootChangedFileLintStatus": "passed",
+    "pythonSyntaxStatus": "passed",
+    "finalSourceAndCiAcceptance": false
+  }
+}

@@ -6,14 +6,22 @@ import { sessionUserFromRequest } from "@/lib/supabase/route";
 import { isWaitlistOperator } from "./access";
 import { waitlistConfig } from "./config";
 import type { WaitlistRepository } from "./types";
+import { requireStepUp } from "@/lib/auth/mfa";
 
 export const WAITLIST_BODY_BYTES = 8192;
 
 /** Cookie-authenticated mutations reject browser cross-origin submissions. */
 export function sameOrigin(request: NextRequest): void {
   const origin = request.headers.get("origin");
-  if (request.headers.get("sec-fetch-site") === "cross-site"
-    || (origin && origin !== request.nextUrl.origin))
+  // Behind a port mapping or proxy, nextUrl.origin is the server's own bind address (HOSTNAME:PORT), not the public origin
+  // the browser used. A configured public origin wins, as requireStepUp reads it; a malformed one refuses.
+  const configured = process.env.ZENITH_PLATFORM_ORIGIN ?? process.env.ZENITH_AGENT_ORIGIN;
+  let expected = request.nextUrl.origin;
+  if (configured !== undefined) {
+    try { expected = new URL(configured).origin === configured ? configured : ""; } catch { expected = ""; }
+  }
+  if (request.headers.get("sec-fetch-site") === "cross-site" || !expected
+    || (origin && origin !== expected))
     throw new ApiError("This request must come from the same site.", 403);
 }
 
@@ -53,6 +61,7 @@ export async function requireWaitlistOperator(request: NextRequest) {
   const user = await sessionUserFromRequest(request);
   if (!user) throw new ApiError("Sign in to manage the waitlist.", 401);
   if (!isWaitlistOperator(user)) throw new ApiError("Waitlist operator access is required.", 403);
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) await requireStepUp(request, { subject: user.id });
   return user;
 }
 

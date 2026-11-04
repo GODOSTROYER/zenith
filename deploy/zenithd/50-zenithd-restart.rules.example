@@ -1,0 +1,18 @@
+// polkit rule: let the unprivileged "zenithd" user RESTART exactly these units
+// and nothing else. Install (after editing the list) as
+//   /etc/polkit-1/rules.d/50-zenithd-restart.rules
+// Keep the list identical to services.restartAllow in /etc/zenithd/config.yaml:
+// zenithd refuses units outside its own allowlist, and polkit refuses them for
+// anything else that runs as this user, so neither layer is the only guard.
+polkit.addRule(function (action, subject) {
+  if (subject.user !== "zenithd") {
+    return polkit.Result.NOT_HANDLED;
+  }
+  if (action.id === "org.freedesktop.systemd1.manage-units" && action.lookup("verb") === "restart") {
+    var allowed = ["nginx.service", "myapp.service"];
+    if (allowed.indexOf(action.lookup("unit")) !== -1) {
+      return polkit.Result.YES;
+    }
+  }
+  return polkit.Result.NOT_HANDLED;
+});

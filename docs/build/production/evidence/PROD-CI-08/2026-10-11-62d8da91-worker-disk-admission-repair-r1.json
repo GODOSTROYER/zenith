@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "kind": "packaged_worker_disk_admission_repair",
+  "baseCommit": "62d8da913b523b09ee6d4fa5bd599d524e634e37",
+  "candidatePatchSha256": "b60c4d95b0a46774df6d14e3e040188d0ac7ff8bd4af446adbac79488153b6f1",
+  "candidateManifestSha256": "3588039e92bd77267d87e63e3f3ffd0c09bd405e3cb4f6a25b5271f92729c3ba",
+  "candidatePaths": [
+    "scripts/ci/packaged-worker-native.mjs",
+    "scripts/ci/gate-manifest.mjs",
+    "tests/ci/packaged-workers.test.ts"
+  ],
+  "changeScope": {
+    "diskAdmissionGiB": 18,
+    "diskAdmissionFilesystems": ["source", "temporary", "docker-root"],
+    "ramTotalGiB": 12,
+    "ramAvailableGiB": 8,
+    "runtimeReserveGiB": 8,
+    "continuous18GiBMonitorAdded": false,
+    "otherAcceptanceGatesWeakened": false
+  },
+  "prepublicationValidation": {
+    "focusedVitest": {
+      "files": 1,
+      "passed": 139,
+      "failed": 0,
+      "skipped": 6
+    },
+    "eslint": "passed",
+    "independentSourceReview": {
+      "verdict": "PASS",
+      "sha256": "cdc514ab5764d3a9fe1f648db336c002dcfbf144135461615de04eb699069ca4"
+    }
+  },
+  "priorResourceObservation": {
+    "measuredFreeDiskGiB": "greater-than-18",
+    "priorWrapperAdmissionGiB": 12,
+    "scope": "resource observation only; not worker acceptance"
+  },
+  "acceptance": {
+    "actualPackagedWorkerRun": false,
+    "engineOrNetworkInvoked": false,
+    "acceptedRunReceipt": false,
+    "candidateCommitMade": false,
+    "pushMade": false
+  },
+  "status": "reviewed_prepublication_candidate_no_worker_acceptance"
+}

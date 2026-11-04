@@ -1,0 +1,18 @@
+# One node for the 8 GiB ARM64 Mac / 4 GiB Docker VM. Same-node isolation evidence,
+# not cross-node or production capacity evidence. The launcher supplies the pinned image.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true
+  podSubnet: 192.168.0.0/16
+  serviceSubnet: 10.96.0.0/12
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    podPidsLimit: 256
+    systemReserved:
+      memory: 256Mi
+    kubeReserved:
+      memory: 384Mi
+nodes:
+  - role: control-plane

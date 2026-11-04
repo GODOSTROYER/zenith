@@ -1,0 +1,729 @@
+{
+  "sourceCommit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+  "sourceManifestSha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6",
+  "checks": [
+    {
+      "lane": "policy",
+      "requirementsRebuiltFromSource": 7,
+      "snapshotRequirements": 7,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "tofu",
+      "requirementsRebuiltFromSource": 27,
+      "snapshotRequirements": 27,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "postgres",
+      "requirementsRebuiltFromSource": 9,
+      "snapshotRequirements": 9,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "workflows",
+      "requirementsRebuiltFromSource": 44,
+      "snapshotRequirements": 44,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "platform-postgres",
+      "requirementsRebuiltFromSource": 45,
+      "snapshotRequirements": 45,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    }
+  ],
+  "rebuiltRequirements": {
+    "policy": [
+      {
+        "file": "tests/policy/bundle.test.ts",
+        "id": "policy:tests/policy/bundle.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/policy/defaults.test.ts",
+        "id": "policy:tests/policy/defaults.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/policy/delete.test.ts",
+        "id": "policy:tests/policy/delete.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/policy/engine.test.ts",
+        "id": "policy:tests/policy/engine.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/policy/parity.test.ts",
+        "id": "policy:tests/policy/parity.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/policy/plan-facts.test.ts",
+        "id": "policy:tests/policy/plan-facts.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/policy/scenarios.test.ts",
+        "id": "policy:tests/policy/scenarios.test.ts:4ee93ed6c454"
+      }
+    ],
+    "tofu": [
+      {
+        "file": "tests/tofu/network.test.ts",
+        "suite": "real provider install through the committed lockfile (network)",
+        "id": "tofu:tests/tofu/network.test.ts:744a088ae671"
+      },
+      {
+        "file": "tests/tofu/network.test.ts",
+        "suite": "AWS provider blocks validate against the real provider schema (network, ~160 MB first run)",
+        "id": "tofu:tests/tofu/network.test.ts:0f78af001951"
+      },
+      {
+        "file": "tests/tofu/backends.test.ts",
+        "suite": "real backend block validation (network gate, no cloud calls)",
+        "id": "tofu:tests/tofu/backends.test.ts:0f743fbef9ad"
+      },
+      {
+        "file": "tests/tofu/destroy-real.test.ts",
+        "suite": "real tofu destroy (ZENITH_TEST_TOFU_NETWORK=1)",
+        "id": "tofu:tests/tofu/destroy-real.test.ts:ceb4c16e2744"
+      },
+      {
+        "file": "tests/providers/aws/drivers/compute/assemble.test.ts",
+        "suite": "real `tofu validate` against hashicorp/aws 6.66.0 (network, plugin cache)",
+        "id": "tofu:tests/providers/aws/drivers/compute/assemble.test.ts:80c709c27b1b"
+      },
+      {
+        "file": "tests/providers/aws/drivers/data/assemble.test.ts",
+        "suite": "compiled data fragments validate against the real hashicorp/aws provider (network)",
+        "id": "tofu:tests/providers/aws/drivers/data/assemble.test.ts:aeb78afc816b"
+      },
+      {
+        "file": "tests/providers/aws/drivers/messaging/assemble.test.ts",
+        "suite": "OpenTofu AWS 6.66.0 schema validation (requires binary/network)",
+        "id": "tofu:tests/providers/aws/drivers/messaging/assemble.test.ts:4b4c8fd91ca4"
+      },
+      {
+        "file": "tests/providers/aws/drivers/network/compile-graph.test.ts",
+        "suite": "tofu validate over the real aws 6.66.0 provider schema (gated: ZENITH_TEST_TOFU_NETWORK=1)",
+        "id": "tofu:tests/providers/aws/drivers/network/compile-graph.test.ts:e68c9c1b341d"
+      },
+      {
+        "file": "tests/providers/aws/drivers/e2e-compile.test.ts",
+        "suite": "real OpenTofu AWS 6.66.0 schema validation (opt-in)",
+        "id": "tofu:tests/providers/aws/drivers/e2e-compile.test.ts:ffc38cdfe7a6"
+      },
+      {
+        "file": "tests/providers/aws/identity/trust.test.ts",
+        "suite": "IRSA pinned provider schema",
+        "id": "tofu:tests/providers/aws/identity/trust.test.ts:73f0f76f8f9b"
+      },
+      {
+        "file": "tests/providers/gcp/tofu-validate.test.ts",
+        "suite": "tofu validate against hashicorp/google 8.5.0 (network)",
+        "id": "tofu:tests/providers/gcp/tofu-validate.test.ts:cb09ecb33176"
+      },
+      {
+        "file": "tests/providers/gcp/bootstrap.test.ts",
+        "suite": "tofu validate (network)",
+        "id": "tofu:tests/providers/gcp/bootstrap.test.ts:34b8ce9b36d5"
+      },
+      {
+        "file": "tests/providers/gcp/identity/trust.test.ts",
+        "suite": "GKE trust pinned provider schema",
+        "id": "tofu:tests/providers/gcp/identity/trust.test.ts:517e35ec3712"
+      },
+      {
+        "file": "tests/providers/azure/validate.test.ts",
+        "suite": "compiled Azure OpenTofu validates against the real azurerm 5.7.0 schema (network)",
+        "id": "tofu:tests/providers/azure/validate.test.ts:fd17a919fe48"
+      },
+      {
+        "file": "tests/providers/azure/deploy.test.ts",
+        "suite": "deploy/azure validates against the real azurerm 5.7.0 schema (network)",
+        "id": "tofu:tests/providers/azure/deploy.test.ts:29283123dd58"
+      },
+      {
+        "file": "tests/providers/azure/identity/trust.test.ts",
+        "suite": "AKS trust pinned provider schema",
+        "id": "tofu:tests/providers/azure/identity/trust.test.ts:23bfb0e3d5eb"
+      },
+      {
+        "file": "tests/providers/oci/validate.test.ts",
+        "suite": "tofu validate against oracle/oci 9.7.1 (network)",
+        "id": "tofu:tests/providers/oci/validate.test.ts:fc9542558d40"
+      },
+      {
+        "file": "tests/providers/oci/validate.test.ts",
+        "suite": "the customer bootstrap module (deploy/oci) validates against the locked provider (network)",
+        "id": "tofu:tests/providers/oci/validate.test.ts:7d3754548d21"
+      },
+      {
+        "file": "tests/execution/compile-refs-providers.test.ts",
+        "suite": "real AWS schema validation through the execution compiler (opt-in)",
+        "id": "tofu:tests/execution/compile-refs-providers.test.ts:4c730c7a915a"
+      },
+      {
+        "file": "tests/security/tofu-secrets.test.ts",
+        "suite": "part 3: real OpenTofu 1.12.5, plan -> approve -> apply, scanning every surface",
+        "id": "tofu:tests/security/tofu-secrets.test.ts:90e06e5ae146"
+      },
+      {
+        "file": "tests/security/tofu-runner-env.test.ts",
+        "suite": "part 1: a provisioner inside real tofu inherits nothing of the control plane's environment",
+        "id": "tofu:tests/security/tofu-runner-env.test.ts:f625b401642a"
+      },
+      {
+        "file": "tests/security/tofu-workspace-injection.test.ts",
+        "suite": "what the assembler ACCEPTS, real OpenTofu must not turn into a file read or a path leak (SEC-F5)",
+        "id": "tofu:tests/security/tofu-workspace-injection.test.ts:b211f462ae66"
+      },
+      {
+        "file": "tests/execution/journey.test.ts",
+        "suite": "deploy journey on the real OpenTofu engine, platform store and product store",
+        "id": "tofu:tests/execution/journey.test.ts:7995f890caa9"
+      },
+      {
+        "file": "tests/tofu/ephemeral-network.test.ts",
+        "suite": "real ephemeral resources (network)",
+        "id": "tofu:tests/tofu/ephemeral-network.test.ts:437ae1ea73bb"
+      },
+      {
+        "file": "tests/providers/azure/mysql.test.ts",
+        "suite": "Azure MySQL real pinned tofu validate (network, no Azure account)",
+        "id": "tofu:tests/providers/azure/mysql.test.ts:41217ec8ff09"
+      },
+      {
+        "file": "tests/providers/oci/mysql.test.ts",
+        "suite": "OCI MySQL real pinned tofu schema and persistence controls (network)",
+        "id": "tofu:tests/providers/oci/mysql.test.ts:fda1806f81af"
+      },
+      {
+        "file": "tests/tofu/runner.test.ts",
+        "id": "tofu:tests/tofu/runner.test.ts:4ee93ed6c454"
+      }
+    ],
+    "postgres": [
+      {
+        "file": "tests/hosted/authority/contract/access.test.ts",
+        "suite": "PostgresAuthority",
+        "backend": "postgres",
+        "id": "postgres:tests/hosted/authority/contract/access.test.ts:34e3ff02f3af"
+      },
+      {
+        "file": "tests/hosted/authority/contract/contract.test.ts",
+        "suite": "PostgresAuthority",
+        "backend": "postgres",
+        "id": "postgres:tests/hosted/authority/contract/contract.test.ts:34e3ff02f3af"
+      },
+      {
+        "file": "tests/hosted/authority/contract/ledgers.test.ts",
+        "suite": "PostgresAuthority ledgers",
+        "backend": "postgres",
+        "id": "postgres:tests/hosted/authority/contract/ledgers.test.ts:749ea47aebd3"
+      },
+      {
+        "file": "tests/hosted/authority/contract/release.test.ts",
+        "suite": "PostgresAuthority",
+        "backend": "postgres",
+        "id": "postgres:tests/hosted/authority/contract/release.test.ts:34e3ff02f3af"
+      },
+      {
+        "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+        "suite": "migrate-hosted-to-postgres ;  against the real Supabase project",
+        "backend": "postgres",
+        "id": "postgres:tests/scripts/migrate-hosted-to-postgres.test.ts:2b050f3ed9be"
+      },
+      {
+        "file": "tests/agent-link/pg-contract.test.ts",
+        "suite": "AgentLinkPostgres",
+        "backend": "postgres",
+        "id": "postgres:tests/agent-link/pg-contract.test.ts:5246000cb75e"
+      },
+      {
+        "file": "tests/agent-control/pg-contract.test.ts",
+        "suite": "AgentControlPostgres",
+        "backend": "postgres",
+        "id": "postgres:tests/agent-control/pg-contract.test.ts:a22aa1702a27"
+      },
+      {
+        "file": "tests/db/contract/workspace-sharing.test.ts",
+        "suite": "WorkspaceSharingPostgres",
+        "backend": "postgres",
+        "id": "postgres:tests/db/contract/workspace-sharing.test.ts:420737db2f8f"
+      },
+      {
+        "file": "tests/waitlist/pg-contract.test.ts",
+        "suite": "WaitlistPostgres",
+        "backend": "postgres",
+        "id": "postgres:tests/waitlist/pg-contract.test.ts:3d9c4f3951d7"
+      }
+    ],
+    "workflows": [
+      {
+        "file": "tests/workflows/approval-time.test.ts",
+        "id": "workflows:tests/workflows/approval-time.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/caller-payloads.test.ts",
+        "id": "workflows:tests/workflows/caller-payloads.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/client.test.ts",
+        "id": "workflows:tests/workflows/client.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/codec-replay.test.ts",
+        "id": "workflows:tests/workflows/codec-replay.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/codec-wiring.test.ts",
+        "id": "workflows:tests/workflows/codec-wiring.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/codec.test.ts",
+        "id": "workflows:tests/workflows/codec.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/config.test.ts",
+        "id": "workflows:tests/workflows/config.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/deploy.test.ts",
+        "id": "workflows:tests/workflows/deploy.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/destroy-replay.test.ts",
+        "id": "workflows:tests/workflows/destroy-replay.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/destroy.test.ts",
+        "id": "workflows:tests/workflows/destroy.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/failures.test.ts",
+        "id": "workflows:tests/workflows/failures.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/mtls-config.test.ts",
+        "id": "workflows:tests/workflows/mtls-config.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/operations.test.ts",
+        "id": "workflows:tests/workflows/operations.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/payload-boundary.test.ts",
+        "id": "workflows:tests/workflows/payload-boundary.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/reconcile.test.ts",
+        "id": "workflows:tests/workflows/reconcile.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/replay.test.ts",
+        "id": "workflows:tests/workflows/replay.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/sandbox.test.ts",
+        "id": "workflows:tests/workflows/sandbox.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/worker.test.ts",
+        "id": "workflows:tests/workflows/worker.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/agent-ports.test.ts",
+        "id": "workflows:tests/platform/agent-ports.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/composition.test.ts",
+        "id": "workflows:tests/platform/composition.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/credentials-verification.test.ts",
+        "id": "workflows:tests/platform/credentials-verification.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/deploy-e2e.test.ts",
+        "id": "workflows:tests/platform/deploy-e2e.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/housekeeping.test.ts",
+        "id": "workflows:tests/platform/housekeeping.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/machine-composition.test.ts",
+        "id": "workflows:tests/platform/machine-composition.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/oci-sessions.test.ts",
+        "id": "workflows:tests/platform/oci-sessions.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/plan-approval-routes.test.ts",
+        "id": "workflows:tests/platform/plan-approval-routes.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/plan-approval.test.ts",
+        "id": "workflows:tests/platform/plan-approval.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/release-multi.test.ts",
+        "id": "workflows:tests/platform/release-multi.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/release.test.ts",
+        "id": "workflows:tests/platform/release.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/secret-grants.test.ts",
+        "id": "workflows:tests/platform/secret-grants.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/source-bundle-azure.test.ts",
+        "id": "workflows:tests/platform/source-bundle-azure.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/source-bundle-composition.test.ts",
+        "id": "workflows:tests/platform/source-bundle-composition.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/source-bundle-github.test.ts",
+        "id": "workflows:tests/platform/source-bundle-github.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/platform/source-bundle.test.ts",
+        "suite": "source acquisition and canonical archives",
+        "id": "workflows:tests/platform/source-bundle.test.ts:382ab8a7f122"
+      },
+      {
+        "file": "tests/platform/source-bundle.test.ts",
+        "suite": "customer source bucket uploads",
+        "id": "workflows:tests/platform/source-bundle.test.ts:fb1aa6d12b58"
+      },
+      {
+        "file": "tests/platform/source-bundle.test.ts",
+        "suite": "GCS source upload through authorizedFetch",
+        "id": "workflows:tests/platform/source-bundle.test.ts:53e02775a33f"
+      },
+      {
+        "file": "tests/platform/source-bundle.test.ts",
+        "suite": "live public GitHub source (opt-in network)",
+        "id": "workflows:tests/platform/source-bundle.test.ts:06370cdf74cb"
+      },
+      {
+        "file": "tests/security/workflow-history.test.ts",
+        "id": "workflows:tests/security/workflow-history.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/execution/ecs-replica-repair.test.ts",
+        "suite": "immutable ECS replica materialization",
+        "id": "workflows:tests/execution/ecs-replica-repair.test.ts:85943f4d2884"
+      },
+      {
+        "file": "tests/execution/ecs-replica-repair.test.ts",
+        "suite": "raw full-environment repair plan",
+        "id": "workflows:tests/execution/ecs-replica-repair.test.ts:0e1394a4321c"
+      },
+      {
+        "file": "tests/execution/ecs-replica-repair.test.ts",
+        "suite": "existing plan/apply activity integration",
+        "id": "workflows:tests/execution/ecs-replica-repair.test.ts:9adbe8c32a4d"
+      },
+      {
+        "file": "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+        "suite": "ECS replica ownership reads",
+        "id": "workflows:tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts:da371ce5aa6c"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "id": "workflows:tests/platform/ecs-replica-repair-grants.test.ts:4ee93ed6c454"
+      },
+      {
+        "file": "tests/workflows/ecs-replica-repair.test.ts",
+        "id": "workflows:tests/workflows/ecs-replica-repair.test.ts:4ee93ed6c454"
+      }
+    ],
+    "platform-postgres": [
+      {
+        "file": "tests/controlplane/approvals.test.ts",
+        "suite": "approvals [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/approvals.test.ts:6ddfd23d8015"
+      },
+      {
+        "file": "tests/controlplane/execution-ledger.test.ts",
+        "suite": "execution ledger [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/execution-ledger.test.ts:d3ed8a471fd3"
+      },
+      {
+        "file": "tests/controlplane/executor.test.ts",
+        "suite": "executor [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/executor.test.ts:4888cff6ca72"
+      },
+      {
+        "file": "tests/controlplane/executor.test.ts",
+        "suite": "cross-engine shape identity",
+        "backend": "postgres",
+        "id": "platform-postgres:tests/controlplane/executor.test.ts:d69df0758896"
+      },
+      {
+        "file": "tests/controlplane/grants.test.ts",
+        "suite": "capability grants [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/grants.test.ts:3d6d7d84146f"
+      },
+      {
+        "file": "tests/controlplane/leases.test.ts",
+        "suite": "leases [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/leases.test.ts:6de269b022e6"
+      },
+      {
+        "file": "tests/controlplane/migrations.test.ts",
+        "suite": "migrator [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/migrations.test.ts:29219ff1efa5"
+      },
+      {
+        "file": "tests/controlplane/migrations.test.ts",
+        "suite": "migrator [postgres] concurrency and fail-closed open",
+        "backend": "postgres",
+        "id": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812"
+      },
+      {
+        "file": "tests/controlplane/open.test.ts",
+        "suite": "platformDb() against PostgreSQL",
+        "backend": "postgres",
+        "id": "platform-postgres:tests/controlplane/open.test.ts:0c007f0b8d15"
+      },
+      {
+        "file": "tests/controlplane/operations.test.ts",
+        "suite": "operations [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/operations.test.ts:a01f112f6412"
+      },
+      {
+        "file": "tests/controlplane/read-jobs.test.ts",
+        "suite": "operation-less read jobs [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/read-jobs.test.ts:5efbbf2bc497"
+      },
+      {
+        "file": "tests/controlplane/runners.test.ts",
+        "suite": "runners and agents [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/runners.test.ts:339ae101d8f6"
+      },
+      {
+        "file": "tests/controlplane/services.test.ts",
+        "suite": "services [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/services.test.ts:00a3e30c0b02"
+      },
+      {
+        "file": "tests/controlplane/state.test.ts",
+        "suite": "platform state [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/state.test.ts:58a2ad6a3f2d"
+      },
+      {
+        "file": "tests/controlplane/tenancy.test.ts",
+        "suite": "tenant isolation sweep [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/controlplane/tenancy.test.ts:43f6b8c82d58"
+      },
+      {
+        "file": "tests/capabilities/action-bridge.test.ts",
+        "suite": "checkActionThroughBroker [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/action-bridge.test.ts:2fe1ac885e84"
+      },
+      {
+        "file": "tests/capabilities/approvals.test.ts",
+        "suite": "approve [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/approvals.test.ts:29d0664a29e4"
+      },
+      {
+        "file": "tests/capabilities/approvals.test.ts",
+        "suite": "reject and revoke [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/approvals.test.ts:d848150e2f8b"
+      },
+      {
+        "file": "tests/capabilities/approvals.test.ts",
+        "suite": "cancel [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/approvals.test.ts:8cd1a98d65be"
+      },
+      {
+        "file": "tests/capabilities/autonomy.test.ts",
+        "suite": "environment autonomy [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/autonomy.test.ts:63669e2430ca"
+      },
+      {
+        "file": "tests/capabilities/autonomy.test.ts",
+        "suite": "workspace policy [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/autonomy.test.ts:57fd1bbf4abd"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "propose [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:0bd902a87c54"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "request validation [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:c201238449a2"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "authoritative facts [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:ab0d286c0f42"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "idempotency [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:d508a2c0e133"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "events and dry runs [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:b00e430ff65c"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "authorizeRead [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:f01db1989132"
+      },
+      {
+        "file": "tests/capabilities/broker.test.ts",
+        "suite": "responses carry no secret-looking values [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:472c11957bd9"
+      },
+      {
+        "file": "tests/capabilities/execution.test.ts",
+        "suite": "beginExecution [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:e30c89e9b970"
+      },
+      {
+        "file": "tests/capabilities/execution.test.ts",
+        "suite": "re-evaluation at execution [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:40d3fbed80d7"
+      },
+      {
+        "file": "tests/capabilities/execution.test.ts",
+        "suite": "plans at execution [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:eeffa47ee392"
+      },
+      {
+        "file": "tests/capabilities/execution.test.ts",
+        "suite": "completeExecution [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:93339dc41876"
+      },
+      {
+        "file": "tests/capabilities/store-contract.test.ts",
+        "suite": "BrokerStore contract [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/store-contract.test.ts:2ebeb5ebf5b7"
+      },
+      {
+        "file": "tests/capabilities/tenancy.test.ts",
+        "suite": "tenant matrix: scope ids [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:a67e3c40e7a8"
+      },
+      {
+        "file": "tests/capabilities/tenancy.test.ts",
+        "suite": "tenant matrix: operation ids [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:d9a8309454d7"
+      },
+      {
+        "file": "tests/capabilities/tenancy.test.ts",
+        "suite": "tenant matrix: settings [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:f0d3f162c01e"
+      },
+      {
+        "file": "tests/capabilities/tenancy.test.ts",
+        "suite": "tenant matrix: the store itself [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:3171d6670c22"
+      },
+      {
+        "file": "tests/capabilities/tenancy.test.ts",
+        "suite": "tenant matrix: integrations bounded by their grant [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:4fb2a01c6de4"
+      },
+      {
+        "file": "tests/reconcile/platform.test.ts",
+        "suite": "reconcile platform adapter [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/reconcile/platform.test.ts:ebcdbbbe2264"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "suite": "initial planning authority",
+        "ancestorSuite": "replica repair authority [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:0d8ff3f76036"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "suite": "planning policy denial",
+        "ancestorSuite": "replica repair authority [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:4c41f432b9fa"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "suite": "browser plan approval",
+        "ancestorSuite": "replica repair authority [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:fd0865a92c75"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "suite": "resumed planning authority",
+        "ancestorSuite": "replica repair authority [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:6dd542936245"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "suite": "stricter approval policy",
+        "ancestorSuite": "replica repair authority [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:c228bbfa6520"
+      },
+      {
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "suite": "immutable repair evidence",
+        "ancestorSuite": "replica repair authority [postgres]",
+        "postgres": true,
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:af4c1b6a8582"
+      }
+    ]
+  }
+}

@@ -1,0 +1,453 @@
+{
+  "allGreen": false,
+  "candidateRemediation": {
+    "effectivenessEstablished": false,
+    "status": "approved_candidate_staged_not_proven_by_this_run"
+  },
+  "evidenceLevel": "remote_ci",
+  "goFailure": {
+    "conclusion": "failure",
+    "failedStep": "Required native Linux race and authentic golden comparison",
+    "jobCompletedAtUtc": "2026-10-10T22:53:21Z",
+    "jobDurationSeconds": 409,
+    "jobId": 114332125479,
+    "jobStartedAtUtc": "2026-10-10T22:46:32Z",
+    "packageNative": {
+      "exitCode": 0,
+      "failedLeaves": 0,
+      "leaves": 8,
+      "packages": 1,
+      "passedLeaves": 8,
+      "reportSha256": "3cefe8fa67889a0b1b4cba3682f35e805d1d10765563a055aa5d08390dcd8fe0",
+      "skippedLeaves": 0,
+      "testEvents": 9
+    },
+    "pid1Native": {
+      "aptBuildDiagnosticPresent": false,
+      "aptBuildFailureClass": null,
+      "cleanupFailureClass": null,
+      "cleanupState": "completed",
+      "exitCode": 1,
+      "failedLeaves": 0,
+      "failureClass": "subprocess",
+      "failureOperation": "guest-postcondition",
+      "failureStage": "guest-postcondition",
+      "leaves": 0,
+      "lowerLevelCause": "unknown",
+      "oomObserved": false,
+      "passedLeaves": 0,
+      "problems": [
+        "process-exit",
+        "required-case",
+        "required-package",
+        "stream",
+        "zero",
+        "zero-package"
+      ],
+      "skippedLeaves": 0,
+      "streamSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "testEvents": 0
+    },
+    "race": {
+      "exitCode": 0,
+      "failedLeaves": 0,
+      "leaves": 1077,
+      "packages": 22,
+      "passedLeaves": 1074,
+      "reportSha256": "81d3e6c8c1de2637e0e56b561476345d3e2dec6416986d0f3a85fb70740f83fb",
+      "skippedLeaves": 3,
+      "testEvents": 1150
+    },
+    "sanitizedArtifact": {
+      "apiDigest": "sha256:feae167a9a7693628fd5baa0f877f4ba7fada88c4f86fda10e5dbe37fd9e38fd",
+      "artifactId": 11684688570,
+      "artifactIndexSha256": "973b7e52dbc24c723b808e1e24d204cbd53607f8a931b2589178e9ce4d28a846",
+      "jobApiSha256": "e3069ef6d3d3dff53507bb6837bdff1b61a818bed367f611c01b39602a5ec2ef",
+      "jobLogSha256": "567c1791796d9712e2c80daf96fc4622b49d10c05ceaad47551afbd0197dce23",
+      "name": "canonical-linux-guest-evidence-94d60798a376c49beaa5c1bc60f14d2e6aa5e430-87b09931854daf3c6fc72ccc835e4ceb",
+      "sanitizedPayloadSha256": "7138647357d1f3395d7ffb536f781fd3394c3bbf833ddb968a94b05c04aa9fe1"
+    },
+    "systemdCase": {
+      "outcome": "internal-pass-assertion-inferred-from-source-control-flow",
+      "acceptedNativeEvidence": false,
+      "publishedTestEvents": 0,
+      "note": "Exact-source helper control flow asserts case run/pass and package pass before the failing independent guest postcondition. This is an internal assertion inference; the outer report published zero test events and supplies no accepted native PID1 pass."
+    }
+  },
+  "kind": "exact-source-terminal-ci-inventory",
+  "limitations": [
+    "The exact-source main workflow is terminal failure because the Go PID1 fixture exited 1 before publishing any Go test events.",
+    "Sanitized schema5 evidence has no aptBuildDiagnostic; no lower-level cause is established. OOM was not observed and cleanup completed.",
+    "The staged cleanup candidate is not validated by this CI run.",
+    "This evidence does not establish all-green PROD-CI-09 or release promotion. No raw log content is embedded."
+  ],
+  "nativeEvidence": {
+    "packagedWorkers": [
+      {
+        "architecture": "linux/amd64",
+        "artifactApiDigest": "sha256:8e90d76cee7ab47aaffc305148359a666d9e43df244c4dab2f7a757a4e964b6e",
+        "artifactId": 11684623587,
+        "checksPassed": 22,
+        "checksTotal": 22,
+        "childExitCode": 0,
+        "cleanup": "complete",
+        "emulated": false,
+        "jobId": 114332124807,
+        "sanitizedPayloadSha256": "b7c7ee55ddf3945d87bca94c15b56398cd5a493448db912d5def6a4e1a75f6fa"
+      },
+      {
+        "architecture": "linux/arm64",
+        "artifactApiDigest": "sha256:51f20032383341594dc9000ebebcf92a02d0df02b47d4ee86ea3fff222fefd14",
+        "artifactId": 11684483819,
+        "checksPassed": 22,
+        "checksTotal": 22,
+        "childExitCode": 0,
+        "cleanup": "complete",
+        "emulated": false,
+        "jobId": 114332125011,
+        "sanitizedPayloadSha256": "de03ec0fdb274a4a793c803e8291b3f1d510bf711682665a66d9cd531dd2f07b"
+      }
+    ],
+    "platformJobs": [
+      {
+        "artifactApiDigest": "sha256:d5536a3230a252d96e7c669918ffb47670312fb1512cfdda6db19fd79f788b3a",
+        "artifactId": 11684193838,
+        "case": "TestRealSystemctlAndJournalctl",
+        "cleanup": "complete",
+        "failed": 0,
+        "jobId": 114332124749,
+        "name": "linux-systemd",
+        "passed": 1,
+        "sanitizedPayloadSha256": "9694bb770463831c58660c9952a9f6182f03a4622832b09ebe1141ecae8f858d",
+        "skipped": 0
+      },
+      {
+        "artifactApiDigest": "sha256:50241d0f3a5f284b652a971fa4f45ff12fe13886f375a318ba08cbec414b0567",
+        "artifactId": 11684099102,
+        "case": "private login config Windows refuses inherited ACLs that grant other identities access",
+        "cleanup": "complete",
+        "excludedSiblings": 15,
+        "failed": 0,
+        "jobId": 114332124902,
+        "name": "windows-acl",
+        "passed": 1,
+        "sanitizedPayloadSha256": "aed96d935b286968fcbd57c92b37d982444496265a0d00499cad23a9806b9552",
+        "skipped": 0
+      }
+    ]
+  },
+  "releasePromotion": false,
+  "requirement": "PROD-CI-09",
+  "schema": "zenith-prod-ci-09-exact-source-ci-evidence/v1",
+  "snapshotAtUtc": "2026-10-10T23:31:08Z",
+  "source": {
+    "branch": "codex/production-2026-10-02",
+    "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+    "event": "push"
+  },
+  "terminal": true,
+  "timingNote": "Job start/completion timestamps are retained only when chronological. For skipped jobs where GitHub API reported completion earlier than start, both timestamps are omitted and duration is unavailable.",
+  "verify": {
+    "completedAtUtc": "2026-10-10T23:29:36Z",
+    "conclusion": "success",
+    "durationSeconds": 2584,
+    "gimbalAssets": "success",
+    "jobId": 114332125407,
+    "smoke": "success",
+    "startedAtUtc": "2026-10-10T22:46:32Z",
+    "unitSuites": {
+      "completedAtUtc": "2026-10-10T23:29:23Z",
+      "durationSeconds": 2396,
+      "privateJobLogSha256": "af1d00f988cbdb99d0b533d33d001a2ce3c34830c0352d8a73225563ba73c272",
+      "startedAtUtc": "2026-10-10T22:49:27Z",
+      "testFiles": {
+        "passed": 1139,
+        "skipped": 94,
+        "total": 1233
+      },
+      "tests": {
+        "passed": 24552,
+        "skipped": 1921,
+        "total": 26473
+      }
+    }
+  },
+  "workflows": [
+    {
+      "conclusion": "failure",
+      "jobConclusions": {
+        "failure": 1,
+        "skipped": 8,
+        "success": 19
+      },
+      "jobCount": 28,
+      "jobs": [
+        {
+          "completedAtUtc": "2026-10-10T22:47:29Z",
+          "conclusion": "success",
+          "durationSeconds": 57,
+          "jobId": 114332125495,
+          "name": "adversarial",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:48:28Z",
+          "conclusion": "success",
+          "durationSeconds": 116,
+          "jobId": 114332125578,
+          "name": "agent",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:53:06Z",
+          "conclusion": "success",
+          "durationSeconds": 394,
+          "jobId": 114332125408,
+          "name": "build",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:53:49Z",
+          "conclusion": "success",
+          "durationSeconds": 437,
+          "jobId": 114332125480,
+          "name": "docker",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332143868,
+          "name": "drivers-d4-export"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332142900,
+          "name": "drivers-d4-two-tenants"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332125948,
+          "name": "drv1-private-source"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332125880,
+          "name": "drv1-update-rollback"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332125876,
+          "name": "drv2-crash-partition"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332145773,
+          "name": "drv2-drift-repair"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:47:42Z",
+          "conclusion": "success",
+          "durationSeconds": 70,
+          "jobId": 114332125342,
+          "name": "generated",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:53:21Z",
+          "conclusion": "failure",
+          "durationSeconds": 409,
+          "jobId": 114332125479,
+          "name": "go",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:48:27Z",
+          "conclusion": "success",
+          "durationSeconds": 115,
+          "jobId": 114332125497,
+          "name": "hosted",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332126067,
+          "name": "j15-operated-restore"
+        },
+        {
+          "conclusion": "skipped",
+          "jobId": 114332125919,
+          "name": "j15-operated-upgrade"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:46:39Z",
+          "conclusion": "success",
+          "durationSeconds": 7,
+          "jobId": 114332125211,
+          "name": "ledger",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:49:11Z",
+          "conclusion": "success",
+          "durationSeconds": 159,
+          "jobId": 114332125535,
+          "name": "operation-gates (reconciliation)",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:48:34Z",
+          "conclusion": "success",
+          "durationSeconds": 122,
+          "jobId": 114332125555,
+          "name": "operation-gates (workflow-intents)",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T23:00:40Z",
+          "conclusion": "success",
+          "durationSeconds": 848,
+          "jobId": 114332125388,
+          "name": "platform-postgres",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:47:18Z",
+          "conclusion": "success",
+          "durationSeconds": 46,
+          "jobId": 114332125283,
+          "name": "policy",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:47:38Z",
+          "conclusion": "success",
+          "durationSeconds": 66,
+          "jobId": 114332125269,
+          "name": "postgres",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:47:51Z",
+          "conclusion": "success",
+          "durationSeconds": 74,
+          "jobId": 114332125517,
+          "name": "recovery",
+          "startedAtUtc": "2026-10-10T22:46:37Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:46:41Z",
+          "conclusion": "success",
+          "durationSeconds": 9,
+          "jobId": 114332125467,
+          "name": "supply-chain",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:51:45Z",
+          "conclusion": "success",
+          "durationSeconds": 313,
+          "jobId": 114332125510,
+          "name": "tofu",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T23:29:36Z",
+          "conclusion": "success",
+          "durationSeconds": 2584,
+          "jobId": 114332125407,
+          "name": "verify",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:50:00Z",
+          "conclusion": "success",
+          "durationSeconds": 208,
+          "jobId": 114332125487,
+          "name": "wave5-contract",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:47:16Z",
+          "conclusion": "success",
+          "durationSeconds": 44,
+          "jobId": 114332125353,
+          "name": "workflow-history-replay",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T23:00:34Z",
+          "conclusion": "success",
+          "durationSeconds": 842,
+          "jobId": 114332125515,
+          "name": "workflows",
+          "startedAtUtc": "2026-10-10T22:46:32Z"
+        }
+      ],
+      "name": "CI",
+      "runId": 38092668162,
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38092668162",
+      "workflowId": 348020673
+    },
+    {
+      "conclusion": "success",
+      "jobConclusions": {
+        "success": 2
+      },
+      "jobCount": 2,
+      "jobs": [
+        {
+          "completedAtUtc": "2026-10-10T22:53:52Z",
+          "conclusion": "success",
+          "durationSeconds": 441,
+          "jobId": 114332124807,
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "startedAtUtc": "2026-10-10T22:46:31Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:52:54Z",
+          "conclusion": "success",
+          "durationSeconds": 381,
+          "jobId": 114332125011,
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "startedAtUtc": "2026-10-10T22:46:33Z"
+        }
+      ],
+      "name": "Native packaged workers",
+      "runId": 38092668190,
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38092668190",
+      "workflowId": 375194309
+    },
+    {
+      "conclusion": "success",
+      "jobConclusions": {
+        "success": 2
+      },
+      "jobCount": 2,
+      "jobs": [
+        {
+          "completedAtUtc": "2026-10-10T22:46:59Z",
+          "conclusion": "success",
+          "durationSeconds": 28,
+          "jobId": 114332124749,
+          "name": "linux-systemd",
+          "startedAtUtc": "2026-10-10T22:46:31Z"
+        },
+        {
+          "completedAtUtc": "2026-10-10T22:47:46Z",
+          "conclusion": "success",
+          "durationSeconds": 75,
+          "jobId": 114332124902,
+          "name": "windows-acl",
+          "startedAtUtc": "2026-10-10T22:46:31Z"
+        }
+      ],
+      "name": "Native skipped platforms",
+      "runId": 38092668206,
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38092668206",
+      "workflowId": 376122592
+    }
+  ]
+}

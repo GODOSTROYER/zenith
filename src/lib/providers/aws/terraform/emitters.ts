@@ -13,6 +13,9 @@ import {
   fargateSpec,
   hasEmail,
   hasRoutes,
+  LB_HASH_HEX,
+  LB_NAME_KEEP,
+  LB_NAME_MAX,
   managed,
   namePrefix,
   projectSlug,
@@ -24,7 +27,7 @@ import {
   uniqueLabel,
 } from "./naming";
 import { containerEnv, containerServices, envJson, scaffold, secretsJson } from "./container-env";
-import type { Environment, Manifest } from "@/lib/domain/types";
+import type { Environment, Manifest, Service } from "@/lib/domain/types";
 
 /* --------------------------------- files ---------------------------------- */
 
@@ -139,7 +142,7 @@ variable "environment" {
 }
 
 variable "name_prefix" {
-  description = "Prefix for every resource name. Keep it short: ALB target group names cap at 32 characters."
+  description = "Prefix for every resource name. ALB and target group names that would pass ${LB_NAME_MAX} characters are shortened with a hash suffix."
   type        = string
   default     = ${hclString(namePrefix(env))}
 }
@@ -890,32 +893,75 @@ resource "aws_ssm_parameter" "ses_smtp_password" {
 `;
 }
 
+/**
+ * The names of everything in alb.tf that ELB caps at 32 characters, decided in
+ * HCL against `var.name_prefix` (see `LB_NAME_MAX` in ./naming for why there and
+ * not here). Keys are `alb` and `tg_<label>`; labels are already unique and
+ * identifier-safe, so the keys are too.
+ *
+ * The cut uses function calls, and this exporter only ever lets an
+ * interpolation be a plain address (tests/providers/terraform-injection.test.ts
+ * holds that line), so they sit in a bare expression via `join` rather than
+ * inside a `${…}` template.
+ */
+function lbNamesLocals(groups: { service: Service; label: string }[]): string {
+  const entries = [
+    { key: "alb", full: `\${var.name_prefix}-alb` },
+    ...groups.map(({ service, label }) => ({
+      key: `tg_${label}`,
+      full: `\${var.name_prefix}-${hclBody(service.name)}`,
+    })),
+  ];
+  const width = Math.max(...entries.map((e) => e.key.length));
+  return `# ELB caps load balancer and target group names at ${LB_NAME_MAX} characters. A name
+# that would be longer is cut to its first ${LB_NAME_KEEP} characters, "-", and the first
+# ${LB_HASH_HEX} hex characters of the SHA-1 of the full name: stable across applies, and
+# different for different services. It is decided here rather than at export
+# time because name_prefix is yours to change in terraform.tfvars.
+locals {
+  lb_full_names = {
+${entries.map((e) => `    ${e.key.padEnd(width)} = "${e.full}"`).join("\n")}
+  }
+
+  lb_names = {
+    for k, v in local.lb_full_names :
+    k => length(v) > ${LB_NAME_MAX} ? join("-", [substr(v, 0, ${LB_NAME_KEEP}), substr(sha1(v), 0, ${LB_HASH_HEX})]) : v
+  }
+}
+`;
+}
+
 export function albTf(m: Manifest): string {
   const rb = routeBindings(m);
   if (!rb.length) return "";
   const anyTls = rb.some((x) => x.route.tls);
   const plain = rb.filter((x) => !x.route.tls);
 
-  let out = `resource "aws_lb" "main" {
-  name               = "\${var.name_prefix}-alb"
+  // Two distinct services can sanitise to one label ("api.v1" and "api-v1" both
+  // become "api_v1"). Skipping the second used to look like deduplication, but
+  // it silently pointed both routes at the *first* service's target group. Keep
+  // one target group per service, keyed by id, and disambiguate the label.
+  const groups: { service: Service; label: string }[] = [];
+  const emitted = new Set<string>();
+  for (const { service } of rb) {
+    if (emitted.has(service.id)) continue; // several routes, one service
+    emitted.add(service.id);
+    groups.push({ service, label: svcLabel(m, service) });
+  }
+
+  let out = `${lbNamesLocals(groups)}
+resource "aws_lb" "main" {
+  name               = local.lb_names["alb"]
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = data.aws_subnets.default.ids
 }
 `;
 
-  // Two distinct services can sanitise to one label ("api.v1" and "api-v1" both
-  // become "api_v1"). Skipping the second used to look like deduplication, but
-  // it silently pointed both routes at the *first* service's target group. Keep
-  // one target group per service, keyed by id, and disambiguate the label.
-  const emitted = new Set<string>();
-  for (const { service } of rb) {
-    if (emitted.has(service.id)) continue; // several routes, one service
-    emitted.add(service.id);
-    const t = svcLabel(m, service);
+  for (const { service, label: t } of groups) {
     out += `
 resource "aws_lb_target_group" "${t}" {
-  name        = "\${var.name_prefix}-${hclBody(service.name)}"
+  name        = local.lb_names["tg_${t}"]
   port        = ${validPort(service.port) ?? 80}
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id

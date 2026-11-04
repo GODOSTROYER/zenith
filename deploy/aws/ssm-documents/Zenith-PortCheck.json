@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith network.portCheck: one TCP connect from the machine. Refuses link-local and instance-metadata targets, including after name resolution. Read-only. Output format zenith.port.check/v1.",
+  "parameters": {
+    "host": {
+      "type": "String",
+      "description": "DNS name or IP literal.",
+      "allowedPattern": "^[A-Za-z0-9.:-]{1,253}$",
+      "maxChars": 253,
+      "interpolationType": "ENV_VAR"
+    },
+    "port": {
+      "type": "String",
+      "description": "TCP port (1-65535).",
+      "allowedPattern": "^[1-9][0-9]{0,4}$",
+      "maxChars": 5,
+      "interpolationType": "ENV_VAR"
+    },
+    "timeoutSec": {
+      "type": "String",
+      "description": "Connect timeout in seconds (1-30).",
+      "allowedPattern": "^[1-9][0-9]?$",
+      "maxChars": 2,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "host=\"${SSM_host-}\"",
+          "port=\"${SSM_port-}\"",
+          "tmo=\"${SSM_timeoutSec-}\"",
+          "case \"$host\" in ''|-*|*[!A-Za-z0-9.:-]*) die 64 'invalid host (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "[ \"${#host}\" -le 253 ] || die 64 'invalid host'",
+          "case \"$port\" in ''|*[!0-9]*) die 64 'invalid port' ;; esac",
+          "[ \"$port\" -ge 1 ] && [ \"$port\" -le 65535 ] || die 64 'port out of range'",
+          "case \"$tmo\" in ''|*[!0-9]*) die 64 'invalid timeoutSec' ;; esac",
+          "[ \"$tmo\" -ge 1 ] && [ \"$tmo\" -le 30 ] || die 64 'timeoutSec out of range'",
+          "lh=$(printf '%s' \"$host\" | tr 'A-Z' 'a-z')",
+          "lh=\"${lh%.}\"",
+          "case \"$lh\" in metadata|metadata.google.internal|metadata.goog|instance-data|instance-data.ec2.internal|metadata.tencentyun.com|*.metadata.google.internal|*.metadata.goog) die 65 'refused: cloud metadata service name' ;; esac",
+          "bad() { a=$(printf '%s' \"$1\" | tr 'A-Z' 'a-z'); case \"$a\" in 169.254.*|0.*|::|fe8*|fe9*|fea*|feb*|fd00:ec2:*|::ffff:169.254.*|::ffff:a9fe:*|64:ff9b::a9fe:*|2002:a9fe:*|100.100.100.200|168.63.129.16) return 0 ;; esac; return 1; }",
+          "command -v getent >/dev/null 2>&1 || die 69 'getent is not available on this machine'",
+          "addrs=$(getent ahosts \"$host\" 2>/dev/null | awk '{print $1}' | sort -u | head -n 8)",
+          "for a in $addrs; do",
+          "  bad \"$a\" && die 65 'refused: host resolves to a link-local or instance-metadata address'",
+          "done",
+          "echo 'zenith.port.check/v1'",
+          "printf 'host=%s\\n' \"$host\"",
+          "printf 'port=%s\\n' \"$port\"",
+          "if [ -z \"$addrs\" ]; then",
+          "  echo 'open=false'",
+          "  echo 'reason=unresolvable'",
+          "  exit 0",
+          "fi",
+          "open=false",
+          "lat=''",
+          "for a in $addrs; do",
+          "  s=$(date +%s%N 2>/dev/null)",
+          "  if command -v bash >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then",
+          "    timeout \"$tmo\" bash -c 'exec 3<>\"/dev/tcp/$1/$2\"' _ \"$a\" \"$port\" >/dev/null 2>&1 && open=true",
+          "  elif command -v nc >/dev/null 2>&1; then",
+          "    nc -z -w \"$tmo\" \"$a\" \"$port\" >/dev/null 2>&1 && open=true",
+          "  else",
+          "    die 69 'no TCP probe available (need bash with timeout, or nc)'",
+          "  fi",
+          "  if [ \"$open\" = true ]; then",
+          "    e=$(date +%s%N 2>/dev/null)",
+          "    case \"$s$e\" in ''|*[!0-9]*) ;; *) lat=$(( (e - s) / 1000000 )) ;; esac",
+          "    printf 'address=%s\\n' \"$a\"",
+          "    break",
+          "  fi",
+          "done",
+          "printf 'open=%s\\n' \"$open\"",
+          "[ -n \"$lat\" ] && printf 'latency_ms=%s\\n' \"$lat\"",
+          "[ \"$open\" = false ] && echo 'reason=closed_or_filtered'",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

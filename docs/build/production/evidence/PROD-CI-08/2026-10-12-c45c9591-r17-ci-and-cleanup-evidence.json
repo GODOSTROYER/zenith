@@ -1,0 +1,144 @@
+{
+  "carrierCi": {
+    "commit": "18423607c4644a1027e58b97ed69dd26a62fd126",
+    "failed": 1,
+    "goDiagnosisJsonSha256": "5271927d5cbc40163fcb69f43ef64088a84fae1bfcfb0e9ee83457f2de9fe110",
+    "goDiagnosisReportSha256": "988b6bf29eda50e02c21ad8603c55ada845a32cd3279277f281830bf3812f611",
+    "goJob": {
+      "actualPid1ValueAvailable": false,
+      "cleanupState": "completed with no cleanup failure",
+      "containerStateAndLogsAvailable": false,
+      "failedOperation": "disposable guest PID-1 systemd baseline check",
+      "goPackages": 0,
+      "goTestEvents": 0,
+      "hostedInfrastructureFaultEstablished": false,
+      "observedCondition": "/proc/1/comm did not satisfy expected systemd check",
+      "productCodeFailureEstablished": false,
+      "rootCause": "undetermined between fixture/image setup and hosted Docker/cgroup behavior",
+      "status": "failed before Go acceptance"
+    },
+    "goSanitizedArtifactSha256": "9f8b94a950f83d45a7546dac771bf00aac76cf785170faa6724f3a998fb44bf8",
+    "inventorySha256": "d278708ba094da8f3ac042ef88aa88dbe4f1b60e1fab967bf13eab9786ac911a",
+    "jobs": 32,
+    "mainWorkflow": {
+      "failed": 1,
+      "running": 1,
+      "skipped": 8,
+      "success": 18
+    },
+    "passedJobs": [
+      "platform-postgres",
+      "workflows",
+      "linux-systemd",
+      "windows-acl",
+      "packaged-worker-arm64",
+      "packaged-worker-amd64"
+    ],
+    "reportSha256": "d757292b16989c152f33427203337d28631711ac6c2d071969e38647bc1079cf",
+    "running": 1,
+    "skipped": 8,
+    "success": 22,
+    "terminal": false,
+    "verify": "running at snapshot",
+    "workflows": 3
+  },
+  "cleanupHelperProofs": {
+    "r10HistoricalContext": {
+      "acceptedRunReceipt": false,
+      "failed": 0,
+      "passed": 9,
+      "scope": "unit context validator; not live process or cleanup acceptance",
+      "skipped": 0,
+      "terminalReviewSha256": "7d0cc1a07eecfa46df740d3f3d940188150c8cc80999036a5b296bacfa82b95a",
+      "verdict": "PASS_HISTORICAL_CONTEXT_UNIT_PROOF_ONLY"
+    },
+    "r12R6Collector": "read-only collection refused before engine work on unexpected expected-plugin link",
+    "r12SyntheticCensusParser": {
+      "acceptedRunReceipt": false,
+      "failed": 0,
+      "passed": 17,
+      "scope": "synthetic parser only; not actual Docker census or cleanup authorization",
+      "skipped": 0,
+      "terminalReviewSha256": "0038de0499ce5b5de9768a0912694a7ee80f86bc445730fa3dd44714e71fcc17",
+      "verdict": "PASS_SYNTHETIC_UNIT_TERMINAL_PROOF"
+    },
+    "r13Preparation": "HOLD; no cleanup authority or accepted execution",
+    "r4SyntheticGuard": {
+      "acceptedProof": false,
+      "failed": 0,
+      "passed": 24,
+      "scope": "fake-engine guard harness; no real engine cleanup",
+      "skipped": 0,
+      "terminalReviewSha256": "b9dba6ef82bbec840818cad2ec7f058074aca0a1a17afc63a1a9116ef921d192",
+      "verdict": "PASS_SYNTHETIC_GUARD_PROOF_ONLY"
+    },
+    "r7": "source review and three-test proof pending"
+  },
+  "focusedFixtureProof": {
+    "failed": 0,
+    "files": [
+      "tests/capabilities/broker.test.ts",
+      "tests/capabilities/store-contract.test.ts"
+    ],
+    "originalWrapperFailure": "preserved; wrapper suite metric compared 36 derived suites against two file-level result roots",
+    "passed": 124,
+    "pending": 0,
+    "producerSha256": "968e986c90a1af2f405112ec544306e9282c128e6bae8b2c1f9fe100fc647631",
+    "rawReportSha256": "2f4fccc23ce70419dc4ed3351f1c5aefca810fa25602c43669e70f3f6d85646b",
+    "scope": "memory and PGlite only; no PostgreSQL lane; no production acceptance",
+    "skipped": 0,
+    "sourceReviewSha256": "2e23f2ae12a132aa4623fc0d574ad5dcc45abb1398051bc8408f66f9b3f0b023",
+    "status": "independently terminally reviewed focused candidate proof",
+    "suiteAccounting": {
+      "derivedTotal": 36,
+      "describePaths": 34,
+      "fileRoots": 2
+    },
+    "supplementRewritesWrapper": false,
+    "terminalSupplementSha256": "a7d53330d602968d54dd900591a67d6471c6fe1aa07d656b8c0f431a009575a5",
+    "todo": 0
+  },
+  "frozenPrimary": {
+    "fullCore": {
+      "failed": 0,
+      "identities": 26518,
+      "passed": 24575,
+      "skipped": 1943
+    },
+    "witnessImageAcceptanceInvocation": "pending",
+    "witnessImageBuild": "passed"
+  },
+  "inputs": {
+    "carrierCiInventory": "d278708ba094da8f3ac042ef88aa88dbe4f1b60e1fab967bf13eab9786ac911a",
+    "carrierCiReport": "d757292b16989c152f33427203337d28631711ac6c2d071969e38647bc1079cf",
+    "focusedCanaryProducer": "968e986c90a1af2f405112ec544306e9282c128e6bae8b2c1f9fe100fc647631",
+    "focusedCanaryRawReport": "2f4fccc23ce70419dc4ed3351f1c5aefca810fa25602c43669e70f3f6d85646b",
+    "focusedCanaryReview": "2e23f2ae12a132aa4623fc0d574ad5dcc45abb1398051bc8408f66f9b3f0b023",
+    "focusedCanaryTerminalSupplement": "a7d53330d602968d54dd900591a67d6471c6fe1aa07d656b8c0f431a009575a5",
+    "goDiagnosisJson": "5271927d5cbc40163fcb69f43ef64088a84fae1bfcfb0e9ee83457f2de9fe110",
+    "goDiagnosisReport": "988b6bf29eda50e02c21ad8603c55ada845a32cd3279277f281830bf3812f611",
+    "goSanitizedArtifact": "9f8b94a950f83d45a7546dac771bf00aac76cf785170faa6724f3a998fb44bf8",
+    "r10ContextTerminalReview": "7d0cc1a07eecfa46df740d3f3d940188150c8cc80999036a5b296bacfa82b95a",
+    "r12CensusTerminalReview": "0038de0499ce5b5de9768a0912694a7ee80f86bc445730fa3dd44714e71fcc17",
+    "r4AdapterGuardTerminalReview": "b9dba6ef82bbec840818cad2ec7f058074aca0a1a17afc63a1a9116ef921d192"
+  },
+  "kind": "c45-focused-proof-cleanup-helper-and-carrier-ci-snapshot",
+  "ledger": {
+    "inProgress": 66,
+    "milestonePromotion": false,
+    "planned": 2,
+    "releaseFlagsChanged": false,
+    "verified": 10
+  },
+  "observedDate": "2026-10-12",
+  "sanitization": "No private runtime paths, user paths, raw logs, secrets, or process identifiers included; only source/run identifiers and artifact hashes are retained.",
+  "schemaVersion": 1,
+  "snapshotDisposition": "bounded retained snapshot; later evidence supersedes this packet",
+  "sourceBindings": {
+    "carrierCommit": "18423607c4644a1027e58b97ed69dd26a62fd126",
+    "carrierObservedAtUtc": "2026-10-11T22:04:25Z",
+    "frozenPrimaryCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "frozenPrimaryFiles": 5960,
+    "frozenPrimarySha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7"
+  }
+}

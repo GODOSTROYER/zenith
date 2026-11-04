@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-11",
+  "requirement": "PROD-MACH-04",
+  "scope": "Terminal native R7 wrapper disposition; compile-only R8 evidence remains in the prior R1 artifact.",
+  "predecessorEvidence": "docs/build/production/evidence/PROD-MACH-04/2026-10-11-go-compile-only-r8.json",
+  "nativeR7": {
+    "sourceSha256": "7ced6aa9d2bdbe23a24b049320fdf84e670b9003f220fc6067131fd37a9d7c76",
+    "status": "terminal_wrapper_refusal",
+    "wrapperExitCode": 2,
+    "executedCases": 0,
+    "receiptSha256": "bc39d3b460d51015c01b6b33755c0c92330783a002c0190ef69c15b9643fa577",
+    "reason": "Owned-container drift detected after Go process start.",
+    "nativeGuestStarted": false,
+    "testAssertionFailure": false,
+    "daemonOomKillDisableObservation": "false -> null",
+    "diagnosis": "Likely fixture-guard normalization; diagnosis ongoing.",
+    "cleanupComplete": false,
+    "startGoConfirmed": false,
+    "hostAndVmDiskFloors": "clean",
+    "watcherJoined": true,
+    "custody": "clean",
+    "retainedOwnedResource": "One owned Go compile container remains; exact cleanup is required before new heavy work."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "c5f4bd5367038750950e078ae53deedcb629bd21",
+  "runId": 37403218931,
+  "attempt": 1,
+  "jobId": 112074856780,
+  "jobConclusion": "failure",
+  "failedStep": "Known dependency findings block release",
+  "precedingLockIntegrity": "passed",
+  "observedExitCode": 1,
+  "fixedReason": "3 unresolved dependency findings block release.",
+  "findings": [
+    {
+      "package": "@open-policy-agent/opa-wasm",
+      "lockedVersion": "1.10.0",
+      "advisoryIds": [
+        "GHSA-hp3w-g68c-fv3c"
+      ],
+      "severity": "not-exported-by-sanitized-CLI",
+      "currentLockNodes": [
+        "node_modules/@open-policy-agent/opa-wasm"
+      ]
+    },
+    {
+      "package": "source-map-js",
+      "lockedVersion": "1.2.1",
+      "advisoryIds": [
+        "GHSA-68fv-2mgg-jv7q"
+      ],
+      "severity": "not-exported-by-sanitized-CLI",
+      "currentLockNodes": [
+        "node_modules/source-map-js"
+      ]
+    },
+    {
+      "package": "sprintf-js",
+      "lockedVersion": "1.1.3",
+      "advisoryIds": [
+        "GHSA-hp3w-g68c-fv3c"
+      ],
+      "severity": "not-exported-by-sanitized-CLI",
+      "currentLockNodes": [
+        "node_modules/sprintf-js"
+      ]
+    }
+  ],
+  "assessment": "A complete validated locked npm audit produced3 unresolved dependency findings. Registry input/advisory severity is not printed by this CLI; no source defect, historical green carry-forward or justified dependency cure inferred. Dependency assessment belongs to root/A.",
+  "privateLogSha256": "c5e91fac0f54b348ecbdc0248ab33a0a2126b505a356a77218203467e8dbfbed",
+  "sourceScriptSha256": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941",
+  "exceptionsEntryCount": 0,
+  "rawLogPrivateMode": "0600",
+  "rawDiagnosticValuesPublished": false,
+  "corrects": "R1 exception count used an absent entries key; corrected to actual exceptions array. Immutable R1 retained."
+}

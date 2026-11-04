@@ -1,0 +1,125 @@
+{
+  "commit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+  "mainRun": 37712658835,
+  "mainConclusion": "failure",
+  "successfulJobs": 15,
+  "failedJobs": 1,
+  "verifyJob": 113101908554,
+  "unitCounts": {
+    "passed": 21825,
+    "failed": 1,
+    "skipped": 1637,
+    "total": 23463
+  },
+  "files": {
+    "passed": 988,
+    "failed": 1,
+    "skipped": 57,
+    "total": 1046
+  },
+  "unitDurationSeconds": 2203.34,
+  "failure": {
+    "file": "tests/ci/gate-manifest.test.ts",
+    "line": 1736,
+    "suite": "mandatory original-plan product and linked native authority gates",
+    "title": "refuses every missing or nonpassing product case and PGlite, foreign, malformed or substituted evidence",
+    "reason": "Test timed out in 20000ms",
+    "rawLogLines": "3403-3418"
+  },
+  "verifyStepStates": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Install pinned workflow validator",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate workflow syntax",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run npm ci --ignore-scripts",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Typecheck",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Lint",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Unit suites (Node and DOM projects)",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "name": "Smoke",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Verify Gimbal assets",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "rawLogSha256": "2adc98598d462691380fa26ccf749dc49a775c092780c2f00048a01ab9751b04",
+  "separateNativeRuns": {
+    "workers": {
+      "run": 37712659015,
+      "conclusion": "success",
+      "checksPerNativeArchitecture": 22,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "cleanupComplete": true
+    },
+    "platforms": {
+      "run": 37712658903,
+      "conclusion": "success",
+      "passedLeavesPerPlatform": 1,
+      "platforms": [
+        "linux-systemd",
+        "windows-acl"
+      ],
+      "cleanupComplete": true
+    }
+  },
+  "scope": "No retry/restart, no old receipt relabeling, no aggregate summation. Main overall remains failed."
+}

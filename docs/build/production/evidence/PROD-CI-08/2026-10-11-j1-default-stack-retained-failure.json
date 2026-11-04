@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "local_engine",
+  "kind": "j1-j4-j2-default-stack-retained-failure",
+  "sourceHead": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+  "sourceContentSha256": "73d249fcf4ab97c163473e9eb6f7fb10a4f2606e1765ad7006c7976b1528b6ba",
+  "sourceDirty": false,
+  "joinedReceiptSha256": "bb7fc8e42751ea6c372ead27188297b3c2dc9db0789c8d2ca029d9c755ee933f",
+  "failureReceiptSha256": "ac175c7a5ccd3431f0ed3f387c40b94927aec023b55e8229506532873cbc2223",
+  "result": {
+    "status": "failed-retain-owned-state",
+    "wrapperExitCode": 2,
+    "failingOperation": "deferred J1 up",
+    "childExitCode": 1,
+    "stage": "canonical default-stack migration build",
+    "supabaseStartAndMigrationsCompleted": true,
+    "apiAndWorkerBuildCompleted": true
+  },
+  "cleanupDisposition": "retained; only cleanup driver preparation is complete, with no cleanup result recorded",
+  "trustMutationPerformed": false,
+  "acceptance": {
+    "acceptedRunReceipt": false,
+    "j4Accepted": false,
+    "j2Accepted": false,
+    "defaultStackAccepted": false
+  },
+  "limitation": "No J4/J2 or trust operation was performed. Preserve the failed attempt and retained state; do not infer cleanup or acceptance."
+}

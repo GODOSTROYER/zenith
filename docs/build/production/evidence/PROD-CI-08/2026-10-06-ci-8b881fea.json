@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "testedCommit": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+  "scope": "Executed CI and local gates only; no production release approval",
+  "mainRun": {
+    "conclusion": "success",
+    "head_sha": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+    "id": 37373473708,
+    "run_attempt": 2,
+    "status": "completed"
+  },
+  "mainJobs": [
+    {
+      "name": "docker",
+      "jobId": 111991192791,
+      "conclusion": "success",
+      "executionAttempt": 2,
+      "latestJobMetadataMayBeCarried": false
+    },
+    {
+      "name": "go",
+      "jobId": 111991194583,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "verify",
+      "jobId": 111991195087,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "hosted",
+      "jobId": 111991195488,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "operation-gates (workflow-intents)",
+      "jobId": 111991195952,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "platform-postgres",
+      "jobId": 111991230955,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "build",
+      "jobId": 111991232046,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "generated",
+      "jobId": 111991233587,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "operation-gates (reconciliation)",
+      "jobId": 111991234078,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "postgres",
+      "jobId": 111991235921,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "tofu",
+      "jobId": 111991239184,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "workflows",
+      "jobId": 111991245994,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "agent",
+      "jobId": 111991246848,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "supply-chain",
+      "jobId": 111991250364,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "policy",
+      "jobId": 111991251790,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    },
+    {
+      "name": "ledger",
+      "jobId": 111991264404,
+      "conclusion": "success",
+      "executionAttempt": 1,
+      "latestJobMetadataMayBeCarried": true
+    }
+  ],
+  "nativeRun": {
+    "conclusion": "success",
+    "head_sha": "8b881fea4d58e5738076003d1d367b1c47fa0066",
+    "id": 37373473609,
+    "run_attempt": 2,
+    "status": "completed"
+  },
+  "nativeWorkers": {
+    "amd64": {
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "actualAttempt": 2,
+      "native": true,
+      "cleanupFlagsPassed": 6
+    },
+    "arm64": {
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "actualAttempt": 1,
+      "native": true,
+      "cleanupFlagsPassed": 6
+    }
+  },
+  "remote": {
+    "unit": {
+      "passed": 19391,
+      "failed": 0,
+      "skipped": 1515
+    },
+    "postgres": {
+      "passed": 322,
+      "failed": 0,
+      "skipped": 0,
+      "requiredPassed": 80
+    },
+    "platformPostgres": {
+      "passed": 3016,
+      "failed": 0,
+      "skipped": 8,
+      "requiredPassed": 1124,
+      "requiredPostgresLabeled": 1107,
+      "requiredExplicitSdkNoNetwork": 17,
+      "requiredSkipped": 0
+    },
+    "workflows": {
+      "passed": 1273,
+      "failed": 0,
+      "skipped": 0,
+      "requiredPassed": 60
+    },
+    "go": {
+      "requiredRacePassed": 148,
+      "requiredRootPassed": 4,
+      "goldenExit": 0,
+      "architecture": "native Linux AMD64"
+    }
+  },
+  "local": {
+    "architecture": "native Darwin ARM64; local kind Linux ARM64",
+    "steps": [
+      {
+        "name": "gofmt",
+        "exitCode": 0,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "go-vet",
+        "exitCode": 0,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "go-race",
+        "exitCode": 0,
+        "logSha256": "ab2cfb8243aad8a6e4464cbfe3b1d37af4b0aee5a68cceff928b3a3126bd0164"
+      },
+      {
+        "name": "policy-generated",
+        "exitCode": 0,
+        "logSha256": "1ed722c298429e760023408235c2e7952e73856faa731ae96061b6134dc1bbf8"
+      },
+      {
+        "name": "emit-sql",
+        "exitCode": 0,
+        "logSha256": "ad22be191eb79ab9b6a8370484542aee9392c3e2d36d8af6baa761be8177a301"
+      },
+      {
+        "name": "matrix",
+        "exitCode": 0,
+        "logSha256": "1772d93c0f907830506cb1f2b91ed2deb41f7a8dc15b5b3eff31a269e2d710a8"
+      },
+      {
+        "name": "offered-catalog",
+        "exitCode": 0,
+        "logSha256": "6d2b3fc1e5677a2b2489e52f931e6617b20f091a441d49ae0117901118b979df"
+      },
+      {
+        "name": "aws-templates",
+        "exitCode": 0,
+        "logSha256": "302317440f9e8c29eeb4961bcb5ba3a80e6bbcf31f9ab2dbbe559ab30fbda6dd"
+      },
+      {
+        "name": "ledger",
+        "exitCode": 0,
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "unit",
+        "exitCode": 0,
+        "counts": {
+          "passed": 19630,
+          "failed": 0,
+          "skipped": 1276,
+          "todo": 0,
+          "total": 20906
+        },
+        "logSha256": "0be0f944a913b498f8e6cadcec8d7b99291ad680e82e9a8b9c55d7bcf4274ec9"
+      },
+      {
+        "name": "security",
+        "exitCode": 0,
+        "logSha256": "dad5ff63a0e8e4c84e5dfbcbe56268054b7de50ef68fe181629a3f07b3e93a42"
+      },
+      {
+        "name": "policy",
+        "exitCode": 0,
+        "counts": {
+          "passed": 238,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0,
+          "total": 238
+        },
+        "logSha256": "227b8acdd1fc3bb50e9b8b5cf817e1f05268e879301db9f264f764229c9f1f37"
+      },
+      {
+        "name": "policy-revalidate",
+        "exitCode": 0,
+        "logSha256": "556c56ed8c86876453ab6a0bb1de63d51af18e456c50f59de23dbafaa9430c74"
+      },
+      {
+        "name": "tofu",
+        "exitCode": 0,
+        "counts": {
+          "passed": 3916,
+          "failed": 0,
+          "skipped": 18,
+          "todo": 0,
+          "total": 3934
+        },
+        "logSha256": "8339a7cd1e2e19167f740a183da52ac3fa9a3b1a5215afea0b2453b1e3e15ba4"
+      },
+      {
+        "name": "tofu-revalidate",
+        "exitCode": 0,
+        "logSha256": "c8a2320972a92ce9c78251c1240f32011447709befd2879c4569dd2489e5c448"
+      }
+    ],
+    "ownedChildSettled": true,
+    "temporaryDataRemoved": true,
+    "kind": {
+      "provider": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "reportSha256": "be12633fd8aecb68e76d0cd13c817720315e421407602428ac8f031c1103ded4"
+      },
+      "release": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "reportSha256": "98f8661df47b13798325fcaa02ea73357275c775d33104b33b852ebbfbab59ae"
+      },
+      "guest": {
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0,
+        "reportSha256": "777477ac34c128ed19f8fd6d1028b88a0488176aefabc35c468f2f6f70af9b80"
+      },
+      "cleanupComplete": true,
+      "limitations": [
+        "Local kind55 only; no managed-cloud/default-API/systemd/full-guest152/full-workers proof.",
+        "Eight real API controls use a PGlite tenant ledger and signed fixture claims; browser/current-human SQL authorization is unproved.",
+        "Default kind CNI does not prove NetworkPolicy enforcement."
+      ]
+    }
+  },
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "Go": "1.27.1 GOTOOLCHAIN=local",
+    "OpenTofu": "1.12.5",
+    "OPA": "1.19.1",
+    "PostgreSQL": "16.15",
+    "TemporalCLI": "1.9.1",
+    "kind": "0.33.0",
+    "kubectl": "1.37.0"
+  },
+  "history": {
+    "mainAttempt1": "15 successful jobs and one Docker cancellation, runner_id0/hosted_runner_not_acquired. Original receipts preserved.",
+    "mainAttempt2": "Only root-authorized Docker111991192791 is fresh execution; other15 current successful rows are recreated/carried original-attempt evidence.",
+    "nativeAttempt1": "Actual ARM22 passed; AMD cancelled before acquiring runner.",
+    "nativeAttempt2": "Root-authorized fresh AMD22 passed; current ARM success row does not prove fresh ARM2 execution."
+  },
+  "independentReviewSha256": "ee55e16e1e6f50e3a0115c236b50a7ce7e67fd8d22102ba9668896719ae89dd1",
+  "limitations": [
+    "Overlapping local/remote counts must not be summed.",
+    "Local unit1276 and remote unit1515 skips remain distinct; other actual engine lanes execute their required cases.",
+    "Earlier kind helper attempts failed before tests: provider notice refusal, then mount-array ordering refusal. Failed owned cluster was independently reconciled and cleaned; original failures retained.",
+    "Default kind CNI does not prove NetworkPolicy enforcement or managed-cloud acceptance.",
+    "Current local MACH01 source commit1bedb8fa is not covered by these8b results; actual systemd runtime remains unrun.",
+    "New LIFE12 regression exposes a revoked-transfer execution-grant defect; green CI does not close that requirement.",
+    "Local default API/server startup, live clouds and operational/business sign-off remain separate blockers."
+  ]
+}

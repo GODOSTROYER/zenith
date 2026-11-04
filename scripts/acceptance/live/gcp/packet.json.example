@@ -1,0 +1,406 @@
+{
+  "schema": "zenith.live-clouds.v1",
+  "provider": "gcp",
+  "runId": "znlive-0000000000000000",
+  "commit": "0000000000000000000000000000000000000000",
+  "account": "replace-project-id",
+  "region": "us-central1",
+  "workspaceId": "REPLACE_WORKSPACE",
+  "environmentIds": [
+    "REPLACE_PRODUCER",
+    "REPLACE_CONSUMER"
+  ],
+  "apiOrigin": "https://control.example.test",
+  "estimatedUsd": 8,
+  "durationHours": 1,
+  "estimateBasis": "Provisional starter fixture allowance; replace from catalog with measured egress and 24h orphan contingency",
+  "inventory": [
+    {
+      "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances",
+      "itemsPointer": "/items",
+      "idPointer": "/selfLink",
+      "tagsPointer": "/labels",
+      "pagination": "gcp"
+    }
+  ],
+  "checks": [
+    {
+      "id": "dns-owned",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns-foreign",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "failed"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns-unreadable",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "failed"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-authorities",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-immutable-plans",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-output-scope",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-failure-order",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-connectivity",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-traffic",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixed-recovery-economics",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "managed-substrate",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "managed-serving",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "domain-proof-renewal",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "managed-data-catalog",
+      "probes": [
+        {
+          "kind": "control",
+          "path": "/api/platform/v1/operations/REPLACE_OPERATION",
+          "assertions": [
+            {
+              "pointer": "/operation/status",
+              "operator": "equals",
+              "expected": "succeeded"
+            }
+          ]
+        },
+        {
+          "kind": "cloud",
+          "url": "https://compute.googleapis.com/compute/v1/projects/replace-project-id/zones/us-central1-a/instances/REPLACE_RESOURCE",
+          "assertions": [
+            {
+              "pointer": "/REPLACE_ACCEPTANCE_FIELD",
+              "operator": "equals",
+              "expected": "REPLACE_INDEPENDENT_EXPECTATION"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

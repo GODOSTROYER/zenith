@@ -1,0 +1,208 @@
+{
+  "integratedCommit": "40c53c943d81e6530303e0d03b44ff3eaa89a024",
+  "fixtureFix": {
+    "workerCommit": "b35513940601cab4a5144707d4412ed650c8b0a4",
+    "integratedCommit": "40c53c943d81e6530303e0d03b44ff3eaa89a024",
+    "path": "tests/execution/destroy-review-temporal.test.ts",
+    "sha256": "0acc465a4b06d60ead3c81c8bcded2578c6e4f01525dec10f086ef63a3a104c8",
+    "review": "Independent Astra accepted exact test-only change. Exact reviewed semantics digest forwarded; approval/cancel/null/operation/event/no-apply assertions strengthened. Production code unchanged.",
+    "trackedTreeParity": "e8b2b9fd7f9d37a73478c8451235b0f31cfa1f98"
+  },
+  "tofu": {
+    "sourceCommit": "10ec398f965a83736ad9b15e273237697a4eac29",
+    "testExitCode": 0,
+    "originalControllerStatus": "failed",
+    "counts": {
+      "numTotalTests": 10,
+      "numPassedTests": 10,
+      "numFailedTests": 0,
+      "numPendingTests": 0
+    },
+    "cases": [
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification does not echo a foreign run-tag value into refusal evidence",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification does not label inaccessible state as absent",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification refuses missing/foreign tags {\"tags\":{}}",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification refuses missing/foreign tags {\"tags_all\":{\"zenith:live-run\":\"other\"}}",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification refuses unknown untagged types; permits only allowlisted untagged types",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification refuses update in a destroy plan",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification refuses create in a destroy plan",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "destroy plan verification refuses an errored plan and accepts matching tags",
+        "status": "passed"
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "name": "real tofu 1.12.5: builtin provider, local backend applies terraform_data, plans a dry destroy, destroys and detects missing state",
+        "status": "passed"
+      },
+      {
+        "file": "tests/execution/deletion-guards-real.test.ts",
+        "name": "real tofu deploy removal (ZENITH_TEST_DELETION_GUARDS_TOFU=1) refuses unapproved stateful removal and applies the exact approved deletion",
+        "status": "passed"
+      }
+    ],
+    "environment": {
+      "node": "22.23.3",
+      "tofu": "1.12.5",
+      "platform": "darwin_arm64",
+      "native": true,
+      "dockerUsed": false,
+      "cloudCalls": false
+    },
+    "processGroupAbsent": true,
+    "sourceBound": true,
+    "diskMinBytes": 24233148416,
+    "receiptSha256": "6b782864b6a0689684b0d6a410b74a2cfb53f0c1822428413d57995a848a2a51",
+    "cleanupResolution": {
+      "sourceCommit": "10ec398f965a83736ad9b15e273237697a4eac29",
+      "status": "resolved_cleanup",
+      "originalControllerStatus": "failed",
+      "originalReceiptSha256": "6b782864b6a0689684b0d6a410b74a2cfb53f0c1822428413d57995a848a2a51",
+      "tests": {
+        "numTotalTests": 10,
+        "numPassedTests": 10,
+        "numFailedTests": 0,
+        "numPendingTests": 0
+      },
+      "onlyEmptyOwnedPluginCacheDirectoryRemoved": true,
+      "noFilesRemoved": true,
+      "temporaryRootEmpty": true,
+      "originalReceiptUnchanged": true,
+      "diskFreeBytes": 24252796928
+    }
+  },
+  "temporalOriginalFailure": {
+    "sourceCommit": "10ec398f965a83736ad9b15e273237697a4eac29",
+    "counts": {
+      "numTotalTests": 1,
+      "numPassedTests": 0,
+      "numFailedTests": 1,
+      "numPendingTests": 0
+    },
+    "exitCode": 1,
+    "status": "failed",
+    "actualTemporalServersObserved": 1,
+    "allObservedServersAbsent": true,
+    "endSourceBinding": true
+  },
+  "temporalRootSuccess": {
+    "sourceCommit": "40c53c943d81e6530303e0d03b44ff3eaa89a024",
+    "counts": {
+      "numTotalTests": 1,
+      "numPassedTests": 1,
+      "numFailedTests": 0,
+      "numPendingTests": 0
+    },
+    "exitCode": 0,
+    "status": "passed",
+    "actualTemporalServersObserved": 1,
+    "allObservedServersAbsent": true,
+    "ownedTemporaryRootEmpty": true,
+    "processGroupAbsent": true,
+    "endSourceBinding": true,
+    "diskMinBytes": 25164607488,
+    "elapsedSeconds": 7.57
+  },
+  "postgres": {
+    "sourceCommit": "10ec398f965a83736ad9b15e273237697a4eac29",
+    "status": "passed",
+    "counts": {
+      "passed": 57,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "discovered": 57,
+      "nativePostgresCases": 1,
+      "fileAndPgliteControls": 56
+    },
+    "testExitCode": 0,
+    "postgresVersion": "16.15",
+    "nodeVersion": "22.23.3",
+    "cleanupComplete": true,
+    "endSourceBinding": true,
+    "diskMinBytes": 25104519168,
+    "stopExitCode": 0,
+    "serverExitCode": 0,
+    "nodeMaxObservedRssBytes": 1375600640,
+    "postgresMaxObservedRssBytes": 51396608,
+    "scope": "Original full file controls plus native PostgreSQL product-row transaction case; local bare-PG role stand-ins, not genuine Supabase/Auth, cloud or production TLS acceptance."
+  },
+  "postgresInputsUnchangedAtIntegratedCommit": true,
+  "ssmOracle": {
+    "sourceCommit": "40c53c943d81e6530303e0d03b44ff3eaa89a024",
+    "selectedPassed": 1,
+    "selectedFailed": 0,
+    "selectedSkipped": 0,
+    "excludedSiblingCases": 95,
+    "rawReportCounts": {
+      "numTotalTests": 96,
+      "numPassedTests": 1,
+      "numFailedTests": 0,
+      "numPendingTests": 95
+    },
+    "case": {
+      "file": "tests/machines/ssm-documents.test.ts",
+      "name": "ssmDocumentsTofu survives OpenTofu HCL template evaluation byte for byte (real tofu, builtin provider only)",
+      "status": "passed"
+    },
+    "exitCode": 0,
+    "temporaryRootEmpty": true,
+    "diskMinBytes": 25168175104,
+    "scope": "Single original HCL byte-for-byte oracle with actual OpenTofu native builtin/local execution; sibling cases excluded by explicit title selection. No AWS API calls or full-file acceptance."
+  },
+  "compiler": {
+    "sourceCommit": "b35513940601cab4a5144707d4412ed650c8b0a4",
+    "testSha256": "0acc465a4b06d60ead3c81c8bcded2578c6e4f01525dec10f086ef63a3a104c8",
+    "node": "22.23.3",
+    "heapMiB": 4096,
+    "exitCode": 0,
+    "processGroupAbsent": true,
+    "sourceBinding": true,
+    "diskMinBytes": 25180172288,
+    "diskAfterBytes": 25180012544,
+    "floorBytes": 23622320128,
+    "elapsedSeconds": 58.35,
+    "reason": null,
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "status": "passed"
+  },
+  "rootAffectedLintExitCode": 0,
+  "countsOverlap": true,
+  "externalCloudCalls": false,
+  "defaultStackAccepted": false,
+  "remainingScopes": [
+    "Default Mac API/browser/scheduling/runbook/telemetry journey remains resource-blocked.",
+    "Builder-owned MACH02 Kubernetes token-expiry finding remains open.",
+    "Live clouds, real DNS, private GitHub App, retention/business/production sign-off remain unapproved.",
+    "Deliberate history writer placeholder is not an acceptance case to force into mutating execution."
+  ]
+}

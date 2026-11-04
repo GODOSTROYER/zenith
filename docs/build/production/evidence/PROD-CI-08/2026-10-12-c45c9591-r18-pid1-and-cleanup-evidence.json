@@ -1,0 +1,201 @@
+{
+  "bindings": {
+    "frozenPrimary": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "primaryFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "primarySourceCount": 5960,
+    "publishedCarrier": "18423607c4644a1027e58b97ed69dd26a62fd126"
+  },
+  "carrierCI": {
+    "conditionalSkipped": 8,
+    "failed": 1,
+    "goDiagnosisJsonSha256": "5271927d5cbc40163fcb69f43ef64088a84fae1bfcfb0e9ee83457f2de9fe110",
+    "goDiagnosisReportSha256": "988b6bf29eda50e02c21ad8603c55ada845a32cd3279277f281830bf3812f611",
+    "goFailure": {
+      "beforeGoAcceptance": true,
+      "diagnosticCandidateResolvesFailure": false,
+      "rootCause": "undetermined",
+      "stage": "guest PID1 systemd baseline"
+    },
+    "inventorySha256": "2ea2a7acbcafa1ba499e2054578444d001696669faa14ed1a1e9f23fc026b5a0",
+    "jobs": 32,
+    "mainWorkflow": {
+      "conditionalSkipped": 8,
+      "failed": 1,
+      "running": 1,
+      "success": 18
+    },
+    "observedAtUtc": "2026-10-11T22:15:12Z",
+    "reportSha256": "e07f83b384038604d0ce3fb67fa25eff78aaf6ef17ed60f8c287401161a38b3b",
+    "running": 1,
+    "success": 22,
+    "terminal": false,
+    "verify": "running",
+    "workflows": 3
+  },
+  "cleanup": {
+    "r10ContextUnit": {
+      "failed": 0,
+      "passed": 9,
+      "receiptAccepted": false,
+      "review": "PASS historical context unit proof only",
+      "skipped": 0
+    },
+    "r12ParserR4SyntheticRun": {
+      "failed": 0,
+      "independentTerminalReview": "PASS_SYNTHETIC_UNIT_TERMINAL_PROOF",
+      "outerSessionClosedExitCode": 0,
+      "passed": 5,
+      "producerReviewSha256": "8ebd48c318754d009b51875633d6ee0047cfc2218fb925988a69209138f12995",
+      "rawReportSha256": "db2923f8477f76815a2e32257537a1f6595b3f474e3427cc501a4b01cec9b05d",
+      "receiptAccepted": false,
+      "receiptSha256": "9a852f5863e1dc1af13945fb2e06bd0848faf81b4e91bf29fbefc11670162870",
+      "skipped": 0,
+      "sourceReview": "PASS narrow parser change; conditional test producer review PASS",
+      "sourceReviewSha256": "8ced4046538343a15b6d03ee936a4d57524cce4191caadcf18796e241c54bcd1",
+      "terminalReviewSha256": "c2f60c26a9c55eb106544acdd7b54f49af34a13e35139368a29dc45b0449d3f9"
+    },
+    "r12R7ActualCollectorFailure": {
+      "cleanupActionAttempted": false,
+      "hostWatcherJoin": "missing",
+      "marker": "retained",
+      "refusal": "network Aliases value was null; parser rejected before cleanup",
+      "settlement": "uncertain",
+      "shapeAuditSha256": "2b73cfaf089de670da3874842aa1af74b665a1d96a9d92bebd63eed949ef19c4",
+      "stage": "read-only census before cleanup",
+      "vmWatcher": "joined"
+    },
+    "r13PreflightSyntheticRun": {
+      "failed": 0,
+      "independentTerminalReview": "PASS synthetic preflight only",
+      "passed": 8,
+      "rawReportSha256": "3e0d43d28a5885ddc2860408765bc358a0a80fcd11c9db754fcd29c9a699c1d6",
+      "receiptAccepted": false,
+      "receiptSha256": "494b41226722461479db7628190c5276184165a0ffd82c384b13362c84c3fd68",
+      "skipped": 0,
+      "sourceReview": "PASS narrow source compatibility",
+      "sourceReviewSha256": "b54ac3394446b5ad8f97aa99af7a894523bd0509f22addcbbdffacadb2f0f21f",
+      "terminalReviewSha256": "30ff848ca7097981ad530c50e7b220e741a1095eba2f8229c1137af2785a5abd"
+    },
+    "r13Preparation": "HOLD; successor must bind R8 and include two Docker images plus existing owned J4 private-stack files; no execution authority",
+    "r4SyntheticGuard": {
+      "acceptedProof": false,
+      "failed": 0,
+      "passed": 24,
+      "review": "PASS synthetic fake-engine guard only",
+      "skipped": 0
+    },
+    "r7TreeSyntheticRun": {
+      "failed": 0,
+      "independentTerminalReview": "not asserted in this packet",
+      "outerSessionClosedExitCode": 0,
+      "passed": 3,
+      "rawReportSha256": "262e6a75e54f008d5c53e33e2d793c29569235f27c9625d8edfe5a434370c63c",
+      "receiptAccepted": false,
+      "receiptSha256": "41ebbdf263db76e26cd7d2f108c33a22058d7755889c9ab8959886384b2a2833",
+      "skipped": 0
+    },
+    "r8Collector": "reviewed successor census remains on HOLD after two pre-engine schema/path defects; R9 is under preparation; no cleanup has run"
+  },
+  "focusedCanary": {
+    "failed": 0,
+    "fullPostgresLane": false,
+    "originalWrapperMetricFailure": "preserved",
+    "passed": 124,
+    "producerSha256": "968e986c90a1af2f405112ec544306e9282c128e6bae8b2c1f9fe100fc647631",
+    "productionAcceptance": false,
+    "rawReportSha256": "2f4fccc23ce70419dc4ed3351f1c5aefca810fa25602c43669e70f3f6d85646b",
+    "scope": "two memory/PGlite files only",
+    "skipped": 0,
+    "terminalSupplementSha256": "a7d53330d602968d54dd900591a67d6471c6fe1aa07d656b8c0f431a009575a5"
+  },
+  "fullCore": {
+    "failed": 0,
+    "identities": 26518,
+    "passed": 24575,
+    "skipped": 1943,
+    "witnessAcceptanceInvocation": "pending",
+    "witnessImageBuild": "passed"
+  },
+  "inputs": {
+    "carrierCiInventory": "2ea2a7acbcafa1ba499e2054578444d001696669faa14ed1a1e9f23fc026b5a0",
+    "carrierCiReport": "e07f83b384038604d0ce3fb67fa25eff78aaf6ef17ed60f8c287401161a38b3b",
+    "focusedCanaryProducer": "968e986c90a1af2f405112ec544306e9282c128e6bae8b2c1f9fe100fc647631",
+    "focusedCanaryRawReport": "2f4fccc23ce70419dc4ed3351f1c5aefca810fa25602c43669e70f3f6d85646b",
+    "focusedCanaryTerminalSupplement": "a7d53330d602968d54dd900591a67d6471c6fe1aa07d656b8c0f431a009575a5",
+    "focusedPid1Producer": "fde8cf6e62ff59d25d5a19e36dbe58a33bd26ef0d192db8114988d2a048cc09d",
+    "focusedPid1VitestReport": "1170f737ba3eb047022cf930af5ffa49b040be2a218ef7224e25c4af7300e1e2",
+    "focusedPid1Wrapper": "9c88e519a13856ff1b193423729a73f59d3d3d940648733c4846e878214bcadf",
+    "goDiagnosisJson": "5271927d5cbc40163fcb69f43ef64088a84fae1bfcfb0e9ee83457f2de9fe110",
+    "goDiagnosisReport": "988b6bf29eda50e02c21ad8603c55ada845a32cd3279277f281830bf3812f611",
+    "pid1FixtureSource": "54782501a43ccebca0605f2b319ff6ef5f990e3e5512d324f1b1f8a4c8f88fa9",
+    "pid1FocusedTerminalReview": "a0492f63f808c963bbf3d28d023be4cc639f7102a0d81f5701570db0ffb96065",
+    "pid1FocusedTerminalReviewMarkdown": "487c3daacea7db4ff830499e7a2c4376a5b028253ef656eec533f4f4f095b2da",
+    "pid1ValidatorSource": "b96b6ace9b5aefa6c4467638fc4413f988828b4f321b822b29833db99dab1d0d",
+    "pid1ValidatorSourceReview": "fe863b4025921da165467832c0fe9a53b55ed90d08c1e3c5fab1996fbc50da0a",
+    "pid1ValidatorTests": "012af38df16101952cc58c7c97010f9f438ffad165488c11ca5d20fbe9dce9db",
+    "r12ParserR4ProducerReview": "8ebd48c318754d009b51875633d6ee0047cfc2218fb925988a69209138f12995",
+    "r12ParserR4Receipt": "9a852f5863e1dc1af13945fb2e06bd0848faf81b4e91bf29fbefc11670162870",
+    "r12ParserR4Report": "db2923f8477f76815a2e32257537a1f6595b3f474e3427cc501a4b01cec9b05d",
+    "r12ParserR4SourceReview": "8ced4046538343a15b6d03ee936a4d57524cce4191caadcf18796e241c54bcd1",
+    "r12ParserR4TerminalReview": "c2f60c26a9c55eb106544acdd7b54f49af34a13e35139368a29dc45b0449d3f9",
+    "r12ParserR4TerminalReviewMarkdown": "2d7e08ed816e350f3c7b767b85e403a13273acd53f4de92e6ef8b01c176a8fc2",
+    "r12R7ShapeAudit": "2b73cfaf089de670da3874842aa1af74b665a1d96a9d92bebd63eed949ef19c4",
+    "r13PreflightReceipt": "494b41226722461479db7628190c5276184165a0ffd82c384b13362c84c3fd68",
+    "r13PreflightReport": "3e0d43d28a5885ddc2860408765bc358a0a80fcd11c9db754fcd29c9a699c1d6",
+    "r13PreflightTerminalReview": "30ff848ca7097981ad530c50e7b220e741a1095eba2f8229c1137af2785a5abd",
+    "r13SchemaApiReview": "b54ac3394446b5ad8f97aa99af7a894523bd0509f22addcbbdffacadb2f0f21f",
+    "r17Evidence": "0ec42b23e2e2a64563472d4f4b59ceecaca55fdc3e82587af68a0cec0d8f584a",
+    "r7TreeReceipt": "41ebbdf263db76e26cd7d2f108c33a22058d7755889c9ab8959886384b2a2833",
+    "r7TreeReport": "262e6a75e54f008d5c53e33e2d793c29569235f27c9625d8edfe5a434370c63c"
+  },
+  "kind": "c45-cumulative-pid1-focused-proof-and-cleanup-evidence",
+  "ledger": {
+    "inProgress": 66,
+    "milestonePromotion": false,
+    "planned": 2,
+    "releaseFlagsChanged": false,
+    "verified": 10
+  },
+  "observedDate": "2026-10-12",
+  "pid1DiagnosticFocusedRun": {
+    "acceptedFocusedProof": false,
+    "candidateFiles": [
+      {
+        "path": "scripts/ci/guest-pid1-fixtures.py",
+        "sha256": "54782501a43ccebca0605f2b319ff6ef5f990e3e5512d324f1b1f8a4c8f88fa9"
+      },
+      {
+        "path": "tests/ci/guest-file-write-gate.test.ts",
+        "sha256": "012af38df16101952cc58c7c97010f9f438ffad165488c11ca5d20fbe9dce9db"
+      },
+      {
+        "path": "scripts/ci/run-guest-file-write-gate.mjs",
+        "sha256": "b96b6ace9b5aefa6c4467638fc4413f988828b4f321b822b29833db99dab1d0d"
+      }
+    ],
+    "carrier": "18423607c4644a1027e58b97ed69dd26a62fd126",
+    "changeScope": "bounded comm/container-state diagnostics only for the exact guest PID1 baseline subprocess failure; systemd hard gate unchanged",
+    "derivedSuites": 11,
+    "describePaths": 10,
+    "failed": 0,
+    "failureResolutionClaimed": false,
+    "independentTerminalReview": "PASS_FOCUSED_PID1_DIAGNOSTIC_TERMINAL_PROOF",
+    "nativeGoRerun": false,
+    "passed": 201,
+    "pending": 0,
+    "producerSha256": "fde8cf6e62ff59d25d5a19e36dbe58a33bd26ef0d192db8114988d2a048cc09d",
+    "skipped": 0,
+    "sourceReviewSha256": null,
+    "targetFile": "tests/ci/guest-file-write-gate.test.ts",
+    "terminalReviewSha256": "a0492f63f808c963bbf3d28d023be4cc639f7102a0d81f5701570db0ffb96065",
+    "todo": 0,
+    "validatorSourceReviewSha256": "fe863b4025921da165467832c0fe9a53b55ed90d08c1e3c5fab1996fbc50da0a",
+    "vitestReportSha256": "1170f737ba3eb047022cf930af5ffa49b040be2a218ef7224e25c4af7300e1e2",
+    "wrapperOutcome": "passed-focused-pid1-diagnostic-proof",
+    "wrapperSha256": "9c88e519a13856ff1b193423729a73f59d3d3d940648733c4846e878214bcadf"
+  },
+  "priorR17EvidenceSha256": "0ec42b23e2e2a64563472d4f4b59ceecaca55fdc3e82587af68a0cec0d8f584a",
+  "sanitization": "Private runtime paths, user paths, raw logs, process IDs, and credentials omitted; source-relative filenames and evidence hashes retained.",
+  "schemaVersion": 1,
+  "snapshotDisposition": "bounded; later evidence supersedes this snapshot"
+}

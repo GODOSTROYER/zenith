@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "0cc97c4ad395aabd621167371e5fe1776a1cb956",
+  "reviewedCandidateHashes": {
+    "tests/controlplane/mcp-stream-tenant-index.test.ts": "674f5c29b6d2c3dc9eebb73aa0a48ea236df5d01fce6ebda36331fb86b2798ce",
+    "tests/controlplane/migrations.test.ts": "87eaa736661ebcf46f40f6439af6bf4d71ab3b742d1d75098bb482affa74a043",
+    "tests/controlplane/read-jobs.test.ts": "61e6afbb107f65df473cabf74e317b09fd4316af39bfa3ea37e667e1f337c828",
+    "tests/controlplane/workflow-start-intents.test.ts": "31267341ca5711f2223adef6bd1dfbe7837e111b093cdce43650e8e403ce571f"
+  },
+  "scope": "Four complete targeted files with actual PostgreSQL and declared PGlite controls. Historical fixtures remain unintegrated. No current default-stack or live acceptance.",
+  "passed": 105,
+  "failed": 2,
+  "skipped": 0,
+  "testExit": 1,
+  "failure": "Two historical schema12 tombstone cases: historical approval fixture INSERT returned zero rows; cause under investigation. Assertions retained.",
+  "cleanupComplete": true,
+  "rootIndependentRegisteredGroupsAbsent": 126,
+  "endSourceBinding": true,
+  "diskMinBytes": 17957634048,
+  "receiptSha256": "56025e1517aae07858357f241392d742181b9b984137011de138054967ab0238",
+  "reportSha256": "c53e20611929f99103e50a8f7e585ae9808eb3e8987c83407814e6dcadbb280b",
+  "environment": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "architecture": "native ARM64 macOS",
+    "schemaSqlFiles": 26,
+    "platformSchema": 58
+  },
+  "subsequentDiagnosis": "Historical fixture bound inputDigest from public OperationView, which deliberately omits that field; undefined became SQL NULL and exact equality matched zero rows. Independently reviewed successor reads workspace/operation-scoped SQL digests and asserts proposal parity plus 64-hex input; successor has not executed."
+}

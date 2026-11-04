@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45_registry_staged_parent_r16_policy_unit_result",
+  "productionAcceptance": false,
+  "gateWaiver": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "count": 5960,
+    "canonicalDigest": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "stableBeforeAfter": true
+  },
+  "suite": {
+    "scope": "explicit R16-policy baseline plus staged-parent tests",
+    "baselineR16Methods": 87,
+    "stagedParentMethods": 13,
+    "expected": 100,
+    "collected": 100,
+    "completed": 100,
+    "passed": 100,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pending": 0,
+    "todo": 0,
+    "uniqueIdentitySetsMatched": true,
+    "astProofAllRetainedMethodsUnchanged": true,
+    "excludedR17OnlyMethods": [
+      "CustodyAuditCapacityTests.test_audit_event_boundaries_expand_without_changing_identity_caps",
+      "CustodyAuditCapacityTests.test_exact_byte_limit_last_good_snapshot_and_sticky_failure_after_pending_resolution",
+      "CustodyAuditCapacityTests.test_terminal_audit_exceeds_old_detail_cap_but_active_identity_cap_stays_128"
+    ],
+    "excludedAreRuntimeSkips": false,
+    "claims103Of103": false
+  },
+  "binding": {
+    "producerSha256": "17113c57280c273974b8db16cf633cf22cce861db62ea10042ce9396a39a0d94",
+    "testsSha256": "59c7a91516ac93579cf906217b865b9d7c03875bf64ba19a6695cbe5ddb963a7",
+    "registrySha256": "92acf918c0a4af6b07e3cba0f152b43134808c90b2440e39be6c9a2bfe5cac2c",
+    "wrapperReceiptSha256": "fb8e23d48bf41472b26c9aa42e30f859bc648100f3912848096ebf07fa500ed2",
+    "childReportSha256": "d76a75e51f5aa2d90edd4c99ab428be2a32c7f8c3dfeebae2b78a748bbf9ecc4",
+    "terminalReviewSha256": "282a52a5bd9f0f5a89d396806112bf6e4b32f99e13f285d26263b3396b81ffa1",
+    "capacityReviewSha256": "daf51efea8e9cec627ef2abf754d28a281213c3131491602853caf5b17514021"
+  },
+  "priorFailedAttempt": {
+    "collected": 103,
+    "passed": 100,
+    "failures": 2,
+    "errors": 1,
+    "skips": 0,
+    "reportSha256": "b29e1e199ae498b7f75c467650237312507003441c3d217d6ec56803188dd0be",
+    "accepted": false,
+    "preserved": true
+  },
+  "custody": {
+    "toolSession": 17248,
+    "toolClosed": true,
+    "exitCode": 0,
+    "heldCommands": 9,
+    "allStrictlySettled": true,
+    "telemetryCompleteNoQuarantine": true,
+    "sourceInventoryStable": true,
+    "continuousFloorBytes": 12000000000,
+    "minimumFreeBytes": 268701671424
+  },
+  "policy": {
+    "eventLimit": 128,
+    "identityLimit": 128,
+    "r17ExpandedEventByteGuard": "out of scope and deferred, not closed",
+    "productionGateWaiver": false
+  },
+  "limits": "Focused fake-only policy unit invocation; not a production or engine acceptance receipt. Future integration remains conditional on a separate exact consumer/source/hash binding review. Cleanup R3 remains HOLD with two defects; R4 cleanup guards and review remain pending."
+}

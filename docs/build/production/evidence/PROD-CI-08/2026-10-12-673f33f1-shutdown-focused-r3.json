@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "kind": "sanitized 673f33f1 shutdown diagnostic and candidate validation evidence",
+  "testedSourceSnapshot": "673f33f1; focused proof binds an unchanged 6,012-entry source freeze",
+  "integratedCommit": "6410def173ff03a160be1d5200c3543325e8c283",
+  "freshFreezeAndCoherentFullTestForIntegratedCommit": "pending",
+  "focusedFixture": {
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "childrenClosed": 37,
+    "sourceFreezeStable": true,
+    "ownedLinkRemoved": true,
+    "minimumFreeBytes": 245608067072,
+    "minimumFreeAbove22GiB": true,
+    "proofSha256": "0b21979df26953e93548aa6c3e011b1fb995a24aaa1937d5b9044a2eecba695b",
+    "terminalReview": {
+      "result": "PASS_FOCUSED_DIAGNOSTIC_FIXTURE",
+      "jsonSha256": "d7ed173032dc4bd333934b8d28f00fdef03885f025471ff56ed374208646568d",
+      "markdownSha256": "f96a2a88b09682ed83a9b926f07682a53cb2f889a6f54074f53c60fa5dfb727c"
+    }
+  },
+  "typeOnlyValidation": {
+    "runtimeFileSha256": "406427ee3d23f24973c58b65ba1528082521edd4e547dc85d4597a83e36f7b4e",
+    "testFileSha256": "e58a9b1a5c376c6cbb71605f0ae40fd926cdd23399fff89d8d8f7ecde2c40e0e",
+    "scope": "nonbehavioral type-only delta after the historical 13/0/0 fixture proof",
+    "eightFileLint": "PASS",
+    "fullTypeScriptHeapGiB": 5,
+    "ledgerValidation": "PASS",
+    "receiptSha256": "b24d91a3c67a00efb5e9cea267995c88863c1fb12de7e6789724edb93097a581",
+    "fullNewCoherentTest": "pending"
+  },
+  "acceptance": {
+    "shutdownCauseFixed": false,
+    "actualShutdownAcceptance": false,
+    "stopGraceClosed": false,
+    "signalOrderClosed": false,
+    "forcedStopZeroClosed": false,
+    "productAcceptance": false
+  },
+  "ledger": {
+    "canonical": {
+      "verified": 11,
+      "inProgress": 65,
+      "planned": 2,
+      "verifiedPercent": 14.1
+    },
+    "historicalCheckpoints": [
+      "9/67/2",
+      "10/66/2"
+    ],
+    "releaseFlagsAllFalse": true
+  },
+  "sanitization": {
+    "privatePathsOmitted": true,
+    "rawLogsOmitted": true,
+    "credentialsOmitted": true
+  }
+}

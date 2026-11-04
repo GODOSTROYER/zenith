@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45_cleanup_r5_preflight_and_actual_attempt_status",
+  "productionAcceptance": false,
+  "historicalAcceptance": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "sourceCount": 5960,
+    "freezeDigest": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "beforeAfterFreezeFilesIdentical": true
+  },
+  "preflight": {
+    "attempt": "R2 fixture correction",
+    "rootSession": 76498,
+    "sessionClosed": true,
+    "exitCode": 0,
+    "cases": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    "strictHeldCommands": 9,
+    "allCommandsSettledAndAbsent": true,
+    "sourcePinsStable": true,
+    "r5SourceSha256": "62939fa8963be02580a9310bb81d5f4e99a67d9872c5c928667befddd1a8fa0a",
+    "fixtureSha256": "17607e5fe6776f2c9bfe2c6783e18804b2744df66d77ec9c974bc5972cbd91f2",
+    "wrapperSha256": "f0a5ed0815640b345eaf2ae06873668899975bd79b92776b0270347f064b8571",
+    "terminalReviewVerdict": "PASS",
+    "terminalReviewSha256": "a4581bdc48328ca96e0618d009a79ad80eef57e4ccd539f8ccecf0c69fa475ee",
+    "scope": "synthetic parser/lock-guard tests only; authorizes attempted cleanup subject to fresh internal gates"
+  },
+  "actualCleanupAttempt": {
+    "result": "failed before owned-down/removal action was entered",
+    "rootSession": 92903,
+    "exitCode": 1,
+    "failurePoint": "protectedImagesBefore",
+    "failureClass": "held-command-not-strictly-settled",
+    "stagesCompleted": [
+      "lock admitted and owned",
+      "initial census",
+      "source freeze",
+      "owned inventory"
+    ],
+    "resourceDeletionClaimed": false,
+    "marker": "retained; no new exact-byte readback claim is made",
+    "originalFailedInvocationAccepted": false
+  },
+  "history": {
+    "R1FixturePreflight": "11 passed /1 fixture error /0 skipped; preserved unaccepted",
+    "R2FixturePreflight": "12 passed /0 failed /0 skipped; independently reviewed; no cleanup acceptance"
+  },
+  "currentStatus": {
+    "fullCore": "24,575 passed /1,943 skipped /0 failed on Node/DOM",
+    "witnessBuild": "ARM64 image build passed; built-image acceptance invocation pending",
+    "ledger": "10 verified /66 in progress /2 planned",
+    "milestonePromotion": false,
+    "releaseFlagsChanged": false
+  }
+}

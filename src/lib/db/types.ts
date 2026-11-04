@@ -30,7 +30,7 @@ import type {
   Deployment,
   DeploymentEvent,
   Environment,
-  Manifest,
+  AnyManifest,
   Member,
   NavigatorRun,
   Project,
@@ -191,7 +191,7 @@ export interface Store {
    * manifest has to survive serialisation (an API response body, a
    * structuredClone), because the property is dropped by `JSON.stringify`.
    */
-  revisionManifest(id: string): Manifest | undefined;
+  revisionManifest(id: string): AnyManifest | undefined;
 
   /** Subscribe to write notifications. Returns an unsubscribe function. */
   onChange(fn: (c: StoreChange) => void): () => void;

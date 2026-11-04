@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+  "jobs": [
+    {
+      "name": "fresh-install",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 23915368448,
+      "diskMinBytes": 23678418944,
+      "diskAfterBytes": 23647727616,
+      "elapsedSeconds": 28.12,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true
+    },
+    {
+      "name": "lockfile-integrity",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 23881269248,
+      "diskMinBytes": 23881265152,
+      "diskAfterBytes": 23879663616,
+      "elapsedSeconds": 2.05,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true
+    },
+    {
+      "name": "security-audit",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 23879643136,
+      "diskMinBytes": 23879643136,
+      "diskAfterBytes": 23877857280,
+      "elapsedSeconds": 2.05,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true
+    },
+    {
+      "name": "compiler",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": -6,
+      "refusal": null,
+      "diskBeforeBytes": 23877857280,
+      "diskMinBytes": 23877648384,
+      "diskAfterBytes": 23880368128,
+      "elapsedSeconds": 6.06,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true
+    },
+    {
+      "name": "compiler-r2",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": -6,
+      "refusal": null,
+      "diskBeforeBytes": 23853805568,
+      "diskMinBytes": 23850545152,
+      "diskAfterBytes": 23849607168,
+      "elapsedSeconds": 10.09,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true,
+      "heapMiB": 1536
+    },
+    {
+      "name": "compiler-r3",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": -15,
+      "refusal": "disk_floor",
+      "diskBeforeBytes": 23830380544,
+      "diskMinBytes": 22742884352,
+      "diskAfterBytes": 22742622208,
+      "elapsedSeconds": 22.38,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true,
+      "heapMiB": 4096
+    },
+    {
+      "name": "compiler-r4",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 25020977152,
+      "diskMinBytes": 24991109120,
+      "diskAfterBytes": 24989728768,
+      "elapsedSeconds": 58.49,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true,
+      "heapMiB": 4096,
+      "peakObservedProcessRssKiB": 1540928,
+      "resourceChange": "Docker Desktop idle backend stopped; no containers remained"
+    },
+    {
+      "name": "lint",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 24989712384,
+      "diskMinBytes": 24960446464,
+      "diskAfterBytes": 24809086976,
+      "elapsedSeconds": 30.22,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true,
+      "heapMiB": 4096,
+      "peakObservedProcessRssKiB": 1562064,
+      "resourceChange": "Docker Desktop idle backend stopped; no containers remained"
+    },
+    {
+      "name": "production-ledger",
+      "sourceCommit": "c9a942d664128d982415b4c8b671de88e8c3fe02",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 24807063552,
+      "diskMinBytes": 24797589504,
+      "diskAfterBytes": 21564354560,
+      "elapsedSeconds": 2.06,
+      "scope": "Actual local dependency/compiler/lint/ledger command; not default-stack runtime acceptance",
+      "logPrivate": true,
+      "heapMiB": 4096,
+      "peakObservedProcessRssKiB": 240,
+      "resourceChange": "Docker Desktop idle backend stopped; no containers remained"
+    }
+  ],
+  "lockfile": {
+    "packagesPinned": 915,
+    "bundledInParent": 6,
+    "result": "passed"
+  },
+  "dependencySecurity": {
+    "knownFindings": 0,
+    "exceptionsApplied": 0,
+    "result": "passed"
+  },
+  "compilerAttemptDisposition": "768MiB and1536MiB SIGABRT caused by confirmed JS heap exhaustion;4096MiB attempt interrupted at22GiB disk floor. Docker idle backend then stopped with no containers;4096MiB repeat passed, observed peakRSS1540928KiB. Failed/interrupted attempts retained.",
+  "postRunResourceFinding": "During2s ledger completion free disk dropped to21564354560bytes, below22GiB guard. No further heavy job started; cleanup task notified. Commands that exited0 remain separately recorded; host capacity remains blocked.",
+  "defaultScope": "All runtime/leaf tests performed on this Mac. Linux/default-stack acceptance not offloaded."
+}

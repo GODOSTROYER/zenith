@@ -1,0 +1,87 @@
+{
+  "acceptance": {
+    "defaultStackAccepted": false,
+    "j1Accepted": false,
+    "j2Accepted": false,
+    "productionReady": false
+  },
+  "acceptanceMeaning": "Focused J2 journey syntax, receipt contract tests, and lint only; records the wrapper count mismatch and corrected reading of its unchanged capture.",
+  "acceptedRunReceipt": false,
+  "candidatePatchSha256": {
+    "d4NewTest": "9aae9e00a79f2d7e390883fdf39cddd7b831db9df90dd275a27e5e578677377d",
+    "d4OperatedDriver": "0b1894f91a29a473efae197c5191d233aabdd1180a60da6ccb8bd3e0b24b6d58",
+    "j2CombinedR4": "0294701507348f87aeb1c5dcc815ff5c86af2caeab4de2088ad59bae04103b82"
+  },
+  "candidatePostimageSha256": {
+    "scripts/release/drivers/operated.ts": "da9f4562a2f0c3ad146a143f81c22e2af08283a8b60a04d1ac2ffa9d9aa2f33b",
+    "tests/e2e/default/journey.spec.mjs": "be6685eedfa6e2f0cc2e8b0eca35922b888e0547cb1102ab135b6e3fd591c655",
+    "tests/release/drivers/operated-tenants.test.ts": "fd2ef0d15f03ffdfce0d9602148154c041e6cc3023fd82aa34d77ab75071987a"
+  },
+  "candidatePushed": false,
+  "correctedAuditNarrativeSha256": "3e5f1ae33d275c4b879ca4b5bc7a7561d21ce990b0c6b2d8de77ce20e52d6d18",
+  "correctedAuditSha256": "6ec950b24083a6230dd279a4438ea1e6d12123a7ec3403e82c27cf90a06a398f",
+  "evidenceLevel": "contract",
+  "heldWrapperReportSha256": "fafcbf23804bbb921d867767417116cc15c1ec3023d14f1d0c9e8e8215702f2a",
+  "kind": "j2-r4-focused-source-validation-with-retained-count-refusal",
+  "limitation": "The canonical 16-step J2 browser journey was not executed; J2 acceptance remains pending. This source-only focused proof is not a run receipt or default-stack acceptance.",
+  "primarySourceFreezeSha256After": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+  "primarySourceFreezeSha256Before": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+  "primarySourceHead": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "receiptTestSourceSha256": "77b1455a2877937315f1f1b1b0fb0c049dc3839be9eb6b1d32833f4d5cba3e6f",
+  "requirement": "PROD-CI-08",
+  "retainedWrapperCountRefusal": {
+    "actualCapturedTests": 17,
+    "failureCode": "vitest-not-exact-6-pass-0-fail-0-skip",
+    "originalFailurePreserved": true,
+    "outcome": "refused-retain-artifacts",
+    "underlyingVitestReturnCode": 0,
+    "wrapperExpectedTests": 6
+  },
+  "schemaVersion": 1,
+  "validation": {
+    "allCommandsExit0": true,
+    "cacheDirectoryIdentitiesStable": true,
+    "candidateNonCachePinsIdentical": true,
+    "candidateSourcePinsAfterSha256": "a0824042455a30f92e3c7471e7a62c8dbaf7bc3af94dee91e6410883e06f06f7",
+    "candidateSourcePinsBeforeSha256": "425244a1cfd2e42c833e6053e31dbd2fb97a1ed71274c86fed8b93187a8ebb34",
+    "diskFloorBytes": 23622320128,
+    "floorWatcherFailure": null,
+    "floorWatcherJoined": true,
+    "heldCommandReceipts": 21,
+    "ignoredCacheResultsJsonBytesAfter": 484,
+    "ignoredCacheResultsJsonBytesBefore": 395,
+    "minimumFreeBytes": 343269703680,
+    "sourceFreezeSha256": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+    "sourceFreezeStable": true,
+    "sourceOnlyChecks": {
+      "eslint": {
+        "files": 1,
+        "returnCode": 0,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "target": "tests/e2e/default/journey.spec.mjs"
+      },
+      "node22Syntax": {
+        "returnCode": 0,
+        "sourceSha256": "be6685eedfa6e2f0cc2e8b0eca35922b888e0547cb1102ab135b6e3fd591c655",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "target": "tests/e2e/default/journey.spec.mjs"
+      },
+      "vitestReceiptContract": {
+        "failed": 0,
+        "filesPassed": 1,
+        "passed": 17,
+        "skipped": 0,
+        "sourceExpandedIdentities": 17,
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdoutSha256": "df825be238a379c6c5c9fa31b945bfae7f44313c4c1423c661919fe3e11810c8"
+      }
+    },
+    "strictHeldCommandCloseout": true,
+    "underlyingCommandsPassed": true
+  },
+  "candidateBaseCommit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "testedCandidateCommit": null,
+  "candidateRevisionMeaning": "Uncommitted patch overlay on candidateBaseCommit; candidatePatchSha256 and candidate postimage/source-pin hashes identify the tested candidate. No tested commit exists."
+}

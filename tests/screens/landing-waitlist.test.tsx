@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { LandingWaitlist } from "@/app/_landing/landing-waitlist";
 
 const dispatch = vi.hoisted(() => vi.fn());
@@ -9,8 +9,8 @@ vi.mock("@/app/_landing/landing-experience", () => ({ useLanding: () => ({ dispa
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root;
 let host: HTMLDivElement;
-let showModal: ReturnType<typeof vi.fn>;
-let closeModal: ReturnType<typeof vi.fn>;
+let showModal: Mock<HTMLDialogElement["showModal"]>;
+let closeModal: Mock<HTMLDialogElement["close"]>;
 const heroLink = () => host.querySelector<HTMLAnchorElement>('[data-chapter="hero"] a[href="/waitlist"]')!;
 const render = (signedIn = false, mobile = false) => act(() => root.render(<div className="zenith-landing">
   {mobile && <header><a href="/waitlist" data-waitlist-trigger>Join waitlist</a></header>}

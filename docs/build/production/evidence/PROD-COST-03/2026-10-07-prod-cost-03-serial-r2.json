@@ -1,0 +1,171 @@
+{
+  "id": "PROD-COST-03",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 449,
+  "failed": 0,
+  "skipped": 0,
+  "commandTargets": [
+    "tests/placement",
+    "tests/capabilities/broker.test.ts",
+    "tests/controlplane/migrations.test.ts",
+    "tests/controlplane/tenancy.test.ts",
+    "tests/security/controlplane-sql-scoping.test.ts",
+    "tests/docs/operator-docs.test.ts",
+    "tests/workflows/reconcile-schedule.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24153837568,
+  "diskMinBytes": 24108576768,
+  "diskAfterBytes": 24128425984,
+  "elapsedSeconds": 102.36,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "7bbd11bff7a472922b4fabf814b60450173df0af24b7035d850aab371f828b1a",
+  "perFile": [
+    {
+      "file": "tests/capabilities/broker.test.ts",
+      "passed": 99,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/tenancy.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/operator-docs.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/catalog.test.ts",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/components.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/cost.test.ts",
+      "passed": 70,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/latency.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/optimizer-pass.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/optimizer.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/recommend-connections.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/recommend-route.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/recommend.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/resource-graph-integration.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/placement/solver.test.ts",
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/controlplane-sql-scoping.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/workflows/reconcile-schedule.test.ts",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open.",
+  "temporalScope": "19 scheduling cases:5 scalar controls and14 actual owned SQLite Temporal cases with native PostgreSQL; required flag enabled; not default seven-job scheduler or measurable optimizer acceptance."
+}

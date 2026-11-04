@@ -1,0 +1,18 @@
+{
+  "machineId": "",
+  "workspaceId": "",
+  "daemonUid": 0,
+  "controlPlaneKeys": [],
+  "packageInstall": {
+    "enabled": false,
+    "profiles": []
+  },
+  "fileWrite": {
+    "enabled": false,
+    "profiles": []
+  },
+  "fileUpload": {
+    "enabled": false,
+    "profiles": []
+  }
+}

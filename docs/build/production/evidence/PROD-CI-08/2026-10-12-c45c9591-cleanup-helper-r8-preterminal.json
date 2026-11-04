@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45_cleanup_helper_and_ci_pending_terminal_reviews",
+  "sourceCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "sourceCount": 5960,
+  "sourceFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+  "cleanupR8ActualAttempt": "not yet executed; pending, no acceptance claimed",
+  "protectedImagesHelperR6": {
+    "sourceSha256": "2134c22ea5eb48bdb3c401469ccf6cf77eab999c9d7e76a392befd95c1b72969",
+    "testSha256": "6e7a88a7f94deaaddff9985ab8c283250df67e84243f6cd7ca66ed05a91a2c41",
+    "wrapperSha256": "1229db3d5f42b869301d15ab2beaaad98d02058f84b8b3c73f0a248a8939d153",
+    "reportSha256": "1b7329b57f31d156d8b82567dda030f3b9e3b5ec66c7f8b47fb41dfb35944b61",
+    "observedCounts": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "total": 18
+    },
+    "heldCommands": 9,
+    "allHeldCommandsStrictlySettled": true,
+    "sourceFreezeBeforeAfterEqual": true,
+    "minimumFreeBytes": 267393740800,
+    "floorBytes": 12000000000,
+    "sourceAstIdenticalToR8": true,
+    "criticalMethods": 12,
+    "criticalMethodClaim": "root-confirmed",
+    "terminalReview": "pending",
+    "acceptedRunReceipt": false
+  },
+  "r7CustodyGuardsR8Source": {
+    "sourceSha256": "27accda396601c0b9362a4c24696247c762a13305dc52ef2b75952122aee51ea",
+    "testSha256": "9973b4f3a6d9c61a898c90259be12e809f6d3c117f11dee41f3be6b985c127e1",
+    "wrapperSha256": "72fd4e02a3355437d5aa795b5a3e35ef200250f6e31950a388829b8d6e6a0dc6",
+    "reportSha256": "49c46385d2c6af8e1f47ce79105b8bc98d90d5e61f9b5e9b972c0749fbff20a5",
+    "observedCounts": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "total": 8
+    },
+    "heldCommands": 9,
+    "allHeldCommandsStrictlySettled": true,
+    "sourceFreezeBeforeAfterEqual": true,
+    "minimumFreeBytes": 267390054400,
+    "floorBytes": 12000000000,
+    "terminalReview": "pending",
+    "acceptedRunReceipt": false
+  },
+  "historicalFailures": {
+    "protectedImageHelperR2": "18 total, 17 passed, 1 failed; unused joined command; preserved",
+    "custodyGuardsR7": "8 total, 2 passed, 6 failed due wrong plural keys and snapshot counts; preserved",
+    "R8": "minimal source repairs; conditional source review PASS; focused terminal proofs pending"
+  },
+  "latestCI": {
+    "sourceSha": "34764541d54d67b17d67bf6455fadf29aa733b84",
+    "observedAt": "2026-10-11T20:28:01Z",
+    "workflowRuns": 3,
+    "jobCount": 32,
+    "counts": {
+      "success": 23,
+      "conditionalSkipped": 8,
+      "running": 1,
+      "failed": 0
+    },
+    "inventorySha256": "f42d88350b561e5bdcab09f792a2f8bbb9b4a9f1d33f49a65bfeb37d29ded754",
+    "reportSha256": "a6a25030d272db6f258acc80a909816697b26a4656d63bde5c7b5baff2d50126",
+    "allThreeRunsSameSha": true
+  },
+  "releaseState": {
+    "ledger": "10 verified / 66 in progress / 2 planned",
+    "milestonePromotion": false,
+    "releaseFlagsChanged": false
+  }
+}

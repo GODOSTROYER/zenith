@@ -1,0 +1,22 @@
+{
+  "args": {
+    "container": "web"
+  },
+  "operation": "container.inspect",
+  "result": {
+    "ok": true,
+    "data": {
+      "exitCode": 0,
+      "finishedAt": "0001-01-01T00:00:00Z",
+      "health": "healthy",
+      "id": "0123456789abcdef",
+      "image": "nginx:1.27",
+      "name": "web",
+      "oomKilled": false,
+      "restartCount": 2,
+      "running": true,
+      "startedAt": "2026-09-30T10:00:00Z",
+      "state": "running"
+    }
+  }
+}

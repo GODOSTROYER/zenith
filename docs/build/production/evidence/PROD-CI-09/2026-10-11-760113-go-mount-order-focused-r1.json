@@ -1,0 +1,33 @@
+{
+  "schema": "zenith.go-mount-order-focused-diagnostic.v1",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "tracked_source_freeze_sha256": "d6824172fb1ba76e1d607126effebdf90c5e44adc72ededf7d8d6d4c254c1675",
+  "reviewed_patch_sha256": "7a1e5dc237803b3fb607da8a4fd5b084ccf2c5eeab346d0a992b77d88138a9b1",
+  "outcome": "passed-diagnostic-only",
+  "accepted_run_receipt": false,
+  "vitest": {
+    "file": "tests/ci/guest-file-write-gate.test.ts",
+    "passed": 199,
+    "failed": 0,
+    "skipped": 0,
+    "report_sha256": "081c1de9ab6a8e7533e7b700efd3a0387d3e5f555a325a16e9295441280ca21c"
+  },
+  "eslint": {
+    "changed_typescript_file": "tests/ci/guest-file-write-gate.test.ts",
+    "exit_code": 0
+  },
+  "receipt_sha256": "53f6fbf8855597012105ff0ca5c4ce006401e5c199c70cc3d40a3bb8271fa849",
+  "custody": {
+    "source_stable": true,
+    "child_absent": true,
+    "strict_held_closeout": true,
+    "failure_observed": false,
+    "no_errors": true
+  },
+  "floors": {
+    "watcher_joined": true,
+    "final_floor_passed": true
+  },
+  "repair_scope": "Two-file local overlay compares complete mount rows as an unordered multiset while preserving every row attribute and duplicate count; all existing exact identity and strictness controls remain unchanged.",
+  "published_source_ci": "still terminal with Go failure; fresh CI after publishing repaired source remains pending"
+}

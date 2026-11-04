@@ -1,0 +1,115 @@
+# Dependency update policy. Dependabot is the path that ACTS on what the
+# `supply-chain` job in workflows/ci.yml only reports: an `npm audit` advisory
+# is informational there, and the pull request that fixes it arrives from here.
+#
+# Shape:
+#   - Weekly, on a fixed day, so a week's updates are one predictable review
+#     session rather than a drip.
+#   - Grouped, so related packages move in ONE pull request. Several of this
+#     repository's dependencies are pinned to an exact version precisely because
+#     they must agree with each other (every @aws-sdk client is at one version,
+#     the four @temporalio SDK packages are at one version, `next` and
+#     `eslint-config-next` are at one version); bumping one of a pair in
+#     isolation produces a red build that says nothing useful.
+#   - A cooldown, so a release is not proposed in its first days. This is a
+#     supply-chain measure: a compromised package version is usually found and
+#     pulled within days, and being the first to install it is the expensive
+#     position. Security updates are not delayed by it.
+#   - Majors are never folded into a grouped minor/patch update: each major
+#     arrives as its own pull request with its own review.
+#
+# Groups are matched in order and a dependency joins the FIRST group it matches,
+# so the specific coupled groups come before the catch-alls.
+#
+# Not covered, and worth knowing: the `postgres:16.15-alpine@sha256:...` service
+# image pinned in workflows/ci.yml is not something Dependabot tracks, and
+# neither are the release binaries ci.yml installs by version and checksum
+# (OPA, OpenTofu, Temporal CLI, actionlint) or the Go toolchain version. Those
+# are bumped by hand, together with the checksum and the assertion in
+# tests/ci/release-gates.test.ts that pins it.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: deps
+    groups:
+      temporal:
+        patterns:
+          - "@temporalio/*"
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+          - "@smithy/*"
+      nextjs:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      supabase:
+        patterns:
+          - "@supabase/*"
+      production-minor-and-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    # Dependabot reads every workflow under /.github/workflows and rewrites the
+    # full commit SHA together with the `# vX.Y.Z` comment beside it, which is
+    # the pinning convention tests/ci/release-gates.test.ts enforces.
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # The Go module lands with the zenith-runner / zenithd workstream. Until
+  # go/go.mod exists Dependabot reports this entry as having nothing to
+  # update; that is expected and needs no action.
+  - package-ecosystem: gomod
+    directory: /go
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: deps
+    groups:
+      go-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

@@ -436,6 +436,11 @@ export class E2bRunner implements BuildRunner {
           error: `The recipe worker exited with code ${worker.exitCode} without writing a result in the sandbox.`,
         });
       if (!result.ok) return done({ ok: false, error: result.error ?? "The build failed without naming a reason." });
+      if (worker.exitCode !== 0)
+        return done({
+          ok: false,
+          error: `The recipe worker did not exit with code 0 (received ${String(worker.exitCode)}). The artifact was not accepted.`,
+        });
 
       const entries = await sandbox.files.list(SANDBOX_OUT, { depth: 20 });
       let files = 0;

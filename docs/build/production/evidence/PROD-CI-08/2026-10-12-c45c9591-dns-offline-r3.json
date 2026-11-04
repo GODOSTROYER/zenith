@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "offline_dns_unit_suite_r3",
+  "acceptanceClaim": false,
+  "milestonePromotion": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "sourceCount": 5960,
+    "sourceFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "beforeAfterByteIdentical": true
+  },
+  "execution": {
+    "outcome": "passed-offline-unit-suite-only",
+    "acceptedRunReceipt": false,
+    "heldCommands": 9,
+    "allCommandsReturnZeroCompleteRegistryAbsent": true,
+    "wrapperReceiptSha256": "57870e8796f00f2f197632161d1cd5324d72daafd4a98a489416091ca6516eaa"
+  },
+  "tests": {
+    "manifestSha256": "994df81d86b6e4f22b5f9a0f0261b2cde9242903dedd9dc96b0bf85fd0ea1bd1",
+    "reportSha256": "b1a42aefcfb8497d721f19cdad61b0fefa74964ee9252b537c0a9434aed7569b",
+    "fileResults": 1,
+    "expectedIdentities": 59,
+    "exactIdentitySetMatched": true,
+    "total": 59,
+    "passed": 59,
+    "failed": 0,
+    "pending": 0,
+    "todo": 0,
+    "suiteTotal": 3,
+    "suitePassed": 3,
+    "suiteFailed": 0,
+    "suitePending": 0
+  },
+  "custody": {
+    "allNineTerminalLedgersPass": true,
+    "telemetryComplete": true,
+    "droppedOrTruncatedEvents": 0,
+    "telemetryFailures": 0,
+    "pendingObservations": 0,
+    "quarantinedObservations": 0,
+    "captureProbes": "ESRCH only; 12 for Vitest over three PIDs and four per Git leader",
+    "watcherJoined": true,
+    "continuousFloorBytes": 12000000000,
+    "minimumFreeBytes": 268876005376
+  },
+  "historicalFailure": {
+    "attempt": "R2",
+    "status": "wrapper exit 1 caused by incorrect suite-count expectation after 59 passed cases",
+    "accepted": false,
+    "supersededByR3ForThisOfflineProofOnly": true
+  },
+  "scope": "Local offline DNS unit suite only. No live DNS, full-core aggregate, or milestone acceptance claim. Results are not added to or assumed disjoint from the full Node/DOM core counts."
+}

@@ -1,0 +1,40 @@
+# Sandbox RuntimeClass EXAMPLES for ZENITH_MANAGED_RUNTIME_CLASS (PROD-MAN-04): PLACEHOLDERS, never applied
+# by kustomization.yaml and not in this directory's default set on purpose.
+#
+# A RuntimeClass only names a handler; the handler must already be installed and configured in the container
+# runtime of every node that can run tenant pods, or pods that name the class stay in ContainerCreating. Install
+# the runtime first (gVisor: runsc and containerd-shim-runsc-v1; Kata: kata-deploy or your distribution's package),
+# label or taint the node pool that has it, set `scheduling` below to match, then apply exactly ONE of these and set
+#   ZENITH_MANAGED_RUNTIME_CLASS=<metadata.name>
+# Managed Kubernetes services may ship their own sandbox class and handler names (GKE Sandbox, AKS pod sandboxing);
+# use the provider's, not these, and verify the current names for your cluster.
+#
+# `overhead` is charged to the pod's namespace quota: size it to the runtime, or quotas undercount real use.
+# The tolerations here are for the SCHEDULER (RuntimeClass scheduling); tenant pods may not set their own
+# tolerations (the isolation gate refuses wildcard ones).
+---
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: zenith-gvisor
+handler: runsc
+overhead:
+  podFixed:
+    cpu: 50m
+    memory: 64Mi
+scheduling:
+  nodeSelector:
+    zenith.dev/runtime: gvisor
+---
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: zenith-kata
+handler: kata
+overhead:
+  podFixed:
+    cpu: 250m
+    memory: 160Mi
+scheduling:
+  nodeSelector:
+    zenith.dev/runtime: kata

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "pooler_preflight_runtime_diagnostic",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "sourceFreezeSha256": "8e71fd92522a2310cb5a0b0d13f4f4476518ccbc864dd6edfd61c0fec773da14",
+  "sourceEntries": 5926,
+  "sourceStable": true,
+  "diagnosticReceiptSha256": "2ca4e2c214aa0b0e63d10dc7701e9ca44a21f412e6f0370645b90a40ee8b575b",
+  "rootExecutionSidecarSha256": "5eb0070c63b7c8d9895eb1d043e1a6d8707c2bc67748b4f5d7b50e1f3430c45c",
+  "runtimeReviewSha256": "bbba59d102247ef0a3993a1ec82f2aa79a35546b8b5f4026ae63f8d42b795144",
+  "wrapperExitCode": 0,
+  "probe": {
+    "launched": true,
+    "returnCode": 1,
+    "mode": "read-only authority SELECTs; migrations disabled",
+    "databaseConnectionReached": false,
+    "sqlWriteOperations": 0,
+    "cause": {
+      "runtime": "Node v22.23.3 / tsx",
+      "errno": -2,
+      "code": "ENOENT",
+      "syscall": "mkdir",
+      "target": "temporary tsx cache directory"
+    }
+  },
+  "runtimeCloseout": {
+    "outerCommands": 17,
+    "completed": 17,
+    "strictCloseout": true,
+    "returnedZero": 16,
+    "probeReturnedOne": 1,
+    "custodyUncertain": false,
+    "survivors": false,
+    "retainedStackModified": false,
+    "lockReleased": true,
+    "lockQuarantined": false
+  },
+  "resourceObservation": {
+    "hostWatcherJoined": true,
+    "hostSamples": 427,
+    "minimumHostFreeBytes": 317089337344,
+    "vmObserverJoined": true,
+    "vmSamples": 2,
+    "minimumVmFreeBytes": 416994967552,
+    "monitorFailure": false,
+    "resourceBreach": false
+  },
+  "retainedState": {
+    "originalR13OwnedStackStillRetained": true,
+    "cleanupComplete": false,
+    "cleanupR3RefusedBeforeCommandAdmission": true,
+    "cleanupR3Reason": "canonical path and backlink validation",
+    "cleanupSuccessor": "preparing"
+  },
+  "acceptedRun": false,
+  "applicationCauseEstablished": false,
+  "scopeLimit": "Diagnostic only. Probe failed before database connection due to temporary TypeScript cache creation; this is not a database or pooler rejection and does not establish pooler readiness. No cleanup completion or product acceptance is claimed."
+}

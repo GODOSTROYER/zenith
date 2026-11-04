@@ -1,0 +1,143 @@
+{
+  "actualCleanupR8": {
+    "cause": "validator assumed every RepoTags reference was an ordinary name:tag, while valid digest-qualified references were present",
+    "commands": {
+      "allSettledReturnZero": true,
+      "foreground": 13,
+      "observer": 4
+    },
+    "diagnosisSha256": "be47386e2bca42653f147c9ecf0aab57e86de1b00d6878fbfb7e89b9d1f7126d",
+    "failureGate": "protected-image-inspect-tag-kind",
+    "hostFinalStatus": "unproven",
+    "identityContext": {
+      "freshIdentities": 18,
+      "freshSids": 17,
+      "unionWithRetainedIdentities": 50
+    },
+    "lockAdmissionAndOwnedWorkOccurred": true,
+    "resourceDeletionClaimed": false,
+    "rootSession": {
+      "closed": true,
+      "exitCode": 1,
+      "sessionId": 42165,
+      "sessionIdIsProcessId": false
+    },
+    "sequence": "list and inspect commands returned 0; validator refused digest-qualified RepoTags; stopped before predelete, stack-down, and deletion",
+    "vmObserver": {
+      "joined": true,
+      "minimumFreeBytes": 409322766336
+    }
+  },
+  "currentAcceptance": {
+    "arm64WitnessImageBuild": "passed",
+    "arm64WitnessImageInvocation": "pending",
+    "fullCore": {
+      "failed": 0,
+      "identities": 26518,
+      "passed": 24575,
+      "skipped": 1943,
+      "status": "passed"
+    },
+    "ledger": {
+      "inProgress": 66,
+      "planned": 2,
+      "releaseFlagsChanged": false,
+      "verified": 10
+    }
+  },
+  "evidenceKind": "sanitized-cumulative-cleanup-helper-and-failure-update",
+  "inputArtifactSha256": {
+    "ciInventory": "b7a7111e4f8c50248498cad6220ca81102475069eafbe35ceeb05c71bb34722b",
+    "ciReport": "1c7a851ebe0a0f4a2faf3b38ec4208974d0327221086a5ed49344a60a4ed9912",
+    "cleanupDiagnosis": "be47386e2bca42653f147c9ecf0aab57e86de1b00d6878fbfb7e89b9d1f7126d",
+    "custodyGuardTerminalReview": "d84a9325fc46ded7a7c900a375feb0b73b3a798dac1da19079679482ffe2ab19",
+    "protectedImageTerminalReview": "fc8998de8809611e3958db875c6e6ee1c358bf27caef5ee6073fa14a5acc2bb2",
+    "r9SourceReview": "eec6b3722d21e86599779214c4b34854761bcd59ce4a811c177eba9b23a6c7ce"
+  },
+  "latestCI": {
+    "c45TerminalCIChanged": false,
+    "conditionalSkipped": 8,
+    "failed": 0,
+    "inventorySha256": "b7a7111e4f8c50248498cad6220ca81102475069eafbe35ceeb05c71bb34722b",
+    "jobs": 32,
+    "reportSha256": "1c7a851ebe0a0f4a2faf3b38ec4208974d0327221086a5ed49344a60a4ed9912",
+    "running": 1,
+    "sourceCommit": "34764541d54d67b17d67bf6455fadf29aa733b84",
+    "success": 23,
+    "terminal": false,
+    "workflows": 3
+  },
+  "observedDate": "2026-10-12",
+  "preservedHistoricalFailures": [
+    "protected-image helper R2: 17/18 with unused joined command",
+    "custody guard R7: 2/8 from plural-key and snapshot-count mismatch"
+  ],
+  "r9HelperSourceReview": {
+    "additionalRegression": "21-capture regression over 50-identity context remains in progress",
+    "cleanupExecution": "HOLD",
+    "newAcceptance": false,
+    "result": "PASS_CONDITIONAL_FOCUSED_PROOF_AND_IDENTICAL_ASSEMBLY",
+    "reviewSha256": "eec6b3722d21e86599779214c4b34854761bcd59ce4a811c177eba9b23a6c7ce",
+    "scope": "strict existing RepoDigests authority plus raw projection",
+    "sourceSha256": "826de387b6478379f989312c5666693fd927acd0cce8e38f513c59c97dc510c3"
+  },
+  "sanitization": "Private runtime paths and process identifiers omitted; tool session identifier retained as a session label only.",
+  "schemaVersion": 1,
+  "sourceCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "terminalHelperProofs": [
+    {
+      "acceptedRunReceipt": false,
+      "cleanupExecuted": false,
+      "counts": {
+        "failed": 0,
+        "passed": 18,
+        "skipped": 0
+      },
+      "floorBytesMin": 267393740800,
+      "heldCommands": {
+        "completeReturnZeroAndAbsent": true,
+        "total": 9
+      },
+      "name": "protected-image helper R6",
+      "review": "PASS_FOCUSED_HELPER_UNIT_AND_AST_PROOF_ONLY",
+      "rootSession": {
+        "closed": true,
+        "exitCode": 0
+      },
+      "sourceFreeze": {
+        "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+        "digest": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+        "files": 5960,
+        "stable": true
+      },
+      "terminalReviewSha256": "fc8998de8809611e3958db875c6e6ee1c358bf27caef5ee6073fa14a5acc2bb2"
+    },
+    {
+      "acceptedRunReceipt": false,
+      "cleanupExecuted": false,
+      "counts": {
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      "floorBytesMin": 267390054400,
+      "heldCommands": {
+        "completeReturnZeroAndAbsent": true,
+        "total": 9
+      },
+      "name": "custody guard R8",
+      "review": "PASS_EIGHT_CASE_SOURCE_BOUND_GUARD_PROOF_ONLY",
+      "rootSession": {
+        "closed": true,
+        "exitCode": 0
+      },
+      "sourceFreeze": {
+        "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+        "digest": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+        "files": 5960,
+        "stable": true
+      },
+      "terminalReviewSha256": "d84a9325fc46ded7a7c900a375feb0b73b3a798dac1da19079679482ffe2ab19"
+    }
+  ]
+}

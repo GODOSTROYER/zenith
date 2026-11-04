@@ -8,6 +8,7 @@ import { PlanFirst } from "./plan-first";
 import { nodeLabel } from "./logic";
 import { bindingEnv } from "@/lib/domain/graph";
 import type { Binding } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 import { cx } from "@/lib/format";
 
 export interface BindingListProps {
@@ -17,7 +18,7 @@ export interface BindingListProps {
 
 export function BindingList({ nodeId, onOpen }: BindingListProps) {
   const { project } = useProjectData();
-  const m = project.workingManifest;
+  const m = v1View(project.workingManifest);
   const related = m.bindings.filter((b) => b.from === nodeId || b.to === nodeId);
 
   const label = (id: string) => nodeLabel(m, id);

@@ -1,0 +1,134 @@
+/* Fixed launcher/observer. The original suite, package, lock and config are never rewritten. */
+'use strict';
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), cp = require('node:child_process');
+const hash = raw => crypto.createHash('sha256').update(raw).digest('hex');
+const mode = process.argv[2], project = '/guest/project', deps = '/guest/deps';
+const modes = ['verify','install','dependencies','collect','tests','settled','report'];
+const codes = new Set(['INVOCATION','NATIVE_IDENTITY','CAPABILITIES','STORAGE_RESERVE','STAGING_BUDGET','STAGING_TYPE','SOURCE_IDENTITY','SOURCE_LINK','PROJECTED_LOCK','DEPENDENCY_LINK','DEPENDENCY_TYPE','DEPENDENCY_VERSION','COMPILER_ARTIFACT','EMPTY_DEPENDENCIES','PROCESS_STATE','CHILD_SPAWN','CHILD_SIGNAL','CHILD_NONZERO','CHILD_TIMEOUT','REQUIRED_FLAG','REPORT_IDENTITY','REPORT_STATUS','REPORT_SUITE','REPORT_ASSERTIONS','REPORT_NATIVE','RUNTIME_READBACK']);
+const refusals = new WeakMap();
+const signals = new Set(['SIGHUP','SIGINT','SIGQUIT','SIGILL','SIGABRT','SIGBUS','SIGFPE','SIGKILL','SIGSEGV','SIGPIPE','SIGTERM','SIGXCPU','SIGXFSZ','SIGSYS']);
+function fail(code, scalars = {}) {
+  if (!codes.has(code) || Object.entries(scalars).some(([key,value]) => key === 'signal' ? !signals.has(value) : !['observedBytes','freeBytes','limitBytes','exitCode'].includes(key) || !Number.isSafeInteger(value) || value < 0 || (key === 'exitCode' && value > 255))) code = 'RUNTIME_READBACK', scalars = {};
+  const error = new Error('Fixed native supervisor admission refused');
+  refusals.set(error,{code,...scalars}); throw error;
+}
+function emitRefusal(error) {
+  const refusal = error && typeof error === 'object' ? refusals.get(error) : undefined;
+  console.error('ZENITH_SUPERVISOR_REFUSAL '+JSON.stringify({status:'failed',mode:modes.includes(mode) ? mode : 'invalid',...(refusal || {code:'RUNTIME_READBACK'})}));
+  process.exitCode = 1;
+}
+process.on('uncaughtException',emitRefusal);
+const contract = JSON.parse(fs.readFileSync('/guest/EXECUTION-SOURCE-CONTRACT.json','utf8'));
+if (process.argv.length !== 3 || !modes.includes(mode)) fail('INVOCATION');
+if (process.platform !== 'linux' || process.arch !== 'arm64' || process.version !== 'v22.23.3' || process.getuid() !== 10001 || process.getgid() !== 10001) fail('NATIVE_IDENTITY');
+const status = fs.readFileSync('/proc/self/status','utf8');
+for (const field of ['CapInh','CapPrm','CapEff','CapAmb']) if (!new RegExp('^'+field+':\\s+0+$','m').test(status)) fail('CAPABILITIES');
+const reserve = () => {
+  const space = fs.statfsSync('/guest',{bigint:true});
+  if (space.bavail*space.bsize < 8589934592n) fail('STORAGE_RESERVE',{freeBytes:Number(space.bavail*space.bsize),limitBytes:8589934592});
+  let size = 0;
+  function walk(dir) { let entries; try { entries = fs.readdirSync(dir,{withFileTypes:true}); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    for (const item of entries) {
+    const name = path.join(dir,item.name); let st; try { st = fs.lstatSync(name); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    if (st.isDirectory()) walk(name); else if (st.isFile() || st.isSymbolicLink()) size += st.size; else fail('STAGING_TYPE');
+    if (size > 1024**3) fail('STAGING_BUDGET',{observedBytes:size,limitBytes:1024**3});
+  }}
+  walk('/guest');
+};
+function verify() {
+  for (const [relative,item] of Object.entries(contract.source)) {
+    const name = path.join(project,relative), st = fs.lstatSync(name);
+    if (!st.isFile() || st.isSymbolicLink() || st.nlink !== 1 || st.uid !== 0 || st.gid !== 0 || (st.mode&0o7777) !== Number.parseInt(item.copyMode,8) || st.size !== item.bytes || hash(fs.readFileSync(name)) !== item.sha256) fail('SOURCE_IDENTITY');
+  }
+  if (fs.readlinkSync(project+'/node_modules') !== deps+'/node_modules') fail('SOURCE_LINK');
+  for (const [file,expected] of [['package.json',contract.miniPackageSha256],['package-lock.json',contract.miniLockSha256]]) if (hash(fs.readFileSync(deps+'/'+file)) !== expected) fail('PROJECTED_LOCK');
+  reserve();
+}
+function dependencyBinding() {
+  const records = {};
+  function walk(dir) { for (const item of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
+    const name = path.join(dir,item.name), relative = path.relative(deps+'/node_modules',name), st = fs.lstatSync(name);
+    if (['.vite','.vite-temp','.vitest'].some(cache => relative === cache || relative.startsWith(cache+'/'))) continue;
+    if (st.isDirectory()) walk(name);
+    else if (st.isSymbolicLink()) {
+      const link = fs.readlinkSync(name), target = path.resolve(path.dirname(name),link);
+      if (path.isAbsolute(link) || !target.startsWith(deps+'/node_modules/')) fail('DEPENDENCY_LINK');
+      records[relative] = {type:'symlink',target:link};
+    } else if (st.isFile() && st.size <= 64*1024**2) records[relative] = {type:'file',bytes:st.size,sha256:hash(fs.readFileSync(name))};
+    else fail('DEPENDENCY_TYPE');
+  }}
+  walk(deps+'/node_modules');
+  const versions = {};
+  for (const [name,version] of Object.entries(contract.lockedVersions)) {
+    const value = JSON.parse(fs.readFileSync(deps+'/node_modules/'+name+'/package.json','utf8'));
+    if (value.name !== name || value.version !== version) fail('DEPENDENCY_VERSION'); versions[name] = version;
+  }
+  const compilerArtifacts = {};
+  for (const [name,file] of [['@esbuild/linux-arm64','bin/esbuild'],['@rollup/rollup-linux-arm64-gnu','rollup.linux-arm64-gnu.node']]) {
+    const pkg = JSON.parse(fs.readFileSync(deps+'/node_modules/'+name+'/package.json','utf8'));
+    const binary = fs.readFileSync(deps+'/node_modules/'+name+'/'+file);
+    if (pkg.name !== name || pkg.version !== contract.linuxCompilerPackages[name] || binary.length < 20 || binary.length > 32*1024**2 || binary.subarray(0,6).toString('hex') !== '7f454c460201' || binary.readUInt16LE(18) !== 183) fail('COMPILER_ARTIFACT');
+    compilerArtifacts[name] = {version:pkg.version,arch:'linux/arm64',bytes:binary.length,sha256:hash(binary)};
+  }
+  if (!Object.keys(records).length) fail('EMPTY_DEPENDENCIES');
+  return {versions,compilerArtifacts,files:Object.keys(records).length,sha256:hash(JSON.stringify(records))};
+}
+function settled() {
+  let sleep = 0;
+  for (const pid of fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name))) {
+    if (Number(pid) === process.pid) continue;
+    let raw; try { raw = fs.readFileSync('/proc/'+pid+'/stat','utf8'); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    const end = raw.lastIndexOf(')'), fields = raw.slice(end+2).trim().split(/\s+/);
+    if (end < 1 || fields.length < 20) fail('PROCESS_STATE');
+    if (Number(pid) === 1) { if (fs.readFileSync('/proc/1/comm','utf8').trim() !== 'docker-init') fail('PROCESS_STATE'); continue; }
+    if (fields[0] === 'Z') fail('PROCESS_STATE');
+    if (fields[1] !== '1' || fs.readFileSync('/proc/'+pid+'/cmdline').toString() !== 'sleep\0infinity\0') fail('PROCESS_STATE');
+    sleep++;
+  }
+  if (sleep !== 1) fail('PROCESS_STATE');
+}
+async function program(binary,args,cwd,timeout) {
+  reserve(); const child = cp.spawn(binary,args,{cwd,env:process.env,stdio:'inherit'}); const deadline = Date.now()+timeout;
+  let error;
+  const monitor = setInterval(()=> { if (error) return; try { reserve(); if (Date.now()>deadline) fail('CHILD_TIMEOUT'); } catch (refusal) { error = refusal; child.kill('SIGTERM'); } },1000);
+  const result = await new Promise(resolve=> { child.once('error',()=>resolve({spawnFailure:true})); child.once('exit',(code,signal)=>resolve({code,signal})); });
+  clearInterval(monitor); if (error) throw error;
+  if (result.spawnFailure) fail('CHILD_SPAWN');
+  if (result.signal) fail('CHILD_SIGNAL',signals.has(result.signal) ? {signal:result.signal} : {});
+  if (result.code !== 0) fail('CHILD_NONZERO',Number.isInteger(result.code) && result.code >= 0 && result.code <= 255 ? {exitCode:result.code} : {});
+  reserve();
+}
+function report() {
+  verify(); const filename = '/guest/evidence/vitest.json', st = fs.lstatSync(filename);
+  if (!st.isFile() || st.isSymbolicLink() || st.uid !== 10001 || st.nlink !== 1 || st.size <= 0 || st.size > 8*1024**2) fail('REPORT_IDENTITY');
+  const raw = fs.readFileSync(filename), value = JSON.parse(raw);
+  if (value.success !== true || value.numFailedTests !== 0 || value.numPendingTests !== 0 || value.numTodoTests !== 0 || value.numFailedTestSuites !== 0 || !Array.isArray(value.testResults) || value.testResults.length !== 1) fail('REPORT_STATUS');
+  const suite = value.testResults[0], assertions = suite.assertionResults;
+  if (suite.name !== project+'/tests/ci/packaged-workers.test.ts' || suite.status !== 'passed' || !Array.isArray(assertions) || assertions.length < 6 || value.numTotalTests !== assertions.length || value.numPassedTests !== assertions.length) fail('REPORT_SUITE');
+  if (new Set(assertions.map(item=>item.fullName)).size !== assertions.length || assertions.some(item=>item.status !== 'passed')) fail('REPORT_ASSERTIONS');
+  const collectionPath = '/guest/evidence/collection.json', collectionStat = fs.lstatSync(collectionPath);
+  if (!collectionStat.isFile() || collectionStat.isSymbolicLink() || collectionStat.uid !== 10001 || collectionStat.nlink !== 1 || collectionStat.size <= 0 || collectionStat.size > 8*1024**2) fail('REPORT_IDENTITY');
+  const collectionRaw = fs.readFileSync(collectionPath), collection = JSON.parse(collectionRaw);
+  if (!Array.isArray(collection) || collection.length !== contract.expectedWholeFileCount || contract.expectedWholeFileCount !== 142 || assertions.length !== collection.length || collection.some(item => item.file !== project+'/tests/ci/packaged-workers.test.ts' || item.projectName !== 'node' || typeof item.name !== 'string')) fail('REPORT_ASSERTIONS');
+  const actualNames = assertions.map(item => [...item.ancestorTitles, item.title].join(' > ')).sort();
+  if (JSON.stringify(actualNames) !== JSON.stringify(collection.map(item => item.name).sort())) fail('REPORT_ASSERTIONS');
+  const native = assertions.filter(item=>Array.isArray(item.ancestorTitles) && item.ancestorTitles.join(' ') === contract.nativeSuite);
+  if (native.length !== 6 || JSON.stringify(native.map(item=>item.title)) !== JSON.stringify(contract.nativeTitles) || native.some(item=>item.fullName !== contract.nativeSuite+' '+item.title)) fail('REPORT_NATIVE');
+  return {platform:process.platform,arch:process.arch,node:process.version,uid:process.getuid(),gid:process.getgid(),capabilities:0,sourceFingerprintSha256:contract.sourceFingerprintSha256,reportSha256:hash(raw),wholeFilePassed:assertions.length,nativeRequiredPassed:6,failed:0,skipped:0,scope:'Actual six Linux process-group cases; all other assertions remain source/report models'};
+}
+(async()=> {
+  verify();
+  if (mode === 'install') await program('/usr/local/bin/npm',['ci','--ignore-scripts','--include=optional','--no-audit','--no-fund','--registry=https://registry.npmjs.org/','--userconfig=/guest/config/npmrc','--globalconfig=/guest/config/global-npmrc','--cache=/guest/cache/npm'],deps,360000);
+  else if (mode === 'dependencies') console.log(JSON.stringify(dependencyBinding()));
+  else if (mode === 'settled') settled();
+  else if (mode === 'collect') {
+    if (process.env.ZENITH_TEST_NATIVE_SUPERVISOR_REQUIRED !== '1' || fs.existsSync('/guest/evidence/collection.json')) fail('REQUIRED_FLAG');
+    await program(process.execPath,[deps+'/node_modules/vitest/vitest.mjs','list','tests/ci/packaged-workers.test.ts','--project','node','--maxWorkers=1','--json=/guest/evidence/collection.json'],project,90000);
+    verify();
+  }
+  else if (mode === 'tests') {
+    if (process.env.ZENITH_TEST_NATIVE_SUPERVISOR_REQUIRED !== '1') fail('REQUIRED_FLAG');
+    await program(process.execPath,[deps+'/node_modules/vitest/vitest.mjs','run','tests/ci/packaged-workers.test.ts','--project','node','--no-file-parallelism','--maxWorkers=1','--reporter=json','--reporter=default','--outputFile.json=/guest/evidence/vitest.json'],project,210000);
+  } else if (mode === 'report') console.log(JSON.stringify(report()));
+  verify();
+})().catch(emitRefusal);

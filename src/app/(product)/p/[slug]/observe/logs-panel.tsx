@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEventStream } from "@/lib/client/api";
-import type { Manifest, Revision } from "@/lib/domain/types";
+import type { AnyManifest, Revision } from "@/lib/domain/types";
 import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -30,7 +30,7 @@ interface WireLine {
 
 export interface LogsPanelProps {
   environmentId: string;
-  working: Manifest;
+  working: AnyManifest;
   running: Revision | undefined;
   runningLoading: boolean;
   runningError?: unknown;

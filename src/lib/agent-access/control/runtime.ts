@@ -224,18 +224,49 @@ let pending: Promise<Coordinator> | undefined;
  * in-flight operation uncertain, because `workerId` is per-process. There it is
  * the lease that decides, on `agentTickPass()`.
  */
+let defaultJournalSelection: { journal: AgentJournal; descriptor: PropertyDescriptor; native: (value: unknown) => boolean } | undefined;
+function selectedJournalDescriptor(): PropertyDescriptor | undefined {
+  const selected = Object.getOwnPropertyDescriptor(globalThis, '__zenithAgentJournal');
+  if (selected && !('value' in selected)) throw new ControlError('grant_unavailable', 'Current native journal selection is unavailable.', 503);
+  return selected;
+}
+function sameSelection(a: PropertyDescriptor | undefined, b: PropertyDescriptor | undefined): boolean {
+  return a === undefined ? b === undefined : !!b && 'value' in a && 'value' in b && a.value === b.value
+    && a.configurable === b.configurable && a.enumerable === b.enumerable && a.writable === b.writable;
+}
+/** Only the default selector can originate membership. This boolean cannot register a caller journal. */
+export function isDefaultAgentJournalSelection(value: unknown): boolean {
+  try {
+    const saved = defaultJournalSelection;
+    return !!saved && saved.journal === value && sameSelection(saved.descriptor, selectedJournalDescriptor()) && saved.native(value);
+  } catch { return false; }
+}
 export async function agentJournal(): Promise<AgentJournal> {
-  if (globalControl.__zenithAgentJournal) return globalControl.__zenithAgentJournal;
-  if (controlCapabilitiesSync().journal === 'postgres') {
-    // Lazy import, inside the branch, so a file-store install never loads
-    // postgres.js at all. The schema check is the journal's own, and remembered.
-    const { pgAgentJournal } = await import('./journal-pg');
-    return (globalControl.__zenithAgentJournal = pgAgentJournal());
+  const before = selectedJournalDescriptor();
+  if (before?.value) return before.value;
+  // This selects the same store without invoking unrelated credential getters.
+  // Read/write entry points retain their complete capability and schema checks.
+  if (isPostgres()) {
+    const { pgAgentJournal, isDefaultPgAgentJournal } = await import('./journal-pg');
+    const after = selectedJournalDescriptor();
+    if (!sameSelection(before, after)) {
+      if (after?.value && isDefaultAgentJournalSelection(after.value)) return after.value;
+      throw new ControlError('grant_unavailable', 'Current native journal selection changed.', 503);
+    }
+    const journal = pgAgentJournal();
+    if (!sameSelection(after, selectedJournalDescriptor())) throw new ControlError('grant_unavailable', 'Current native journal selection changed.', 503);
+    const descriptor = { configurable: true, enumerable: true, writable: true, value: journal };
+    Object.defineProperty(globalThis, '__zenithAgentJournal', descriptor);
+    if (isDefaultPgAgentJournal(journal)) defaultJournalSelection = { journal, descriptor, native: isDefaultPgAgentJournal };
+    return journal;
   }
   claimDataDir(env().ZENITH_DATA);
   const inner = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite'));
   inner.recover();
-  return (globalControl.__zenithAgentJournal = new SqliteAgentJournal(inner));
+  const journal = new SqliteAgentJournal(inner);
+  if (!sameSelection(before, selectedJournalDescriptor())) throw new ControlError('grant_unavailable', 'Current journal selection changed.', 503);
+  Object.defineProperty(globalThis, '__zenithAgentJournal', { configurable: true, enumerable: true, writable: true, value: journal });
+  return journal;
 }
 
 /**
@@ -300,7 +331,7 @@ export function catalog(who: Principal) {
     .map(({scope,mutates,...t})=>({...t, annotations:{ readOnlyHint:!mutates, destructiveHint:mutates, idempotentHint:!mutates, openWorldHint:true }, requiredScope:scope,...(t.name==='zenith_execute_operation'?{requiredAnyScope:['write','publish']}:{} )}));
 }
 const idSchema = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
-const pageSchema = z.object({limit:z.number().int().min(1).max(100).default(50),offset:z.number().int().min(0).max(10000).default(0)});
+const pageSchema = z.object({limit:z.number().int().min(1).max(100).prefault(50),offset:z.number().int().min(0).max(10000).prefault(0)});
 export async function invoke(name: string, args: Record<string, unknown>, whoInput: Principal, selected: SelectedScope, freshIdentity: () => Promise<Principal>, origin: string): Promise<unknown> {
   const who = selectedPrincipal(whoInput, selected), spec = catalog(who).find(t=>t.name===name);
   if (!spec) throw new ControlError('capability_unavailable','This tool is not enabled for the current scopes and deployment topology.',403);

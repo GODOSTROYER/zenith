@@ -1,0 +1,126 @@
+{
+  "schema": "zenith.7313824e-ci-evidence-snapshot.v1",
+  "source_commit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+  "branch": "codex/production-2026-10-02",
+  "observed_run_state": "in_progress",
+  "main_ci": {
+    "run_id": 38123549396,
+    "expected_jobs": 28,
+    "success": 19,
+    "failure": 0,
+    "active": 1,
+    "skipped": 8,
+    "terminal": false
+  },
+  "go_job": {
+    "run_id": 38123549396,
+    "job_id": 114423073578,
+    "conclusion": "success",
+    "source_sha256": "e2130e810f202154d67ea1296194092df065e87d775f8ea12a4d3e4c234e1b4f",
+    "phases": {
+      "race": {
+        "passed": 1074,
+        "failed": 0,
+        "skipped": 3,
+        "leaves": 1077,
+        "required_identities": 154,
+        "required_passed": 154
+      },
+      "package_native": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "required_identities": 4,
+        "required_passed": 4
+      },
+      "pid1_native": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "required_test": "TestSystemdSignedUpdateAndRollback"
+      },
+      "goldens": {
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0,
+        "required_identities": 2,
+        "required_passed": 2
+      }
+    },
+    "systemd": {
+      "ops_passed": 7,
+      "signed_passed": 6,
+      "cleanup": "systemd cleaned; canonical absent"
+    },
+    "promotion": false
+  },
+  "native_packaged_workers": {
+    "run_id": 38123549401,
+    "run_number": 83,
+    "conclusion": "success",
+    "architectures": [
+      {
+        "platform": "linux/amd64",
+        "job_id": 114423073076,
+        "job_conclusion": "success",
+        "artifact_zip_sha256": "24df780f8eb64bb22e9dceb9de37c003d3b73b5bf4123b2e169b6f392b5d776b",
+        "emulated": false
+      },
+      {
+        "platform": "linux/arm64",
+        "job_id": 114423072986,
+        "job_conclusion": "success",
+        "artifact_zip_sha256": "9b24081be7119f12186d81b39d8584576bbc78a55386e6268633302f7ec7f940",
+        "emulated": false
+      }
+    ],
+    "scope": "Native packaged-worker jobs only."
+  },
+  "native_skipped_platforms": {
+    "run_id": 38123549406,
+    "conclusion": "success",
+    "selected_jobs": [
+      {
+        "job": "linux-systemd",
+        "job_id": 114423072993,
+        "conclusion": "success",
+        "leaf": "TestRealSystemctlAndJournalctl",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "job": "windows-acl",
+        "job_id": 114423073084,
+        "conclusion": "success",
+        "leaf": "private login config refuses inherited ACLs that grant other identities access",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excluded_siblings": 15
+      }
+    ],
+    "scope": "Selected leaves only; not the full Linux systemd or Windows CLI suite."
+  },
+  "security_audit": {
+    "run_id": 38123549396,
+    "job_id": 114423073691,
+    "conclusion": "success",
+    "known_dependency_findings": 0,
+    "exception_registry_entries": 0,
+    "lock_integrity": "924 packages integrity-pinned",
+    "historical_8_vs_7_discrepancy_resolved": false
+  },
+  "artifact_source_sha256": {
+    "native_workers_report": "98aa3606615094a6e0b0dd8fa9295c9ab3411ee56df960f26d3d511905a958a3",
+    "native_platforms_report": "ea646745b750bc0535cfbb7aecb78e8921678907e3d7e1da519e643918674f52",
+    "go_native_inventory": "91d746b220c2ddd2f25128679d1f53c902b257e7ffbc5a847c6370f12b3d70eb",
+    "security_job_report": "7dcdcb53dd982b06eb15d4c6a25a3c7e98c22cf5cf16d292c58035df087acdc5"
+  },
+  "limitations": [
+    "Main CI is not terminal; the 19/1-active/8-skipped inventory is a point-in-time snapshot.",
+    "Go success is one required job, not overall workflow completion.",
+    "No native100 phase is inferred.",
+    "No milestone promotion or release acceptance is claimed."
+  ]
+}

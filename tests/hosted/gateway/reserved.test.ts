@@ -77,7 +77,7 @@ describe("the sign-in page", () => {
 
     const html = await res.text();
     expect(html).toContain("Open this app from Zenith");
-    expect(html).toContain(`href="${CONTROL_ORIGIN}/apps"`);
+    expect(html).toContain(`href="${CONTROL_ORIGIN}/api/hosted/apps/${alpha.id}/launch?state=`);
     expect(html).not.toContain("<script");
     expect(html).not.toContain("onclick");
     expect(html).not.toContain("<input");
@@ -111,6 +111,7 @@ describe("the exchange callback", () => {
     const { req, params } = await call({
       path: "/_zenith/auth/callback?code=good-code&state=browser-state",
       accept: "text/html",
+      cookie: "__Host-zenith_login=browser-state",
     });
     const res = await handleGateway(req, params);
 
@@ -129,6 +130,7 @@ describe("the exchange callback", () => {
     const { req, params } = await call({
       path: "/_zenith/auth/callback?code=stale&state=browser-state",
       accept: "text/html",
+      cookie: "__Host-zenith_login=browser-state",
     });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(303);
@@ -147,6 +149,7 @@ describe("the exchange callback", () => {
     const { req, params } = await call({
       path: "/_zenith/auth/callback?code=code-2&state=someone-elses-state",
       accept: "text/html",
+      cookie: "__Host-zenith_login=someone-elses-state",
     });
     const res = await handleGateway(req, params);
     expect(res.headers.get("location")).toBe("/_zenith/auth/signin?error=forbidden");

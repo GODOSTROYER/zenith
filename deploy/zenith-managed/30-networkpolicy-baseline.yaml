@@ -1,0 +1,83 @@
+# NetworkPolicy baseline for the PLATFORM namespaces. Tenant namespaces get
+# their own default-deny and allow policies from Zenith (zenith-default-deny,
+# zenith-allow-platform); those are not here.
+#
+# Enforcement needs a CNI that implements NetworkPolicy (Calico, Cilium, ...).
+# On a CNI that does not, every policy below and every tenant policy is inert.
+# Verify it (README, "Verify the cluster") before putting a tenant on it.
+#
+# These are starting points. Gateway data planes and controllers differ in what
+# they must reach (xDS, the API server); adapt the zenith-gateway policy to yours.
+---
+# zenith-system: deny everything, then allow DNS and HTTPS egress and nothing in.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zenith-default-deny
+  namespace: zenith-system
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zenith-allow-dns-and-https
+  namespace: zenith-system
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 6443 }
+---
+# zenith-gateway: the internet may reach 80/443; the gateway may reach tenant
+# namespaces and DNS, nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zenith-gateway-default-deny
+  namespace: zenith-gateway
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zenith-gateway-allow
+  namespace: zenith-gateway
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: 80 }
+        - { protocol: TCP, port: 443 }
+        # REPLACE: add your implementation's health/metrics ports if its probes come from outside the pod
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              zenith.dev/tenant: "true"
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }

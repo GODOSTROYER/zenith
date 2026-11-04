@@ -1,0 +1,108 @@
+{
+  "id": "PROD-LIFE-12",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 236,
+  "failed": 0,
+  "skipped": 0,
+  "commandTargets": [
+    "tests/ownership",
+    "tests/capabilities/field-ownership-broker.test.ts",
+    "tests/providers/aws/drivers/compute/ecs-ownership-lifecycle.test.ts",
+    "tests/capabilities/ownership-transfers.test.ts",
+    "tests/controlplane/tenancy.test.ts",
+    "tests/controlplane/migrations.test.ts",
+    "tests/security/controlplane-sql-scoping.test.ts",
+    "tests/ci/platform-coverage.test.ts",
+    "tests/docs/operator-docs.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24154890240,
+  "diskMinBytes": 24136331264,
+  "diskAfterBytes": 24154087424,
+  "elapsedSeconds": 42.16,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "b671424b8153e3f06d2b5af40664743d5a90c8cddd853f19c441ddb7afdc7f65",
+  "perFile": [
+    {
+      "file": "tests/capabilities/field-ownership-broker.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/capabilities/ownership-transfers.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/ci/platform-coverage.test.ts",
+      "passed": 66,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/tenancy.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/operator-docs.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/ownership/field-ownership.test.ts",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/security/controlplane-sql-scoping.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/aws/drivers/compute/ecs-ownership-lifecycle.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open."
+}

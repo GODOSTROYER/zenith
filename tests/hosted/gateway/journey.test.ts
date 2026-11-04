@@ -78,7 +78,7 @@ async function signIn(subject: string): Promise<string> {
   expect(url.host).toBe("alpha.apps.localhost:3400");
   expect(url.pathname).toBe("/_zenith/auth/callback");
 
-  const { req, params } = await call({ path: `${url.pathname}${url.search}`, accept: "text/html" });
+  const { req, params } = await call({ path: `${url.pathname}${url.search}`, accept: "text/html", cookie: `__Host-zenith_login=${state}` });
   const res = await handleGateway(req, params);
   expect(res.status).toBe(303);
   expect(res.headers.get("location")).toBe("/");

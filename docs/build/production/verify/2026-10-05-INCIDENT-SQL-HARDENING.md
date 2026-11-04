@@ -1,0 +1,9 @@
+# Incident database failure fixes on the published schema
+
+Append-only platform migration 28 ports the reviewed incident hardening SQL without changing its SQL checksum. It enables RLS without policies on the four incident tables, revokes existing anon/authenticated rights, grants existing service_role only SELECT/INSERT/UPDATE/DELETE, and adds the workspace-leading runbook schedule index. Published platform migrations 1–27 and Supabase snapshots through 0020 remain exact. The registry appends 28/29 and the bootstrap appends only the new aggregate0021.
+
+Audit appends take a transaction advisory lock for the fixed namespace and JSON-encoded workspace/subject before reading the latest sequence. Immutable rows, hash construction, scoped authorization and bounded retries remain. The existing concurrent case preserves its title and original controls and adds twelve further independent-pool writers, prefix retention and separate tenant/subject chains.
+
+The two native migrator controls retain their names. Fresh direct/emitted paths compare exact incident RLS/ACLs, require existing canonical roles and verify client SQLSTATE42501. The schema20 control now traverses published21–27, records their complete ledger, and checks both incident rows and all published ledger timestamps/checksums through new28 and aggregate0021. It never repairs canonical role attributes.
+
+The new snapshot was derived from the renderer's literal inputs with the same formatting/checksum algorithm; that source derivation first reproduced published0020 byte-for-byte. No project import or generator/test execution ran. Root must run `npx tsx scripts/platform/emit-sql.ts --check`, migration/runbook tests, native ownership and strict fresh/reapply PostgreSQL/Supabase gates. New-source execution and independent review remain pending.

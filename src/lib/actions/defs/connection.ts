@@ -8,6 +8,7 @@ import { defineAction } from "@/lib/actions/core";
 import { db, q, save } from "@/lib/db/store";
 import { id, ProviderId, type CloudConnection } from "@/lib/domain/types";
 import { getProvider, providerRegistry, type ProviderAdapter, type PreflightReport } from "@/lib/providers/types";
+import { bridgeDeps } from "@/lib/bridge/deps";
 import { getEngine } from "./_engine";
 import { requireConnection } from "./_shared";
 
@@ -29,6 +30,9 @@ function checkLines(report: PreflightReport): string[] {
 }
 
 /* ----------------------------- connection.create --------------------------- */
+
+const ZENITH_ELSEWHERE =
+  "The Zenith-managed platform is a platform-linked connection: create it with connection.createZenith (Platform, Connections), which records it in the platform store so deploys can run through it.";
 
 const CreateConn = z.object({
   provider: ProviderId,
@@ -58,16 +62,28 @@ defineAction<CreateConn>({
     const adapter = await adapterFor(input.provider);
     const access = adapter.accessExplanation();
     const region = resolveRegion(adapter, input.region);
+    const availability = input.provider === "aws" ? "preview" : adapter.availability;
     const planned = adapter.availability === "planned";
+    if (input.provider === "zenith")
+      return {
+        summary: "Use the Zenith-managed platform from Platform, Connections.",
+        details: [ZENITH_ELSEWHERE],
+        costDeltaUsd: 0,
+        risk: "low",
+        warnings: [],
+        requiresApproval: false,
+        blocked: ZENITH_ELSEWHERE,
+      };
     return {
       summary: planned
         ? `${adapter.displayName} cannot be connected yet.`
         : `Connect ${adapter.displayName} in ${region}.`,
       details: [
-        `${adapter.displayName} is ${adapter.availability}: ${adapter.tagline}`,
+        ...(input.provider === "aws" ? ["This creates a legacy Preview connection for plan/export. Use connection.createAws for keyless platform execution."] : []),
+        `${adapter.displayName} is ${availability}: ${input.provider === "aws" ? "This legacy connection plans and exports Terraform only." : adapter.tagline}`,
         access.summary,
         ...access.permissions.map((p) => `Grants: ${p}`),
-        adapter.availability === "preview"
+        availability === "preview"
           ? "Preview means Zenith plans and exports for this provider, but does not apply changes to it."
           : "",
       ].filter(Boolean),
@@ -80,6 +96,7 @@ defineAction<CreateConn>({
     };
   },
   async execute(ctx, input) {
+    if (input.provider === "zenith") return { ok: false, summary: "Use the Zenith-managed platform from Platform, Connections.", error: ZENITH_ELSEWHERE };
     const adapter = await adapterFor(input.provider);
     if (adapter.availability === "planned")
       return {
@@ -124,7 +141,7 @@ defineAction<CreateConn>({
     return {
       ok: true,
       summary:
-        `Connected ${conn.label} (${adapter.availability}). ${passed} of ${report.checks.length} preflight check(s) passed` +
+        `Connected ${conn.label} (${input.provider === "aws" ? "preview" : adapter.availability}). ${passed} of ${report.checks.length} preflight check(s) passed` +
         (warned ? `, ${warned} with a caveat.` : "."),
       data: { connectionId: conn.id, status: conn.status, checks: report.checks, permissions: report.permissions },
     };
@@ -170,6 +187,19 @@ defineAction<ConnRef>({
   },
   async execute(ctx, input) {
     const conn = requireConnection(ctx, input.connectionId);
+    if (conn.provider === "zenith") {
+      // A managed connection is platform-linked: the check must record on the platform row (what the deploy route reads),
+      // not only on the product mirror, so it is the same verification the platform surfaces run.
+      const { verifyAnyConnection, LifecycleRefusal } = await import("@/lib/connections/service");
+      try {
+        const outcome = await verifyAnyConnection(ctx, conn.platformConnectionId ?? conn.id);
+        return { ok: outcome.ok, summary: outcome.ok ? `${conn.label} is healthy.` : `${conn.label} is not usable yet.`, ...(outcome.ok ? {} : { error: outcome.detail }),
+          data: { connectionId: conn.id, status: q.connection(conn.id)?.status ?? conn.status, detail: outcome.detail, scope: outcome.scope } };
+      } catch (error) {
+        if (error instanceof LifecycleRefusal) return { ok: false, summary: `${conn.label} could not be checked.`, error: error.message };
+        throw error;
+      }
+    }
     const adapter = await adapterFor(conn.provider);
     const report = await adapter.preflight(conn);
     conn.status = statusFrom(report);
@@ -237,7 +267,7 @@ defineAction<ConnRef>({
       blocked: blocked ? stillInUse(conn, users) : undefined,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const conn = requireConnection(ctx, input.connectionId);
     const users = usersOf(conn.id);
     if (users.length)
@@ -246,6 +276,23 @@ defineAction<ConnRef>({
         summary: `${conn.label} is still in use.`,
         error: stillInUse(conn, users),
       };
+    // A platform-linked connection also holds trust records in the control store.
+    // Forgetting only the product row would leave a verified, dispatchable
+    // platform connection nobody can see or revoke, so revoke it first (terminal,
+    // audited) and refuse to forget the product row if that cannot be recorded.
+    if (conn.platformConnectionId) {
+      try {
+        const { repos } = await import("@/lib/controlplane/db");
+        const sql = await bridgeDeps().connectionSql();
+        await repos.connections.revokeAudited(sql, { workspaceId: ctx.workspaceId, id: conn.platformConnectionId, actorId: ctx.actor.id, reason: "disconnected" });
+      } catch {
+        return {
+          ok: false,
+          summary: `${conn.label} could not be disconnected.`,
+          error: "Its platform trust record could not be revoked, so it was kept. Restore the platform store, or revoke it with connection.revoke, then retry.",
+        };
+      }
+    }
     db().connections = db().connections.filter((c) => c.id !== conn.id);
     save();
     return {

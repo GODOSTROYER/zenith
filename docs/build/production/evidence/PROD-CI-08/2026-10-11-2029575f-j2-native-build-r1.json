@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "native_arm64_j2_witness_build",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "platform": "linux/arm64",
+  "buildStatus": "passed",
+  "buildExitCode": 0,
+  "imageId": "sha256:1402a3d8bbeff805595337d6de32b529df501414e35abeae00b1bdcb635a5fd5",
+  "runtimeUser": "65532:65532",
+  "push": false,
+  "runtimeInvoked": false,
+  "processesAbsent": true,
+  "nativeSummarySha256": "da3fe73579c3307d0bae7ab55ce839936e67a9a3bdc06d5b9170a1b799344005",
+  "independentReviewSha256": "e75d9ce81bf1747a78294fb823e79193390452f171497347992d9bcfba4b9d13",
+  "boundR16SummarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+  "disposition": "PASS_BUILD_ONLY",
+  "scopeLimit": "Native image-build witness only. No runtime image invocation or runtime acceptance."
+}

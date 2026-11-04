@@ -1,0 +1,18 @@
+{
+  "platform": "linux/arm64",
+  "sourceCommit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+  "sourceClean": true,
+  "commandExitCode": 1,
+  "seconds": 0.62,
+  "diagnosticLogSha256": "b5a81dce840b72096e31252f91554b68b55b4dd73a7e8f05548801693c0d2ea5",
+  "cleanup": {
+    "ownedLabelMatched": false,
+    "removed": false,
+    "absent": true
+  },
+  "scope": "Diagnostic image build only, no worker/startup/services proof.",
+  "failureCategory": "docker_storage_io",
+  "fixedError": "write /var/lib/desktop-containerd/daemon/io.containerd.metadata.v1.bolt/meta.db: input/output error",
+  "hostFreeSpace": "376 MiB, 100% capacity at failure",
+  "startupProof": false
+}

@@ -69,6 +69,43 @@ import { evaluateAll, replayOutbox } from "@/lib/alerts";
 import { log, withRequestId } from "@/lib/log";
 import { isServerless } from "@/lib/serverless";
 
+/** Platform-only boot after cron authentication; unconfigured hosts do no platform work. */
+export async function ensurePlatformCron(): Promise<boolean> {
+  if (!process.env.ZENITH_PLATFORM_DB?.trim()
+    && !process.env.ZENITH_PLATFORM_DB_URL?.trim()
+    && !process.env.SUPABASE_DB_URL?.trim()) return false;
+  const { ensurePlatformApp } = await import("@/lib/platform/app");
+  return ensurePlatformApp();
+}
+
+async function reapPlatformJobs(): Promise<void> {
+  if (!(await ensurePlatformCron())) return;
+  // Same lease, record and durable-deferral as the Temporal maintenance schedule (PROD-OBS-04).
+  const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+  await runFallbackJob("runner-reaper", (db) => MAINTENANCE_JOBS["runner-reaper"](db), { ran: false, jobs: 0 });
+}
+
+/** Control-store-only pass; authentication belongs to the calling cron route. */
+export async function housekeepingTickPass(): Promise<import("@/lib/platform/housekeeping").HousekeepingResult> {
+  if (!(await ensurePlatformCron())) return { ran: false, idempotencyKeys: 0, nonces: 0, uncertain: 0, expired: 0 };
+  try {
+    const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+    const idle = { ran: false, idempotencyKeys: 0, nonces: 0, uncertain: 0, expired: 0 };
+    const { deferred: _deferred, ...result } = await runFallbackJob("housekeeping", (db) => MAINTENANCE_JOBS.housekeeping(db), idle);
+    return result;
+  } catch {
+    throw new ApiError("Platform housekeeping could not complete; check control store connectivity and schema.", 503);
+  }
+}
+
+/** Signed-runbook schedules and due runs; control-store only, bounded, lease-guarded. */
+export async function runbookTickPass(): Promise<import("@/lib/platform/runbooks").RunbookTickResult> {
+  if (!(await ensurePlatformCron())) return { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 };
+  const { runFallbackJob, MAINTENANCE_JOBS } = await import("@/lib/platform/critical-jobs");
+  const { deferred: _deferred, ...result } = await runFallbackJob("runbooks", () => MAINTENANCE_JOBS.runbooks(), { ran: false, created: 0, missed: 0, blocked: 0, executed: 0 });
+  return result;
+}
+
 /* ------------------------------ authorisation ----------------------------- */
 
 /** The environment variable Vercel itself names, and sends as a bearer token. */
@@ -268,6 +305,7 @@ export interface JobTickResult {
  * pretending to have finished anything.
  */
 export async function jobTickPass(): Promise<JobTickResult> {
+  await reapPlatformJobs();
   const { authorityOpen } = await import("@/lib/hosted/authority");
   if (!authorityOpen()) return { ran: false, queued: 0, remaining: 0 };
   const { queuedJobs, tickJobs } = await import("@/lib/hosted/release");
@@ -308,7 +346,7 @@ export const SCHEDULER_ENGINE_BUDGET_MS = 5_000;
 /**
  * The passes one scheduled tick runs, indirected so a test can observe them.
  *
- * Not a plugin point: production reads exactly these three, in this order, and
+ * Not a plugin point: production reads these passes in this order, and
  * `/api/internal/tick/*` calls the same functions directly. `jobTickPass()` is
  * deliberately absent — the hosted job runner reads the hosted authority, not
  * the product snapshot, so it never lost its own 250 ms ticker
@@ -316,9 +354,12 @@ export const SCHEDULER_ENGINE_BUDGET_MS = 5_000;
  * return). Adding it here would tick it twice.
  */
 export const scheduledPasses = {
-  engine: engineTickPass,
-  alerts: alertTickPass,
-  outbox: outboxTickPass,
+  // Same lease, run record and durable-deferral as the HTTP routes (PROD-OBS-04); the result shape is unchanged.
+  engine: (budgetMs?: number) => fallbackPass("engine", async () => ({ ...(await engineTickPass(budgetMs)) })) as unknown as Promise<EngineTickResult>,
+  alerts: () => fallbackPass("alerts", async () => ({ ...(await alertTickPass()) })) as unknown as Promise<AlertTickResult>,
+  outbox: () => fallbackPass("outbox", async () => ({ ...(await outboxTickPass()) })) as unknown as Promise<OutboxTickResult>,
+  housekeeping: housekeepingTickPass,
+  runbooks: runbookTickPass,
 };
 
 export interface SchedulerPassResult {
@@ -326,6 +367,8 @@ export interface SchedulerPassResult {
   /** absent on a fast pass — alerts and the outbox run every `SCHEDULER_SLOW_EVERY` */
   alerts?: AlertTickResult;
   outbox?: OutboxTickResult;
+  housekeeping?: import("@/lib/platform/housekeeping").HousekeepingResult;
+  runbooks?: import("@/lib/platform/runbooks").RunbookTickResult;
   ms: number;
 }
 
@@ -364,6 +407,10 @@ export async function runScheduledPass(): Promise<SchedulerPassResult | null> {
         if (slow) {
           result.alerts = await scheduledPasses.alerts();
           result.outbox = await scheduledPasses.outbox();
+          await reapPlatformJobs();
+          result.housekeeping = await scheduledPasses.housekeeping();
+          // a runbook failure must never take the engine pass down with it
+          try { result.runbooks = await scheduledPasses.runbooks(); } catch { log.warn("runbook pass failed", { scope: "cron" }); }
         }
         result.ms = Date.now() - started;
         return result;
@@ -411,7 +458,7 @@ export function startCronScheduler(): boolean {
     scope: "cron",
     reason: "ZENITH_STORE=postgres on a long-lived host: no engine ticker, no boot catch-up",
     everyMs: SCHEDULER_INTERVAL_MS,
-    passes: ["engine", `alerts+outbox every ${SCHEDULER_SLOW_EVERY}`],
+    passes: ["engine", `alerts+outbox+platform housekeeping every ${SCHEDULER_SLOW_EVERY}`],
   });
   return true;
 }
@@ -430,6 +477,14 @@ export const cronSchedulerRunning = (): boolean =>
 
 /* --------------------------------- routing -------------------------------- */
 
+/** Engine/alerts/outbox are durable-first (PROD-OBS-04): the HTTP trigger shares the lease and run record and defers while Temporal is current. */
+async function fallbackPass(name: string, run: () => Promise<Record<string, unknown>>): Promise<Record<string, unknown>> {
+  if (name !== "engine" && name !== "alerts" && name !== "outbox") return run();
+  if (!(await ensurePlatformCron())) return run();
+  const { runFallbackJob, countsOf } = await import("@/lib/platform/critical-jobs");
+  return runFallbackJob(name, async () => { const value = await run(); return { value, performed: true, counts: countsOf(value) }; }, {} as Record<string, unknown>);
+}
+
 /**
  * The wrapper every internal route uses.
  *
@@ -447,11 +502,16 @@ export function cronRoute(
     return withRequestId(requestId, async () => {
       try {
         authorizeCron(req);
-        const { ensureBoot } = await import("@/lib/server/boot");
-        await ensureBoot();
+        // Reuse the existing jobs route without requiring an unowned new route.
+        // This branch is control-store-only and runs after the same bearer gate.
+        const housekeeping = name === "jobs" && req.nextUrl.searchParams.get("housekeeping") === "1";
+        if (!housekeeping) {
+          const { ensureBoot } = await import("@/lib/server/boot");
+          await ensureBoot();
+        }
         const started = Date.now();
-        const counts = await inCronScope(() => pass(req));
-        const body = { pass: name, ok: true, ms: Date.now() - started, ...counts };
+        const counts = housekeeping ? await housekeepingTickPass() : await inCronScope(() => fallbackPass(name, () => pass(req)));
+        const body = { pass: housekeeping ? "housekeeping" : name, ok: true, ms: Date.now() - started, ...counts };
         log.info("internal tick", { scope: "cron", ...body });
         const res = json(body);
         res.headers.set("x-request-id", requestId);

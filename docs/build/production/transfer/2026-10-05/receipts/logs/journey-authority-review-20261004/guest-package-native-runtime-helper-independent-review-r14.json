@@ -1,0 +1,61 @@
+{
+  "disposition": "ACCEPTED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-runtime-helper-20261005/revision14/FROZEN-SOURCE.json",
+    "sha256": "2cd5f237ea9463fa55c9a528492a9aee5f10d345f7ee6a314ff6a41f3b1d0640"
+  },
+  "helper": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/helpers/run_guest_package_native_linux_r14.py",
+    "sha256": "e6b0a8cf308a53ac4c27df1a5ac4c49a4ade1c23577c6ef9d806f8ada9a806da",
+    "bytes": 43845
+  },
+  "previousHelper": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/helpers/run_guest_package_native_linux_r13.py",
+    "sha256": "dc4a788a13169c57ddf34f1a1b4574dac64ac781b9f263fc30bfa3470429a0bb"
+  },
+  "delta": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-runtime-helper-20261005/revision14/helper-source-rebind.patch",
+    "sha256": "2f75c4298c8c836559b4dd051206415724ac91c515de1b73610639e89bd83fb5",
+    "bytes": 6197
+  },
+  "sourceContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-runtime-helper-20261005/revision14/EXECUTION-SOURCE-CONTRACT.json",
+    "sha256": "1cff638baeacbee93e1db8b499fb6c23055f5344690aad45b6e68a85dc5fa372",
+    "goPaths": 273
+  },
+  "packageFreeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE-CORRECTED.json",
+    "sha256": "8ecf6ecd4c26162739b2ae374869c42c58bf70a5f5cf9e6945893ddf43951af6"
+  },
+  "acceptedPackageReview": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/guest-package-native-status-independent-review-r6.json",
+    "sha256": "539d25d754013ea73871320865c7e6c76122a64591967fd56a2720ec7b45be83"
+  },
+  "mechanicalChecks": {
+    "threeHunksOnly": true,
+    "pureForwardReverseRestoresEveryOtherR13Byte": true,
+    "pythonASTParseOnlyNoExecution": true,
+    "completeGoInventoryRawHashBytesMode": 273,
+    "packageRawIndexBeforeAfter": "225def057c222bd33fda3f1b1eeb7a48ce696c1741992bdf1ee165a00fa2ad19",
+    "sourceCandidateTree": "f2f8779e77ca7cb1ac3df57031503f4794d79811"
+  },
+  "identityChecks": {
+    "oldLinuxModeledLeavesRetained": 7,
+    "newParserModeledLeaves": 24,
+    "strictLinuxModeledTotal": 31,
+    "requiredModelTerminalIdentitiesIncludingParents": 33,
+    "nativeParentCasesUnchanged": 4,
+    "signedChildCasesUnchanged": 5,
+    "exactCaseSourceHashesBound": true
+  },
+  "sourceObservations": [
+    "The three hunks rebind accepted R6 source/CASE and extend only finite Linux model names, run regex and exact matching parent set. All malformed/action/package/failure/skip/duplicate/missing/package-pass/source/current-attempt checks restore bytewise R13.",
+    "New24 names equal the independently reviewed R6 literal table and append after old7. No skip or zero allowance is added.",
+    "Pinned Debian/tool/source, native4/signed5, resource reserve/caps/transport/ext4/atomic-loop identity, Docker mutation and exec uncertainty pinning, raw metadata preservation and exact-owned cleanup remain byte-exact R13.",
+    "Direct fixture source only; installed systemd/zero-cap daemon/default backend/lifecycle proof remains outside scope. R13 Linux7 pass/native1P3F and missing signed controls stay historical."
+  ],
+  "sourceFindings": [],
+  "runtime": "UNRUN_BY_REVIEWER",
+  "onlyOwnImmutableReviewReceiptWritten": true,
+  "noProjectImportsCompilerTestsServicesDockerInstallSourceGitWrites": true
+}

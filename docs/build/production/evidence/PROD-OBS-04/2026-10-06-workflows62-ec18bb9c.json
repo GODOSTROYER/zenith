@@ -1,0 +1,1046 @@
+{
+  "schemaVersion": 1,
+  "lane": "workflows",
+  "validatedAt": "2026-10-06T17:37:45.636Z",
+  "verdict": "passed",
+  "provenance": {
+    "commit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+    "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedContentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "worktreeDirty": false,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "f66f2eb95287dc4fc8a677f0d39ea3498c13653492328c67b62c77313486cd5d"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "6bdb58c3153be9d6ccc0f383a02fd48866a018fc87fc737395e465c5ecd052fc"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "46100a42f23954ac95b2bc9e708b3d80fb58a06e73a954c6ed83d6020897a01f"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "56a63b14daa9cb87f2239fd0b7f597e9ceaefb8360542a8a6691f968e456a9f1",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": null,
+        "installed": null
+      }
+    ],
+    "vendoredDependencies": [
+      {
+        "component": "@open-policy-agent/opa-wasm",
+        "storage": "vendored-modified-source",
+        "upstreamVersion": "1.10.0",
+        "securityPatch": "numeric-precision-validation-1",
+        "status": "matched",
+        "complete": true,
+        "provenanceSha256": "54abbbc7cf09a635c7fc24a66c547b023c7d82737dc4e98ca1fa2a1584245cd3",
+        "sources": [
+          {
+            "file": "index.mjs",
+            "sha256": "db7b1eaf9bd4828d0c50f43440c525110b47310b9aa4e39606c5450c474286e2"
+          },
+          {
+            "file": "index.d.mts",
+            "sha256": "7dfa87edb2b08a15879377c26aea551c24ab9f2314bc833b5a82df3cd53c5a91"
+          },
+          {
+            "file": "opa.js",
+            "sha256": "18a4b7e888b356d937a8423859a3bc3f2fae2ac664b81d860dfa5771d3228a5e"
+          },
+          {
+            "file": "opa.d.ts",
+            "sha256": "254d8538f955f1e34341eb76b64d71f2fa0137add7f96fa046cbc76e6f89ab7d"
+          },
+          {
+            "file": "builtins/index.js",
+            "sha256": "68309c2a9e6a93a6cebc156f5febbe534365f42272670b8dc93cb4afb795a3f0"
+          },
+          {
+            "file": "builtins/json.js",
+            "sha256": "23312c75897dea6e270a1f05593d4eb6a00266be729d287923cb621f85f99c46"
+          },
+          {
+            "file": "builtins/regex.js",
+            "sha256": "f33d0938a3ce676450c20f2a46bfedafe97c0fd6a946744c00ca4b68dd9adba5"
+          },
+          {
+            "file": "builtins/strings.js",
+            "sha256": "6390fc0618ae1f3fc0e8cc3d2a35c8ba38a2d890435aaa3a113af563973606ed"
+          },
+          {
+            "file": "builtins/yaml.js",
+            "sha256": "469c2c58b2d14ac932509a66cba0bb7f2ec44fbce61da828bd4a26bfa66f84d7"
+          },
+          {
+            "file": "builtins/sprintf.js",
+            "sha256": "3a3dcc5199af5b2f762a016991a7f335108d1d6f8c8980fe454ee228a3e36b78"
+          },
+          {
+            "file": "LICENSE-OPA",
+            "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+          },
+          {
+            "file": "LICENSE-SPRINTF",
+            "sha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef"
+          }
+        ]
+      }
+    ],
+    "environment": {
+      "sha256": "076d64af7162757d3f94f1e75459b5a549f5bdfca64a22904aa18667b88a4ec2",
+      "inventorySha256": "81641e4fc862cc265bc69369f5821ea24f3fd52a0b2787c86f4d4f9e4c7872a5",
+      "shellContextSha256": "bcd24814f5c4b74643d1467cee7fd55b59b19e42cfdd8774b5efc041fe73885d",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "0e451bfd86034f9d3a87c7d3ddec24134c6d85f3800af8eff2bac83feed1d09c",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "88549d535746508e1913203d8d6416ed2152dabdc1727ead7d54d1120b112383",
+  "manifestSha256": "ff590423bb198c3a11a5146556d584a53d1111df60198af3643cb98af71ad8cd",
+  "expectedTools": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "temporal": "1.9.1"
+  },
+  "counts": {
+    "total": 1275,
+    "passed": 1275,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "workflows:tests/workflows/approval-time.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/approval-time.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/caller-payloads.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/caller-payloads.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/client.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/client.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/codec-replay.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/codec-replay.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/codec-wiring.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/codec-wiring.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 27,
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/codec.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/codec.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 45,
+        "passed": 45,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/config.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/config.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/critical-schedule.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/critical-schedule.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/destroy-replay.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/destroy-replay.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/destroy.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/destroy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/failures.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/failures.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 44,
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/mtls-config.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/mtls-config.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 29,
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/operations.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/operations.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/payload-boundary.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/payload-boundary.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/reconcile-schedule.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/reconcile-schedule.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/reconcile.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/reconcile.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/replay.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/replay.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/sandbox.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/sandbox.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 58,
+        "passed": 58,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/worker.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/worker.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/agent-ports.test.ts:4ee93ed6c454",
+      "file": "tests/platform/agent-ports.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/approved-source-runtime.test.ts:4ee93ed6c454",
+      "file": "tests/platform/approved-source-runtime.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 27,
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/aws-bootstrap-preflight-admission.test.ts:4ee93ed6c454",
+      "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 37,
+        "passed": 37,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/composition.test.ts:4ee93ed6c454",
+      "file": "tests/platform/composition.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/credentials-verification.test.ts:4ee93ed6c454",
+      "file": "tests/platform/credentials-verification.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 89,
+        "passed": 89,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/critical-jobs.test.ts:4ee93ed6c454",
+      "file": "tests/platform/critical-jobs.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/current-dispatch-requirement.test.ts:4ee93ed6c454",
+      "file": "tests/platform/current-dispatch-requirement.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/deploy-e2e.test.ts:4ee93ed6c454",
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/housekeeping.test.ts:4ee93ed6c454",
+      "file": "tests/platform/housekeeping.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/kubernetes-vault-target.test.ts:4ee93ed6c454",
+      "file": "tests/platform/kubernetes-vault-target.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/machine-composition.test.ts:4ee93ed6c454",
+      "file": "tests/platform/machine-composition.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/oci-sessions.test.ts:4ee93ed6c454",
+      "file": "tests/platform/oci-sessions.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/plan-approval-routes.test.ts:4ee93ed6c454",
+      "file": "tests/platform/plan-approval-routes.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/plan-approval.test.ts:4ee93ed6c454",
+      "file": "tests/platform/plan-approval.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 36,
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/release-multi.test.ts:4ee93ed6c454",
+      "file": "tests/platform/release-multi.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/release.test.ts:4ee93ed6c454",
+      "file": "tests/platform/release.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/secret-grants.test.ts:4ee93ed6c454",
+      "file": "tests/platform/secret-grants.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle-azure.test.ts:4ee93ed6c454",
+      "file": "tests/platform/source-bundle-azure.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle-composition.test.ts:4ee93ed6c454",
+      "file": "tests/platform/source-bundle-composition.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle-github.test.ts:4ee93ed6c454",
+      "file": "tests/platform/source-bundle-github.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:382ab8a7f122",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 56,
+        "passed": 56,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:fb1aa6d12b58",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:53e02775a33f",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:06370cdf74cb",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/security/workflow-history.test.ts:4ee93ed6c454",
+      "file": "tests/security/workflow-history.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/execution/ecs-replica-repair.test.ts:85943f4d2884",
+      "file": "tests/execution/ecs-replica-repair.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 33,
+        "passed": 33,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/execution/ecs-replica-repair.test.ts:0e1394a4321c",
+      "file": "tests/execution/ecs-replica-repair.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/execution/ecs-replica-repair.test.ts:9adbe8c32a4d",
+      "file": "tests/execution/ecs-replica-repair.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts:da371ce5aa6c",
+      "file": "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/ecs-replica-repair-grants.test.ts:4ee93ed6c454",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/ecs-replica-repair.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/ecs-replica-repair.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:262fde84a654",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:1b28f9707f83",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:e2b57feb955f",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:9c2e1ea002fe",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:7643e33e12b6",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/failures.test.ts:b1d32a17244b",
+      "file": "tests/workflows/failures.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/failures.test.ts:a3e2d5ecad42",
+      "file": "tests/workflows/failures.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/execution/release.test.ts:c3c45f5d2f97",
+      "file": "tests/execution/release.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/execution/release.test.ts:eaf0678d8ed0",
+      "file": "tests/execution/release.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/critical-schedule.test.ts:0b11fadc7859",
+      "file": "tests/workflows/critical-schedule.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/critical-schedule.test.ts:b5b23943db34",
+      "file": "tests/workflows/critical-schedule.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "validation": {
+    "failureCount": 0,
+    "complete": true,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": 0,
+    "termination": "exit",
+    "signal": null,
+    "observed": true,
+    "binding": "matched",
+    "receiptSha256": "0a5eac8c3a9cce709268a6678fb4f951449b8d6f6a679310b2d63ce9c2f7045d",
+    "originReceipt": {
+      "schemaVersion": 2,
+      "lane": "workflows",
+      "reportSha256": "88549d535746508e1913203d8d6416ed2152dabdc1727ead7d54d1120b112383",
+      "manifestSha256": "ff590423bb198c3a11a5146556d584a53d1111df60198af3643cb98af71ad8cd",
+      "sourceSha256": "d0b0a43b67d2fb1005f95fbb6cea1ec7a0cc3d884ec9c6fc34bb27b987e99c33",
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": "076d64af7162757d3f94f1e75459b5a549f5bdfca64a22904aa18667b88a4ec2",
+      "environmentInventorySha256": "81641e4fc862cc265bc69369f5821ea24f3fd52a0b2787c86f4d4f9e4c7872a5",
+      "shellContextSha256": "bcd24814f5c4b74643d1467cee7fd55b59b19e42cfdd8774b5efc041fe73885d",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "0e451bfd86034f9d3a87c7d3ddec24134c6d85f3800af8eff2bac83feed1d09c",
+      "runtimeSha256": "c9d534cf7052b2444c3efb279dc68d7be14f9de9db36e980b2623c6ec13d1157",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null
+    },
+    "checks": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "81641e4fc862cc265bc69369f5821ea24f3fd52a0b2787c86f4d4f9e4c7872a5",
+      "counts": {
+        "unchanged": 81,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    }
+  },
+  "externalAcceptance": [
+    {
+      "id": "external-temporal-mtls",
+      "file": "tests/workflows/mtls-live.test.ts",
+      "status": "unverified",
+      "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+    }
+  ]
+}

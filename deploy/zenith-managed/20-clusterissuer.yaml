@@ -1,0 +1,26 @@
+# ClusterIssuer: PLACEHOLDER.
+#
+# The name must equal ZENITH_MANAGED_CLUSTER_ISSUER (default
+# zenith-letsencrypt-dns01). A wildcard needs the DNS-01 challenge; configure the
+# solver for YOUR DNS provider. Use the ACME staging server until the flow works.
+# The account key Secret is created by cert-manager; no credential belongs in
+# this file.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: zenith-letsencrypt-dns01
+  annotations:
+    zenith.dev/placeholder: "true"
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: REPLACE-operator@example.com
+    privateKeySecretRef:
+      name: zenith-letsencrypt-account-key
+    solvers:
+      - dns01:
+          # REPLACE: your DNS provider's solver and the reference to ITS credential Secret
+          cloudflare:
+            apiTokenSecretRef:
+              name: REPLACE-dns-provider-credentials
+              key: api-token

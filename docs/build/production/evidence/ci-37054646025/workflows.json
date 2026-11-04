@@ -1,0 +1,672 @@
+{
+  "schemaVersion": 1,
+  "lane": "workflows",
+  "validatedAt": "2026-10-02T19:38:26.470Z",
+  "verdict": "passed",
+  "provenance": {
+    "commit": "b46fb8a2617f59448f943088e3ed1a446a9a7c38",
+    "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedContentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "worktreeDirty": false,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "b3c6a010336bbdce651ee454fb659285c8e5c42f782160af49858b8e8951fed0"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "edd1349503c4dd7ef0510223e17f7e9de03049336cacee2fe0bb2d8b1a882500",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "3e780b7a3766524261026e1146c25d1acdca6bcf12c6f613f3d41c3a51ae5e0a",
+      "inventorySha256": "d03f26a869f395e467af8e61bc9be187a2e4b3b8a60ca2ced14876a97fa27983",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "0498dccbd925cc16ca430d51ccf218eaecdde5f244d22e2202403e2ff3f927ed",
+  "manifestSha256": "085377cd28fd2f98c17adfd785aac2d24354485a7b59e8298ca833470786210d",
+  "expectedTools": {
+    "node": "22.23.3",
+    "temporal": "1.9.1"
+  },
+  "counts": {
+    "total": 870,
+    "passed": 870,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "workflows:tests/workflows/approval-time.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/approval-time.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/caller-payloads.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/caller-payloads.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/client.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/client.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/codec-replay.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/codec-replay.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/codec-wiring.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/codec-wiring.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/codec.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/codec.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 45,
+        "passed": 45,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/config.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/config.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/deploy.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/destroy-replay.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/destroy-replay.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/destroy.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/destroy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/failures.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/failures.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 42,
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/mtls-config.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/mtls-config.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 29,
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/operations.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/operations.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/payload-boundary.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/payload-boundary.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 52,
+        "passed": 52,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/reconcile.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/reconcile.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/replay.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/replay.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/sandbox.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/sandbox.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 49,
+        "passed": 49,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/workflows/worker.test.ts:4ee93ed6c454",
+      "file": "tests/workflows/worker.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/agent-ports.test.ts:4ee93ed6c454",
+      "file": "tests/platform/agent-ports.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/composition.test.ts:4ee93ed6c454",
+      "file": "tests/platform/composition.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/credentials-verification.test.ts:4ee93ed6c454",
+      "file": "tests/platform/credentials-verification.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 78,
+        "passed": 78,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/deploy-e2e.test.ts:4ee93ed6c454",
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/housekeeping.test.ts:4ee93ed6c454",
+      "file": "tests/platform/housekeeping.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/machine-composition.test.ts:4ee93ed6c454",
+      "file": "tests/platform/machine-composition.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/oci-sessions.test.ts:4ee93ed6c454",
+      "file": "tests/platform/oci-sessions.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/plan-approval-routes.test.ts:4ee93ed6c454",
+      "file": "tests/platform/plan-approval-routes.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/plan-approval.test.ts:4ee93ed6c454",
+      "file": "tests/platform/plan-approval.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/release-multi.test.ts:4ee93ed6c454",
+      "file": "tests/platform/release-multi.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/release.test.ts:4ee93ed6c454",
+      "file": "tests/platform/release.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/secret-grants.test.ts:4ee93ed6c454",
+      "file": "tests/platform/secret-grants.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle-azure.test.ts:4ee93ed6c454",
+      "file": "tests/platform/source-bundle-azure.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle-composition.test.ts:4ee93ed6c454",
+      "file": "tests/platform/source-bundle-composition.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle-github.test.ts:4ee93ed6c454",
+      "file": "tests/platform/source-bundle-github.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:382ab8a7f122",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 56,
+        "passed": 56,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:fb1aa6d12b58",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:53e02775a33f",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/platform/source-bundle.test.ts:06370cdf74cb",
+      "file": "tests/platform/source-bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "workflows:tests/security/workflow-history.test.ts:4ee93ed6c454",
+      "file": "tests/security/workflow-history.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "validation": {
+    "failureCount": 0,
+    "complete": true,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": 0,
+    "termination": "exit",
+    "signal": null,
+    "observed": true,
+    "binding": "matched",
+    "receiptSha256": "9daf15a94b9ce0655fff471f5ec5e6a2245bc02e853484d92a01491e11057025",
+    "originReceipt": {
+      "schemaVersion": 2,
+      "lane": "workflows",
+      "reportSha256": "0498dccbd925cc16ca430d51ccf218eaecdde5f244d22e2202403e2ff3f927ed",
+      "manifestSha256": "085377cd28fd2f98c17adfd785aac2d24354485a7b59e8298ca833470786210d",
+      "sourceSha256": "1f7479584fc0c34e215c251f78147c7f157fa5a4b15bf0c8e141e59bd49134fa",
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": "3e780b7a3766524261026e1146c25d1acdca6bcf12c6f613f3d41c3a51ae5e0a",
+      "environmentInventorySha256": "d03f26a869f395e467af8e61bc9be187a2e4b3b8a60ca2ced14876a97fa27983",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "runtimeSha256": "4256bb807777bd14f06dd2c7ffb08a901449b8317eb1db0a3722a63844b63fa8",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null
+    },
+    "checks": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "d03f26a869f395e467af8e61bc9be187a2e4b3b8a60ca2ced14876a97fa27983",
+      "counts": {
+        "unchanged": 114,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    }
+  },
+  "externalAcceptance": [
+    {
+      "id": "external-temporal-mtls",
+      "file": "tests/workflows/mtls-live.test.ts",
+      "status": "unverified",
+      "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+    }
+  ]
+}

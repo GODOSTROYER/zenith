@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "3346e4d4aa2ebd7ef4f1ec0ef6a10277e1c38f70",
+  "status": "passed_executed_gates_only",
+  "privateReceiptSha256": "7c97710b5982ac8a6e1de0e52dd4571bdac3b2594f0343f8b5eefd630918723b",
+  "helperSha256": "9d79991aaeca4103f7c3b6692b6b9abddff394629590c0700105bf885e2a18b5",
+  "lanes": {
+    "platform-postgres": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 3016,
+        "failed": 0,
+        "skipped": 8,
+        "total": 3024
+      },
+      "requiredCount": 1124,
+      "requiredIdsSha256": "80ecb42920413fac09c6c6b1abb2f211d8332f467dbe4ff9acde6e398c9afb1b",
+      "reportSha256": "a242f0aa263e601d9e4328d00a0c5a1d54f4cd5f5ed4a8a5568d8072d7fe85b7"
+    },
+    "postgres": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "total": 322
+      },
+      "requiredCount": 80,
+      "requiredIdsSha256": "bcf0f03d13d9da5af22a00fbf3cadd8b972ddd2df0538d5166b7ab60b2a2a920",
+      "reportSha256": "e44a7ed3547142290f25e947ccfd71ce8884570aff6c16fc5f4e2142a2931e83"
+    },
+    "workflows": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "total": 1273
+      },
+      "requiredCount": 60,
+      "requiredIdsSha256": "0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b",
+      "reportSha256": "411b724528b03db2c02efc8bad18f8ed17596dcef69b3386f333c43ce82c00b4"
+    },
+    "reconciliation": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "total": 38
+      },
+      "requiredCount": 26,
+      "requiredIdsSha256": "3238a001d119fd1c975d22ff1632ee9ca8ad68b142cd52999c1ffd0e80c83114",
+      "reportSha256": "73594504e7441c81803545ee96b7f22f0e3a34f7bb73610a1bd4ea4f0629e75e"
+    },
+    "workflow-intents": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "total": 156
+      },
+      "requiredCount": 141,
+      "requiredIdsSha256": "a4819888f0501d42d67a69491a99bdf10f02ee409191d2c3f0ddbbd54b0827b2",
+      "reportSha256": "45b5a81830934bb8e2fd473f0e4d7a37553711d18480f4053482a615482704e0"
+    }
+  },
+  "native100": {
+    "passed": 100,
+    "failed": 0,
+    "skipped": 0,
+    "matchedRequiredIdentities": 100
+  },
+  "portabilityNetwork": {
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "matchedExactIdentities": 14
+  },
+  "schema": {
+    "freshAndReapplication": "passed",
+    "published27To29Upgrade": "passed",
+    "supabaseFreshAndReapplication": "passed",
+    "publishedMigrationFilesPreserved": 47
+  },
+  "cleanup": {
+    "ownedContainerAbsent": true,
+    "ownedVolumesAbsent": true,
+    "baselineImagesPreserved": true,
+    "newImageAbsent": true
+  },
+  "tools": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "postgres": "16.15",
+    "temporalCli": "1.9.1",
+    "tofu": "1.12.5"
+  },
+  "platform": {
+    "host": "Darwin arm64",
+    "postgres": "local Docker Linux arm64",
+    "temporalAndTofu": "native Darwin arm64"
+  },
+  "limits": [
+    "Reports overlap and are not summed.",
+    "Eight platform skips are declared non-PostgreSQL fixture scenarios; required PostgreSQL counterparts executed.",
+    "Policy/provider/hosted identity models retain their documented scopes; no live cloud or hosted TLS acceptance.",
+    "Root source-bound helper and raw logs remain private; canonical repository lane commands reproduce supported gates.",
+    "This receipt does not establish remote Linux, native152 or packaged-worker acceptance."
+  ]
+}

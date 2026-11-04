@@ -1,0 +1,4291 @@
+{
+  "schemaVersion": 1,
+  "status": "passed_ci_only",
+  "sourceCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+  "sourceUrl": "https://github.com/GODOSTROYER/zenith/commit/d6965d75eb9522527c7a91b06cf8f490f6531d20",
+  "branch": "codex/production-2026-10-02",
+  "attempt": 1,
+  "workflows": [
+    {
+      "workflow": "CI",
+      "id": 37578066932,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+      "createdAt": "2026-10-07T05:47:27Z",
+      "updatedAt": "2026-10-07T06:17:45Z"
+    },
+    {
+      "workflow": "Native packaged workers",
+      "id": 37578066955,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066955",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+      "createdAt": "2026-10-07T05:47:27Z",
+      "updatedAt": "2026-10-07T05:54:50Z"
+    },
+    {
+      "workflow": "Native skipped platforms",
+      "id": 37578066934,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066934",
+      "attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+      "createdAt": "2026-10-07T05:47:27Z",
+      "updatedAt": "2026-10-07T05:48:41Z"
+    }
+  ],
+  "jobs": [
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315044,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315044",
+      "name": "docker",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:53:37Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:31Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:34Z"
+        },
+        {
+          "number": 3,
+          "name": "Build image (no push)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:34Z",
+          "completedAt": "2026-10-07T05:53:35Z"
+        },
+        {
+          "number": 6,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:35Z",
+          "completedAt": "2026-10-07T05:53:35Z"
+        },
+        {
+          "number": 7,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:35Z",
+          "completedAt": "2026-10-07T05:53:35Z"
+        }
+      ]
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315240,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315240",
+      "name": "postgres",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:48:36Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:31Z"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:43Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:43Z",
+          "completedAt": "2026-10-07T05:47:45Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:45Z",
+          "completedAt": "2026-10-07T05:47:48Z"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:48Z",
+          "completedAt": "2026-10-07T05:48:11Z"
+        },
+        {
+          "number": 6,
+          "name": "Apply all committed Supabase migrations",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:11Z",
+          "completedAt": "2026-10-07T05:48:16Z"
+        },
+        {
+          "number": 7,
+          "name": "Postgres contract lanes",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:16Z",
+          "completedAt": "2026-10-07T05:48:32Z"
+        },
+        {
+          "number": 8,
+          "name": "Lane report - fail if a lane ran zero tests, and list what is blocked",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:32Z",
+          "completedAt": "2026-10-07T05:48:32Z"
+        },
+        {
+          "number": 9,
+          "name": "Every PostgreSQL contract must pass",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:32Z",
+          "completedAt": "2026-10-07T05:48:33Z"
+        },
+        {
+          "number": 10,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:33Z",
+          "completedAt": "2026-10-07T05:48:33Z"
+        },
+        {
+          "number": 18,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:33Z",
+          "completedAt": "2026-10-07T05:48:34Z"
+        },
+        {
+          "number": 19,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:34Z",
+          "completedAt": "2026-10-07T05:48:34Z"
+        },
+        {
+          "number": 20,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:34Z",
+          "completedAt": "2026-10-07T05:48:34Z"
+        },
+        {
+          "number": 21,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:34Z",
+          "completedAt": "2026-10-07T05:48:34Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "lane": "postgres",
+        "counts": {
+          "total": 379,
+          "passed": 379,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 93,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "expectedTools": {
+          "node": "22.23.3",
+          "postgres": "16.15"
+        },
+        "environment": {
+          "sha256": "84496baa2d80b9cc498c6318ba5cd265122cfe2c6c6aab4b4009e7e8fb561d97",
+          "inventorySha256": "7e9ad602b34ddcad40c6ec72ce93c1b4a9b7c701b76b26770c806e68f18462fb",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "externalAcceptance": [],
+        "sha256": "c7f4e61624d893d23f8cbc94b7c32f63fc42f3705b99fba041a64b7f589ac595"
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315245,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315245",
+      "name": "hosted",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:49:07Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:34Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:34Z",
+          "completedAt": "2026-10-07T05:47:37Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:37Z",
+          "completedAt": "2026-10-07T05:47:59Z"
+        },
+        {
+          "number": 5,
+          "name": "Hosted suites",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:59Z",
+          "completedAt": "2026-10-07T05:48:55Z"
+        },
+        {
+          "number": 6,
+          "name": "Hosted acceptance journey",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:55Z",
+          "completedAt": "2026-10-07T05:48:58Z"
+        },
+        {
+          "number": 7,
+          "name": "Report the installed browser",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:58Z",
+          "completedAt": "2026-10-07T05:48:59Z"
+        },
+        {
+          "number": 8,
+          "name": "Gate 12 - recipient journey in a real browser",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:59Z",
+          "completedAt": "2026-10-07T05:49:05Z"
+        },
+        {
+          "number": 15,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:05Z",
+          "completedAt": "2026-10-07T05:49:05Z"
+        },
+        {
+          "number": 16,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:05Z",
+          "completedAt": "2026-10-07T05:49:05Z"
+        },
+        {
+          "number": 17,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:05Z",
+          "completedAt": "2026-10-07T05:49:05Z"
+        }
+      ],
+      "scriptEvidence": {
+        "jobName": "hosted",
+        "logSha256": "33d4b94bb0d826b3cfd7c9778a030aa410c6c50c8661a837ad74c17c0c9e34a8",
+        "exportedBrowserSummaries": [
+          {
+            "gate": 12,
+            "passed": 24,
+            "failed": 0,
+            "result": "pass",
+            "browser": {
+              "channel": "chrome",
+              "engine": "playwright-core chromium"
+            },
+            "viewports": [
+              "1280x800",
+              "375x812"
+            ]
+          }
+        ],
+        "testSummaryRows": [
+          {
+            "kind": "Test Files",
+            "counts": {
+              "passed": 91,
+              "skipped": 1
+            },
+            "total": 92
+          },
+          {
+            "kind": "Tests",
+            "counts": {
+              "passed": 1146,
+              "skipped": 13
+            },
+            "total": 1159
+          }
+        ]
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315260,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315260",
+      "name": "platform-postgres",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T06:03:32Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:45Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:45Z",
+          "completedAt": "2026-10-07T05:47:47Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:47Z",
+          "completedAt": "2026-10-07T05:47:52Z"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:52Z",
+          "completedAt": "2026-10-07T05:48:14Z"
+        },
+        {
+          "number": 6,
+          "name": "Install pinned OpenTofu",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:14Z",
+          "completedAt": "2026-10-07T05:48:16Z"
+        },
+        {
+          "number": 7,
+          "name": "Choose the provider plugin cache directory",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:16Z",
+          "completedAt": "2026-10-07T05:48:16Z"
+        },
+        {
+          "number": 8,
+          "name": "Say so when there is no platform migrator yet",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-07T05:48:16Z",
+          "completedAt": "2026-10-07T05:48:16Z"
+        },
+        {
+          "number": 9,
+          "name": "Apply and verify the canonical agent lane schema",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:16Z",
+          "completedAt": "2026-10-07T05:48:16Z"
+        },
+        {
+          "number": 10,
+          "name": "Apply the platform migrations",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:16Z",
+          "completedAt": "2026-10-07T05:48:19Z"
+        },
+        {
+          "number": 11,
+          "name": "Platform control store suites",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:19Z",
+          "completedAt": "2026-10-07T06:03:25Z"
+        },
+        {
+          "number": 12,
+          "name": "Lane report - fail if the control store ran zero tests, or none on Postgres",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:25Z",
+          "completedAt": "2026-10-07T06:03:25Z"
+        },
+        {
+          "number": 13,
+          "name": "Every platform Postgres contract must pass",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:25Z",
+          "completedAt": "2026-10-07T06:03:27Z"
+        },
+        {
+          "number": 14,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:27Z",
+          "completedAt": "2026-10-07T06:03:28Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:28Z",
+          "completedAt": "2026-10-07T06:03:28Z"
+        },
+        {
+          "number": 27,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:28Z",
+          "completedAt": "2026-10-07T06:03:28Z"
+        },
+        {
+          "number": 28,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:28Z",
+          "completedAt": "2026-10-07T06:03:29Z"
+        },
+        {
+          "number": 29,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:03:29Z",
+          "completedAt": "2026-10-07T06:03:29Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "sourceCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "artifactId": 11463623751,
+        "artifactSha256": "91a2c9ee901daa614c02a9437de789012697ebbe816af53008b6702c036da1d4",
+        "counts": {
+          "total": 3042,
+          "passed": 3034,
+          "failed": 0,
+          "skipped": 8,
+          "unknown": 0
+        },
+        "requiredGroups": 1124,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "expectedTools": {
+          "node": "22.23.3",
+          "postgres": "16.15",
+          "tofu": "1.12.5"
+        },
+        "environment": {
+          "sha256": "b1711d90934da2b8cf0812dd086b22b6e8982aa4be7d4da0f51b2ef72804ba59",
+          "inventorySha256": "7769405ece3c628f15205c20d6c7b133b734f4dd6c314b434e5dbbf610c92735",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "native100Subset": {
+          "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+          "wholeFilePassed": 100,
+          "distinctSingleRequirementsPassed": 100,
+          "failed": 0,
+          "skipped": 0,
+          "backend": "postgres",
+          "notTwoHundredExecutions": true
+        },
+        "scopeLimits": [
+          "Native100 whole-file and single requirement groups describe the same100 execution subset, not200.",
+          "Eight optional lane skips remain separate; every required group passed without skips.",
+          "Sanitized standard Vitest evidence does not expose raw individual case identities."
+        ],
+        "metadataCorrection": {
+          "predecessorSha256": "7f3c4272600f4a24b3e44730c7d834ad1a5724f19461fdbddc0dd542ee49ce54",
+          "reason": "Observer loop variable shadowed artifact metadata with final required-group ID; only artifactId corrected, source/counts/content bytes unchanged.",
+          "incorrectPriorArtifactId": "platform-postgres:tests/controlplane/migrations.test.ts:ce5f01310543"
+        }
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315280,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315280",
+      "name": "verify",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T06:17:45Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Install pinned workflow validator",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 4,
+          "name": "Validate workflow syntax",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:37Z"
+        },
+        {
+          "number": 5,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:37Z",
+          "completedAt": "2026-10-07T05:47:50Z"
+        },
+        {
+          "number": 6,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:50Z",
+          "completedAt": "2026-10-07T05:48:10Z"
+        },
+        {
+          "number": 7,
+          "name": "Typecheck",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:10Z",
+          "completedAt": "2026-10-07T05:49:16Z"
+        },
+        {
+          "number": 8,
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:16Z",
+          "completedAt": "2026-10-07T05:50:01Z"
+        },
+        {
+          "number": 9,
+          "name": "Unit suites (Node and DOM projects)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:50:01Z",
+          "completedAt": "2026-10-07T06:17:33Z"
+        },
+        {
+          "number": 10,
+          "name": "Smoke",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:17:33Z",
+          "completedAt": "2026-10-07T06:17:42Z"
+        },
+        {
+          "number": 11,
+          "name": "Verify Gimbal assets",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:17:42Z",
+          "completedAt": "2026-10-07T06:17:42Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:17:42Z",
+          "completedAt": "2026-10-07T06:17:42Z"
+        },
+        {
+          "number": 22,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:17:42Z",
+          "completedAt": "2026-10-07T06:17:42Z"
+        },
+        {
+          "number": 23,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T06:17:42Z",
+          "completedAt": "2026-10-07T06:17:42Z"
+        }
+      ],
+      "verifyEvidence": {
+        "sourceCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "jobId": 112651315280,
+        "logSha256": "8cc11bf94df4f8fc6ab6045479b2b0d27c01a6f6f723940cc4064ec101443956",
+        "unit": {
+          "files": {
+            "passed": 878,
+            "skipped": 51,
+            "total": 929
+          },
+          "tests": {
+            "passed": 19622,
+            "failed": 0,
+            "skipped": 1532,
+            "total": 21154
+          }
+        },
+        "smoke": {
+          "status": "passed",
+          "fixedPassSignalObserved": true,
+          "emittedPositiveCheckMessages": 6,
+          "scope": "happy path and failure/rollback local fixture"
+        },
+        "gimbal": {
+          "status": "passed",
+          "fixedPassSignalObserved": true,
+          "countNotExportedAsFormalTests": true
+        },
+        "unitSkipRowsSha256": "120c8341e7c4645ab0127bdccf50a827420dfbb489ee2a22598b2d1953e094f7",
+        "unitSkipComparisonSha256": "fe23f6e2456af8986d8401ff1fef510c344ea118ab68de00f60c169e5772d5bf"
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315342,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315342",
+      "name": "go",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:52:00Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Say so when there is no Go module yet",
+          "status": "completed",
+          "conclusion": "skipped",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:45Z"
+        },
+        {
+          "number": 5,
+          "name": "Toolchain is exactly the pinned one",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:45Z",
+          "completedAt": "2026-10-07T05:47:45Z"
+        },
+        {
+          "number": 6,
+          "name": "gofmt",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:45Z",
+          "completedAt": "2026-10-07T05:47:46Z"
+        },
+        {
+          "number": 7,
+          "name": "go vet",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:46Z",
+          "completedAt": "2026-10-07T05:47:50Z"
+        },
+        {
+          "number": 8,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:50Z",
+          "completedAt": "2026-10-07T05:47:53Z"
+        },
+        {
+          "number": 9,
+          "name": "Require local native package fixture tools",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:53Z",
+          "completedAt": "2026-10-07T05:47:53Z"
+        },
+        {
+          "number": 10,
+          "name": "Provision strictly disposable Linux guest fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:53Z",
+          "completedAt": "2026-10-07T05:47:54Z"
+        },
+        {
+          "number": 11,
+          "name": "Required native Linux race and authentic golden comparison",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:54Z",
+          "completedAt": "2026-10-07T05:50:59Z"
+        },
+        {
+          "number": 12,
+          "name": "Vet the explicit real systemd acceptance packages",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:50:59Z",
+          "completedAt": "2026-10-07T05:51:02Z"
+        },
+        {
+          "number": 13,
+          "name": "Provision only the owned inert systemd unit and restart-only rule",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:02Z",
+          "completedAt": "2026-10-07T05:51:02Z"
+        },
+        {
+          "number": 14,
+          "name": "Required ordered real systemd operations and signed execution",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:02Z",
+          "completedAt": "2026-10-07T05:51:05Z"
+        },
+        {
+          "number": 15,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:05Z",
+          "completedAt": "2026-10-07T05:51:22Z"
+        },
+        {
+          "number": 16,
+          "name": "TypeScript validates the Go machine result goldens",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:22Z",
+          "completedAt": "2026-10-07T05:51:28Z"
+        },
+        {
+          "number": 17,
+          "name": "Cross-build linux/amd64 and linux/arm64 without cgo",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:28Z",
+          "completedAt": "2026-10-07T05:51:53Z"
+        },
+        {
+          "number": 18,
+          "name": "Remove only the owned settled systemd fixture",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:53Z",
+          "completedAt": "2026-10-07T05:51:54Z"
+        },
+        {
+          "number": 19,
+          "name": "Remove only owned drained Linux guest fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:54Z",
+          "completedAt": "2026-10-07T05:51:54Z"
+        },
+        {
+          "number": 20,
+          "name": "Select only current-attempt sanitized guest evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:54Z",
+          "completedAt": "2026-10-07T05:51:54Z"
+        },
+        {
+          "number": 21,
+          "name": "Preserve sanitized native guest evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:54Z",
+          "completedAt": "2026-10-07T05:51:55Z"
+        },
+        {
+          "number": 22,
+          "name": "Select only the current systemd attempt after both owned cleanups",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:55Z",
+          "completedAt": "2026-10-07T05:51:55Z"
+        },
+        {
+          "number": 23,
+          "name": "Preserve sanitized real systemd evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:55Z",
+          "completedAt": "2026-10-07T05:51:56Z"
+        },
+        {
+          "number": 44,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:56Z",
+          "completedAt": "2026-10-07T05:51:56Z"
+        },
+        {
+          "number": 45,
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:56Z",
+          "completedAt": "2026-10-07T05:51:56Z"
+        },
+        {
+          "number": 46,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:56Z",
+          "completedAt": "2026-10-07T05:51:57Z"
+        },
+        {
+          "number": 47,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:57Z",
+          "completedAt": "2026-10-07T05:51:57Z"
+        }
+      ],
+      "nativeGuestEvidence": {
+        "lane": "linux-guest",
+        "requiredPassed": 152,
+        "sourceAggregateIndependentlyExact": true,
+        "tools": {
+          "node": "22.23.3",
+          "go": "1.27.1",
+          "GOOS": "linux",
+          "GOARCH": "amd64"
+        },
+        "attempt": {
+          "id": "fae3a94d53cab5fb963143c61cb3ed4f",
+          "runnerExitCode": 0
+        },
+        "binding": {
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "sourceSha256": "74b949ea3f14539392ee1ab1ee4faf24b354930f0e6bbd75b30090cc67057bc5",
+          "lockSha256": "b1d5cddb24f525f94f1cb864f404bbfa856ea243180f9bd575de3ae853f125fb",
+          "manifestSha256": "db141299ecabe97bf5d15d9c5fddc0a069deaf7cb37451170f0aee6a087a7a7e",
+          "fixtureReceiptSha256": "791f0b27171d6403b99e51f026923483021766dba8a5c39b85fe3110ec8ebea6"
+        },
+        "steps": [
+          {
+            "id": "race",
+            "exitCode": 0,
+            "counts": {
+              "packages": 21,
+              "testEvents": 1122,
+              "parents": 71,
+              "leaves": 1051,
+              "passedLeaves": 1048,
+              "failedLeaves": 0,
+              "skippedLeaves": 3
+            },
+            "requiredCount": 148
+          },
+          {
+            "id": "package-native",
+            "exitCode": 0,
+            "counts": {
+              "packages": 1,
+              "testEvents": 9,
+              "parents": 1,
+              "leaves": 8,
+              "passedLeaves": 8,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            },
+            "requiredCount": 4
+          },
+          {
+            "id": "goldens",
+            "exitCode": 0,
+            "counts": {
+              "packages": 1,
+              "testEvents": 22,
+              "parents": 1,
+              "leaves": 21,
+              "passedLeaves": 21,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            },
+            "requiredCount": 2
+          },
+          {
+            "id": "golden-diff",
+            "exitCode": 0,
+            "counts": null,
+            "requiredCount": 0
+          },
+          {
+            "id": "golden-status",
+            "exitCode": 0,
+            "counts": null,
+            "requiredCount": 0
+          }
+        ],
+        "sha256": "7990ba8ce9bd447bd5f4b125f3f78576555664cc23a3dfa080a701b911ff66c3"
+      },
+      "taggedSystemdEvidence": {
+        "lane": "linux-systemd",
+        "requiredPassed": 15,
+        "sourceAggregateIndependentlyExact": true,
+        "tools": {
+          "node": "22.23.3",
+          "go": "1.27.1",
+          "GOOS": "linux",
+          "GOARCH": "amd64",
+          "uid": 1001,
+          "gid": 1001,
+          "capabilities": "zero",
+          "noNewPrivs": true
+        },
+        "attempt": {
+          "id": "f2ad7a9a3d496c92ef064dcfbe5ca7c2",
+          "runnerExitCode": 0
+        },
+        "binding": {
+          "commit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+          "sourceSha256": "74b949ea3f14539392ee1ab1ee4faf24b354930f0e6bbd75b30090cc67057bc5",
+          "lockSha256": "b1d5cddb24f525f94f1cb864f404bbfa856ea243180f9bd575de3ae853f125fb",
+          "manifestSha256": "30dd1b60d0038a102d75363e82d66ec9559619b2c0a6b2931ee0d568a806f26c",
+          "helperSha256": "de4c1e0b4ea79936bae3cd5f6085cd874b141e5b5029451c03b527ba6affd620",
+          "runId": "109de108c13a757e7f486984ff0e72f5",
+          "uid": 1001,
+          "gid": 1001,
+          "canonicalReceiptSha256": "791f0b27171d6403b99e51f026923483021766dba8a5c39b85fe3110ec8ebea6",
+          "systemdReceiptSha256": "b5c243b089d165eadd9f90653e1eff7d3bfbe00968f741e02c3b028467105ca5"
+        },
+        "steps": [
+          {
+            "id": "ops",
+            "exitCode": 0,
+            "counts": {
+              "packages": 1,
+              "testEvents": 8,
+              "parents": 1,
+              "leaves": 7,
+              "passedLeaves": 7,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            },
+            "requiredCount": 8
+          },
+          {
+            "id": "signed",
+            "exitCode": 0,
+            "counts": {
+              "packages": 1,
+              "testEvents": 7,
+              "parents": 1,
+              "leaves": 6,
+              "passedLeaves": 6,
+              "failedLeaves": 0,
+              "skippedLeaves": 0
+            },
+            "requiredCount": 7
+          }
+        ],
+        "cleanup": {
+          "systemd": "cleaned",
+          "canonical": "absent",
+          "receiptSha256": "3b56648f4cdf5a2a3f1103bff751b58948e71b1fd2fa2489bca0746da9bfc9d1",
+          "wrapper": {
+            "role": "fixed-fixture-cleanup-transport",
+            "uid": 1001,
+            "gid": 1001,
+            "capabilities": "E/P/I/A-zero",
+            "noNewPrivs": false
+          }
+        },
+        "sha256": "724cf369b282666a99c2210681e3a5ebb863b70f079b898dc7b1200aa5f0cdac"
+      },
+      "interop": {
+        "jobName": "go",
+        "logSha256": "2d50a8442fc1167532efa32d6e8fe8d371cc79f1160c4bb4af9466fa1b0ae6af",
+        "exportedBrowserSummaries": [],
+        "testSummaryRows": [
+          {
+            "kind": "Test Files",
+            "counts": {
+              "passed": 1
+            },
+            "total": 1
+          },
+          {
+            "kind": "Tests",
+            "counts": {
+              "passed": 27
+            },
+            "total": 27
+          }
+        ]
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315350,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315350",
+      "name": "generated",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:48:31Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:41Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:41Z",
+          "completedAt": "2026-10-07T05:48:03Z"
+        },
+        {
+          "number": 5,
+          "name": "Platform SQL is current",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:03Z",
+          "completedAt": "2026-10-07T05:48:03Z"
+        },
+        {
+          "number": 6,
+          "name": "Capability matrix is current",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:03Z",
+          "completedAt": "2026-10-07T05:48:09Z"
+        },
+        {
+          "number": 7,
+          "name": "Offered capability catalog is current",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:09Z",
+          "completedAt": "2026-10-07T05:48:15Z"
+        },
+        {
+          "number": 8,
+          "name": "Documentation drift suites",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:15Z",
+          "completedAt": "2026-10-07T05:48:28Z"
+        },
+        {
+          "number": 15,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:28Z",
+          "completedAt": "2026-10-07T05:48:28Z"
+        },
+        {
+          "number": 16,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:28Z",
+          "completedAt": "2026-10-07T05:48:29Z"
+        },
+        {
+          "number": 17,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:29Z",
+          "completedAt": "2026-10-07T05:48:29Z"
+        }
+      ]
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315360,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315360",
+      "name": "policy",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:48:14Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:40Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:40Z",
+          "completedAt": "2026-10-07T05:48:03Z"
+        },
+        {
+          "number": 5,
+          "name": "Install pinned OPA",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:03Z",
+          "completedAt": "2026-10-07T05:48:03Z"
+        },
+        {
+          "number": 6,
+          "name": "Policy bundle is reproducible",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:03Z",
+          "completedAt": "2026-10-07T05:48:04Z"
+        },
+        {
+          "number": 7,
+          "name": "Policy suites",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:04Z",
+          "completedAt": "2026-10-07T05:48:08Z"
+        },
+        {
+          "number": 8,
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:08Z",
+          "completedAt": "2026-10-07T05:48:08Z"
+        },
+        {
+          "number": 9,
+          "name": "Every policy scenario must pass",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:08Z",
+          "completedAt": "2026-10-07T05:48:09Z"
+        },
+        {
+          "number": 10,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:09Z",
+          "completedAt": "2026-10-07T05:48:10Z"
+        },
+        {
+          "number": 19,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:10Z",
+          "completedAt": "2026-10-07T05:48:10Z"
+        },
+        {
+          "number": 20,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:10Z",
+          "completedAt": "2026-10-07T05:48:11Z"
+        },
+        {
+          "number": 21,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:11Z",
+          "completedAt": "2026-10-07T05:48:11Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "lane": "policy",
+        "counts": {
+          "total": 242,
+          "passed": 242,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 8,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "expectedTools": {
+          "node": "22.23.3",
+          "opa": "1.19.1"
+        },
+        "environment": {
+          "sha256": "c09c9b5a68c37fd508338a9a9f01ff5cd3533e664a62e60a7402f8b3db7bf957",
+          "inventorySha256": "dfa7ce5a5f3d9c1e1adaeedc26841dfaf38575b610bd9a38ec5514a73f9db2c6",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "externalAcceptance": [],
+        "sha256": "3ed59ae592fbc964a677d54e5b7b31e975e1bc9db878cba57d65d65957137117"
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315370,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315370",
+      "name": "operation-gates (reconciliation)",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:49:10Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:30Z",
+          "completedAt": "2026-10-07T05:47:31Z"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:51Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:51Z",
+          "completedAt": "2026-10-07T05:47:53Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:53Z",
+          "completedAt": "2026-10-07T05:47:56Z"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:56Z",
+          "completedAt": "2026-10-07T05:48:07Z"
+        },
+        {
+          "number": 6,
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:07Z",
+          "completedAt": "2026-10-07T05:48:08Z"
+        },
+        {
+          "number": 7,
+          "name": "Check committed policy assets",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:08Z",
+          "completedAt": "2026-10-07T05:48:08Z"
+        },
+        {
+          "number": 8,
+          "name": "Apply and require current platform migrations",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:08Z",
+          "completedAt": "2026-10-07T05:48:10Z"
+        },
+        {
+          "number": 9,
+          "name": "Required operation scenarios",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:10Z",
+          "completedAt": "2026-10-07T05:49:06Z"
+        },
+        {
+          "number": 10,
+          "name": "Independently revalidate canonical execution and every required scenario",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:06Z",
+          "completedAt": "2026-10-07T05:49:06Z"
+        },
+        {
+          "number": 11,
+          "name": "Preserve sanitized operation gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:06Z",
+          "completedAt": "2026-10-07T05:49:07Z"
+        },
+        {
+          "number": 20,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:07Z",
+          "completedAt": "2026-10-07T05:49:07Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:07Z",
+          "completedAt": "2026-10-07T05:49:07Z"
+        },
+        {
+          "number": 22,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:07Z",
+          "completedAt": "2026-10-07T05:49:07Z"
+        },
+        {
+          "number": 23,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:07Z",
+          "completedAt": "2026-10-07T05:49:08Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "lane": "reconciliation",
+        "counts": {
+          "total": 38,
+          "passed": 38,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 26,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "expectedTools": {
+          "node": "22.23.3",
+          "postgres": "16.15",
+          "temporal": "1.9.1"
+        },
+        "environment": {
+          "sha256": "bdea9084541fe0f03fae6e61ec3fbaea64138c453db354e3ac712d1b0e647fe1",
+          "inventorySha256": "b2b178151ed464a11d32496f3915d8aa09f8443312c5da0b1d0acf303532e915",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "externalAcceptance": [],
+        "sha256": "9568b7f29a71f1def2413a25a3ee935d82ad55a6bc31bc010362f7540639d515"
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315375,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315375",
+      "name": "agent",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:31Z",
+      "completedAt": "2026-10-07T05:49:31Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:40Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:40Z",
+          "completedAt": "2026-10-07T05:48:02Z"
+        },
+        {
+          "number": 5,
+          "name": "Agent acceptance journey",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:02Z",
+          "completedAt": "2026-10-07T05:48:12Z"
+        },
+        {
+          "number": 6,
+          "name": "Report the installed browser",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:12Z",
+          "completedAt": "2026-10-07T05:48:12Z"
+        },
+        {
+          "number": 7,
+          "name": "Approval screen in a real browser",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:12Z",
+          "completedAt": "2026-10-07T05:49:27Z"
+        },
+        {
+          "number": 13,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:27Z",
+          "completedAt": "2026-10-07T05:49:28Z"
+        },
+        {
+          "number": 14,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:28Z",
+          "completedAt": "2026-10-07T05:49:28Z"
+        },
+        {
+          "number": 15,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:28Z",
+          "completedAt": "2026-10-07T05:49:28Z"
+        }
+      ],
+      "scriptEvidence": {
+        "jobName": "agent",
+        "logSha256": "e0ee01a232abaebe82ee454e085c959833de5e08e2638360527b7a075b9ff326",
+        "exportedBrowserSummaries": [
+          {
+            "gate": "agent-approval",
+            "passed": 44,
+            "failed": 0,
+            "result": "pass",
+            "browser": {
+              "channel": "chrome",
+              "engine": "playwright-core chromium"
+            },
+            "viewports": [
+              "1280x800",
+              "380x780"
+            ]
+          }
+        ],
+        "testSummaryRows": [],
+        "agentAcceptance": {
+          "passedChecks": 35,
+          "identityProviderDouble": true
+        }
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315393,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315393",
+      "name": "tofu",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:52:16Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:39Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:39Z",
+          "completedAt": "2026-10-07T05:48:01Z"
+        },
+        {
+          "number": 5,
+          "name": "Install pinned OpenTofu",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:01Z",
+          "completedAt": "2026-10-07T05:48:02Z"
+        },
+        {
+          "number": 6,
+          "name": "Choose the provider plugin cache directory",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:02Z",
+          "completedAt": "2026-10-07T05:48:02Z"
+        },
+        {
+          "number": 7,
+          "name": "Cache provider plugins",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:02Z",
+          "completedAt": "2026-10-07T05:48:07Z"
+        },
+        {
+          "number": 8,
+          "name": "OpenTofu and all provider suites",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:07Z",
+          "completedAt": "2026-10-07T05:51:53Z"
+        },
+        {
+          "number": 9,
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:53Z",
+          "completedAt": "2026-10-07T05:51:53Z"
+        },
+        {
+          "number": 10,
+          "name": "Every real provider validation must pass",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:53Z",
+          "completedAt": "2026-10-07T05:51:54Z"
+        },
+        {
+          "number": 11,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:54Z",
+          "completedAt": "2026-10-07T05:51:55Z"
+        },
+        {
+          "number": 12,
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:51:55Z",
+          "completedAt": "2026-10-07T05:52:06Z"
+        },
+        {
+          "number": 13,
+          "name": "Go runner exercises real OpenTofu and provider lock enforcement",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:06Z",
+          "completedAt": "2026-10-07T05:52:12Z"
+        },
+        {
+          "number": 23,
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:12Z",
+          "completedAt": "2026-10-07T05:52:12Z"
+        },
+        {
+          "number": 24,
+          "name": "Post Cache provider plugins",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:12Z",
+          "completedAt": "2026-10-07T05:52:13Z"
+        },
+        {
+          "number": 25,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:13Z",
+          "completedAt": "2026-10-07T05:52:13Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:13Z",
+          "completedAt": "2026-10-07T05:52:13Z"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:13Z",
+          "completedAt": "2026-10-07T05:52:13Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "lane": "tofu",
+        "counts": {
+          "total": 3934,
+          "passed": 3916,
+          "failed": 0,
+          "skipped": 18,
+          "unknown": 0
+        },
+        "requiredGroups": 27,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "expectedTools": {
+          "node": "22.23.3",
+          "tofu": "1.12.5"
+        },
+        "environment": {
+          "sha256": "c6cd36ea33acd5341c472b54a3d2e745abf70c30c5ebc7797fce4743387c5425",
+          "inventorySha256": "6cd89fe5a5b18b069b6f67cec903b1a9f5d88b05dcd2b11063975888f67fb65e",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "externalAcceptance": [],
+        "sha256": "355df70dda3dd636fe8365480bf67849d5ea26dcce4bf808992794a50412db3c"
+      },
+      "additionalScriptEvidence": {
+        "jobName": "tofu",
+        "logSha256": "a00a53ebc1760b69f17d0bf5c41d8b65a605b8e0422b36925e68ca463ae2882c",
+        "exportedBrowserSummaries": [],
+        "testSummaryRows": [
+          {
+            "kind": "Test Files",
+            "counts": {
+              "passed": 123,
+              "skipped": 1
+            },
+            "total": 124
+          },
+          {
+            "kind": "Tests",
+            "counts": {
+              "passed": 3916,
+              "skipped": 18
+            },
+            "total": 3934
+          }
+        ],
+        "goOptionalExactTwoCaseCommandObserved": true,
+        "goOptionalLeafJsonExported": false
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315467,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315467",
+      "name": "workflows",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:58:11Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:43Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:43Z",
+          "completedAt": "2026-10-07T05:47:45Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:45Z",
+          "completedAt": "2026-10-07T05:47:49Z"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:49Z",
+          "completedAt": "2026-10-07T05:48:10Z"
+        },
+        {
+          "number": 6,
+          "name": "Create the isolated platform workflow database",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:10Z",
+          "completedAt": "2026-10-07T05:48:11Z"
+        },
+        {
+          "number": 7,
+          "name": "Apply and verify the canonical agent lane schema",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:11Z",
+          "completedAt": "2026-10-07T05:48:11Z"
+        },
+        {
+          "number": 8,
+          "name": "Apply and verify the canonical platform workflow schema",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:11Z",
+          "completedAt": "2026-10-07T05:48:13Z"
+        },
+        {
+          "number": 9,
+          "name": "Apply and verify the canonical Supabase workflow schema",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:13Z",
+          "completedAt": "2026-10-07T05:48:18Z"
+        },
+        {
+          "number": 10,
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:18Z",
+          "completedAt": "2026-10-07T05:48:19Z"
+        },
+        {
+          "number": 11,
+          "name": "Workflow suites",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:19Z",
+          "completedAt": "2026-10-07T05:58:06Z"
+        },
+        {
+          "number": 12,
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:06Z",
+          "completedAt": "2026-10-07T05:58:06Z"
+        },
+        {
+          "number": 13,
+          "name": "Every Temporal and platform e2e scenario must pass",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:06Z",
+          "completedAt": "2026-10-07T05:58:07Z"
+        },
+        {
+          "number": 14,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:07Z",
+          "completedAt": "2026-10-07T05:58:08Z"
+        },
+        {
+          "number": 26,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:08Z",
+          "completedAt": "2026-10-07T05:58:08Z"
+        },
+        {
+          "number": 27,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:08Z",
+          "completedAt": "2026-10-07T05:58:08Z"
+        },
+        {
+          "number": 28,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:08Z",
+          "completedAt": "2026-10-07T05:58:09Z"
+        },
+        {
+          "number": 29,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:58:09Z",
+          "completedAt": "2026-10-07T05:58:09Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "sourceCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "artifactId": 11463373679,
+        "artifactSha256": "874db52e9880108436d10cb188360b3eebab982c8e830d981bca24d7b3249c8c",
+        "counts": {
+          "total": 1275,
+          "passed": 1275,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 62,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "expectedTools": {
+          "node": "22.23.3",
+          "postgres": "16.15",
+          "temporal": "1.9.1"
+        },
+        "environment": {
+          "sha256": "3dda17dea02032838b4aad2f0126ae1d480e242497b84450680e18cea9d2ed56",
+          "inventorySha256": "12e619cb67132caa728ba33b6c28c10df5c76f0b56d24c872ee39ae0c76fda73",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "externalAcceptance": [
+          {
+            "id": "external-temporal-mtls",
+            "file": "tests/workflows/mtls-live.test.ts",
+            "status": "unverified",
+            "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+          }
+        ],
+        "scopeLimits": [
+          "All62 current requirements include genuine owned native critical scheduling; default critical maintenance effects and external Temporal mTLS acceptance remain separate.",
+          "Raw individual assertions are not exported by this sanitized schema."
+        ]
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315512,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315512",
+      "name": "ledger",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:47:38Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:31Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:34Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:34Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 4,
+          "name": "Ledger markdown is current",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 7,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 8,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 9,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        }
+      ]
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315523,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315523",
+      "name": "operation-gates (workflow-intents)",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:30Z",
+      "completedAt": "2026-10-07T05:49:30Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:45Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:45Z",
+          "completedAt": "2026-10-07T05:47:47Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:47Z",
+          "completedAt": "2026-10-07T05:47:52Z"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:52Z",
+          "completedAt": "2026-10-07T05:48:13Z"
+        },
+        {
+          "number": 6,
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:13Z",
+          "completedAt": "2026-10-07T05:48:15Z"
+        },
+        {
+          "number": 7,
+          "name": "Check committed policy assets",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:15Z",
+          "completedAt": "2026-10-07T05:48:15Z"
+        },
+        {
+          "number": 8,
+          "name": "Apply and require current platform migrations",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:15Z",
+          "completedAt": "2026-10-07T05:48:18Z"
+        },
+        {
+          "number": 9,
+          "name": "Required operation scenarios",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:18Z",
+          "completedAt": "2026-10-07T05:49:25Z"
+        },
+        {
+          "number": 10,
+          "name": "Independently revalidate canonical execution and every required scenario",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:25Z",
+          "completedAt": "2026-10-07T05:49:26Z"
+        },
+        {
+          "number": 11,
+          "name": "Preserve sanitized operation gate evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:26Z",
+          "completedAt": "2026-10-07T05:49:27Z"
+        },
+        {
+          "number": 20,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:27Z",
+          "completedAt": "2026-10-07T05:49:27Z"
+        },
+        {
+          "number": 21,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:27Z",
+          "completedAt": "2026-10-07T05:49:27Z"
+        },
+        {
+          "number": 22,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:27Z",
+          "completedAt": "2026-10-07T05:49:27Z"
+        },
+        {
+          "number": 23,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:49:27Z",
+          "completedAt": "2026-10-07T05:49:27Z"
+        }
+      ],
+      "canonicalEvidence": {
+        "lane": "workflow-intents",
+        "counts": {
+          "total": 156,
+          "passed": 156,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 141,
+        "allRequiredPassed": true,
+        "manifestExact": true,
+        "expectedTools": {
+          "node": "22.23.3",
+          "postgres": "16.15",
+          "temporal": "1.9.1"
+        },
+        "environment": {
+          "sha256": "12e7d5f372873ee9559bf4284d36b76465be39552154d60eb0e10a54495e7fc3",
+          "inventorySha256": "f4919e613094f7310fe7f4b2ad990a8d8fede7631cdb7069880964a766ad65a9",
+          "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+          "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+          "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+          "excludedKeys": [
+            "GITHUB_ACTION",
+            "GITHUB_ENV",
+            "GITHUB_PATH",
+            "GITHUB_OUTPUT",
+            "GITHUB_STEP_SUMMARY",
+            "GITHUB_STATE",
+            "GITHUB_ARTIFACTS",
+            "GITHUB_ARTIFACTS_LIST"
+          ],
+          "platform": "linux",
+          "architecture": "x64",
+          "node": "22.23.3"
+        },
+        "execution": {
+          "exitCode": 0,
+          "binding": "matched",
+          "environmentComparison": "matched"
+        },
+        "externalAcceptance": [],
+        "sha256": "83b1d91c732cb3172b930b838c43788abf4c33543c9b9b7951dccf711f700612"
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315816,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315816",
+      "name": "supply-chain",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:31Z",
+      "completedAt": "2026-10-07T05:47:39Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:33Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:33Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:35Z"
+        },
+        {
+          "number": 4,
+          "name": "Lockfile pins only registry tarballs with integrity hashes",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:35Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 5,
+          "name": "Known dependency findings block release",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:47:37Z"
+        },
+        {
+          "number": 9,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:37Z",
+          "completedAt": "2026-10-07T05:47:37Z"
+        },
+        {
+          "number": 10,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:37Z",
+          "completedAt": "2026-10-07T05:47:37Z"
+        },
+        {
+          "number": 11,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:37Z",
+          "completedAt": "2026-10-07T05:47:38Z"
+        }
+      ],
+      "securityAudit": {
+        "sourceCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "jobId": 112651315816,
+        "completeLockedAuditZeroFindingsSignal": true,
+        "registryPinnedEntries": 907,
+        "bundledEntries": 6,
+        "logSha256": "0222c23bb560a353234cac9234773f4417c59140c68fdcdce84cfd7557d78495",
+        "scope": "Terminal successful job with exact fixed signals; observer ran no install/audit. No proof of absence of unknown vulnerabilities."
+      }
+    },
+    {
+      "workflow": "CI",
+      "runId": 37578066932,
+      "runAttempt": 1,
+      "jobId": 112651315878,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066932/job/112651315878",
+      "name": "build",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:31Z",
+      "completedAt": "2026-10-07T05:52:58Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:33Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:33Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:47:39Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:39Z",
+          "completedAt": "2026-10-07T05:48:01Z"
+        },
+        {
+          "number": 5,
+          "name": "Build",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:01Z",
+          "completedAt": "2026-10-07T05:52:56Z"
+        },
+        {
+          "number": 9,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:56Z",
+          "completedAt": "2026-10-07T05:52:56Z"
+        },
+        {
+          "number": 10,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:56Z",
+          "completedAt": "2026-10-07T05:52:56Z"
+        },
+        {
+          "number": 11,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:52:56Z",
+          "completedAt": "2026-10-07T05:52:56Z"
+        }
+      ]
+    },
+    {
+      "workflow": "Native packaged workers",
+      "runId": 37578066955,
+      "runAttempt": 1,
+      "jobId": 112651315123,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066955/job/112651315123",
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:33Z",
+      "completedAt": "2026-10-07T05:53:44Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:33Z",
+          "completedAt": "2026-10-07T05:47:34Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:34Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:47:38Z"
+        },
+        {
+          "number": 4,
+          "name": "Run canonical native package gate",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:39Z",
+          "completedAt": "2026-10-07T05:53:40Z"
+        },
+        {
+          "number": 5,
+          "name": "Validate exact executed native package evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:40Z",
+          "completedAt": "2026-10-07T05:53:41Z"
+        },
+        {
+          "number": 6,
+          "name": "Admit sanitized artifact schema",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:41Z",
+          "completedAt": "2026-10-07T05:53:41Z"
+        },
+        {
+          "number": 7,
+          "name": "Preserve only sanitized package evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:41Z",
+          "completedAt": "2026-10-07T05:53:42Z"
+        },
+        {
+          "number": 13,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:42Z",
+          "completedAt": "2026-10-07T05:53:42Z"
+        },
+        {
+          "number": 14,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:42Z",
+          "completedAt": "2026-10-07T05:53:42Z"
+        },
+        {
+          "number": 15,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:53:42Z",
+          "completedAt": "2026-10-07T05:53:42Z"
+        }
+      ],
+      "nativeEvidence": {
+        "lane": "packaged-worker",
+        "architecture": "arm64",
+        "requiredPassed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "childExit": 0,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "environment": {
+          "os": "linux",
+          "processArch": "arm64",
+          "dockerOS": "linux",
+          "dockerArch": "arm64",
+          "emulated": false,
+          "node": "22.23.3",
+          "totalRamGiB": 15.57,
+          "availableRamGiB": 14.4,
+          "dockerRamGiB": 15.57,
+          "sourceFreeGiB": 107.79,
+          "temporaryFreeGiB": 107.79,
+          "dockerFreeGiB": 107.79
+        },
+        "sha256": "f43dd06c2501a3c28e1c99e44d67565109d5ca842aecba3137649ce388348177"
+      }
+    },
+    {
+      "workflow": "Native packaged workers",
+      "runId": 37578066955,
+      "runAttempt": 1,
+      "jobId": 112651315324,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066955/job/112651315324",
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:31Z",
+      "completedAt": "2026-10-07T05:54:49Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:31Z",
+          "completedAt": "2026-10-07T05:47:32Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 4,
+          "name": "Run canonical native package gate",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:54:44Z"
+        },
+        {
+          "number": 5,
+          "name": "Validate exact executed native package evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:54:44Z",
+          "completedAt": "2026-10-07T05:54:45Z"
+        },
+        {
+          "number": 6,
+          "name": "Admit sanitized artifact schema",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:54:45Z",
+          "completedAt": "2026-10-07T05:54:45Z"
+        },
+        {
+          "number": 7,
+          "name": "Preserve only sanitized package evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:54:45Z",
+          "completedAt": "2026-10-07T05:54:46Z"
+        },
+        {
+          "number": 13,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:54:46Z",
+          "completedAt": "2026-10-07T05:54:46Z"
+        },
+        {
+          "number": 14,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:54:46Z",
+          "completedAt": "2026-10-07T05:54:46Z"
+        },
+        {
+          "number": 15,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:54:46Z",
+          "completedAt": "2026-10-07T05:54:46Z"
+        }
+      ],
+      "nativeEvidence": {
+        "lane": "packaged-worker",
+        "architecture": "amd64",
+        "requiredPassed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "childExit": 0,
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "environment": {
+          "os": "linux",
+          "processArch": "x64",
+          "dockerOS": "linux",
+          "dockerArch": "amd64",
+          "emulated": false,
+          "node": "22.23.3",
+          "totalRamGiB": 15.61,
+          "availableRamGiB": 14.34,
+          "dockerRamGiB": 15.61,
+          "sourceFreeGiB": 85.85,
+          "temporaryFreeGiB": 85.85,
+          "dockerFreeGiB": 85.85
+        },
+        "sha256": "a1045f98a0444b7b071ebe21e2c4170e6296364c64d2397df33f4714a529177e"
+      }
+    },
+    {
+      "workflow": "Native skipped platforms",
+      "runId": 37578066934,
+      "runAttempt": 1,
+      "jobId": 112651318752,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066934/job/112651318752",
+      "name": "linux-systemd",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:32Z",
+      "completedAt": "2026-10-07T05:48:07Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:33Z",
+          "completedAt": "2026-10-07T05:47:34Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:34Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:47:36Z"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:36Z",
+          "completedAt": "2026-10-07T05:47:46Z"
+        },
+        {
+          "number": 5,
+          "name": "Execute actual systemd and journal operations",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:46Z",
+          "completedAt": "2026-10-07T05:48:03Z"
+        },
+        {
+          "number": 6,
+          "name": "Preserve sanitized native evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:03Z",
+          "completedAt": "2026-10-07T05:48:04Z"
+        },
+        {
+          "number": 10,
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:04Z",
+          "completedAt": "2026-10-07T05:48:04Z"
+        },
+        {
+          "number": 11,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:04Z",
+          "completedAt": "2026-10-07T05:48:04Z"
+        },
+        {
+          "number": 12,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:04Z",
+          "completedAt": "2026-10-07T05:48:04Z"
+        },
+        {
+          "number": 13,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:04Z",
+          "completedAt": "2026-10-07T05:48:04Z"
+        }
+      ],
+      "nativeSkippedEvidence": {
+        "lane": "native-systemd",
+        "leaf": {
+          "name": "TestRealSystemctlAndJournalctl",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "excludedSiblingCount": 0
+        },
+        "tools": {
+          "node": "22.23.3",
+          "go": "go version go1.27.1 linux/amd64"
+        },
+        "sourceHashesExact": true,
+        "cleanup": "complete",
+        "sha256": "5a9b623a33971ad99997508807399eb00cc5331994d1b88d5c29e619e98817cd"
+      }
+    },
+    {
+      "workflow": "Native skipped platforms",
+      "runId": 37578066934,
+      "runAttempt": 1,
+      "jobId": 112651319107,
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37578066934/job/112651319107",
+      "name": "windows-acl",
+      "apiStatus": "completed",
+      "conclusion": "success",
+      "disposition": "success",
+      "startedAt": "2026-10-07T05:47:31Z",
+      "completedAt": "2026-10-07T05:48:40Z",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:32Z",
+          "completedAt": "2026-10-07T05:47:33Z"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:33Z",
+          "completedAt": "2026-10-07T05:47:40Z"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:40Z",
+          "completedAt": "2026-10-07T05:47:51Z"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:47:51Z",
+          "completedAt": "2026-10-07T05:48:29Z"
+        },
+        {
+          "number": 5,
+          "name": "Execute actual inherited ACL refusal",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:29Z",
+          "completedAt": "2026-10-07T05:48:36Z"
+        },
+        {
+          "number": 6,
+          "name": "Preserve sanitized native evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:36Z",
+          "completedAt": "2026-10-07T05:48:37Z"
+        },
+        {
+          "number": 11,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:37Z",
+          "completedAt": "2026-10-07T05:48:37Z"
+        },
+        {
+          "number": 12,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:37Z",
+          "completedAt": "2026-10-07T05:48:39Z"
+        },
+        {
+          "number": 13,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-07T05:48:39Z",
+          "completedAt": "2026-10-07T05:48:39Z"
+        }
+      ],
+      "nativeSkippedEvidence": {
+        "lane": "native-windows",
+        "leaf": {
+          "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "excludedSiblingCount": 15
+        },
+        "tools": {
+          "node": "22.23.3"
+        },
+        "sourceHashesExact": true,
+        "cleanup": "complete",
+        "sha256": "4396021a50757544867a4964b57f2b9b3453f411e8702c9e6c888004cfb7924b"
+      }
+    }
+  ],
+  "apiAnomalies": [],
+  "unitSkipDisposition": {
+    "unit": {
+      "files": {
+        "passed": 878,
+        "skipped": 51,
+        "total": 929
+      },
+      "tests": {
+        "passed": 19622,
+        "failed": 0,
+        "skipped": 1532,
+        "total": 21154
+      }
+    },
+    "rows": [
+      {
+        "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+        "total": 100,
+        "skipped": 100,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/migrations.test.ts",
+        "total": 25,
+        "skipped": 11,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/tenancy.test.ts",
+        "total": 6,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/mcp-start-source-authority.test.ts",
+        "total": 89,
+        "skipped": 72,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/deploy-e2e.test.ts",
+        "total": 21,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/plan-artifact-handoff.test.ts",
+        "total": 18,
+        "skipped": 18,
+        "failed": 0
+      },
+      {
+        "file": "tests/waitlist/pg-contract.test.ts",
+        "total": 38,
+        "skipped": 38,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+        "total": 52,
+        "skipped": 52,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/build-launch-broker-binding.test.ts",
+        "total": 65,
+        "skipped": 61,
+        "failed": 0
+      },
+      {
+        "file": "tests/credentials/bootstrap-templates.test.ts",
+        "total": 86,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "total": 19,
+        "skipped": 12,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+        "total": 36,
+        "skipped": 36,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/start-intent.test.ts",
+        "total": 46,
+        "skipped": 44,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/source-bundle.test.ts",
+        "total": 78,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+        "total": 46,
+        "skipped": 46,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "total": 19,
+        "skipped": 14,
+        "failed": 0
+      },
+      {
+        "file": "tests/machines/kubernetes-kind.test.ts",
+        "total": 48,
+        "skipped": 8,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-control/pg-oauth-grants.test.ts",
+        "total": 71,
+        "skipped": 71,
+        "failed": 0
+      },
+      {
+        "file": "tests/execution/apply.test.ts",
+        "total": 26,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/mixed-child-admission.test.ts",
+        "total": 37,
+        "skipped": 37,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-control-journal-fixes.test.ts",
+        "total": 29,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/mcp-deploy-admission.test.ts",
+        "total": 18,
+        "skipped": 18,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/deploy.test.ts",
+        "total": 42,
+        "skipped": 42,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/codebuild-launch-authority.test.ts",
+        "total": 34,
+        "skipped": 34,
+        "failed": 0
+      },
+      {
+        "file": "tests/capabilities/default-current-membership.test.ts",
+        "total": 27,
+        "skipped": 27,
+        "failed": 0
+      },
+      {
+        "file": "tests/machines/ssm-documents.test.ts",
+        "total": 96,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/approved-source-runtime.test.ts",
+        "total": 27,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/execution/destroy-review.test.ts",
+        "total": 21,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-control-journal.test.ts",
+        "total": 28,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/critical-schedule.test.ts",
+        "total": 10,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/sources/github-webhook.test.ts",
+        "total": 72,
+        "skipped": 18,
+        "failed": 0
+      },
+      {
+        "file": "tests/runners/late-effect-receipts.test.ts",
+        "total": 80,
+        "skipped": 8,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/kubernetes-connection-link.test.ts",
+        "total": 21,
+        "skipped": 21,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-access/credential-authority-origin.test.ts",
+        "total": 61,
+        "skipped": 61,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-control/pg-contract.test.ts",
+        "total": 16,
+        "skipped": 16,
+        "failed": 0
+      },
+      {
+        "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+        "total": 15,
+        "skipped": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-link/pg-contract.test.ts",
+        "total": 14,
+        "skipped": 14,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/first-source-lease-binding.test.ts",
+        "total": 31,
+        "skipped": 31,
+        "failed": 0
+      },
+      {
+        "file": "tests/db/contract/workspace-sharing.test.ts",
+        "total": 22,
+        "skipped": 22,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/approved-source-snapshots.test.ts",
+        "total": 38,
+        "skipped": 38,
+        "failed": 0
+      },
+      {
+        "file": "tests/security/tofu-workspace-injection.test.ts",
+        "total": 34,
+        "skipped": 4,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/aws-bootstrap-preflight-admission.test.ts",
+        "total": 37,
+        "skipped": 37,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/workflow-start-intents.test.ts",
+        "total": 18,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/plan-artifact-source-authority.test.ts",
+        "total": 13,
+        "skipped": 13,
+        "failed": 0
+      },
+      {
+        "file": "tests/secrets/rewrap.test.ts",
+        "total": 57,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/workflow-start-authority.test.ts",
+        "total": 53,
+        "skipped": 53,
+        "failed": 0
+      },
+      {
+        "file": "tests/execution/journey.test.ts",
+        "total": 3,
+        "skipped": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/composition.test.ts",
+        "total": 15,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/portability/postgres-engine.test.ts",
+        "total": 14,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/runner.test.ts",
+        "total": 19,
+        "skipped": 16,
+        "failed": 0
+      },
+      {
+        "file": "tests/portability/mysql-engine.test.ts",
+        "total": 10,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/build-launches.test.ts",
+        "total": 13,
+        "skipped": 13,
+        "failed": 0
+      },
+      {
+        "file": "tests/agent-access/native-oauth-origin.test.ts",
+        "total": 49,
+        "skipped": 49,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/ownership-transfers.test.ts",
+        "total": 7,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/plan-artifact-retention.test.ts",
+        "total": 27,
+        "skipped": 27,
+        "failed": 0
+      },
+      {
+        "file": "tests/hosted/data/pg-contract.live.test.ts",
+        "total": 11,
+        "skipped": 11,
+        "failed": 0
+      },
+      {
+        "file": "tests/hosted/artifacts/storage-store.test.ts",
+        "total": 12,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/security/tofu-secrets.test.ts",
+        "total": 14,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/aws/drivers/network/compile-graph.test.ts",
+        "total": 27,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/client.test.ts",
+        "total": 16,
+        "skipped": 12,
+        "failed": 0
+      },
+      {
+        "file": "tests/db/contract/history.test.ts",
+        "total": 14,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/source-bundle-composition.test.ts",
+        "total": 8,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/db/contract/alerts.test.ts",
+        "total": 7,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/operations.test.ts",
+        "total": 28,
+        "skipped": 28,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/executor.test.ts",
+        "total": 20,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/portability/objectstore-engine.test.ts",
+        "total": 11,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/kubernetes-vault-target.test.ts",
+        "total": 17,
+        "skipped": 17,
+        "failed": 0
+      },
+      {
+        "file": "tests/portability/mysql-cli-tls.test.ts",
+        "total": 5,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/source-bundle-github.test.ts",
+        "total": 4,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/cli/config.test.ts",
+        "total": 16,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/source-bundle-azure.test.ts",
+        "total": 10,
+        "skipped": 10,
+        "failed": 0
+      },
+      {
+        "file": "tests/security/tofu-runner-env.test.ts",
+        "total": 7,
+        "skipped": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/backends.test.ts",
+        "total": 23,
+        "skipped": 4,
+        "failed": 0
+      },
+      {
+        "file": "tests/db/contract/audit.test.ts",
+        "total": 8,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/execution/compile-refs-providers.test.ts",
+        "total": 18,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/terraform-lb-names.test.ts",
+        "total": 14,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/open.test.ts",
+        "total": 16,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/oci/mysql.test.ts",
+        "total": 9,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/gcp/bootstrap.test.ts",
+        "total": 14,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/portability/dns-transport-native.test.ts",
+        "total": 6,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/gcp/tofu-validate.test.ts",
+        "total": 6,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/azure/mysql.test.ts",
+        "total": 23,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/azure/deploy.test.ts",
+        "total": 9,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/reconcile.test.ts",
+        "total": 2,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/oci/validate.test.ts",
+        "total": 6,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/kubernetes/kind.test.ts",
+        "total": 6,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/aws/drivers/messaging/assemble.test.ts",
+        "total": 9,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/worker.test.ts",
+        "total": 16,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/platform/current-dispatch-requirement.test.ts",
+        "total": 9,
+        "skipped": 9,
+        "failed": 0
+      },
+      {
+        "file": "tests/sources/github-store.test.ts",
+        "total": 26,
+        "skipped": 13,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/ephemeral-network.test.ts",
+        "total": 5,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/ecs-replica-repair.test.ts",
+        "total": 11,
+        "skipped": 11,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/network.test.ts",
+        "total": 4,
+        "skipped": 4,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/aws/identity/trust.test.ts",
+        "total": 14,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/source-plan-evidence.test.ts",
+        "total": 4,
+        "skipped": 4,
+        "failed": 0
+      },
+      {
+        "file": "tests/execution/destroy-review-temporal.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/replay.test.ts",
+        "total": 7,
+        "skipped": 7,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/aws/drivers/compute/assemble.test.ts",
+        "total": 7,
+        "skipped": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/aws/drivers/e2e-compile.test.ts",
+        "total": 8,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/azure/validate.test.ts",
+        "total": 6,
+        "skipped": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/security/plan-artifact-secrecy.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/aws/drivers/data/assemble.test.ts",
+        "total": 5,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/gcp/identity/trust.test.ts",
+        "total": 10,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/security/workflow-history.test.ts",
+        "total": 10,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/azure/identity/trust.test.ts",
+        "total": 5,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/providers/kubernetes/release-kind.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/codec-replay.test.ts",
+        "total": 2,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/approval-time.test.ts",
+        "total": 3,
+        "skipped": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/capabilities/default-broker-origin.test.ts",
+        "total": 18,
+        "skipped": 18,
+        "failed": 0
+      },
+      {
+        "file": "tests/acceptance/sample-app.test.ts",
+        "total": 5,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/execution/deletion-guards-real.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/destroy-replay.test.ts",
+        "total": 6,
+        "skipped": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/controlplane/opened-handle-ownership.test.ts",
+        "total": 11,
+        "skipped": 10,
+        "failed": 0
+      },
+      {
+        "file": "tests/acceptance/tofu-destroy.test.ts",
+        "total": 9,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/policy/parity.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/hcl-template-real.test.ts",
+        "total": 2,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/destroy-real.test.ts",
+        "total": 2,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/workflows/mtls-live.test.ts",
+        "total": 2,
+        "skipped": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/sources/github-live.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      },
+      {
+        "file": "tests/tofu/plan-lock.test.ts",
+        "total": 1,
+        "skipped": 1,
+        "failed": 0
+      }
+    ],
+    "comparison": {
+      "sourceCommit": "d6965d75eb9522527c7a91b06cf8f490f6531d20",
+      "verifyJobId": 112651315280,
+      "unit": {
+        "files": {
+          "passed": 878,
+          "skipped": 51,
+          "total": 929
+        },
+        "tests": {
+          "passed": 19622,
+          "failed": 0,
+          "skipped": 1532,
+          "total": 21154
+        }
+      },
+      "currentSkippedFileRows": 120,
+      "currentSkipTotal": 1532,
+      "baselineSourceCommit": "f582e1934a42283d316cf7c4fc65673cf948eccd",
+      "baselineSkippedFileRows": 120,
+      "baselineSkipTotal": 1532,
+      "allPerFileTotalSkipFailedRowsExactBaseline": true,
+      "all120SkippedSourceBytesExactBaseline": true,
+      "addedRows": [],
+      "removedRows": [],
+      "changedExistingRows": [],
+      "sourcePreparationSha256": "634a97ac1cafb264d33b2b63180535f8db63e703ec7aefa4f47594bf6f35c45e",
+      "verifyLogSha256": "8cc11bf94df4f8fc6ab6045479b2b0d27c01a6f6f723940cc4064ec101443956",
+      "baselineSkipRowsSha256": "d4060635a1052e48f4f0b17c53ab8da7aa38c37000fafaf691f42f989b53c1b1",
+      "limits": [
+        "Per-file totals/skips are observed; raw assertion-level skipped identities are not exported.",
+        "The11 native transport fixture opt-ins remain skipped by ordinary CI; separate authorized engine execution is not borrowed into these counts.",
+        "No expected-skips sidecar validation inferred from parsing these summaries."
+      ]
+    },
+    "rowsSha256": "120c8341e7c4645ab0127bdccf50a827420dfbb489ee2a22598b2d1953e094f7"
+  },
+  "specialLaneSkips": {
+    "platformPostgres": {
+      "counts": {
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8
+      },
+      "requiredGroupsPassed": 1124,
+      "observedSkippedIdentitiesExported": false,
+      "sourceDeclaredBackendInapplicableDefinitions": [
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "memory",
+          "ancestorSuite": "agent effect receipts [memory]",
+          "suite": "runner authenticated outcomes",
+          "test": "rolls back the receipt and active projection together, then accepts a fresh delivery",
+          "sourcePredicate": "lane.name === memory",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:9d9aeb7b0bb2",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "memory",
+          "ancestorSuite": "agent effect receipts [memory]",
+          "suite": "runner authenticated outcomes",
+          "test": "makes receipt update/delete and original assignment substitution fail at the database boundary",
+          "sourcePredicate": "lane.name === memory",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:597359ced6d5",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "memory",
+          "ancestorSuite": "agent effect receipts [memory]",
+          "suite": "runner authenticated outcomes",
+          "test": "observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+          "sourcePredicate": "lane.name !== postgres",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:1136feb4557d",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "pglite",
+          "ancestorSuite": "agent effect receipts [pglite]",
+          "suite": "runner authenticated outcomes",
+          "test": "observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+          "sourcePredicate": "lane.name !== postgres",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:1136feb4557d",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "memory",
+          "ancestorSuite": "agent effect receipts [memory]",
+          "suite": "machine authenticated outcomes",
+          "test": "rolls back the receipt and active projection together, then accepts a fresh delivery",
+          "sourcePredicate": "lane.name === memory",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:76382129d0ac",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "memory",
+          "ancestorSuite": "agent effect receipts [memory]",
+          "suite": "machine authenticated outcomes",
+          "test": "makes receipt update/delete and original assignment substitution fail at the database boundary",
+          "sourcePredicate": "lane.name === memory",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:db2dd444a434",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "memory",
+          "ancestorSuite": "agent effect receipts [memory]",
+          "suite": "machine authenticated outcomes",
+          "test": "observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+          "sourcePredicate": "lane.name !== postgres",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:4434edd8a3c2",
+          "counterpartStatus": "passed"
+        },
+        {
+          "file": "tests/runners/late-effect-receipts.test.ts",
+          "backend": "pglite",
+          "ancestorSuite": "agent effect receipts [pglite]",
+          "suite": "machine authenticated outcomes",
+          "test": "observes a blocked PostgreSQL result writer and retains late evidence when cancellation wins the job lock",
+          "sourcePredicate": "lane.name !== postgres",
+          "postgresCounterpartRequirementId": "platform-postgres:tests/runners/late-effect-receipts.test.ts:4434edd8a3c2",
+          "counterpartStatus": "passed"
+        }
+      ],
+      "distinctPostgresCounterpartRequirementCount": 6,
+      "counterpartsDoNotExecuteOriginalMemoryOrPgliteLeaves": true,
+      "basis": "Current committed source predicates identify eight backend-inapplicable definitions; canonical artifact exports aggregate eight skips and all current required groups, not raw skipped leaf identities.",
+      "sourceSha256": "73e24b79241f0f065880c1c3f20cbc1d9ab96671e097090c73eaa6c7edc71f88",
+      "artifactSha256": "91a2c9ee901daa614c02a9437de789012697ebbe816af53008b6702c036da1d4"
+    },
+    "tofu": {
+      "counts": {
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18
+      },
+      "requiredGroupsPassed": 27,
+      "observedSkipFileRows": [
+        {
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "total": 18,
+          "skipped": 18
+        }
+      ],
+      "sourcePredicate": "!PG_URL || !tofuOnPath() || ZENITH_TEST_TOFU_NETWORK !== 1",
+      "reason": "The OpenTofu-only lane lacks the owning PostgreSQL fixture for the original cross-worker handoff suite.",
+      "separateCurrentPlatformPostgres": {
+        "file": "tests/tofu/plan-artifact-handoff.test.ts",
+        "requiredGroups": [
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:866597c43f5e",
+            "test": "producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:37b02f85810a",
+            "test": "fresh semantic drift refuses before dispatch and has no original/fresh fallback",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:afbbc9e1f26a",
+            "test": "source/config/backend/address-map/lock/tool and operation swaps refuse before mutation",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:30c54b0570ef",
+            "test": "tampering with the original after inspection refuses before apply and preserves uncertainty after dispatch",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:9f54454f6925",
+            "test": "stale original state serial refuses even when independent fresh semantic plan is unchanged, with no fallback",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:640649532efe",
+            "test": "source review completes, browser human approval is consumed, and destination destroys the associated ORIGINAL",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:6490ca54e048",
+            "test": "restore into a fresh PostgreSQL store with matching keys preserves the original; missing keys refuse",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:784d800ec8a0",
+            "test": "fake cipher authority and arbitrary runner handles cannot mint production admission",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:644f6f12ffdc",
+            "test": "matching immutable source identity consumes original bytes and a different source digest refuses before dispatch",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:3b8932d25748",
+            "test": "independent saved binary with matching native private source binding applies the exact original once",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:22a11f2d9fce",
+            "test": "independent saved binary refuses committed private source revocation before original apply without a fresh fallback",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:7fe0588809db",
+            "test": "saved product original binary changed owning region during paired current-role wait fences actual apply effects",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:21f5aae37a94",
+            "test": "saved product original binary approver demotion during paired current-role wait fences actual apply effects",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:e15201768bc0",
+            "test": "saved product original binary benign UI pointer advance during paired current-role wait fences actual apply effects",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:0e2e099b356a",
+            "test": "saved product original binary unchanged owning target during paired current-role wait fences actual apply effects",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:e72e1c6bf6e4",
+            "test": "associated saved product destroy binary fences destination subject demotion during paired current-role wait",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:8989dadf9ee4",
+            "test": "associated saved product destroy binary fences approver demotion during paired current-role wait",
+            "status": "passed",
+            "backend": "postgres"
+          },
+          {
+            "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:fdf28b7e6f5e",
+            "test": "associated saved product destroy binary fences unchanged destination during paired current-role wait",
+            "status": "passed",
+            "backend": "postgres"
+          }
+        ],
+        "artifactSha256": "91a2c9ee901daa614c02a9437de789012697ebbe816af53008b6702c036da1d4"
+      },
+      "tofuPrivateLogSha256": "6211c9a48ed82bfbd0e6547250c99c5096b625f12b48181d6ea4539a7e5967d3",
+      "sourceSha256": "0221047e99a58559d6c392acfdd4356bf46f2914675f212280030993aebaea96",
+      "scopeLimit": "The 18 skips remain in the Tofu lane; the 18 mandatory PostgreSQL groups passed separately. No count is subtracted or added across lanes.",
+      "artifactSha256": "355df70dda3dd636fe8365480bf67849d5ea26dcce4bf808992794a50412db3c"
+    },
+    "goRace": {
+      "passedLeaves": 1048,
+      "failedLeaves": 0,
+      "skippedLeaves": 3,
+      "sourceAllowlist": [
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+          "test": "TestRealSystemctlAndJournalctl",
+          "reason": "Separately opted-in actual systemd acceptance; this gate starts no services."
+        },
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+          "test": "TestRealOpenTofuPlanShowApply",
+          "reason": "The existing dedicated OpenTofu workflow gate retains actual binary/provider evidence."
+        },
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+          "test": "TestRealOpenTofuWithProviderAndLockfile",
+          "reason": "The existing dedicated OpenTofu workflow gate retains actual binary/provider evidence."
+        }
+      ],
+      "rawSkippedEventIdentitiesExported": false,
+      "separateCounterparts": {
+        "systemctlJournal": "Fresh native-skipped-platforms case TestRealSystemctlAndJournalctl passed 1/0/0 with cleanup complete. It is separate from the tagged15 systemd event gate.",
+        "openTofu": "Fresh Tofu job real OpenTofu/provider-lock step succeeded with the exact two-name selection and enabling binary/network declarations; raw individual JSON events were not exported."
+      }
+    },
+    "hosted": {
+      "passed": 1146,
+      "failed": 0,
+      "skipped": 13,
+      "individualSkippedIdentitiesExported": false
+    },
+    "windows": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "excludedSiblingCount": 15,
+      "excludedSiblingsAreNotRuntimeSkips": true
+    },
+    "declarationReuse": {
+      "basis": "Source-declared backend and Go allowlist definitions preserved from prior reviewed projection; current manifest and artifact requirements independently passed. Runtime outcomes and artifact hashes use current d696 only.",
+      "priorProjectionSha256": "c3d4f50f70f71266ad1e1d64bf8aa2567a30690acac783a4848fbd707a12d9f0"
+    }
+  },
+  "binding": {
+    "observerSha256": "c8e9fec88f988f8046324214cc8dc8beba330a39cf8ce3f35bd529498d2087b6",
+    "receipts": {
+      "MAIN-RUN-TERMINAL-R1.json": "bbb57feaba2426443021662bd221be9004d2a2157f7995b6ce7fc1642abea69d",
+      "MAIN-JOBS-TERMINAL-R1.json": "07a3762eb77cb736f7f6c3d5380dcf0fdaada45869bece91ec636634baf33da7",
+      "MAIN-ARTIFACTS-TERMINAL-R1.json": "051424b794f6198f82e958249cc6b750871be1d413d59dd07fec6cc67b8ae6cd",
+      "37578066955-run-snapshot-r2.json": "39315ba837687cd32577138d27a6885617ad7a3376adcb8fd9aa87c0c5fcdac7",
+      "37578066955-jobs-snapshot-r2.json": "d5d97f118cfb656576cc631aa0570027d0630c84a96b5bee8736a3674a7769d2",
+      "37578066955-artifacts-snapshot-r2.json": "21d131c7f1502f21f3411e10a2415acd652413b0d0360e369372d834f79e53a8",
+      "37578066934-run-snapshot-r1.json": "bbdde1438f7381416678add8d3f46f326b2eeddf238a4568818144b0470bfe6b",
+      "37578066934-jobs-snapshot-r1.json": "679f61d22b45060e280f640c917feea0be300ed6aee881fc482f62b445b69a46",
+      "37578066934-artifacts-snapshot-r1.json": "00d6a9b7084d69bf7ab40d5923136e872d5f3cbc131d146348f7a4d1d310ff5e",
+      "DISCOVERY-R1.json": "d01cc018a11dfbd4cf08ca11c81a4cab78898cf877e1345718cf0f98de5404f8",
+      "CURRENT-MANIFESTS-R1.json": "7362a961e4f673cb93c98845f83cde5f6e286412bf9e0e3e56f0e933a75a9351",
+      "SOURCE-FRAME-R1.json": "64ff4a7da3e91786dd9c0c1366ed1d619697e3fd9c1d97a859d63719cfb2c60f",
+      "ARTIFACT-DOWNLOAD-R1.json": "ffdeb1c7ca60e65d1b0f3dc6704f64532327952563fb4cc6f61b53f33d190e9d",
+      "ARTIFACT-DOWNLOAD-R2.json": "410bae0b5eeed26fbff46904efee11d0363e4c6c974fb09ee1d75699ee9327e6",
+      "AVAILABLE-CONTENT-REVIEW-R1.json": "dbfcb2ff27816bad31d87e0b47e60656fef46d1605079782eb7179ee1e685d41",
+      "NATIVE-CANONICAL-VALIDATION-R1.json": "747ea4c94b46eb4d5f432c2337fff2d1c85e7bc4438d87ba81e23ad4249cee6e",
+      "WORKFLOWS-CONTENT-REVIEW-R1.json": "b272e6a9dd5aa24a4e5fb761a965edea7ab839ee3c85db797b7030ab143150bc",
+      "PLATFORM-CONTENT-REVIEW-CORRECTED-R1.json": "867c3643bd1ef7a1db30cd195b77737ef4f5eddbb103c7b073e1e54fb66ca18d",
+      "NONCANONICAL-COUNTS-R1.json": "db0722bac2aa01be155798b92f52acb143826d1d3a614c727901779e27b91d48",
+      "SUPPLY-CONTENT-REVIEW-R1.json": "416dc3c78111169f41421ae9870dff79400f4887ec0d2980761482ecb6eecf69",
+      "VERIFY-CONTENT-REVIEW-R1.json": "ac48d7370bc9e707cab29f83e7c6ff5999bbce1eec28cce996f30c2577ffc628",
+      "UNIT-SKIP-ROWS-R1.json": "120c8341e7c4645ab0127bdccf50a827420dfbb489ee2a22598b2d1953e094f7",
+      "UNIT-SKIP-COMPARISON-R1.json": "fe23f6e2456af8986d8401ff1fef510c344ea118ab68de00f60c169e5772d5bf",
+      "SKIP-SOURCE-PREPARATION-R1.json": "634a97ac1cafb264d33b2b63180535f8db63e703ec7aefa4f47594bf6f35c45e"
+    },
+    "artifacts": [
+      {
+        "id": 11463880237,
+        "name": "canonical-linux-systemd-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20-f2ad7a9a3d496c92ef064dcfbe5ca7c2",
+        "runId": 37578066932,
+        "file": "final.json",
+        "sha256": "724cf369b282666a99c2210681e3a5ebb863b70f079b898dc7b1200aa5f0cdac",
+        "archiveSha256": "1ec6387ddb6eaef28c817f3aac867817031a3f953ec6ca5f28e2e942aa8e2f69"
+      },
+      {
+        "id": 11463696403,
+        "name": "canonical-workflow-intents-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "workflow-intents-evidence.json",
+        "sha256": "83b1d91c732cb3172b930b838c43788abf4c33543c9b9b7951dccf711f700612",
+        "archiveSha256": "106c1d1002834e26305910f714210cad7e25cdcc0b0fdd4f84996567247d18fe"
+      },
+      {
+        "id": 11463623751,
+        "name": "canonical-platform-postgres-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "platform-postgres-evidence.json",
+        "sha256": "91a2c9ee901daa614c02a9437de789012697ebbe816af53008b6702c036da1d4",
+        "archiveSha256": "34e109f91c7226347ee3128f56f97d2f3aff7c86e1d03e63f779e2f2dcac4caa"
+      },
+      {
+        "id": 11463373679,
+        "name": "canonical-workflows-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "workflows-evidence.json",
+        "sha256": "874db52e9880108436d10cb188360b3eebab982c8e830d981bca24d7b3249c8c",
+        "archiveSha256": "cfec7b4c96edeeed361d29380cedf001330c31e90ccc84bcefdf94ca7b1d8537"
+      },
+      {
+        "id": 11463228218,
+        "name": "canonical-postgres-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "postgres-evidence.json",
+        "sha256": "c7f4e61624d893d23f8cbc94b7c32f63fc42f3705b99fba041a64b7f589ac595",
+        "archiveSha256": "193ddb77463852131bb3662630be78435bad8d36c8cad503de91b7b7974ceaea"
+      },
+      {
+        "id": 11463004292,
+        "name": "canonical-tofu-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "tofu-evidence.json",
+        "sha256": "355df70dda3dd636fe8365480bf67849d5ea26dcce4bf808992794a50412db3c",
+        "archiveSha256": "0395788770ce872dabd3e2c43531c13fce42e997b702aa63825425fb7a4cd876"
+      },
+      {
+        "id": 11462349991,
+        "name": "canonical-linux-guest-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20-fae3a94d53cab5fb963143c61cb3ed4f",
+        "runId": 37578066932,
+        "file": "sanitized.json",
+        "sha256": "7990ba8ce9bd447bd5f4b125f3f78576555664cc23a3dfa080a701b911ff66c3",
+        "archiveSha256": "1fe7406d2c45a838c38ba65b6a7219fa3f1e3de70fe291e4053d28ab0640a0d1"
+      },
+      {
+        "id": 11462224845,
+        "name": "canonical-reconciliation-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "reconciliation-evidence.json",
+        "sha256": "9568b7f29a71f1def2413a25a3ee935d82ad55a6bc31bc010362f7540639d515",
+        "archiveSha256": "22c28cfb0215bf00ce44bd99fae53cf79589cd35cbb4e56dfe8691300b2b49a0"
+      },
+      {
+        "id": 11462164963,
+        "name": "canonical-policy-evidence-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066932,
+        "file": "policy-evidence.json",
+        "sha256": "3ed59ae592fbc964a677d54e5b7b31e975e1bc9db878cba57d65d65957137117",
+        "archiveSha256": "6b2558735f22dc43a1fa096e16aec14825771b314d88e3e5bfc65d2a64e187ee"
+      },
+      {
+        "id": 11463830511,
+        "name": "packaged-worker-arm64-37578066955-1",
+        "runId": 37578066955,
+        "file": "sanitized.json",
+        "sha256": "f43dd06c2501a3c28e1c99e44d67565109d5ca842aecba3137649ce388348177",
+        "archiveSha256": "4c41dde49642db024aebcdba4617b15cbf600710ff3d0e8ec74fdc450618f7fe"
+      },
+      {
+        "id": 11463751774,
+        "name": "packaged-worker-amd64-37578066955-1",
+        "runId": 37578066955,
+        "file": "sanitized.json",
+        "sha256": "a1045f98a0444b7b071ebe21e2c4170e6296364c64d2397df33f4714a529177e",
+        "archiveSha256": "ef2021857c2c3eb2d52a56e73096e50ec76a1cee38c1dd050a07acc466da72c7"
+      },
+      {
+        "id": 11463611702,
+        "name": "skipped-platform-windows-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066934,
+        "file": "windows.json",
+        "sha256": "4396021a50757544867a4964b57f2b9b3453f411e8702c9e6c888004cfb7924b",
+        "archiveSha256": "710335383e64ed32592ba455171839ddb54c916525928c8a0ef71e5ae904b4aa"
+      },
+      {
+        "id": 11462724169,
+        "name": "skipped-platform-systemd-d6965d75eb9522527c7a91b06cf8f490f6531d20",
+        "runId": 37578066934,
+        "file": "systemd.json",
+        "sha256": "5a9b623a33971ad99997508807399eb00cc5331994d1b88d5c29e619e98817cd",
+        "archiveSha256": "8ca70725b876b36103f5de6d5a00d25657763ca27eaa758b4854dd8febc3d672"
+      }
+    ]
+  },
+  "toolsEvidencePolicy": "ExpectedTools are manifest expectations; measured environment/native tool fields retain their declared evidence scope.",
+  "scopeLimits": [
+    "All three fresh attempt-1 runs and all 20 jobs completed successfully on exact d696 source; no predecessor job outcome was carried forward.",
+    "Unit 19622 passed, zero failed and 1532 skipped. All 120 per-file total/skip/failure rows and skipped source bytes match f582; 11 transport fixture opt-ins remain ordinary CI skips.",
+    "Platform 3034/0/8, Tofu 3916/0/18, hosted 1146/0/13 and Go race 1048/0/3 are separate scoped reports, not counts to add or subtract.",
+    "Go 152 required guest identities, tagged systemd 15 events (two parents and 13 leaves), native journal one leaf, Windows one leaf with 15 excluded siblings, and packaged 22 checks per architecture have distinct scopes.",
+    "Canonical required IDs and backend groups match current manifests; raw individual skipped assertion identities and validated expected-skips sidecar coverage are not exported by the standard log.",
+    "ExpectedTools are declared expectations; measured native Node/Go/platform fields are reported separately. Exact Windows OS, PowerShell and npm versions are not exported.",
+    "Native packaged evidence covers the bounded worker harness and owned cleanup; it does not prove live cloud mutation, default journey, external service acceptance or any product/release state promotion.",
+    "Separate root-local PG/MinIO/MySQL/TLS/kind execution evidence is not imported into these CI counts.",
+    "Observer performed read-only Git/GitHub/content checks and private evidence writes only; no tests, services, CI mutations or source changes."
+  ]
+}

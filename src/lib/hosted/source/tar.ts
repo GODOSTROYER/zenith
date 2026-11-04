@@ -245,13 +245,19 @@ export function scanTar(input: Buffer): TarScan {
   let offset = 0;
   let pendingPath: string | undefined;
   let pendingSize: number | undefined;
+  let terminated = false;
 
   while (offset + BLOCK <= buf.length) {
     const header = buf.subarray(offset, offset + BLOCK);
     if (isAllZero(header)) {
       const next = buf.subarray(offset + BLOCK, offset + 2 * BLOCK);
-      if (next.length < BLOCK || isAllZero(next)) break; // end-of-archive marker
-      reasons.push("The archive has a zero block in the middle of its entries. Re-create it with GNU tar or bsdtar.");
+      if (next.length === BLOCK && isAllZero(next)) {
+        // Proper end-of-archive marker: two zero blocks, then only zero padding. Anything else is hidden data.
+        if (!isAllZero(buf.subarray(offset + 2 * BLOCK))) reasons.push("The archive has data after its end-of-archive marker. Re-create it with GNU tar or bsdtar.");
+        terminated = true;
+        break;
+      }
+      reasons.push("The archive has a zero block in the middle of its entries or an incomplete end-of-archive marker. Re-create it with GNU tar or bsdtar.");
       break;
     }
     if (!headerChecksumOk(header)) {
@@ -357,6 +363,10 @@ export function scanTar(input: Buffer): TarScan {
     }
     seen.add(safe.path);
     files.push({ path: safe.path, bytes: Buffer.from(data) });
+  }
+
+  if (!terminated && reasons.length === 0) {
+    reasons.push("The archive has no end-of-archive marker (two zero blocks), so it may be cut short. Re-create it with GNU tar or bsdtar.");
   }
 
   return { files, dirs, reasons };

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "kind": "ci_core_workers_focused_diagnostic",
+  "baseCommit": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+  "sourceState": "reviewed working overlay, not clean committed-source acceptance",
+  "status": "passed-diagnostic-only",
+  "acceptanceClaim": false,
+  "receiptSha256": "a3d8ca58f5ed5f1fbdb313352f847a5eb2c92b4cb9feb8f1c2e022b9ab547cb5",
+  "testSummary": {
+    "caseCount": 67,
+    "fileStatus": "passed",
+    "numFailedTestSuites": 0,
+    "numFailedTests": 0,
+    "numPassedTestSuites": 11,
+    "numPassedTests": 67,
+    "numPendingTestSuites": 0,
+    "numPendingTests": 0,
+    "numTodoTests": 0,
+    "numTotalTestSuites": 11,
+    "numTotalTests": 67
+  },
+  "changedSourcePostimages": {
+    "scripts/ci/gate-manifest.mjs": "f6be0cecb9151d43816c60de8ad42edb1c4359a97a7627676b65f9529fdd78e7",
+    "tests/ci/platform-coverage.test.ts": "dc8c9c650ace68c7817e890d69374ac17d1c05031cc964280915997481b85197"
+  },
+  "sourceCount": 5925,
+  "sourceStable": true,
+  "heldCommandCount": 14,
+  "allHeldCommandsStrictlyClosed": true,
+  "floorWatcherJoined": true,
+  "minimumFreeBytes": 326511194112,
+  "floorBytes": 23622320128,
+  "lintExitCode": 0,
+  "ciWorkerChange": "canonical core unit workers 1 to 2; all tests, projects, skip gates and 45-minute job timeout preserved",
+  "resourceDiagnostics": "before/after hosted CPU, memory/swap and disk snapshots added; not continuous peak measurements",
+  "remaining": [
+    "Fresh clean-source full R16",
+    "Exact pushed-source complete CI",
+    "Native image rebuild and authorized operated acceptance"
+  ],
+  "milestonePromotion": false
+}

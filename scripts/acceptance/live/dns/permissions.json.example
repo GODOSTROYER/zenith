@@ -1,0 +1,15 @@
+{
+  "schema": "zenith.live-cloud-permissions.v1",
+  "approved": false,
+  "approvedBy": "OWNER_MUST_APPROVE",
+  "expiresAt": "1970-01-01T00:00:00Z",
+  "packetSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "maxUsd": 1,
+  "maxHours": 1,
+  "cloudOrigins": [],
+  "cloudPathPrefixes": [],
+  "trafficOrigins": [],
+  "dnsSuffixes": [],
+  "retainedResourceIds": [],
+  "allowTeardownReview": false
+}

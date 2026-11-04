@@ -1,0 +1,7 @@
+Good work. The orchestrator now extends your owned paths so you can finish the three follow-ups yourself (same rules, same session):
+
+1. `src/lib/providers/azure/credentials.ts` (only what Blob access needs): request a token for the Azure Storage audience (`https://storage.azure.com/.default`) for the source-bundle helper only; a strict Blob host policy (`<account>.blob.core.windows.net` and the sovereign-cloud equivalents the module already knows, exact host match, https only); refuse redirects (`redirect: "error"`, and never forward the bearer to another host). Tests for each refusal.
+2. `workers/execution/worker.ts` and `src/lib/platform/execution.ts`: supply a trusted, tenant-scoped `sourceBundles.azureStorage` resolver in default composition (storage account/container come from the environment's trusted Azure binding or connection config, never from the manifest or a model). If no trusted binding exists, the resolver refuses with a clear message. Tests (mock the binding).
+3. `tests/docs/operator-docs.test.ts` lines ~190, 205, 206: update the assertions to the new truth (Azure dispatch, `createReleasePorts({ db: opts.db, azure })`, the narrowed limitation), so they would fail if the wiring were removed.
+
+Then run: `npx vitest run --maxWorkers=1 tests/docs tests/platform/source-bundle*.test.ts tests/providers/azure tests/workers`, eslint on touched paths, one `npx tsc --noEmit`, and write the final report. Leave changes uncommitted.

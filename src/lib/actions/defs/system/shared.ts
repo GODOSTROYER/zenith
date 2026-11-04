@@ -13,10 +13,11 @@ import {
   type Role,
 } from "@/lib/actions/core";
 import {
-  type Manifest,
+  type AnyManifest,
   type Project,
 } from "@/lib/domain/types";
 import { nodeName } from "@/lib/domain/graph";
+import { parseEditableManifest } from "../_manifest";
 import {
   clone,
   commit,
@@ -27,7 +28,7 @@ import {
 /* --------------------------- manifest-action shape ------------------------- */
 
 interface Built {
-  next: Manifest;
+  next: AnyManifest;
   /** what the change is, in one clause: "Adds web service \"api\"" */
   what: string;
   details?: string[];
@@ -46,6 +47,14 @@ interface Built {
    * where it was rather than replacing it with a reference to nothing.
    */
   apply?: () => void | Promise<void>;
+}
+
+function validateBuilt(built: Built): void {
+  if (built.blocked || built.next.version !== 2) return;
+  // V2 references (release targets and placement pins) must stay valid after
+  // a per-node edit too. Refuse before any secret-store side effect occurs.
+  const parsed = parseEditableManifest(built.next, false);
+  if (!parsed.ok) built.blocked = parsed.errors.map((issue) => `${issue.path}: ${issue.message}`).join(" · ");
 }
 
 /**
@@ -72,6 +81,7 @@ export function manifestAction<I extends { projectId?: string }>(def: {
     async plan(ctx: ActionContext, input: I) {
       const project = requireProject(ctx, input.projectId);
       const built = await def.build(project, input, ctx);
+      validateBuilt(built);
       const plan = planFromDiff(project.workingManifest, built.next, built.what, {
         details: built.details,
         warnings: built.warnings,
@@ -82,6 +92,7 @@ export function manifestAction<I extends { projectId?: string }>(def: {
       const project = requireProject(ctx, input.projectId);
       const before = clone(project.workingManifest);
       const built = await def.build(project, input, ctx);
+      validateBuilt(built);
       if (built.blocked)
         return { ok: false, summary: `${def.title} was not applied.`, error: built.blocked };
       // Store first, manifest second: if this throws, nothing is committed.
@@ -92,10 +103,10 @@ export function manifestAction<I extends { projectId?: string }>(def: {
   });
 }
 
-export const takenNames = (m: Manifest) => [...m.services.map((s) => s.name), ...m.resources.map((r) => r.name)];
+export const takenNames = (m: AnyManifest) => [...m.services.map((s) => s.name), ...m.resources.map((r) => r.name)];
 
 /** Drop every binding that touches a node id, and say which. */
-export function dropBindings(m: Manifest, nodeId: string): string[] {
+export function dropBindings(m: AnyManifest, nodeId: string): string[] {
   const doomed = m.bindings.filter((b) => b.from === nodeId || b.to === nodeId);
   m.bindings = m.bindings.filter((b) => !doomed.includes(b));
   return doomed.map((b) => `${nodeName(m, b.from)} → ${nodeName(m, b.to)}`);

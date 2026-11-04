@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "reviewedWorkerCommit": "3786247334e9bef7e02609f71328a08a9b2dbf69",
+  "integratedCommit": "a1259fdcb49ff34805be5610edbec8ca16e0b36d",
+  "scope": "Root execution on independently reviewed exact source; complete canonical workflow and successor CI still pending.",
+  "previousRequirements": 71,
+  "addedLiteralRequirements": 34,
+  "currentRequirements": 105,
+  "old71SortedIdSHA256": "5d59799c849b2180643bdbdbd2196c2cef6a966a9fc703d78208f27a617dd77d",
+  "frozenManifestSHA256": "408b0b42800ecdb97f1e5edbd75409879a8b790f7efb0bae4aac3c447c52de02",
+  "counts": {
+    "metadata": {
+      "numPassedTests": 463,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 463,
+      "success": true
+    },
+    "actual-replay": {
+      "numPassedTests": 34,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 34,
+      "success": true
+    }
+  },
+  "controllers": [
+    {
+      "commit": "3786247334e9bef7e02609f71328a08a9b2dbf69",
+      "floorBytes": 23622320128,
+      "dirtyTrackedSource": false,
+      "runs": [
+        {
+          "name": "metadata",
+          "beforeFreeBytes": 25082318848,
+          "minimumFreeBytes": 24882147328,
+          "exitCode": 0,
+          "durationSeconds": 35.52,
+          "afterFreeBytes": 25081757696,
+          "status": "completed"
+        },
+        {
+          "name": "actual-replay",
+          "beforeFreeBytes": 25081753600,
+          "minimumFreeBytes": 25062633472,
+          "exitCode": 0,
+          "durationSeconds": 6.57,
+          "afterFreeBytes": 25079595008,
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "commit": "3786247334e9bef7e02609f71328a08a9b2dbf69",
+      "floorBytes": 23622320128,
+      "dirtyTrackedSource": false,
+      "runs": [
+        {
+          "name": "compiler",
+          "beforeFreeBytes": 25079595008,
+          "minimumFreeBytes": 25078325248,
+          "exitCode": 0,
+          "durationSeconds": 48.2,
+          "afterFreeBytes": 25078632448,
+          "status": "completed"
+        },
+        {
+          "name": "lint",
+          "beforeFreeBytes": 25078607872,
+          "minimumFreeBytes": 25078607872,
+          "exitCode": 0,
+          "durationSeconds": 2.03,
+          "afterFreeBytes": 25078591488,
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "First current-source synthetic corpus only; previous-release compatibility and in-flight upgrades remain unproven.",
+    "Cloud activity effects modeled; actual SDK replay and negative nondeterminism checks executed.",
+    "No release-state or requirement promotion."
+  ]
+}

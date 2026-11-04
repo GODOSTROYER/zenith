@@ -1,0 +1,96 @@
+[
+  {
+    "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260930/us-west-2/dynamodb/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-target, Signature=4847ba02bc3680bc6f43280140cc750078da10a7d7aab32d90ffbd79f2d24db8",
+    "body": "{}",
+    "canonicalRequest": "POST\n/\n\ncontent-type:application/x-amz-json-1.0\nhost:dynamodb.us-west-2.amazonaws.com\nx-amz-date:20260930T120000Z\nx-amz-target:DynamoDB_20120810.ListTables\n\ncontent-type;host;x-amz-date;x-amz-target\n44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "headers": {
+      "Content-Type": "application/x-amz-json-1.0",
+      "X-Amz-Target": "DynamoDB_20120810.ListTables"
+    },
+    "host": "dynamodb.us-west-2.amazonaws.com",
+    "method": "POST",
+    "name": "dynamodb-json-post-x-amz-target",
+    "path": "/",
+    "query": "",
+    "region": "us-west-2",
+    "service": "dynamodb",
+    "signature": "4847ba02bc3680bc6f43280140cc750078da10a7d7aab32d90ffbd79f2d24db8",
+    "stringToSign": "AWS4-HMAC-SHA256\n20260930T120000Z\n20260930/us-west-2/dynamodb/aws4_request\n515f57c3449ce19365dd00dc60281e6e42b0fa56ca9601bd4515e8e69c0d631c",
+    "time": "20260930T120000Z"
+  },
+  {
+    "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260930/eu-west-1/ec2/aws4_request, SignedHeaders=content-type;host;x-amz-date;x-amz-security-token, Signature=b81a4ad846a191fe0df7fdffd74c42d66532d6cee824ffe4e7a23db22631c584",
+    "body": "Action=DescribeInstances&Version=2016-11-15&Filter.1.Name=instance-state-name&Filter.1.Value.1=running",
+    "canonicalRequest": "POST\n/\n\ncontent-type:application/x-www-form-urlencoded; charset=utf-8\nhost:ec2.eu-west-1.amazonaws.com\nx-amz-date:20260930T120000Z\nx-amz-security-token:IQoJb3JpZ2luX2VjEXAMPLETOKEN//////////wEaCXVzLWVhc3QtMSJH\n\ncontent-type;host;x-amz-date;x-amz-security-token\n37fb81a3f6b3499d8d180873df72d3cd19f9dce0b6fb8efd85de0efc950ebfc4",
+    "headers": {
+      "Content-Type": "application/x-www-form-urlencoded; charset=utf-8"
+    },
+    "host": "ec2.eu-west-1.amazonaws.com",
+    "method": "POST",
+    "name": "ec2-query-post-session-token",
+    "path": "/",
+    "query": "",
+    "region": "eu-west-1",
+    "service": "ec2",
+    "sessionToken": "IQoJb3JpZ2luX2VjEXAMPLETOKEN//////////wEaCXVzLWVhc3QtMSJH",
+    "signature": "b81a4ad846a191fe0df7fdffd74c42d66532d6cee824ffe4e7a23db22631c584",
+    "stringToSign": "AWS4-HMAC-SHA256\n20260930T120000Z\n20260930/eu-west-1/ec2/aws4_request\n41ae9d17643000fca72f13e30fbe91ef187b761dd2d3ba53101a33e11cb2f41a",
+    "time": "20260930T120000Z"
+  },
+  {
+    "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260930/us-east-1/lambda/aws4_request, SignedHeaders=accept;host;x-amz-date, Signature=c9a4c5b4325bfe2b263b053ba9e8bacf400e6d3bdadf40ae11ee4ea4d378dd4d",
+    "body": "",
+    "canonicalRequest": "GET\n/2015-03-31/functions/my%2520func%252Fname/invocations\nB=2&Qualifier=%24LATEST&a=1&x=a%20b&x=a%20b\naccept:application/json\nhost:lambda.us-east-1.amazonaws.com\nx-amz-date:20260930T120000Z\n\naccept;host;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "headers": {
+      "Accept": "application/json"
+    },
+    "host": "lambda.us-east-1.amazonaws.com",
+    "method": "GET",
+    "name": "lambda-rest-get-encoded-path-duplicate-query",
+    "path": "/2015-03-31/functions/my%20func%2Fname/invocations",
+    "query": "Qualifier=$LATEST&x=a+b&x=a%20b&B=2&a=1",
+    "region": "us-east-1",
+    "service": "lambda",
+    "signature": "c9a4c5b4325bfe2b263b053ba9e8bacf400e6d3bdadf40ae11ee4ea4d378dd4d",
+    "stringToSign": "AWS4-HMAC-SHA256\n20260930T120000Z\n20260930/us-east-1/lambda/aws4_request\n0eec62d90731ff08915f9f2f8f59b1999135149d9c9b07811cb97a2e7485fac9",
+    "time": "20260930T120000Z"
+  },
+  {
+    "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260930/us-east-1/s3/aws4_request, SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, Signature=cb2d7ad6964546d6746aa0333d25b2e4b168109820914b48c7f388c5adf2bdcb",
+    "body": "",
+    "canonicalRequest": "GET\n/photos/2026%20report%2Bfinal.pdf\nversionId=abc\nhost:examplebucket.s3.amazonaws.com\nrange:bytes=0-9\nx-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\nx-amz-date:20260930T120000Z\n\nhost;range;x-amz-content-sha256;x-amz-date\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "headers": {
+      "Range": "bytes=0-9"
+    },
+    "host": "examplebucket.s3.amazonaws.com",
+    "method": "GET",
+    "name": "s3-style-get-object-encoded-key",
+    "path": "/photos/2026%20report%2Bfinal.pdf",
+    "query": "versionId=abc",
+    "region": "us-east-1",
+    "s3": true,
+    "service": "s3",
+    "signature": "cb2d7ad6964546d6746aa0333d25b2e4b168109820914b48c7f388c5adf2bdcb",
+    "stringToSign": "AWS4-HMAC-SHA256\n20260930T120000Z\n20260930/us-east-1/s3/aws4_request\n92d4f329552050b14844287360c86f3c351e96a97f1d9ac5d495d2de2750b956",
+    "time": "20260930T120000Z"
+  },
+  {
+    "authorization": "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260930/eu-west-1/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature=fc1d3e22d7d66c577dc3faa121759f524fbf59ac3b766ca3d371df313299670f",
+    "body": "hello world",
+    "canonicalRequest": "PUT\n/a//b/./c.txt\n\ncontent-type:text/plain\nhost:examplebucket.s3.eu-west-1.amazonaws.com\nx-amz-content-sha256:b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9\nx-amz-date:20260930T120000Z\n\ncontent-type;host;x-amz-content-sha256;x-amz-date\nb94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+    "headers": {
+      "Content-Type": "text/plain"
+    },
+    "host": "examplebucket.s3.eu-west-1.amazonaws.com",
+    "method": "PUT",
+    "name": "s3-style-put-with-body-and-dot-segment-kept",
+    "path": "/a//b/./c.txt",
+    "query": "",
+    "region": "eu-west-1",
+    "s3": true,
+    "service": "s3",
+    "signature": "fc1d3e22d7d66c577dc3faa121759f524fbf59ac3b766ca3d371df313299670f",
+    "stringToSign": "AWS4-HMAC-SHA256\n20260930T120000Z\n20260930/eu-west-1/s3/aws4_request\n02e5256b3482660ba26170611d5535eedfd5be58269944f24f58679dfe70c985",
+    "time": "20260930T120000Z"
+  }
+]

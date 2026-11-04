@@ -1,0 +1,469 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "07728546bcc3489bdf8a382c646d57218b87e147",
+  "status": "local_executed_gates_passed_new_pushed_ci_pending",
+  "counts": {
+    "unit": {
+      "passed": 16944,
+      "failed": 0,
+      "skipped": 204,
+      "total": 17148
+    },
+    "workflows": {
+      "passed": 1000,
+      "failed": 0,
+      "skipped": 0,
+      "total": 1000
+    },
+    "policy": {
+      "passed": 238,
+      "failed": 0,
+      "skipped": 0,
+      "total": 238
+    },
+    "tofu": {
+      "passed": 3900,
+      "failed": 0,
+      "skipped": 8,
+      "total": 3908
+    }
+  },
+  "unitSkippedFiles": [
+    {
+      "file": "tests/agent-control-journal-fixes.test.ts",
+      "skipped": 6
+    },
+    {
+      "file": "tests/agent-control-journal.test.ts",
+      "skipped": 7
+    },
+    {
+      "file": "tests/acceptance/sample-app.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/agent-control/pg-contract.test.ts",
+      "skipped": 16
+    },
+    {
+      "file": "tests/agent-link/pg-contract.test.ts",
+      "skipped": 14
+    },
+    {
+      "file": "tests/cli/config.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/controlplane/executor.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "skipped": 4
+    },
+    {
+      "file": "tests/controlplane/open.test.ts",
+      "skipped": 2
+    },
+    {
+      "file": "tests/execution/apply.test.ts",
+      "skipped": 5
+    },
+    {
+      "file": "tests/execution/deletion-guards-real.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/execution/destroy-review.test.ts",
+      "skipped": 2
+    },
+    {
+      "file": "tests/machines/azure-scripts.test.ts",
+      "skipped": 6
+    },
+    {
+      "file": "tests/machines/ssm-documents.test.ts",
+      "skipped": 6
+    },
+    {
+      "file": "tests/platform/source-bundle.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+      "skipped": 3
+    },
+    {
+      "file": "tests/secrets/rewrap.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/security/plan-artifact-secrecy.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/security/workflow-history.test.ts",
+      "skipped": 2
+    },
+    {
+      "file": "tests/sources/github-live.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/sources/github-store.test.ts",
+      "skipped": 10
+    },
+    {
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "skipped": 8
+    },
+    {
+      "file": "tests/waitlist/pg-contract.test.ts",
+      "skipped": 38
+    },
+    {
+      "file": "tests/workflows/codec-replay.test.ts",
+      "skipped": 2
+    },
+    {
+      "file": "tests/workflows/destroy-replay.test.ts",
+      "skipped": 6
+    },
+    {
+      "file": "tests/workflows/mtls-live.test.ts",
+      "skipped": 2
+    },
+    {
+      "file": "tests/db/contract/alerts.test.ts",
+      "skipped": 7
+    },
+    {
+      "file": "tests/db/contract/audit.test.ts",
+      "skipped": 1
+    },
+    {
+      "file": "tests/db/contract/history.test.ts",
+      "skipped": 7
+    },
+    {
+      "file": "tests/db/contract/workspace-sharing.test.ts",
+      "skipped": 22
+    },
+    {
+      "file": "tests/hosted/data/pg-contract.live.test.ts",
+      "skipped": 11
+    },
+    {
+      "file": "tests/hosted/artifacts/storage-store.test.ts",
+      "skipped": 2
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "skipped": 6
+    },
+    {
+      "file": "tests/providers/kubernetes/release-kind.test.ts",
+      "skipped": 1
+    }
+  ],
+  "unitSkipTotal": 204,
+  "ancestry": {
+    "baseline": {
+      "commit": "37be7340536ccb68ae4bb49294e8ab3799d1f01b",
+      "preserved": true
+    },
+    "published": {
+      "commit": "24e941f3f673c316b5adb31572b79e51cab9ea3e",
+      "preserved": true
+    },
+    "durable_staging": {
+      "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+      "preserved": true
+    }
+  },
+  "evidenceDigests": {
+    "g1-final-local-20261003-results.json": "6964010f712c029857f16fccb61b055594abab2e0cfaf50458ebce961917b263",
+    "g1-final-postgres-20261003-contracts.json": "af327e9583351d74bc4dfc5de01f2bd3c91c0a7df9b129b126a93406161ef79d",
+    "g1-final-supabase-20261003-contracts.json": "53c367436c301cc7ffa6701883536432da3032683e09913f14402d22d6078b66",
+    "g1-final-kind-20261003-evidence.json": "accd5319282dda871762738d10c32b7646d160820c3917f93d7724c7ec73c974",
+    "g1-final-packaged-arm64-20261003-receipt.json": "0d994c17d4504e5f9ec63259b46ce860ab0b4e011c7dd5e99c8da2f77a5fb292",
+    "zenith-guest-fixtures-root-oct3-6e866985bc105db17861d974150acb0e/receipt.json": "9dd4838e2c45cf6e0db7c3c7a357a07aec80b7207e9e0dcf16bea47b8ec7d595",
+    "g1-final-postgres-20261003-evidence.json": "e4c7154c6a10dbb6dd42ea227717a68c92003a08c8ab19f15b254371d77f5bbe",
+    "g1-final-supabase-20261003-evidence.json": "1fd88a8089eb2eb3cc4b43c762708e7a501150a912162435d49fadac74e6a10e",
+    "g1-final-packaged-amd64-20261003-receipt.json": "ed6d956f13cddb6ee6e0e6ed3c8fe1d6fae6de7cc664eec7a7da4416fc0c4bce",
+    "g1-clean-clone-retry-20261003/receipt.json": "f067ff82620f8fbb293b832b6254df1dc6ac40680441c314c34c70cb684870ff",
+    "zenith-guest-root-retry-6a714b3610a29832044acd246ba04d38/receipt.json": "fc5d5f3db1a3fd45c917caaa5b8be8844305adfc7ee35df19d2f9a9024cc19b0"
+  },
+  "integratedCommit": "6814da58eacf865edb0d5a91c5642922b2ec78bb",
+  "publicReport": "docs/build/production/verification/2026-10-03-g1-integration.json",
+  "sourceInventory": {
+    "fromCommit": "24e941f3f673c316b5adb31572b79e51cab9ea3e",
+    "toCommit": "6814da58eacf865edb0d5a91c5642922b2ec78bb",
+    "changedPaths": 142,
+    "sha256": {
+      ".github/workflows/ci.yml": "6fc28a6ca67e40e6e4f7ef5b44ed54ca4cb15595e4b3deed906d243fc8ef2d3b",
+      "deploy/zenithd/config.example.yaml": "4f656699ac433a47ee479098b5deebc57960e649e17aed029bdaa53006c025e6",
+      "deploy/zenithd/zenithd-file-write.conf.example": "173f90378e3a8070fba0d8370dd99ed4163f868b7e742785d611bddf3f04b16b",
+      "docker/worker.Dockerfile": "a1c82ba44e09954d0b32a81eb4497fa605374b1c990ad8757536bd838486a8d1",
+      "docs/adr/0005-opentofu-hybrid.md": "275a86496be2e1d6a3863e47619bad24ab58db0889b5d78857779f4831b5d53f",
+      "docs/build/production/dependency-remediation-2026-10-03.md": "4ce5e0c16ecd8ec486631c297e56a6a1b6cfc2232368d2f0fe8378419ca4975b",
+      "docs/build/production/guest-linux-gate.md": "7776b3483b5cb8fae728c026eb68797aadee5c057b645797409cfe0af8805e1f",
+      "docs/build/production/security-exceptions.md": "916472c991f9ad0d42ce637d85ba9e08246aea98811f0c165b385d701b3f1dcd",
+      "docs/platform/EXECUTION-WORKER.md": "e5101f2d01919e451047ef61fa7ad386b422c753201e43e323b22a0d28fe2f9b",
+      "docs/platform/INSTALLATION.md": "6cfd618f1355c9b2decb3e5cec9a94bbebab1be437503fa7524fe39026f2c232",
+      "docs/platform/ZENITHD.md": "a5a78fde822e855c084b639ce96d34bb30e5e82dbd0d8eed08a07504e94b4a5c",
+      "docs/platform/operations/DEPLOYING.md": "4e107b1031a24643a38816e57bc4e6c62f5724cd1828cc305951a055e11a8c60",
+      "eslint.config.mjs": "d287edd2143026e3dae5a36c09505607e9835fd3c3d31f214992a084f2e3eb01",
+      "go/internal/agent/agent_test.go": "fe7359dad981408843663d042629e0c6fdb034f23ee5113c45e1d5d3fbe2d889",
+      "go/internal/agent/core_test.go": "88e28e8f9dd0fa19882a0a45adabab10383c5a8f93c336cb1c2890db3fc8d6fa",
+      "go/internal/agent/identity.go": "dcb46b6842b981e7f311d84feba6b43de62199b07e57e437e0e1c6f7575864d0",
+      "go/internal/agent/identity_sync_unix.go": "832bad4b016db0cdf05944d0f7e3fce6b6514bd4b15c000efd81d963e27e8d50",
+      "go/internal/agent/identity_sync_windows.go": "8279717467e6a25c6787ddbcf0aef67491701e0e3b4c069ea5eab978ff0064c2",
+      "go/internal/agent/loop.go": "4d9a6bf828540194ad402230db30cebf1f661fe30fdc867afc4fecad5c75c18e",
+      "go/internal/agent/rotation_internal_test.go": "ba8e0a5959df7f94cb67f4637947d306743b689d2d59f1ddc7b3a5300854b6fe",
+      "go/internal/machine/cli.go": "1f893524b1ec2f52b7739b9903c2c45d2bc519cb20def37ca35dc76adf4452a8",
+      "go/internal/machine/config.go": "ea72f3160763760d056f53ae55ada118d0a435e19eea1d76046b482e660330d0",
+      "go/internal/machine/config_test.go": "d29386ca182ad18b3081b0615a0f732368b99fe3a4661cfb126bff6be35bc56f",
+      "go/internal/machine/e2e_test.go": "de2e6ee39a5acb116801ec62b966eec8f6b85da01ffa7039c9f3e1f79895550e",
+      "go/internal/machine/executor.go": "6423f4b36e1547a3f575c84145d4ed3869d91f97d7dc6d7bd48a2daf3b421026",
+      "go/internal/machine/executor_test.go": "015b3d46a5fe784af29c8b8e98879c2cf2f6e26bdfedbbbd8816831fe5555e03",
+      "go/internal/machine/ops/files_test.go": "032188ecfcb3a7e4a4d911abaaaa43d9d053f5e23eb1cdfd55888c7eb5b86009",
+      "go/internal/machine/ops/filewrite.go": "7c30fb0fbfbf8ef54d8c7c56a83714601787dc6243fe351450b07def2c03b713",
+      "go/internal/machine/ops/filewrite_linux.go": "35b34a91585acf2efc8d70e4ae87d24b0de1f61e66abfcc0f39a4b97c10514b6",
+      "go/internal/machine/ops/filewrite_linux_test.go": "e2d7783301f64b70224155a66a628d1559d5a039817b72d0a12d94a63d7da508",
+      "go/internal/machine/ops/filewrite_other.go": "2b808b57b50de90b09c7ad58648bb2a6bcd8be5cb6a62a02fef7beeba76e2a5a",
+      "go/internal/machine/ops/filewrite_other_test.go": "bd7f6b75864280aad47773872ac7cc30c7b57fd54222db5852523ef3c1a669dc",
+      "go/internal/machine/ops/filewrite_test.go": "cf4d834de4bacb57d0f6c91950edf69830462c32fd84d0db523c61610d2572bc",
+      "go/internal/machine/ops/ops.go": "78c503149ef46555177281a79cc6866bc7c284a3b34f52239d0d87fe37c6d9a8",
+      "go/internal/machine/ops/ops_test.go": "2221b48cf7cfc8d6996329dfe2bd03b50793a92a50cfe99452e20e8b687379c7",
+      "go/internal/machine/ops/results_golden_test.go": "e143fb1bf52d91259448efa6d32c5f39f94876d77082a80fbe5a8683e78f68f5",
+      "go/internal/machine/testdata/results/file.write-noop.json": "a212ae65c6522e83f89e10e04f6513da7d85793b4c46e29dede6df0fd29188d2",
+      "go/internal/machine/testdata/results/file.write-prior-refused.json": "54910321786a48854823326464380ae7fe7e6be35e0880302890b80758366ec6",
+      "go/internal/machine/testdata/results/file.write-replace.json": "98db30dcf3547d2391d5ac1e7dc3f627c4d37b2bafa5d6efd94198c6ce546246",
+      "go/internal/machine/testdata/results/file.write-uncertain.json": "7230640a389e3062bb4b16030714abc3498729be99d917240dc1498be3cd58c9",
+      "go/internal/machine/testdata/results/file.write.json": "8e142a3af9fb7eb9f89707138d4d762b10fd1d4ba43c53e94e8cfd49df589e27",
+      "go/internal/oci/monitoring_test.go": "cd770b5600f66f517f3b6445f1361aa9b82b7b169c1be050e06c2228ae4188ec",
+      "go/internal/oci/observability_test.go": "e2e942df9d2c75b4e291f1cd9bbe0ba1c54821232693b00b5875a3180f44c017",
+      "go/internal/oci/oci_test.go": "4bd60882eb7776bda6ce0a3ef60baa04fa4f95e1eaddecb1b5573b56e6517eb5",
+      "package-lock.json": "daf1845592887828963e70daf08bbe0bf1542567e5a25b9b6be41eb245994ac4",
+      "package.json": "4fd329395fe59a1575a1183173f748cfa122b0636805817476041ea500fb7ab6",
+      "scripts/acceptance/packaged-worker.mjs": "50b6fe3abf10e57b3f20341eabc7094bf0d621d4b0a45490b73d6c05f21001cc",
+      "scripts/ci/gate-manifest.mjs": "2a1ced01dccd77e5d6a5631c3d2d704e3cc096470ddb562c908ff426f7d45030",
+      "scripts/ci/guest-file-write-fixtures.sh": "4c417656c982e1f1692187bca40464ea4aadf7f61de27c05691b2abb60d2c2db",
+      "scripts/ci/run-guest-file-write-gate.mjs": "9387fcd96f11d9b0a9c5751b0b30e54eba212f98abfeb083e4ad4086c11d44dc",
+      "scripts/ci/security-audit.mjs": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941",
+      "scripts/ci/security-exceptions.json": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4",
+      "scripts/ci/security-exceptions.mjs": "14c237e203b81aade75024c0d35bb62e0d05ddcb9423bee27ff6cdaed214730e",
+      "scripts/deploy/installation.mjs": "bd06eed7a0dc43ba271112a2ca89491a526593de4cd77f5e641ff9b1f9599400",
+      "src/lib/capabilities/destroy-review.ts": "f038415273b1c5b5e610597da75ee81a86fd5cf1eea8ad785b731a4c75a67b64",
+      "src/lib/capabilities/memory-store.ts": "6c166dc9a09028744c86864e4eb71838879c0c6726f72f15d3bc12541a53908d",
+      "src/lib/capabilities/ports.ts": "6bd679fca055a23d26ffcb70de862bd37e428b0d07a924582a954b1e30f0d39f",
+      "src/lib/controlplane/db/migrations/0007_plan_artifacts.ts": "0925215c5fdf0730c74569ebc4ebb108254ab8292d95608cbf4934c8914769d7",
+      "src/lib/controlplane/db/migrations/emit.ts": "0902e5b5eaf4aa94cc6a4ede96c45473318a293ad4777375b3c9e7bad41bf1df",
+      "src/lib/controlplane/db/migrations/index.ts": "41a2e3623af8547dccaaac8ed43e3f490bf5d634a521b4d82aad13a56962d2e0",
+      "src/lib/controlplane/db/repos/index.ts": "6dcd38c3a61751c09e14ea5af771b45c9c79aa3ccc106c05eb8e1da8ce2d82d3",
+      "src/lib/controlplane/db/repos/operations.ts": "43e177842b519830a9be1ddea1a6af5b74bfd92e3d06a6dc3762005fedd2612e",
+      "src/lib/controlplane/db/repos/plan-artifacts.ts": "12d991504d589c2667e5505220953ef325631facbd32097e612ba6cf2906d74e",
+      "src/lib/controlplane/operations/index.ts": "5b02be30641e1a37e394f6f5fa3628810dbea1de993eca5bb2303b0d112aad58",
+      "src/lib/controlplane/types.ts": "b1eb9a44adfaeee9fc3362b17ba38082c511cc69730fbfc007be45eb14551bd8",
+      "src/lib/execution/apply.ts": "4ad13c08611d766a0f034ccd163df731a304a9d18bb7a84ea56709b746464565",
+      "src/lib/execution/destroy.ts": "4311a9a3dab18588d8899b3b9a5fc76bef7269240e29cd12b8acd20bb112a595",
+      "src/lib/execution/plan-janitor.ts": "cf32e9a34c9cbdce437c5e39463df0302e9f8af36e8f0c827711c79590721451",
+      "src/lib/execution/plan.ts": "f3af3638d287dc40ad32711b2b29155c8f2397e52b257e585e8ace348d824b64",
+      "src/lib/execution/ports.ts": "cb212fed3c7b3b3ca224aa1210409796d2ee0ab113e4d69fd49410d4dd0b33dd",
+      "src/lib/execution/runtime.ts": "91b51d661d7cebcf436beaef13c7b2861a9a69cecad8d6764b1906916875b920",
+      "src/lib/machines/args.ts": "300cb60a9facb6ae1c45bdf43e9fa225a6b2184fc45000158f3d8ab318204cdb",
+      "src/lib/machines/evidence.ts": "67db91652a6483d1bb9acd66c4d2652fee82e0e6f378bfe5f11a4e553c5f2868",
+      "src/lib/machines/guards.ts": "db6e5300e2d51fff11b2ea8e321cce1b61d814a8393c1c7bf1bf011be4d88b25",
+      "src/lib/machines/results.ts": "3754e42bbe7e7288eb411fa6b30dab05c574a5e0e08f6a19bca976de46c72477",
+      "src/lib/machines/service.ts": "c6f31e28e194532b90684d5ab848199de43dd5f14f8487d70a3c08732055347f",
+      "src/lib/machines/transports/aws-ssm.ts": "e20f4b44ab6d1eee226e9be7aac70f75ca8c40fafc2de6067f57554b68bfa0d3",
+      "src/lib/machines/transports/kubernetes.ts": "de1136c4d27ce00e78c12d60525ef838727ad14c77e5d5f94061d22ce108bc78",
+      "src/lib/machines/transports/simulated.ts": "2f37a4a13e0e896721121467f62e813bcb426d16ce3d7e85e8f1ac454dfde36e",
+      "src/lib/machines/transports/zenithd.ts": "f71af10c6fe2c1007025872e9d07e02cb758e87b83848cf41dfc5bb212aedfff",
+      "src/lib/platform/broker.ts": "f6b80c94a66375da7eed4a73de260e50c148ce1d62b6441af43365969bc3965f",
+      "src/lib/platform/execution.ts": "935be3a9166e58b2cb3c14736ad3af2140f2792038d5c8cfb60b3bd3d6da7188",
+      "src/lib/platform/plan-artifacts.ts": "4904126a1d860521de1a258cb9e8973752aba68772fbad7b2298b785c9536f5d",
+      "src/lib/runners/payloads.ts": "ba69093f0d84392cc15d9e296b199068405f59d6596e0e74eab0bbd429983c7a",
+      "src/lib/tofu/binary.ts": "e66cd9e67bd64e7a2b7490328661d0364e78106dabd5a04d5793b900e427fc9b",
+      "src/lib/tofu/engine.ts": "cff24238b8bc9d249fdd3f94c6d5fd5c220cff8e36b947cfaf33a5b486aaa5da",
+      "src/lib/tofu/runner.ts": "e7eb9d0e86eff2be0ae3c23fd87d57ee0f58aff8d6ba24948d524ed5c87b8ca0",
+      "src/lib/tofu/types.ts": "c0a4dde4ff3c70c86e841c38198756944acb7dc8bef997074a220a123a3f9291",
+      "supabase/migrations/0014_platform_core.sql": "fbae1476d6e646018416c8de872c7f1ee5c9b09f32526d768fb854df61e88af8",
+      "tests/bridge/steps.test.ts": "0f9833bfb3d935a8357df5eaeea15250dc70721fd084ea31a48b9f1761b15ecf",
+      "tests/ci/assert-lane-report.test.ts": "23c35b04959159b4b1bf9e3e0a6e62f64662e592ab6a1a51aa18c519dbbeb938",
+      "tests/ci/dependency-remediation-next-lint.test.ts": "07a1f01aef61e100b3c437e42723f774ed3052031c83c9d56f4131d089fde2fd",
+      "tests/ci/evidence-sanitizer.test.ts": "a68df94989f2a7d01a52dc311b5fccd7ae7bb9836ad9d02b77a2aa424bba2ffd",
+      "tests/ci/gate-manifest.test.ts": "7d5107d4ecfcd7d6b1f7dd6e82248d8fb3f42460db22be571910159ef57d8545",
+      "tests/ci/guest-file-write-gate.test.ts": "876f9734466a892743ef9ab1adb32c12d9cc0d81f649dc1c7f0092e88eda9f1d",
+      "tests/ci/platform-coverage.test.ts": "5035af6beb4ca9f1adaee53309d861e06799e86b79e5b1c7872fe97c29df8588",
+      "tests/ci/release-gates.test.ts": "4d72d418cbf45c494c74c74622210d8f2a19bbf47ca3e1032c6bcf395070c3cd",
+      "tests/ci/security-audit.test.ts": "bf3eeb01a1237fa3acd3e90bb55dbff99a0ba5ed5c7179b82cde4104b79419ba",
+      "tests/ci/security-exceptions.test.ts": "8e315e928eb8f021041e060a020eb0d445554ba45b696771f7b78ba78efa037e",
+      "tests/controlplane/migrations.test.ts": "e0046b966e7041cc007aa50e81b87d2a5d41a1d7a4f1d13ab50b8c4de23b6017",
+      "tests/controlplane/operations.test.ts": "b563431f059d0467d40c1651c3dda784df48a4d58876cb6e21c6a7820c208028",
+      "tests/controlplane/plan-artifacts.test.ts": "bc13dafeb7fa07dfd4d32f8c4cc595459420c3bb07dd9dbbf23650b6febbfda5",
+      "tests/controlplane/tenancy.test.ts": "6bb44050f03792125c7b84eeb7dbfff942030968e5712d720835fdacb845176c",
+      "tests/deploy/installation.test.ts": "ee4191a585e75a87025e8ca052d9cb6055da663e1362a4c2160494c7ac2ea7b0",
+      "tests/docs/operator-docs.test.ts": "1fef8d13cf98080dd7af95be14b2b66b25fc29d9ddb5bcf36cebafb23963e2d6",
+      "tests/execution/apply.test.ts": "3b0b12a3c6bccee331be1140073aa9ea413c6f3f7ebe4430721ad2c3284a9437",
+      "tests/execution/aws-bootstrap-context.test.ts": "4059eef6c1c641517f62d18e3340def3087c2b05d2ab6ff4c3bfebb871065df8",
+      "tests/execution/deletion-guards-real.test.ts": "cd96653ece31f88c4756e61b4ede10722758094895b5f3cd9e3622296237d60d",
+      "tests/execution/deletion-guards.test.ts": "451bab264b3e237336c772a169f8793dc23d676af4953f2f14a2614884b438bc",
+      "tests/execution/destroy-review-temporal.test.ts": "7b715fd9dfcefc752badd318c823312995498879ff7ec597d4fd49010fc7b8d1",
+      "tests/execution/destroy-review.test.ts": "88c04cbe79270f6c7dd4b12eef2adcc95921a507a5ff6b29c1c7971955bd70bc",
+      "tests/execution/destroy.test.ts": "ffcebb91ad3a945ee9d7a8430470603d91f4312ca7d3dcf966786856fde79c17",
+      "tests/execution/ecs-replica-repair.test.ts": "ccd4fc6bd4f3b009a3622d5192c5119b73d979f7720406911b1f70161e434617",
+      "tests/execution/fakes/tofu.ts": "bf4314dbf2ddc663b759b10190197d87c670a326abb7056544f3f6bdc0da0ff6",
+      "tests/execution/fakes/world.ts": "cce2ae0ff962e2db72adc3279eaeca10a42bb9e9d58fb0279de7b69510ebc21c",
+      "tests/execution/journey.test.ts": "d57e70d261440af321ab6ed0de616ac6d54db94fe2e17337aba903415f73236e",
+      "tests/execution/machine-file-write-uncertainty.test.ts": "dc2025b5f8e290cb94738c0e7a457dd5b10bb39982b24dde00f42d2f22c3aee3",
+      "tests/execution/plan.test.ts": "a9fd2a4cf56a855ff5e3739f9ecb33c04cf6e35f6aa5a7e6ab254020ec986a49",
+      "tests/machines/_sh.ts": "c728e5eba6e09da74a7b4e583968b0ea94bedfc3953b71735eb845d27c7ed716",
+      "tests/machines/args.test.ts": "0140965ab451ff384b4903347773097cd08122e04c49ccc1ef951783aecb7f47",
+      "tests/machines/dispatcher.test.ts": "7a0c4c7cb56b09cd87e06cc3edfcb0afc2706498ed0cc6a53c461fdfc66065b0",
+      "tests/machines/file-write.test.ts": "1f633767f4933ca60218e5bea9cdb93cefff1e22ebe0bb5cd3ff5ff5e144bca9",
+      "tests/machines/service.test.ts": "1ff21e8250abce8e1d9e22dcb3ac2a7d68c5787411dd60f9b81e907ddaae6c33",
+      "tests/machines/ssm-transport.test.ts": "382d03612b83c786563151901b6f1e2800e408a9f8511aec431956bcda4b4482",
+      "tests/machines/zenithd.test.ts": "ecd39154503c83ef9e6df9a9ff08883c0d0afe3a45bf82c3170b801848500f6a",
+      "tests/platform/composition.test.ts": "93206d5650c8ea1704131a82db7c81fd48cec9fc64920aef1da9cfadf827d9a1",
+      "tests/platform/deploy-e2e.test.ts": "521827a2c3268818ae36c075cc6c2732c6bf5d44d8c7a7f193b1a9a840252bd2",
+      "tests/platform/plan-approval.test.ts": "2bc429ea6dd4e068993c0d1e4b67a944b07be68840eb053483373e56ebd82628",
+      "tests/platform/source-bundle-composition.test.ts": "619438ff311d505d085ba1e5ddebae60976bf675a4a252b70b729794fec0731e",
+      "tests/runners/dispatch.test.ts": "9afa4c00d36ce1e527221139ffc539efbfcbb949a2961bd0b3eb7716c2279406",
+      "tests/security/plan-artifact-secrecy.test.ts": "6a013d1b5cf59a6b6acbeea8e96a8eda0c214c557d387f42703ec1fc904b2b08",
+      "tests/sources/github-migrations.test.ts": "ec3eb23aa05b132085d87183eb9b3031a956ce92effcf4907fea07b41010f92e",
+      "tests/tofu/destroy.test.ts": "799ec00bf1929894a2f8147f27d82a860551b581f0c2574bd8af2355ccd4c9d8",
+      "tests/tofu/plan-artifact-handoff.test.ts": "a2ea25484c9b8956c66507f2769700c29c6879e589d6061071fd02ba66fa154d",
+      "tests/tofu/runner.test.ts": "c7110f787ccb9fec0a2a34c987e61755ac24b1e08eaeee5857e7d69f3d81c94c",
+      "tests/workers/plan-artifact-startup.test.ts": "d88a625f8c5d431add0275040f25f3e1645b231e32123b25f0e7f52fed9e50c6",
+      "tests/workers/plan-janitor.test.ts": "f15c627183da2517762d772e563fa8eed43f1ba8133926896baaed967f7a87ab",
+      "tests/workers/worker-health-wiring.test.ts": "0e046f8ecf7c0a93c1e49434acd4568585e3d9e479b8641ae1d8d1dc60e95aee",
+      "tests/workflows/codec-wiring.test.ts": "bd3a0e510cf1b30bd9e1d80a7133db6f8af68fc209ea084e0a406fafd2e8e3a1",
+      "workers/execution/packaged-client.ts": "5b1bb95c1523a219b018c5da0941924a101a3184a850d57ac971c2c189cb122a",
+      "workers/execution/startup.ts": "2088522bc0cca2f6dd773271cc08672c169e9b27eccae1e89739ce0325be374f",
+      "workers/execution/worker.ts": "731f6ea20c2c644ee9f6ef2270df171084648295fbbb6e074bcf2b7bfa35b3a6"
+    }
+  },
+  "gates": {
+    "compiler": "passed",
+    "lint": "passed",
+    "generated": "passed",
+    "completeLockedAudit": {
+      "knownFindings": 0,
+      "activeExceptions": 0,
+      "gate": "unchanged mandatory all categories"
+    },
+    "platformPostgres": {
+      "passed": 1532,
+      "failed": 0,
+      "skipped": 0,
+      "requiredGroups": 70,
+      "migration": 7,
+      "realEngine": "PostgreSQL 16.15"
+    },
+    "supabaseMigrations": {
+      "passed": 251,
+      "failed": 0,
+      "skipped": 0,
+      "requiredGroups": 9,
+      "sqlFiles": 14,
+      "applyReapply": "passed",
+      "changedNameAndChecksum": "expected refusal passed",
+      "realEngine": "PostgreSQL 16.15; not PostgREST/TLS/pooler"
+    },
+    "opa": {
+      "passed": 213,
+      "failed": 0,
+      "skipped": 0,
+      "version": "1.19.1"
+    },
+    "goDarwinRace": {
+      "topLevelPassed": 241,
+      "subtestsPassed": 542,
+      "failed": 0,
+      "skipped": 3,
+      "countWarning": "Parent and child counts overlap; do not sum."
+    },
+    "kind": {
+      "provider": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "release": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "scope": "fresh disposable local cluster; all owned resources removed"
+    },
+    "packagedWorkers": {
+      "arm64": {
+        "mode": "native",
+        "passed": true,
+        "seconds": 215.99
+      },
+      "amd64": {
+        "mode": "emulated",
+        "passed": true,
+        "seconds": 277.66
+      },
+      "scope": "real entrypoint/readiness/liveness/schema/signer/policy/polling/outage recovery/idle shutdown; no mutation in flight; live context inventories, not immutable copied build context"
+    },
+    "freshClone": {
+      "commit": "07728546bcc3489bdf8a382c646d57218b87e147",
+      "install": "passed",
+      "lockUnchanged": true,
+      "completeAuditKnownFindings": 0,
+      "nextProductionBuild": "passed",
+      "sourceClean": true,
+      "defaultApiStartup": false
+    },
+    "nativeLinuxGuest": {
+      "sourceCommit": "4bfda972dcb8ebc04b309c4ad63a1e987033c4a8",
+      "mode": "ARM64 native disposable Linux",
+      "packages": 17,
+      "leafPassed": 801,
+      "leafFailed": 0,
+      "leafSkipped": 3,
+      "parents": 55,
+      "leafTotal": 804,
+      "authenticGoldens": 5,
+      "scope": "Go/guest fixture/scripts/CI workflow byte-identical to integrated candidate; canonical receipt retains original source and original lock. Fresh pushed native CI is still required."
+    },
+    "fixtureAdversarial": {
+      "passed": 28,
+      "failed": 0,
+      "productionFixtureSha256": "4c417656c982e1f1692187bca40464ea4aadf7f61de27c05691b2abb60d2c2db",
+      "experimentHelperSha256": "fd1ab8115ac18cd39118a57060bef3917c1db5aabac4fec7226135528e54c7a3",
+      "scope": "actual mounts, UID/GID/ACLs, identity/tamper refusal and partial-setup cleanup; not production systemd or live signed browser journey"
+    }
+  },
+  "remoteCi": {
+    "lastInspectedCommit": "24e941f3f673c316b5adb31572b79e51cab9ea3e",
+    "runId": 37110507951,
+    "status": "completed_failure",
+    "jobsPassed": 13,
+    "jobsFailed": 1,
+    "failedJob": "supply-chain",
+    "newIntegratedRun": "not yet pushed/observed"
+  },
+  "notExecuted": [
+    "Default API/browser/MCP installation startup pending concrete permission and isolated private fixtures.",
+    "Live private GitHub and AWS application lifecycle, protected mixed-cloud traffic, managed two-tenant serving, production TLS/pooler/auth, in-flight mutation shutdown/native AMD64/clean-host restore remain open.",
+    "External Temporal mTLS and operator decisions remain separately gated."
+  ],
+  "historicalFailuresRetained": [
+    "Original durable candidate 15e4453: 16588 passed/70 failed/212 skipped.",
+    "Edc04d1 combined attempt: 16939 passed/4 failed/204 skipped; obsolete Go CI command fixtures repaired without weaker gate.",
+    "Initial Linux RE2 repeat-limit panic and strict report labels corrected at source; failed raw attempts retained.",
+    "Fixture experiment 13 passed/1 failed because kernel reused mount ID; revised independent-reviewed experiment keeps original mount alive, production guard unchanged.",
+    "Initial clean-clone helper failed before clone with AttributeError; executed checks 0. Fresh retry separately passed."
+  ],
+  "limitations": [
+    "No overlapping lane totals are added. Unit skip identities remain unit skips even when corresponding scenarios execute in dedicated lanes.",
+    "Raw local logs and private helper scripts remain on Saivedant machine; public report records sanitized summaries and SHA256 receipts.",
+    "All 78 requirements and acceptance criteria remain unchanged; engineering gate and production signoff remain open."
+  ]
+}

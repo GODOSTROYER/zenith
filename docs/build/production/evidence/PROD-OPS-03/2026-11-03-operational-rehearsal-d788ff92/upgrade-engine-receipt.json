@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "evidenceLabel": "local_operated_rehearsal",
+  "scenarioId": "upgrade",
+  "runId": "drv3-upgrade",
+  "sourceCommit": "d788ff92f67d0f57bae84d91adcc61971f264def",
+  "checks": [
+    {
+      "id": "preconditions",
+      "status": "passed"
+    },
+    {
+      "id": "compatibility-gates",
+      "status": "passed"
+    },
+    {
+      "id": "browser-review-in-flight",
+      "status": "passed"
+    },
+    {
+      "id": "expand-worker-api",
+      "status": "passed"
+    },
+    {
+      "id": "candidate-readback",
+      "status": "passed"
+    },
+    {
+      "id": "api-failure-injected",
+      "status": "passed"
+    },
+    {
+      "id": "rollback-readback",
+      "status": "passed"
+    },
+    {
+      "id": "approved-execution-readback",
+      "status": "passed"
+    },
+    {
+      "id": "source-bound",
+      "status": "passed"
+    },
+    {
+      "id": "cleanup",
+      "status": "passed"
+    }
+  ],
+  "limits": [
+    "Owned local operated rehearsal. No live cloud, production acceptance or release approval.",
+    "Lean profile: one API and one worker; pauses are observable, no high availability claim.",
+    "J2 kind target and real browser identities; local Kubernetes credentials stay in the tenant vault."
+  ]
+}

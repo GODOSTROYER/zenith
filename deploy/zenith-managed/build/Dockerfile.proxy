@@ -1,0 +1,6 @@
+ARG PYTHON_IMAGE
+FROM ${PYTHON_IMAGE}
+COPY deploy/zenith-managed/build/proxy.py /app/proxy.py
+USER 1000:1000
+ENTRYPOINT ["python","-B","/app/proxy.py"]
+

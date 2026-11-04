@@ -1,0 +1,144 @@
+{
+  "exitCode": 0,
+  "seconds": 335.76,
+  "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "platform": "linux/amd64",
+  "evidenceCaptured": true,
+  "status": "passed",
+  "failurePhase": null,
+  "cleanup": {
+    "privateFilesRemoved": true,
+    "allCreatedResourcesRemoved": true,
+    "resources": [
+      {
+        "kind": "container",
+        "role": "acceptance-client",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "acceptance-client",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "worker",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "acceptance-client",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "invalid-signer",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "invalid-secret",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "missing-schema",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "temporal",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "postgres",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "postgres-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "temporal-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "worker-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "network",
+        "role": "isolated-network",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "image",
+        "role": "acceptance-image",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      }
+    ]
+  },
+  "checks": {
+    "missing-schema": "refused-without-secret-output",
+    "invalid-secret": "refused-without-secret-output",
+    "invalid-signer": "refused-without-secret-output",
+    "readiness": {
+      "ready": true,
+      "checks": {
+        "temporal": "ok",
+        "store": "ok",
+        "policy": "ok",
+        "drivers": "ok"
+      }
+    },
+    "liveness": {
+      "alive": true
+    },
+    "store-readiness-outage": {
+      "readyStatus": 503,
+      "liveStatus": 200
+    },
+    "temporal-readiness-outage": {
+      "readyStatus": 503,
+      "liveStatus": 200
+    },
+    "shutdown": {
+      "signal": "SIGTERM",
+      "exitCode": 0,
+      "drained": true,
+      "inFlightActivity": false
+    }
+  }
+}

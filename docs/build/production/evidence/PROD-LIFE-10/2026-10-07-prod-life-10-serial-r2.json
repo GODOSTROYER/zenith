@@ -1,0 +1,370 @@
+{
+  "id": "PROD-LIFE-10",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 899,
+  "failed": 0,
+  "skipped": 13,
+  "commandTargets": [
+    "tests/release-safety",
+    "tests/execution/release-safety.test.ts",
+    "tests/execution/release.test.ts",
+    "tests/execution/manifest-release.test.ts",
+    "tests/providers/gcp/release-progressive.test.ts",
+    "tests/providers/gcp/release.test.ts",
+    "tests/providers/kubernetes",
+    "tests/controlplane/release-pipelines.test.ts",
+    "tests/controlplane/migrations.test.ts",
+    "tests/middleware/platform-bearer.test.ts",
+    "tests/platform/deploy-e2e.test.ts",
+    "tests/platform/composition.test.ts",
+    "tests/docs"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24154050560,
+  "diskMinBytes": 24121315328,
+  "diskAfterBytes": 24154902528,
+  "elapsedSeconds": 104.44,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "613256832f2982169cccc93e7ddf2e75ddeb38a35490080e2b29e56997aba20a",
+  "perFile": [
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/release-pipelines.test.ts",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/execution/manifest-release.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/execution/release-safety.test.ts",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/execution/release.test.ts",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/capability-matrix.test.ts",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/links.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/operator-docs.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/docs/security-status.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/middleware/platform-bearer.test.ts",
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/platform/composition.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 6,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/release-safety/built-attestation.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/release-safety/classify.test.ts",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/release-safety/pipeline.test.ts",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/gcp/release-progressive.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/gcp/release.test.ts",
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/apply.test.ts",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/drivers.test.ts",
+      "passed": 41,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/fields.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/identity-apply.test.ts",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/identity-render.test.ts",
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 6,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/naming-util.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/ops.test.ts",
+      "passed": 37,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/prune.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/release-kind.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/release.test.ts",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/render.test.ts",
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/rollout.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/session.test.ts",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/teardown.test.ts",
+      "passed": 43,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/providers/kubernetes/vault-target.test.ts",
+      "passed": 45,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "name": "composed deploy workflow (contract evidence) proposes through the bridge without a plan, records two browser rounds, signals, and resumes with a new fence",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "name": "composed deploy workflow (contract evidence) approves the plan as a browser human, deploys every step, and reads actual mocked steady state/health",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "name": "composed deploy workflow (contract evidence) denies a discovered public database before apply",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "name": "composed deploy workflow (contract evidence) a reject in the plan round halts without applying",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "name": "composed deploy workflow (contract evidence) a plan changed after plan approval fails before apply",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "name": "composed deploy workflow (contract evidence) loses its lease while apply is in flight and ends uncertain without retrying apply",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "name": "kubernetes provider against a real cluster (kind) creates the namespace, policy and workload, then a second apply changes nothing",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "name": "kubernetes provider against a real cluster (kind) rolls out, and the drivers observe, verify and report runtime",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "name": "kubernetes provider against a real cluster (kind) refuses to touch a same-named object it does not own",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "name": "kubernetes provider against a real cluster (kind) restarts, scales and reads logs and events through the operations",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "name": "kubernetes provider against a real cluster (kind) deploys a new image, rolls back to the previous revision, and the pods follow",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "name": "kubernetes provider against a real cluster (kind) prunes what is no longer desired and never deletes the namespace",
+      "status": "skipped"
+    },
+    {
+      "file": "tests/providers/kubernetes/release-kind.test.ts",
+      "name": "Kubernetes release ports against a disposable kind cluster rolls out a pre-built digest, observes readiness and runs exactly one migration Job across retries",
+      "status": "skipped"
+    }
+  ],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open."
+}

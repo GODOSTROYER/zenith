@@ -1,0 +1,4 @@
+# Only the Go module is needed to build the zenithd image.
+*
+!go/
+go/dist/

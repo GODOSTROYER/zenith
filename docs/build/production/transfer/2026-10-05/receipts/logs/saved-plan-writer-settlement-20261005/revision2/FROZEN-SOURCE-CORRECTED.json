@@ -1,0 +1,420 @@
+{
+  "status": "FROZEN_SOURCE_ONLY_REVIEW_REQUIRED",
+  "revision": "R2",
+  "createdAtUtc": "2026-10-05T04:16:28.040926+00:00",
+  "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-r2-20261005",
+  "head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "wholePreparedTree": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+  "incrementalPreparedTree": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+  "candidateTree": "09d8e9d2795eb34a128a5cf1af72868f32fd9c2a",
+  "previousFrozenR1": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/FROZEN-SOURCE.json",
+    "sha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85",
+    "liveAllSourceExact": true,
+    "rawIndexExact": true,
+    "sourceRejectionPreserved": true
+  },
+  "preEditBaseline": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/PRE-EDIT-BASELINE.json",
+    "sha256": "1e5ee4939dbca881bd0e0ea65bc13a9e1d3f0a5f2a22446d2248788e04ed46e0"
+  },
+  "wholeOwnedCount": 17,
+  "wholeOwnedPaths": [
+    "src/lib/tofu/engine.ts",
+    "src/lib/tofu/runner.ts",
+    "src/lib/platform/plan-artifacts.ts",
+    "src/lib/controlplane/db/repos/plan-artifacts.ts",
+    "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+    "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+    "src/lib/controlplane/db/migrations/index.ts",
+    "src/lib/controlplane/db/migrations/emit.ts",
+    "supabase/migrations/0018_platform_core.sql",
+    "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+    "tests/controlplane/plan-artifact-integration-authority.test.ts",
+    "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+    "tests/controlplane/plan-artifact-product-authority.test.ts",
+    "tests/tofu/plan-artifact-handoff.test.ts",
+    "tests/controlplane/_support/saved-native-plan.ts",
+    "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md"
+  ],
+  "wholeOwnedFiles": [
+    {
+      "path": "src/lib/tofu/engine.ts",
+      "before": {
+        "sha256": "cff24238b8bc9d249fdd3f94c6d5fd5c220cff8e36b947cfaf33a5b486aaa5da",
+        "bytes": 16179,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "95e4f6131397ca4a65723f049606b72a40112e03d93a8802e19a3a7fd3d65c45",
+        "bytes": 33740,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/tofu/runner.ts",
+      "before": {
+        "sha256": "25ec7823dc283a49e9e502fe4a5cf617ed098c68560ab8c7e2e2c080a16247ed",
+        "bytes": 20966,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "509706eda584787303630634ec51cda8fd8af4c0f57a69da6d4fea6412f9679d",
+        "bytes": 37947,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/platform/plan-artifacts.ts",
+      "before": {
+        "sha256": "0424cb2c9905d032808a149535f03238d2975687059f97a6db3ea9846155da97",
+        "bytes": 14814,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "fc64499e805755f80ae7d1ddd9b70da7250d43f0c22d21d31f745c6ba952ea89",
+        "bytes": 20682,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/plan-artifacts.ts",
+      "before": {
+        "sha256": "59eeeb68d6b5549b9beeafdfd0b887968016550924708289d72f2206ef6e8ddd",
+        "bytes": 59540,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "de670526d19331a824365a6659a955e2d2750e44a84f7b9466795255b87f309a",
+        "bytes": 68728,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+      "before": {
+        "sha256": "bda9b7b8d6e9a696394cfafa78273bb7e87e9f7f5dec72a976c8c6c06949ddc6",
+        "bytes": 8310,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "ba3b040c48b608c689594d57f33164ff99026b94a94f92d0af5662fd31b28179",
+        "bytes": 12251,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+      "before": null,
+      "after": {
+        "sha256": "746a7b331ea5ed179c32e9e48bc6c1f8654d8c4ae87e22dac326a9d2f60ad703",
+        "bytes": 3312,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/index.ts",
+      "before": {
+        "sha256": "3e202d82402bfd1f05e0c54755d8fa600bcabfd3b01325f62a2863b267febe0d",
+        "bytes": 2481,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "ce6ab2ff6c88c6564ce0d89bc2666b00b506ccf014f9a18ad8a290e574ab41aa",
+        "bytes": 2611,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/emit.ts",
+      "before": {
+        "sha256": "85bd93b5ef644be8b0d317892004c37f2976584ef43ca5c446c426c36067f978",
+        "bytes": 6891,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "67abe87d40c76b2397caecc1936fb0a8625759c607d3566f64080ef95bdb2482",
+        "bytes": 7218,
+        "mode": 420
+      }
+    },
+    {
+      "path": "supabase/migrations/0018_platform_core.sql",
+      "before": null,
+      "after": {
+        "sha256": "dfa07664b99bca3494db0d716f5fd40578690f9a72dadb4819e8ddb2d4da833e",
+        "bytes": 89676,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "before": {
+        "sha256": "4709e75f33820dc62e9b9a9be870d1cf71d94092cbaa1063257790e1db069ae9",
+        "bytes": 61240,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+        "bytes": 105618,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "before": null,
+      "after": {
+        "sha256": "4a4b61d33eeddbb918eb50dcef74e21855ccd6acd145daf795eb206eafbf1e4e",
+        "bytes": 7519,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+      "before": {
+        "sha256": "80a4593fac5e5c46f85e44189e58145dd5a00f20be1071d8b0a20bf8203225bf",
+        "bytes": 39969,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "95d76ed84070e4a150f8f855ee79641889bd37b9562217acbad5ae7cd1414c80",
+        "bytes": 41459,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+      "before": {
+        "sha256": "7cfe2cf85fb454be9508a0e50469e278f0e2b032b2c1b457f36ab38f8366f3f7",
+        "bytes": 36066,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "c4d522048dd2174c7bc31d78a85f5db9949f45451238131764d847a721c3ebb4",
+        "bytes": 37567,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/plan-artifact-product-authority.test.ts",
+      "before": {
+        "sha256": "86702a3188a1bc31f79c48da8df0bd1b97024e641fb2c5f23daf16f087852a08",
+        "bytes": 42299,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "a2fa6151deb86ef39e87012c415c63bbdfb9aa5de0122c1dcfb899ebd281e799",
+        "bytes": 46370,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/tofu/plan-artifact-handoff.test.ts",
+      "before": {
+        "sha256": "26c0d8e2dbfde74589437788028192621bf2666b184b07c4f08cc0bad1363c13",
+        "bytes": 55901,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "0221047e99a58559d6c392acfdd4356bf46f2914675f212280030993aebaea96",
+        "bytes": 52816,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/_support/saved-native-plan.ts",
+      "before": null,
+      "after": {
+        "sha256": "973d9045675813376a62a7cc5de0dee981cd43b0d19c1b466684cfdd41cd6b59",
+        "bytes": 17891,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md",
+      "before": null,
+      "after": {
+        "sha256": "5f2a5eab404edfa5b43d99f9f72fc8eb1d227a23574eff21838d641d4e7b5bda",
+        "bytes": 3449,
+        "mode": 420
+      }
+    }
+  ],
+  "incrementalOwnedCount": 4,
+  "incrementalOwnedPaths": [
+    "src/lib/tofu/engine.ts",
+    "src/lib/tofu/runner.ts",
+    "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+  ],
+  "incrementalOwnedFiles": [
+    {
+      "path": "src/lib/tofu/engine.ts",
+      "before": {
+        "sha256": "ea14ceff2d1d901d440aea0edfdbe90350909a906f920e095dab9aca6b3ab82a",
+        "bytes": 32367,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "95e4f6131397ca4a65723f049606b72a40112e03d93a8802e19a3a7fd3d65c45",
+        "bytes": 33740,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/tofu/runner.ts",
+      "before": {
+        "sha256": "9f3c568f00a17457999f2fbaec20642c6641745cba99e823d03ee72ad2b72ece",
+        "bytes": 37030,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "509706eda584787303630634ec51cda8fd8af4c0f57a69da6d4fea6412f9679d",
+        "bytes": 37947,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "before": {
+        "sha256": "f5704edefcc609b691a4cae0a454e93d50cc19e26f67004318dc45b1535dfd7a",
+        "bytes": 97885,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+        "bytes": 105618,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "before": {
+        "sha256": "75db274c955de109d3026f48fe95078b6757097d28e96a0ab8317f0e6e2ebae0",
+        "bytes": 6360,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "4a4b61d33eeddbb918eb50dcef74e21855ccd6acd145daf795eb206eafbf1e4e",
+        "bytes": 7519,
+        "mode": 420
+      }
+    }
+  ],
+  "fullSourceCount": 3835,
+  "outsideWholeCount": 3818,
+  "outsideIncrementalCount": 3831,
+  "outsideWholeExact": true,
+  "outsideIncrementalExact": true,
+  "wholePatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/candidate.patch",
+    "sha256": "db722ac60eac6037d231d158c3a8042d324aaec78cf25fbd3b4bfd2b9d77e76c",
+    "bytes": 360283
+  },
+  "incrementalPatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/incremental.patch",
+    "sha256": "da9be03a16b713612874fb0239a181aac1945d35cf97c4c2c922da3ef1fe28b4",
+    "bytes": 37891
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/CASE-CONTRACT.json",
+    "sha256": "f54f4b81ff2a2e67ebe4c061db1136823a9bd2e9d792323c6abcf9b8b4249e9d",
+    "retained46": 46,
+    "r1Additive45": 45,
+    "r2Additive9": 9,
+    "total100": 100
+  },
+  "artifacts": {
+    "OWNED-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/OWNED-INVENTORY.json",
+      "sha256": "86a5ec1b17047ff29716b9889c77f97e37ffdd327c0a98c18f84615afc7f03e1"
+    },
+    "INCREMENTAL-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/INCREMENTAL-INVENTORY.json",
+      "sha256": "64b3f74619b20cdfaacf2251f9a073e556c2a3e2ee22f801327fd35145631b09"
+    },
+    "FULL-AFTER-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/FULL-AFTER-INVENTORY.json",
+      "sha256": "8d41c00ca19fd00362c34eae457f2246608fb824c7fc9f58d87ad7638f76d404"
+    },
+    "OUTSIDE-INCREMENTAL-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/OUTSIDE-INCREMENTAL-INVENTORY.json",
+      "sha256": "ed002ea76c28025f1a4edaf5b608506259dab2c25e0c39df5ee95f9590441e26"
+    },
+    "OUTSIDE-WHOLE-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/OUTSIDE-WHOLE-INVENTORY.json",
+      "sha256": "08420c58c47eef6c2663dcfd466f661ea6c8af327c497661002f0cd3c665f132"
+    },
+    "STATIC-SOURCE-CHECKS.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/STATIC-SOURCE-CHECKS.json",
+      "sha256": "89aea322bdd52d179a7a04c16f59cbcbff4130de817c0168fcd7e44065b56bbe"
+    },
+    "VERIFICATION-COMMANDS.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/VERIFICATION-COMMANDS.json",
+      "sha256": "624363b6759c5575106d677d7f2ea431ad0d132e5ce2e3bece6ed5b37934436f"
+    }
+  },
+  "privateRoundtrip": {
+    "wholePrepared": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+    "incrementalPrepared": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+    "candidate": "09d8e9d2795eb34a128a5cf1af72868f32fd9c2a",
+    "wholePassed": true,
+    "incrementalPassed": true
+  },
+  "realIndex": {
+    "path": "/Users/saivedanthava/Desktop/zenith/.git/worktrees/saved-plan-settlement-r2-20261005/index",
+    "beforeSha256": "bf88eab2ffc7f839bdae8b13acbaed9f8efa61265f1bb00d0da23dee39b14726",
+    "afterSha256": "bf88eab2ffc7f839bdae8b13acbaed9f8efa61265f1bb00d0da23dee39b14726",
+    "unchanged": true,
+    "stageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "stageEntriesUnchanged": true
+  },
+  "staticChecks": {
+    "status": "STATIC_SOURCE_ONLY_NO_PROJECT_IMPORT",
+    "original46BodiesSha256": "d519581d75d59b8090ceba6e4b38e818c7ed2b2955f4c548e9b868530aca8a49",
+    "original46BodiesExact": true,
+    "all91PriorNamesAndOrderExact": true,
+    "remaining13WholeOwnedPathsExactR1": true,
+    "originalR1All3835LiveExact": true,
+    "originalR1RawIndexExact": true,
+    "allOutsideIncremental3831Exact": true,
+    "allOutsideWhole3818Exact": true,
+    "productionScope": [
+      "Engine descriptor-only exact-run checks immediately before subsequent finite run member reads after awaited calls",
+      "Registered original runner methods capture original fields and recheck descriptors before internal post-await normalization/application reads",
+      "Runner finally checks private registered run before reading dispose",
+      "Unknown private identity refuses before structural Proxy traps"
+    ],
+    "scopeLimit": "Registered finite run boundary inside trusted runtime; no blanket compromised-process claim and no new caller proof/callback/registration",
+    "allExecution": "UNRUN"
+  },
+  "execution": {
+    "compiler": "UNRUN",
+    "lint": "UNRUN",
+    "models": "UNRUN",
+    "nativePostgreSQL": "UNRUN",
+    "OpenTofu": "UNRUN",
+    "services": "NOT_STARTED",
+    "commits": "NONE",
+    "authorSourceApproval": false
+  },
+  "outsideFollowups": [
+    "Exact54 additive-case mandatory registration and strict coherent identity derivation retaining old1059/80/123/22; total100 existing cleanup cases includes all46+45+9",
+    "SQL AST composer/source hash rebind for receipt/source settlement composition",
+    "Schema16/two-table counts and tenancy classification, fresh/reapply/collision/hardening tests",
+    "Canonical Supabase0018 emitter parity and initializer checks",
+    "Genuine positively owned Linux bind-mount alias/foreign-scope fixture",
+    "Cloud/provider/workflow/build/runner/machine settlement remains unsupported; their histories/grants stay blockers",
+    "Runtime success/review of hosted production topology, browser/OAuth consent or complete cleanup requirements is not claimed"
+  ],
+  "historicalParentRuntime": {
+    "latestWholePlatform": "2755 passed / 27 failed / 8 skipped, preserved historical failure",
+    "rootTargetedParent": "304 passed / 0 failed / 0 skipped on bbfc, not this source packet"
+  },
+  "metadataCorrection": {
+    "previousReceiptPath": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE.json",
+    "previousReceiptSha256": "cfbf50fbe810c1a5ca2f9ceabb09c15207fff1cd59dba857ee3b2005614f596d",
+    "reason": "Refresh inherited R1 outside followup wording to all54 additive cases; source/patch/candidate/inventory/CASE are unchanged."
+  }
+}

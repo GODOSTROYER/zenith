@@ -1,0 +1,19 @@
+{
+  "status": "cleanup_completed_build_still_failed",
+  "scope": "Cleanup of exact failed build runtime only; build remains failed",
+  "originalReceiptSha256": "9a802a55a0db659c8fcdf7529f80ee85097d0bfe861df550b66171ad1254a528",
+  "runtimeRemoved": true,
+  "oldUnregisteredAttemptTouched": false,
+  "scriptSha256": "d5cd6da9923453ce9363d44372815f929d3db0dc3bf7b2a1c3a5ce72d0d09902",
+  "freezeSha256": "cdc89ee2f81ebc157bdb6f86a8fe7f421aba92c8caec437cee3e09f10fbffabd",
+  "diskBeforeBytes": 23514980352,
+  "diskAfterBytes": 24526733312,
+  "runtimeEntryCount": 7702,
+  "preservedFilesUnchanged": true,
+  "sharedDependencyUnchanged": true,
+  "observedParentExit": 0,
+  "rawResolutionSha256": "82c4233ef9d50fc51acc45372f1e844a31bbf774969c7aab73d8d40a9e3f4154",
+  "reclaimedFreeBytes": 1011752960,
+  "freshNativeGroupEnumerationAndPositiveControlsPassed": true,
+  "buildRemainsFailed": true
+}

@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T04:37:25.267005+00:00",
+  "status": "passed_local_supabase_not_integrated",
+  "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "sourceFreezeSha256": "63eebf6959b49dc7320a4c558c978155de670c48959f466ca84ff0ece2f4e739",
+  "counts": {
+    "total": 251,
+    "passed": 251,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "requiredGroups": 9,
+  "executionBindings": {
+    "lane": true,
+    "reportSha256": true,
+    "manifestSha256": true,
+    "sourceSha256": true,
+    "sourceBindingComplete": true,
+    "effectiveEnvironmentSha256": true,
+    "environmentInventorySha256": true,
+    "shellContextSha256": true,
+    "shellLevelSha256": true,
+    "shellCommandSha256": true,
+    "runtimeSha256": true,
+    "environmentInventoryIntegrity": true
+  },
+  "executionRevalidation": "passed",
+  "schemaApply": "passed",
+  "schemaReapply": "passed",
+  "schemaNameTamperRefusal": "passed_expected_exit1",
+  "schemaChecksumTamperRefusal": "passed_expected_exit1",
+  "phaseChecks": [
+    {
+      "name": "pull",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 14.09
+    },
+    {
+      "name": "start",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.38
+    },
+    {
+      "name": "apply-supabase",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 2.11
+    },
+    {
+      "name": "reapply-supabase",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 1.4
+    },
+    {
+      "name": "canonical-postgres",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 5.63
+    },
+    {
+      "name": "canonical-revalidate",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.15
+    },
+    {
+      "name": "verify-fresh",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.21
+    },
+    {
+      "name": "tamper-name",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.04
+    },
+    {
+      "name": "reject-name",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "passed": true,
+      "seconds": 0.21
+    },
+    {
+      "name": "restore-name",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.03
+    },
+    {
+      "name": "tamper-checksum",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.03
+    },
+    {
+      "name": "reject-checksum",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "passed": true,
+      "seconds": 0.21
+    }
+  ],
+  "privateReportSha256": "ca36b5105726e0a392db66c63fdcb433a7037dee8feefd1c73d2e423d6293ba6",
+  "privateEvidenceSha256": "5b995f1bd8925cbd118b33fd369327adb18ff370906ee900245017a9d5f7fb44",
+  "provenance": {
+    "commit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+    "trackedChangesSha256": "da8d01c162f82a919b7320689a5537275c30cc45c7dc5b2fd0eb79ca61c29a3b",
+    "untrackedContentSha256": "03cb6e8b668a96fcc09e23a299491b95db9447e1ce76735fc094e073b61377e5",
+    "worktreeDirty": true,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "e4948f86a46d652d266c70c76dda6083b4db6939ebbd853f3da9541fb225a000"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "5b24e70fbe7ce4452e3d108f3d3aaa1ad2f163c174f3860c6a1788d171e264ab",
+      "inventorySha256": "9b16863f20a4effa99aa1abf6db4909d18af229c49efe6329999dd44b07ae34b",
+      "shellContextSha256": "bcd24814f5c4b74643d1467cee7fd55b59b19e42cfdd8774b5efc041fe73885d",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "0e451bfd86034f9d3a87c7d3ddec24134c6d85f3800af8eff2bac83feed1d09c",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "22.23.3"
+    }
+  },
+  "manifestSha256": "20095135f7f031d2b6b14ff72b4efc4fb01ec32ac60192a7b163277a1e469eb1",
+  "cleanup": {
+    "container": "zenith-prod-pg-71074789",
+    "ownershipVerified": true,
+    "removed": true,
+    "absenceVerified": true,
+    "newImageRemoved": true,
+    "baselineImagesPreserved": true,
+    "hostFreeGiB": 26.45
+  },
+  "limitations": [
+    "Local PostgreSQL only; production TLS/pooler/RLS/concurrency/recovery hosted acceptance remains outstanding.",
+    "Current corrected source remains isolated and full combined staging gate outstanding."
+  ]
+}

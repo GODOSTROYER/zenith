@@ -1,0 +1,106 @@
+{
+  "authorizationClarification": {
+    "existingAuthorization": "HANDOFF-VERIFIER.md:61 permits source/test/gate/doc changes needed for in-scope acceptance; root already authorizes narrow fixes. No new general approval rule is asserted.",
+    "notForbiddenByDefinition": "Production source edits are not inherently forbidden. If root determines a complete three-connector repair is narrow and keeps all authority/transport contracts, the existing task authorization can cover it; this review did not invent an extra user approval requirement or label all transport fixes forbidden.",
+    "whyStopped": "HANDOFF-VERIFIER.md:104 requires fixing narrow security defects, otherwise report-only. The confirmed verification candidate so far is scoped contract execution, not a designed/reviewed transport change. Closing this gap must coordinate three distinct actual transports, TLS/hostname semantics, reconnect/retry and all-answer address rules, including stock-CLI constraints; it cannot responsibly be represented by a fixture adjustment or the existing static host-test assertions. Root has explicitly chosen report-only security stop pending that bounded repair assessment."
+  },
+  "decision": "Current in-scope verification may report already executed owned-literal fixture evidence, but LIFE11 security/default-composition acceptance remains blocked. Root decides bounded repair scope under existing authorization; report-only checkpoint while no reviewed complete repair exists.",
+  "finding": {
+    "controlsRetained": "Scoped vault references, explicit operation authority, bucket identity checks, all-answer preflight rejection, TLS settings and operator private-host option are present but do not bind the later destination socket.",
+    "existingTests": "tests/portability/adoption-decommission.test.ts:180-191 checks static and mixed preflight lookup results only; no actual transport check-to-socket custody test.",
+    "impact": "Public preflight resolution may change to a refused private/loopback/link-local destination during actual connection/reconnection. This defeats the claimed network-address boundary. It does not prove any successful protocol exchange, credential extraction, metadata read or tenant data mutation.",
+    "precondition": "Authorized tenant-owned vault connection/endpoint with attacker-controlled DNS is used by the real portability worker; no claim of unauthenticated access.",
+    "title": "Vetted DNS addresses are not bound to portability transport connections",
+    "trace": [
+      "src/lib/portability/net.ts:62-82 validates all currently resolved addresses and returns void.",
+      "src/lib/portability/connect.ts:46-60 validates hostname then passes original URI to postgres without vetted socket/lookup. Installed postgres/src/connection.js:127-132 and326-347 creates a normal net.Socket and connects to original host separately.",
+      "src/lib/portability/connect.ts:78-80 retains original MySQL hostname; engines/mysql.ts:104 uses --host for stock CLI later resolution.",
+      "src/lib/portability/engines/s3.ts:74-81 prechecks only on client creation, then supplies original endpoint/default handler; installed Smithy node-http-handler:419-444 creates default agents and343-351 uses original host for http(s).request.",
+      "src/lib/execution/portability.ts:80-93,117,152,199,207 uses scoped vault secrets through these real connectors; src/lib/platform/execution.ts:113 composes actual portability port."
+    ]
+  },
+  "limits": [
+    "Source-only, no runtime/test/import/download performed.",
+    "No source/index/docs/Git writes, no fix authored.",
+    "Historical gap was confirmed in current code; no assertion that an actual attack occurred.",
+    "No broader TLS/default-server or unsupported provider acceptance inferred."
+  ],
+  "observedInstalledDependencySource": [
+    {
+      "file": "node_modules/postgres/package.json",
+      "name": "postgres",
+      "sha256": "7324573388770786378751cf5e4267587261e694319be41924dcd2420262eb85",
+      "version": "3.4.7"
+    },
+    {
+      "file": "node_modules/postgres/src/connection.js",
+      "sha256": "0847375f271c373745b4c2af1bbb5dc2da5ee6f69937cc52516b5b6a667af7a4"
+    },
+    {
+      "file": "node_modules/@smithy/node-http-handler/package.json",
+      "name": "@smithy/node-http-handler",
+      "sha256": "81e89f00f0c0211e547c3e4fd1ee6bfece1919215cd521bde728d0c8eed761cb",
+      "version": "4.11.3"
+    },
+    {
+      "file": "node_modules/@smithy/node-http-handler/dist-cjs/index.js",
+      "sha256": "d88f2a8fd5a49fdc6f09e3ddfce9f7439d1457ee3868fbb9efbf4d536f73a2e3"
+    }
+  ],
+  "repairPrerequisites": [
+    "Before implementation, define a single exact destination-address custody contract: every actual new socket, retry, reconnection and redirect must use a freshly validated address or a fixed vetted set, never a separately resolved unchecked hostname. Validate every returned address; preserve never-allowed link-local/unspecified/multicast behavior and existing explicit private-host opt-in.",
+    "Preserve the original logical hostname for TLS SNI and certificate identity, HTTP Host and SigV4 signing; do not silently replace all URL host fields with an IP or loosen TLS verification to make pinning work. Keep existing sslmode semantics separately documented; required encryption is not server-identity verification.",
+    "Postgres: pinned3.4.7 actually exposes options.socket (connection.js:127-132 and336-337), contrary to the historical unsupported-hook wording. Any use must prove pinned connect address, driver SSL upgrade/SNI on that same connected socket, bounded connect errors, and all reconnect/host-failover behavior.",
+    "MySQL: actual stock mysql/mysqldump CLI resolves --host itself. Define a genuinely enforced vetted endpoint for both tools and every query/import/readback, preserving current CLI/TLS/auth behavior. Do not rely on a separate JS lookup or introduce a silent hostname refusal/fallback without an explicit support-contract decision.",
+    "S3: bind validated transport resolution through the actual SDK HTTP handler/agents for custom endpoints, including new sockets, retry attempts, cached-client lifetime and redirects. Preserve HTTP Host/SigV4/TLS name and actual destination-bucket identity checks. No unchecked default agent fallback.",
+    "Add actual transport-level controlled-DNS tests for all3 connectors: permitted hostname becomes private/link-local before actual socket and on retry; refused destination receives no connection/request. Also run permitted public/literal or explicitly allowed owned-loopback paths against genuine owned DB/S3 fixtures, positive TLS-name checks, IPv4/IPv6/mixed-answer refusals, and independent export/import/readback. These tests must exercise production connectors and actual socket endpoints rather than only injecting preflight lookup output.",
+    "Keep operation/approval/tenant-vault/bucket authority, strict skips/exits/counts, source binding, positive owned-fixture cleanup and published migrations unchanged. Reviewer must independently inspect source delta and real transport outputs before any network-safe/default-journey claim."
+  ],
+  "reviewer": "admission_audit / independent C",
+  "schemaVersion": 1,
+  "scope": "PROD-LIFE-11 connector check-to-socket trace only",
+  "sourceBindings": [
+    {
+      "exactEc18Bytes": true,
+      "file": "src/lib/portability/net.ts",
+      "sha256": "bf3d9cc31e8aee8102ded74b77092ac027abf66a5336ea7ea70b20da475adb34"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "src/lib/portability/connect.ts",
+      "sha256": "a8ae884d577b2c57aeec158f84fd6f8a50d5f96fecae8bc38f9745ef7f5214e9"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "src/lib/portability/engines/mysql.ts",
+      "sha256": "194eeb7034afddaadc2d7a2baa516dd4c90debdfe311f182c57d48cf17d2d7d9"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "src/lib/portability/engines/s3.ts",
+      "sha256": "5ddbc7236a1a53a795140d966b8b2c2265fc267c3d1a817efb0e87fe9a603314"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "src/lib/execution/portability.ts",
+      "sha256": "ffee89198aecaeda5671ca56359ae21fa5505006de8b41574a8fa56db36ed0ed"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "src/lib/platform/execution.ts",
+      "sha256": "3c3f3b9a7207bb4807c47587b7928a0524b69717012dee5f9fc51bb0970ae643"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "tests/portability/adoption-decommission.test.ts",
+      "sha256": "dde8515ad9e865de8110fbf907139796574f359368d62c13783aa8de2414ae3d"
+    },
+    {
+      "exactEc18Bytes": true,
+      "file": "package-lock.json",
+      "sha256": "56a63b14daa9cb87f2239fd0b7f597e9ceaefb8360542a8a6691f968e456a9f1"
+    }
+  ],
+  "sourceCommit": "ec18bb9c8973787ab16123040d00d7be1407eb08",
+  "status": "STOP_AND_REPORT_CURRENT_SOURCE_SECURITY_BOUNDARY_GAP"
+}

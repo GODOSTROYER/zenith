@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "scope": "Focused native PostgreSQL schema43 and historical workflow-start tombstones; not full project verification",
+  "commit": "b69a6c121ee1fae033246231ffad85d4d9f3b95f",
+  "trackedSourceDirty": false,
+  "host": "Mac, native Darwin ARM64",
+  "versions": {
+    "node": "22.23.3",
+    "postgres": "16.15"
+  },
+  "counts": {
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0
+  },
+  "backendCounts": {
+    "postgres": 23,
+    "pglite": 17,
+    "pureContract": 1
+  },
+  "files": [
+    {
+      "file": "tests/controlplane/mcp-stream-tenant-index.test.ts",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "file": "tests/controlplane/workflow-start-intents.test.ts",
+      "passed": 38,
+      "failed": 0
+    }
+  ],
+  "exitCode": 0,
+  "durationSeconds": 9.61,
+  "disk": {
+    "beforeFreeBytes": 27130368000,
+    "minimumFreeBytes": 27039387648,
+    "afterFreeBytes": 27129589760,
+    "floorBytes": 23622320128
+  },
+  "cleanup": {
+    "postgresStopExitCode": 0,
+    "ownedDataAndSocketRemoved": true
+  },
+  "privateReportSha256": "b7802cccf2c9b89a9ae0dafa97ed70de088a2b1280ea2891e8daa788cd0d96a4",
+  "coverage": [
+    "Real42-to43 upgrade preserves prior ledger, rows, keys, RLS, ACL, owner and policies; exact tenant-leading index and raw JSONB payloads",
+    "Historical schema12 current-start refusal, guarded attempted fixture, real TRUNCATE denial and retained current-helper no-replay recovery"
+  ],
+  "limitations": [
+    "Full canonical platform/workflow lanes not rerun on this source",
+    "No default API/browser/container topology, cloud or production acceptance",
+    "Prior broader65/12/0 attempt remains failed; this narrower successor does not supersede every failed case"
+  ]
+}

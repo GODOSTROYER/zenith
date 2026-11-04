@@ -1,0 +1,386 @@
+{
+  "schema": 1,
+  "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec",
+  "runs": [
+    {
+      "databaseId": 37607673808,
+      "headSha": "80bb7352765ba83655a191b9b34d7e10827475ec",
+      "name": "CI",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808",
+      "jobs": [
+        {
+          "databaseId": 112747055143,
+          "name": "docker",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055143"
+        },
+        {
+          "databaseId": 112747055398,
+          "name": "supply-chain",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055398"
+        },
+        {
+          "databaseId": 112747055486,
+          "name": "workflows",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055486"
+        },
+        {
+          "databaseId": 112747055521,
+          "name": "hosted",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055521"
+        },
+        {
+          "databaseId": 112747055526,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055526"
+        },
+        {
+          "databaseId": 112747055533,
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055533"
+        },
+        {
+          "databaseId": 112747055590,
+          "name": "agent",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055590"
+        },
+        {
+          "databaseId": 112747055606,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055606"
+        },
+        {
+          "databaseId": 112747055649,
+          "name": "policy",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055649"
+        },
+        {
+          "databaseId": 112747055651,
+          "name": "go",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055651"
+        },
+        {
+          "databaseId": 112747055701,
+          "name": "ledger",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055701"
+        },
+        {
+          "databaseId": 112747055785,
+          "name": "platform-postgres",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055785"
+        },
+        {
+          "databaseId": 112747055789,
+          "name": "generated",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055789"
+        },
+        {
+          "databaseId": 112747055803,
+          "name": "tofu",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055803"
+        },
+        {
+          "databaseId": 112747055853,
+          "name": "operation-gates (workflow-intents)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055853"
+        },
+        {
+          "databaseId": 112747055893,
+          "name": "operation-gates (reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673808/job/112747055893"
+        }
+      ]
+    },
+    {
+      "databaseId": 37607673813,
+      "headSha": "80bb7352765ba83655a191b9b34d7e10827475ec",
+      "name": "Native packaged workers",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673813",
+      "jobs": [
+        {
+          "databaseId": 112747054547,
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673813/job/112747054547"
+        },
+        {
+          "databaseId": 112747054839,
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607673813/job/112747054839"
+        }
+      ]
+    },
+    {
+      "databaseId": 37607674018,
+      "headSha": "80bb7352765ba83655a191b9b34d7e10827475ec",
+      "name": "Native skipped platforms",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607674018",
+      "jobs": [
+        {
+          "databaseId": 112747055214,
+          "name": "linux-systemd",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607674018/job/112747055214"
+        },
+        {
+          "databaseId": 112747055523,
+          "name": "windows-acl",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37607674018/job/112747055523"
+        }
+      ]
+    }
+  ],
+  "jobCounts": {
+    "passed": 20,
+    "failed": 0,
+    "pending": 0
+  },
+  "unit": {
+    "jobId": 112747055526,
+    "counts": {
+      "passed": 19622,
+      "failed": 0,
+      "skipped": 1532
+    },
+    "total": 21154,
+    "fileCounts": {
+      "passed": 878,
+      "skipped": 51,
+      "total": 929
+    },
+    "filteredSummary": [
+      "Test Files  878 passed | 51 skipped (929)",
+      "Tests  19622 passed | 1532 skipped (21154)"
+    ]
+  },
+  "artifacts": [
+    {
+      "artifactId": 11475204316,
+      "runId": 37607673808,
+      "archiveBytes": 4537,
+      "memberSha256": "e67678ade8c726a6479b48147d57fefc5abc1fd883e6881b17a3893136824b44",
+      "lane": "postgres",
+      "counts": {
+        "total": 379,
+        "passed": 379,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "verdict": "passed",
+      "requiredIdentities": 93,
+      "requiredAllPassed": true,
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    },
+    {
+      "artifactId": 11476340729,
+      "runId": 37607673813,
+      "archiveBytes": 1519,
+      "memberSha256": "f51fcec3909933ba8da761f3028a3bb44fd7a2c0c4bc68e8bfd31f2f3d11ff27",
+      "lane": "packaged-worker",
+      "platform": "linux/amd64",
+      "status": "passed",
+      "childExitCode": 0,
+      "checks": {
+        "native-architecture": "passed",
+        "fresh-source-image": "passed",
+        "actual-entrypoint": "passed",
+        "private-tls-custody": "passed",
+        "temporal-mtls-positive-and-negative": "passed",
+        "owned-namespace": "passed",
+        "startup-refusals": "passed",
+        "readiness-and-liveness": "passed",
+        "owned-reconcile-schedule": "passed",
+        "permitted-read-operation": "passed",
+        "packaged-assets-and-plan-retention": "passed",
+        "sql-prerequisite-outage-and-recovery": "passed",
+        "store-outage-and-recovery": "passed",
+        "temporal-outage-and-recovery": "passed",
+        "durable-temporal-restart": "passed",
+        "operator-pause-and-resume": "passed",
+        "actual-inflight-drain-and-fresh-worker": "passed",
+        "idle-drain": "passed",
+        "private-files-and-owned-services-cleanup": "passed",
+        "owned-builder-cache-cleanup": "passed",
+        "owned-context-cleanup": "passed",
+        "baseline-preserved": "passed"
+      },
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    },
+    {
+      "artifactId": 11476001043,
+      "runId": 37607673813,
+      "archiveBytes": 1519,
+      "memberSha256": "c23fd78eea85b3a78869f0f412a25a2f8d023d6236859de6398b5b1d5b87cfd5",
+      "lane": "packaged-worker",
+      "platform": "linux/arm64",
+      "status": "passed",
+      "childExitCode": 0,
+      "checks": {
+        "native-architecture": "passed",
+        "fresh-source-image": "passed",
+        "actual-entrypoint": "passed",
+        "private-tls-custody": "passed",
+        "temporal-mtls-positive-and-negative": "passed",
+        "owned-namespace": "passed",
+        "startup-refusals": "passed",
+        "readiness-and-liveness": "passed",
+        "owned-reconcile-schedule": "passed",
+        "permitted-read-operation": "passed",
+        "packaged-assets-and-plan-retention": "passed",
+        "sql-prerequisite-outage-and-recovery": "passed",
+        "store-outage-and-recovery": "passed",
+        "temporal-outage-and-recovery": "passed",
+        "durable-temporal-restart": "passed",
+        "operator-pause-and-resume": "passed",
+        "actual-inflight-drain-and-fresh-worker": "passed",
+        "idle-drain": "passed",
+        "private-files-and-owned-services-cleanup": "passed",
+        "owned-builder-cache-cleanup": "passed",
+        "owned-context-cleanup": "passed",
+        "baseline-preserved": "passed"
+      },
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    },
+    {
+      "artifactId": 11475463480,
+      "runId": 37607674018,
+      "archiveBytes": 623,
+      "memberSha256": "9ab138ac7eae7039f2c1924cc0c2af102928965fd079cd0cc7666e5d5d27f697",
+      "lane": "windows",
+      "status": "passed",
+      "leaf": {
+        "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblingCount": 15
+      },
+      "cleanup": "complete",
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    },
+    {
+      "artifactId": 11474804584,
+      "runId": 37607674018,
+      "archiveBytes": 627,
+      "memberSha256": "ca2e46834a866f1e16e4eed345e89ae29e6ebcea9d4aabec42fc99feab2a034c",
+      "lane": "systemd",
+      "status": "passed",
+      "leaf": {
+        "name": "TestRealSystemctlAndJournalctl",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblingCount": 0
+      },
+      "cleanup": "complete",
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    },
+    {
+      "artifactId": 11476735453,
+      "archiveBytes": 4257,
+      "memberSha256": "f7ca989f7b149d7d4c686996c32aab0d97a3e551cd2aa2ed35c3a7ab0dc72baa",
+      "lane": "workflows",
+      "counts": {
+        "total": 1275,
+        "passed": 1275,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredIdentities": 62,
+      "requiredAllPassed": true,
+      "verdict": "passed",
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    },
+    {
+      "artifactId": 11476457076,
+      "archiveBytes": 19037,
+      "memberSha256": "3139c6ad648daccf93ccf158c27a6f44ae6221c28b8e29e82466d47a4966e208",
+      "lane": "platform-postgres",
+      "counts": {
+        "total": 3042,
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "requiredIdentities": 1124,
+      "requiredAllPassed": true,
+      "verdict": "passed",
+      "sourceCommit": "80bb7352765ba83655a191b9b34d7e10827475ec"
+    }
+  ],
+  "reviewBindings": {
+    "rootJobMetadataSha256": "e14bdbf35c50b72586bc3eba4f5bdf08260af2d09ea80136a7ea04c257838ad3",
+    "independentCountsReviewSha256": "d4117352fc8e2e5b700be323e6ad1ec46a1fe0b111acb2a9bb1179babd2c1a6d",
+    "agreement": "All20 root job IDs/names/status/conclusion match independent terminal metadata; exact-source small artifacts and filtered unit summary."
+  },
+  "overlap": "Lanes and required identity sets overlap; counts are never summed. Unit1532 skips and platform8 skips are retained.",
+  "limitations": [
+    "WindowsACL and Linuxsystemd artifacts each prove one native leaf; Windows15 excluded siblings remain explicit.",
+    "Linux systemd read/status/log harness is not default installed-agent registration, rotation, signed update or rollback acceptance.",
+    "Native worker AMD64 and ARM64 each22 controls and six cleanup flags are separate native CI proofs.",
+    "No local Mac default authenticated journey, live cloud or release-state promotion.",
+    "This is documentation of tested80bb; a publication successor must be identified separately, never relabel these receipts."
+  ]
+}

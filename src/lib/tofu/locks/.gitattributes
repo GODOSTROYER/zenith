@@ -1,0 +1,2 @@
+# Lockfiles are hashed byte for byte (lockDigest); never let git rewrite line endings.
+*.hcl text eol=lf

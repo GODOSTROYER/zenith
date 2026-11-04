@@ -26,14 +26,19 @@
  * `auth.getUser()` round trip, and the session cookie is minted by
  * `@supabase/ssr` itself rather than hand-rolled.
  *
- * Not real: **the identity provider**. A second loopback server answers
- * `GET /auth/v1/user`, and `NEXT_PUBLIC_SUPABASE_URL` points at it. That is the
- * only double in this script, it sits entirely outside Zenith, and it is
- * unavoidable: `supabaseSessionAuthority` refuses rather than admitting an
- * unverified identity (`src/lib/hosted/access/identity.ts:85`), which is
- * exactly the behaviour we want to keep. Nothing inside `src/**` is mocked,
- * stubbed or injected — in particular `setSessionAuthorityForTests` is **not**
- * called, so the authority under test is the shipping one.
+ * Not real: **the identity provider or MFA ceremony**. A second loopback server
+ * answers GoTrue's user and JWKS endpoints. It signs short-lived test JWTs
+ * with an ephemeral RSA key so the shipping Supabase client's `getClaims()`
+ * verifies the signature, and reports a synthetic verified TOTP factor for
+ * the positive case. Negative cases use signed AAL1, missing-factor, stale,
+ * and wrong-subject sessions plus a corrupted signature. This tests the
+ * shipping route guard's protocol checks; it does not perform real MFA or
+ * establish that an actual identity provider enrolled or verified a factor.
+ * Nothing inside `src/**` is mocked, stubbed or injected — in particular
+ * `setSessionAuthorityForTests` is **not** called.
+ *
+ * The synthetic provider is the one double in this script; it sits entirely
+ * outside Zenith. Nothing in `src/**` is stubbed or injected.
  *
  * Also not real: the deployment. Phase 1 is the `sandbox` provider and every
  * URL it produces is flagged `simulated`. The script asserts that flag rather
@@ -52,7 +57,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createSign, generateKeyPairSync, randomUUID } from "node:crypto";
 
 /* Environment first: `@/lib/env` reads ZENITH_DATA on first use, so every
    application module below is imported dynamically, after this block — and
@@ -153,24 +158,31 @@ function table(): string {
 
 /* ------------------------- the identity provider double ------------------------- */
 
-/** A JWT the Supabase client will decode, and `getClaims()` will validate by asking. */
-function accessToken(): string {
+interface SyntheticSigningKey {
+  privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"];
+  jwk: JsonWebKey & { kid: string; use: "sig"; alg: "RS256" };
+}
+
+function syntheticSigningKey(): SyntheticSigningKey {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: "jwk" }) as JsonWebKey;
+  return { privateKey, jwk: { ...jwk, kid: randomUUID(), use: "sig", alg: "RS256" } };
+}
+
+/** The actual Supabase client verifies these synthetic RS256 claims via the loopback JWKS. */
+function accessToken(key: SyntheticSigningKey, overrides: Record<string, unknown> = {}): string {
   const part = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");
-  const header = part({ alg: "HS256", typ: "JWT" });
+  const now = Math.floor(Date.now() / 1000);
+  const header = part({ alg: "RS256", typ: "JWT", kid: key.jwk.kid });
   const payload = part({
-    sub: OWNER.subject,
-    email: OWNER.email,
-    aud: "authenticated",
-    role: "authenticated",
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    user_metadata: { full_name: OWNER.name },
-    app_metadata: {},
+    sub: OWNER.subject, email: OWNER.email, aud: "authenticated", role: "authenticated",
+    iat: now, exp: now + 3600, session_id: randomUUID(), aal: "aal2",
+    amr: [{ method: "totp", timestamp: now - 1 }],
+    user_metadata: { full_name: OWNER.name }, app_metadata: {}, ...overrides,
   });
-  // The signature is never checked: `alg: HS256` makes auth-js fall back to
-  // `getUser()` against the provider, which is the round trip this whole
-  // script wants to be real. It still has to be base64url, so it is.
-  return `${header}.${payload}.${Buffer.alloc(32, 9).toString("base64url")}`;
+  const signer = createSign("RSA-SHA256");
+  signer.update(`${header}.${payload}`); signer.end();
+  return `${header}.${payload}.${signer.sign(key.privateKey).toString("base64url")}`;
 }
 
 interface Stub {
@@ -181,20 +193,23 @@ interface Stub {
 /**
  * The GoTrue endpoints `@supabase/ssr` calls, and nothing else.
  *
- * `GET /auth/v1/user` is the whole contract: `getClaims()` falls back to it for
- * an HS256 token, and `verifyRequestIdentity()` calls it directly. A 401 from
- * here is the provider positively saying "this is not a signed-in caller",
- * which is the only answer that becomes a 401 rather than a 503.
+ * The app's Supabase client verifies RS256 claims against the JWKS endpoint
+ * here, then calls `/auth/v1/user` for live identity and factor state. Tokens
+ * are accepted only for this loopback test provider.
  */
-async function startIdentityProvider(token: string): Promise<Stub> {
+async function startIdentityProvider(token: string, jwk: SyntheticSigningKey["jwk"]): Promise<Stub & { addToken: (token: string) => void; setFactorVerified: (verified: boolean) => void }> {
+  const acceptedTokens = new Set([token]);
+  let factorVerified = true;
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    const authorized = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "") === token;
+    const presented = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    const authorized = acceptedTokens.has(presented);
     const send = (status: number, body: unknown): void => {
       const text = JSON.stringify(body);
       res.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(text) });
       res.end(text);
     };
+    if (url.pathname === "/auth/v1/.well-known/jwks.json") return send(200, { keys: [jwk] });
     if (url.pathname === "/auth/v1/user") {
       if (!authorized) return send(401, { message: "invalid claim: missing sub claim", code: 401 });
       return send(200, {
@@ -205,6 +220,7 @@ async function startIdentityProvider(token: string): Promise<Stub> {
         email_confirmed_at: "2026-01-01T00:00:00.000Z",
         user_metadata: { full_name: OWNER.name },
         app_metadata: {},
+        factors: factorVerified ? [{ id: "synthetic-totp", factor_type: "totp", status: "verified" }] : [],
         created_at: "2026-01-01T00:00:00.000Z",
       });
     }
@@ -216,6 +232,8 @@ async function startIdentityProvider(token: string): Promise<Stub> {
   const port = (server.address() as { port: number }).port;
   return {
     origin: `http://127.0.0.1:${port}`,
+    addToken: (value) => acceptedTokens.add(value),
+    setFactorVerified: (verified) => { factorVerified = verified; },
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
@@ -340,8 +358,9 @@ async function main(): Promise<number> {
   fs.rmSync(DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(CREDENTIAL_FILE), { recursive: true, mode: 0o700 });
 
-  const token = accessToken();
-  const provider = await startIdentityProvider(token);
+  const signingKey = syntheticSigningKey();
+  const token = accessToken(signingKey);
+  const provider = await startIdentityProvider(token, signingKey.jwk);
   process.env.NEXT_PUBLIC_SUPABASE_URL = provider.origin;
 
   /* Now, and only now, the application. */
@@ -353,6 +372,7 @@ async function main(): Promise<number> {
   const { runAction } = await import("@/lib/actions/core");
   const { registerAllActions } = await import("@/lib/actions/defs");
   const security = await import("@/lib/agent-access/security");
+  const { MFA_REQUIRED } = await import("@/lib/auth/mfa");
 
   const linkStart = await routeModule("src/app/api/agent/link/start/route.ts", "P1");
   const linkToken = await routeModule("src/app/api/agent/link/token/route.ts", "P1");
@@ -407,6 +427,21 @@ async function main(): Promise<number> {
   const browser = (method: string, pathname: string, body?: unknown): Promise<Answer> =>
     call(method, pathname, { body, headers: { cookie, origin: app.origin } });
 
+  const browserWithCookie = (session: string, method: string, pathname: string, body?: unknown): Promise<Answer> =>
+    call(method, pathname, { body, headers: { cookie: session, origin: app.origin } });
+
+  const sessionFor = async (overrides: Record<string, unknown>, corruptSignature = false): Promise<string> => {
+    let candidate = accessToken(signingKey, overrides);
+    if (corruptSignature) {
+      const parts = candidate.split(".");
+      const signature = parts[2], index = Math.floor(signature.length / 2);
+      parts[2] = `${signature.slice(0, index)}${signature[index] === "A" ? "B" : "A"}${signature.slice(index + 1)}`;
+      candidate = parts.join(".");
+    }
+    provider.addToken(candidate);
+    return sessionCookie(provider.origin, candidate);
+  };
+
   /** What the terminal sends: a bearer and a workspace selection, and no cookie. */
   const agent = (name: string, args: Record<string, unknown>, bearer: string): Promise<Answer> =>
     call("POST", "/api/agent/v2/tools", {
@@ -417,6 +452,12 @@ async function main(): Promise<number> {
   const data = (answer: Answer): Record<string, unknown> => {
     const envelope = answer.json as { structuredContent?: { data?: Record<string, unknown> } };
     return envelope.structuredContent?.data ?? answer.json;
+  };
+
+  /** A refusal's stable code is useful diagnostically; never echo provider or response bodies. */
+  const isMfaRequired = (answer: Answer): boolean => {
+    const error = answer.json.error as { message?: unknown } | undefined;
+    return error?.message === MFA_REQUIRED;
   };
 
   let projectId = "";
@@ -451,6 +492,15 @@ async function main(): Promise<number> {
       createdAt: at,
     });
     store.save();
+
+    // Require a recent factor in this disposable PGlite workspace so the stale
+    // AMR negative exercises the real policy lookup as well as the route guard.
+    const { platformDb } = await import("@/lib/controlplane/db/open");
+    const { bindRepos } = await import("@/lib/controlplane/db/repos");
+    await bindRepos(await platformDb()).workspaceMfaControls.putWorkspaceMfaControls({
+      workspaceId: WORKSPACE, requireForAllMutations: false, maxAgeSeconds: 60, expectedVersion: 0,
+      actor: { kind: "user", id: OWNER.subject, name: OWNER.name }, correlationId: randomUUID(),
+    });
 
     const actor = { type: "user" as const, id: OWNER.subject, name: OWNER.name };
     const created = await runAction(
@@ -546,6 +596,35 @@ async function main(): Promise<number> {
       `HTTP ${crossOrigin.status} — the CSRF check the review endpoint already uses`
     );
 
+    /* ----------------------- central MFA guard controls --------------------- */
+
+    const guardedAttempt = (session: string): Promise<Answer> => browserWithCookie(
+      session, "POST", "/api/integrations/agent/link/approve",
+      { userCode, approve: true, workspaceId: WORKSPACE, projectIds: [projectId], scopes: ["read"], days: 1 },
+    );
+    const refused = async (name: string, session: string, expected: "mfa" | "session"): Promise<void> => {
+      const answer = await guardedAttempt(session);
+      const mfa = isMfaRequired(answer);
+      const ok = expected === "mfa" ? answer.status === 403 && mfa : [401, 503].includes(answer.status) && !mfa;
+      must(name, ok, `HTTP ${answer.status}, MFA_REQUIRED=${mfa}`);
+    };
+    const aal1 = await sessionFor({ aal: "aal1" });
+    await refused("AAL1 session refused", aal1, "mfa");
+
+    const noFactor = await sessionFor({ aal: "aal2", amr: [{ method: "totp", timestamp: Math.floor(Date.now() / 1000) - 1 }] });
+    provider.setFactorVerified(false);
+    try { await refused("removed authenticator refused", noFactor, "mfa"); }
+    finally { provider.setFactorVerified(true); }
+
+    const stale = await sessionFor({ aal: "aal2", amr: [{ method: "totp", timestamp: Math.floor(Date.now() / 1000) - 1200 }] });
+    await refused("stale authenticator proof refused", stale, "mfa");
+
+    const wrongSubject = await sessionFor({ sub: "b1b2c3d4-0000-4000-8000-00000000bad0", aal: "aal2" });
+    await refused("wrong subject refused", wrongSubject, "session");
+
+    const invalidSignature = await sessionFor({ aal: "aal2" }, true);
+    await refused("invalid signature refused", invalidSignature, "session");
+
     /* ------------------------------- 4. approve ------------------------------ */
 
     const approval = {
@@ -567,7 +646,7 @@ async function main(): Promise<number> {
     must(
       "double-submitted approval issues one credential",
       approved.status === 200 && [404, 409].includes(rejected.status),
-      `HTTP ${first.status} and ${second.status} — one approves, the other is already consumed`
+      `HTTP ${first.status} (MFA_REQUIRED=${isMfaRequired(first)}) and ${second.status} (MFA_REQUIRED=${isMfaRequired(second)}) — one approves, the other is already consumed`
     );
     credentialId = String(approved.json.credentialId ?? "");
     must(

@@ -1,0 +1,117 @@
+{
+  "requirement": "PROD-LIFE-12",
+  "securityFixCommit": "40012d75bf6734399786dbc258d972789caf44ff",
+  "integratedCommit": "7427a7d0b0fcafeca92a1d2c768f74d0317ad9a7",
+  "testedSource": {
+    "baseline": "a4c933ecb75d4dd46bba3a027e127df8a3b67257",
+    "candidateInputs": {
+      "src/lib/controlplane/db/repos/ownership-transfers.ts": "78965dc22a8a8de153f61e11dd27bb9059e15a5472e767dbb5eb9c789de9ad67",
+      "src/lib/controlplane/db/repos/grants.ts": "a9b48247865a9ea672f69e014985a6b7b1414052aa4f7d1efc7d5c6472e6d83a",
+      "tests/controlplane/ownership-transfers.test.ts": "c8de4ea6f4bc6040f1b9927c0d733cdd6c7c280164611bbc151228f9c9742d88",
+      "tests/controlplane/tenancy.test.ts": "416dd5856a344c2da9ebc6f4155cd60fc578a7bc728fe93a2265e292ad0beb41"
+    },
+    "equivalence": "Four reviewed and executed file hashes preserved byte-for-byte in fix and root integration commits; other runtime changes are absent."
+  },
+  "environment": {
+    "node": "22.23.3",
+    "vitest": "4.1.11",
+    "postgres": "16.15 Homebrew native macOS ARM64",
+    "roles": "Actual PostgreSQL service_role ACL/BYPASSRLS; CI Auth roles are stand-ins, not genuine Supabase Auth acceptance",
+    "schemaFiles": 25,
+    "platformVersion": 43,
+    "nodeHeapMiB": 1536,
+    "postgresRssCeilingMiB": 512,
+    "floorBytes": 12000000000
+  },
+  "originalFinding": {
+    "passed": 10,
+    "failed": 1,
+    "skipped": 0,
+    "cause": "Independent new owner INSERT commits after grant ownership snapshot, before final grant INSERT; old admission issued a grant.",
+    "receiptRetained": true
+  },
+  "native17": {
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0,
+    "excluded": 0,
+    "durationSeconds": 30.46,
+    "reportSha256": "c857b47ab9d9429a3f11647e8718b7476ec6f328289e188f2c4aeefa2583472d",
+    "receiptSha256": "07999eb6ce0749d227ea57d666fe0913072a5d2e24128a9048ce0268ffdc8a73"
+  },
+  "affectedSix": {
+    "passed": 124,
+    "failed": 0,
+    "skipped": 0,
+    "excluded": 0,
+    "mandatoryNativePostgresCases": 17,
+    "scope": "Mixed PostgreSQL, PGlite, capability and static SQL controls; not 124 native cases",
+    "durationSeconds": 59.4,
+    "reportSha256": "96a9e84d1f835fdeb2a1def0411f23907e3cbe324f4312f8f714405194bf69dd",
+    "receiptSha256": "09cf3f5cea58207e9c05971a76d681ec522739415e931e72b5dfbe8d1bdfc792",
+    "countsByFile": {
+      "tests/controlplane/grants.test.ts": 14,
+      "tests/controlplane/operations.test.ts": 59,
+      "tests/controlplane/ownership-transfers.test.ts": 17,
+      "tests/controlplane/tenancy.test.ts": 7,
+      "tests/capabilities/ownership-transfers.test.ts": 22,
+      "tests/security/controlplane-sql-scoping.test.ts": 5
+    }
+  },
+  "rootChecks": {
+    "compilerExit": 0,
+    "compilerHeapMiB": 4096,
+    "affectedLintExit": 0,
+    "standaloneSqlScoping": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "setupFailure": {
+    "testsExecuted": 0,
+    "cause": "Vitest optional --json value consumed first source target as output filename",
+    "cleanupComplete": true,
+    "endSourceBinding": false,
+    "repair": "Exact original reviewed test recovered from recorded edits; hash verified. R2 uses fresh explicit private output path, four source snapshots and integrity check after collection.",
+    "failedAttemptPreserved": true
+  },
+  "cleanup": {
+    "complete": true,
+    "sourceBinding": true,
+    "registeredGroupsAbsent": 125,
+    "listenerRefused": true,
+    "runtimeRemoved": true,
+    "minimumFreeBytes": 26861928448,
+    "independentReview": "accepted"
+  },
+  "limits": [
+    "CAS covers ownership changes committed before final SQL snapshot; future concurrent inserts still require common writer coordination.",
+    "Previously issued or consumed grants are not retroactively revoked; accepted external calls cannot be undone by fences.",
+    "Provider callback and human approval inputs are modeled in these tests; no live provider or default browser acceptance.",
+    "Counts overlap; native17 and SQL5 are subsets of affected124.",
+    "Full combined gates, new native build/default startup and exact-push CI remain pending."
+  ],
+  "mandatoryGateAddition": {
+    "commit": "d25b1a85",
+    "platformRequiredCases": 1156,
+    "newRequiredPostgresCases": 10,
+    "historicalRequirementSetsPreserved": [
+      1146,
+      1141
+    ],
+    "gateManifestTests": {
+      "passed": 295,
+      "failed": 0,
+      "skipped": 0
+    },
+    "platformCoverageAndSanitizer": {
+      "passed": 174,
+      "failed": 0,
+      "skipped": 0
+    },
+    "affectedLintExit": 0,
+    "independentReview": "accepted",
+    "full1156NativeLaneExecutedOnThisCandidate": false
+  }
+}

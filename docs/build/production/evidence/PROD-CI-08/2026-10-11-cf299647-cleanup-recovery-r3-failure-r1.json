@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "kind": "failed_prepare_cleanup_observation",
+  "source": {
+    "commit": "cf299647df8551f246e04021a8784a7742b06749",
+    "trackedContentSha256": "61feff56a1114e502392d21acdbc6e17b9f7d02755bfcc435337c03f9979d1bf"
+  },
+  "attempt": {
+    "name": "R3",
+    "outerExitCode": 2,
+    "failureCode": "ObserverRefusal",
+    "checkpointStatus": "cleanup_incomplete",
+    "settlementUncertain": true,
+    "accepted": false,
+    "milestonePromoted": false,
+    "checkpointSha256": "fc9d0be14cdc2ba57fedac20a87eb7b1028b5fd0f6f1860f664e431293037554",
+    "joinedSha256": "778af1a5ae67f5b5cf2a6a9c32402562f896834a297a97c078844843251d9b06",
+    "stickyMarkerRetained": true,
+    "stickyMarkerSha256": "49975ec59d11c085be88e941541658b597a0e0d5edc2bba64131bcfb28ae7c9a"
+  },
+  "downCommand": {
+    "exitCode": 0,
+    "receiptSha256": "02457944bd5f95eeefddca88399c104503d6498f761ba77b77df9656f55cbf20",
+    "reportedRemoved": 15,
+    "reportedOwnedResourcesRemaining": 0,
+    "forcedStops": 1,
+    "fullCleanupSettlementAccepted": false,
+    "currentAbsenceProbeRecorded": false
+  },
+  "independentReview": {
+    "status": "failed_hold_no_acceptance",
+    "sha256": "50d8b91a3fc4e129831f7fbcd694b1a688c925bd8d9c5fc1f288be81dde141fa",
+    "observerDiagnosisSha256": "935fce6dd42ae8bd3c0f1bac30ca01e91e07ff6e5eec8e3bc2602272e7be8578",
+    "observerCloseoutComplete": false,
+    "observerRefusedReceipts": 1
+  }
+}

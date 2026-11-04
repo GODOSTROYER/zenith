@@ -1,0 +1,24 @@
+# Current grant fixtures, 2026-10-04
+
+The combined native platform run retained at `logs/native-dispatch-combined-root-r1-20261004-platform.json` failed with 2611 passes, 21 failures and eight declared skips. Twelve failures in these two files came from obsolete directory fixtures: the runtime mock omitted a newly required genuine export, and six default-membership cases presented structural journals as PostgreSQL authority. This packet changes fixtures only. All production admission and provenance checks remain the independently reviewed prepared source.
+
+`current-integration-grants.test.ts` preserves all 29 expanded case identities and its legacy read contracts. Its partial runtime mock retains genuine module exports. Its journal explicitly models a SQLite read surface, and the positive case asserts that neither native default journal membership nor default selector membership recognizes it. These tests exercise legacy directory parsing and refusal behavior; they establish no native factory, persisted OAuth identity or dispatch authority.
+
+`default-current-membership.test.ts` preserves all 27 expanded case identities, the required PostgreSQL flag and existing absence guard. The first 21 cases retain their original human, system, legacy credential and modeled PostgREST purpose. The six existing mandatory OAuth cases now call the actual default credential and journal factories against the same owning PostgreSQL target as their broker. They assert real private owner predicates, run the canonical `verifyAgentSchema`, compare the actual migration ledger with `AGENT_CONTROL_MIGRATIONS`, persist grants through `setGrant`, and confirm the current resolver's private native tuple. The native cases assert that legacy credential and grant read models were not called.
+
+The six exact mandatory identities, under `cached default broker current membership [postgres; modeled product reads]`, remain:
+
+- `the cached native broker admits one current OAuth grant and consumes only its owning approval`
+- `a cached native broker refuses an OAuth grant that became revoked before claim`
+- `a cached native broker refuses an OAuth grant that became expired before claim`
+- `a cached native broker refuses an OAuth grant that became foreign issuer before claim`
+- `a cached native broker refuses an OAuth grant that became duplicate before claim`
+- `OAuth revocation committed during the held current membership reply is observed before native claim`
+
+Revocation, expiration and issuer changes commit through the owning SQL handle before claim. The duplicate case first asserts PostgreSQL's canonical unique-key refusal and verifies that the original OAuth grant still authorizes its unchanged projection. It then creates and observes a distinct same-ID linked/OAuth directory collision, which must refuse claim with no consumed approval or capability grant. It does not equate a failed duplicate insert with revoking the original grant. The held-membership case commits and reads back native revocation while the modeled product membership reply is pending, then releases the still-editor reply and requires refusal before claim.
+
+Product membership transport, authenticated browser subject, browser session proof and scope resolution remain explicit models. PostgreSQL, persisted grant rows, default native factories, canonical OPA, signing and broker claim/approval consumption are actual components. This packet does not prove hosted Supabase transport, live OAuth token verification, worker dispatch or provider writes. It adds no case, skip, required flag, admission override or public registration API. The 95 native OAuth and original 172 plan/native authority controls remain unchanged outside ownership.
+
+Root verification must supply an explicitly owned physical PostgreSQL database through `ZENITH_TEST_PLATFORM_PG_URL`, canonical platform migration 13, and the unmodified agent migrations 0006, 0007 and 0015 with the canonical service-role/client-role ACLs. The schema verifier must pass. Set `ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1` in the mandatory lane; missing PostgreSQL still refuses before setup. The fixture uses fresh workspace and integration identities, closes its default native pool and caches, and relies on root's whole owned database disposal for retained agent rows. It does not delete grant tombstones or native audit history.
+
+All project imports, tests, compiler, lint, services and database execution are unrun by the author. Independent source review and root's exact affected suites plus canonical whole-lane retry remain required. The earlier failed whole report is retained. Canonical CI initialization of full agent schema 1/2/3 and its real verifier is a separate required follow-up; this packet does not silently initialize or weaken that prerequisite.

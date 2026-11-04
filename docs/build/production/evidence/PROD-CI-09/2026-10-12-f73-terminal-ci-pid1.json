@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_source_ci_terminal_summary",
+  "sourceSha": "f73da18901b38c94374b2a101c724c83874191c9",
+  "observedAtUtc": "2026-10-12T05:01:26.220111Z",
+  "sourceRepository": "GODOSTROYER/zenith",
+  "sourceEvent": "push",
+  "mainWorkflow": {
+    "runId": 38204046247,
+    "status": "completed",
+    "conclusion": "failure",
+    "jobs": 28,
+    "success": 19,
+    "conditionalSkipped": 8,
+    "failure": 1,
+    "cancelled": 0,
+    "active": 0,
+    "failedJob": {
+      "id": 114663485563,
+      "name": "go",
+      "conclusion": "failure",
+      "failedStep": "Required native Linux race and authentic golden comparison",
+      "failedStepNumber": 11,
+      "runnerExitCode": 1
+    }
+  },
+  "nativePackagedWorkers": {
+    "runId": 38204046305,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": 2,
+    "success": 2,
+    "platforms": ["linux/arm64", "linux/amd64"],
+    "emulated": false
+  },
+  "nativeSkippedPlatforms": {
+    "runId": 38204046267,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": 2,
+    "success": 2
+  },
+  "aggregate": {
+    "workflows": 3,
+    "jobs": 32,
+    "success": 23,
+    "conditionalSkipped": 8,
+    "failure": 1,
+    "cancelled": 0,
+    "active": 0,
+    "laneCountsCombined": false,
+    "interpretation": "All three workflows are terminal, but the main CI workflow and aggregate are not green because the Go job failed. Skips remain distinct from passes."
+  },
+  "unitStep": {
+    "jobId": 114663485649,
+    "conclusion": "success",
+    "testsPassed": 24609,
+    "testsFailed": 0,
+    "testsSkipped": 1925,
+    "collectedIdentities": 26534,
+    "vitestReportedDurationSeconds": 1602,
+    "maxWorkersConfigured": 2,
+    "simultaneousWorkerOccupancyMeasured": false
+  },
+  "goFailureEvidence": {
+    "artifactId": 11726652249,
+    "runId": 38204046247,
+    "jobId": 114663485563,
+    "attempt": 1,
+    "artifactSha256": "004d212eed1f496a3e6746d3b6117a5d2dea4debec71a6a100eea1c967b6fa44",
+    "sanitizedMemberSha256": "89e9c4346c4754027ef00a11d55852057be79fc7a004b06de20104230dc35d31",
+    "inspectionPath": "/tmp/zenith-f73-pid1-ci-artifact-inspection-r1/inspection.json",
+    "inspectionSha256": "a779edfa9845a106a07c045f37857c1a4358bb004abc9c561a7689de7b44a4e9",
+    "failedStepVerdict": "pid1-native failed after race and package-native passed",
+    "pid1Observation": {
+      "comm": "init",
+      "containerRunning": true,
+      "paused": false,
+      "restarting": false,
+      "oomKilled": false,
+      "exitCode": 0,
+      "childExitCode": 1,
+      "cleanupState": "completed"
+    },
+    "causalBoundary": "The artifact proves /proc/1/comm was init at the first baseline check while Docker reported a running container. It does not establish whether comm later transitions to systemd, nor provide runtime image Config.Cmd/Entrypoint, /proc/1/exe, or repeated comm samples. Thus readiness failure is established; the transition/cause is not proven."
+  },
+  "pid1FixFollowup": {
+    "focusedCandidateEvidence": "203 focused cases passed, as separately reported; this is not fresh full CI evidence and does not supersede the failed F73 CI result.",
+    "requiredNextEvidence": "Integrate the reviewed candidate, then obtain a fresh exact-source complete CI snapshot. Do not treat the existing F73 failure as cleared by focused tests."
+  },
+  "ci09Disposition": {
+    "existingVerifiedHistoricalEvidencePreserved": true,
+    "historicalVerifiedSourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+    "historicalCiArtifact": "docs/build/production/evidence/PROD-CI-09/2026-10-11-2029575f-ci-terminal-r2.json",
+    "demoteExistingLedgerState": false,
+    "promoteF73": false,
+    "promotionReason": "F73 exact-source CI is terminal with one required Go failure. This supplement is evidence only; it does not alter the ledger."
+  },
+  "evidencePins": {
+    "sanitizedIndexPath": "/private/tmp/zenith-f73da189-ci-monitor-r1/snapshot-029/sanitized-index.json",
+    "sanitizedIndexSha256": "c4af8ed3ed1c7714284128e5de46e5543795f6ba401b15c6f68c675c0ea40697",
+    "pid1InspectionPath": "/tmp/zenith-f73-pid1-ci-artifact-inspection-r1/inspection.json",
+    "pid1InspectionSha256": "a779edfa9845a106a07c045f37857c1a4358bb004abc9c561a7689de7b44a4e9"
+  },
+  "limitations": [
+    "Exact-source terminal CI evidence only; no release or overall milestone acceptance inferred.",
+    "Eight conditional skips are not passes.",
+    "No raw CI logs or secret values are included.",
+    "PID1 artifact inspection establishes the recorded init observation, not the subsequent init-to-systemd transition or definitive root cause.",
+    "Focused PID1 candidate results are separate diagnostics; a fresh exact-source CI run after integration remains required."
+  ],
+  "readOnly": true,
+  "ledgerPromotion": false,
+  "releaseApproval": false,
+  "actionsPerformed": []
+}

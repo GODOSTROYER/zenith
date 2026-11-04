@@ -1,0 +1,3983 @@
+{
+  "go": {
+    "topLevelPassed": 232,
+    "subtestsPassed": 541,
+    "packagePasses": 11,
+    "skippedTests": [
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestRealSystemctlAndJournalctl",
+        "reasonLines": [
+          "=== RUN   TestRealSystemctlAndJournalctl",
+          "network_test.go:123: set ZENITH_TEST_SYSTEMD=1 on a host running systemd to run against real systemctl/journalctl",
+          "--- SKIP: TestRealSystemctlAndJournalctl (0.00s)"
+        ],
+        "sourceReferences": [
+          "356b7d0:go/internal/machine/ops/network_test.go:123"
+        ]
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestDisksComeFromRealFilesystemsOnly",
+        "reasonLines": [
+          "=== RUN   TestDisksComeFromRealFilesystemsOnly",
+          "procfs_test.go:183: statfs is Linux only",
+          "--- SKIP: TestDisksComeFromRealFilesystemsOnly (0.00s)"
+        ],
+        "sourceReferences": [
+          "356b7d0:go/internal/machine/ops/procfs_test.go:183"
+        ]
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestProcfsAgainstTheRealHost",
+        "reasonLines": [
+          "=== RUN   TestProcfsAgainstTheRealHost",
+          "procfs_test.go:219: needs Linux /proc",
+          "--- SKIP: TestProcfsAgainstTheRealHost (0.00s)"
+        ],
+        "sourceReferences": [
+          "356b7d0:go/internal/machine/ops/procfs_test.go:219"
+        ]
+      }
+    ],
+    "packagesWithNoTestFiles": [
+      "github.com/GODOSTROYER/zenith/go/cmd/zenith-runner",
+      "github.com/GODOSTROYER/zenith/go/cmd/zenithd",
+      "github.com/GODOSTROYER/zenith/go/internal/agent/fakecp",
+      "github.com/GODOSTROYER/zenith/go/internal/proc",
+      "github.com/GODOSTROYER/zenith/go/internal/protocol/protocoltest",
+      "github.com/GODOSTROYER/zenith/go/internal/version"
+    ],
+    "caseOutcomes": [
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestChainStaticEnv",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestChainNoSourceWhenIMDSDisabled",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestWebIdentityCallsSTSAndCaches",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestWebIdentitySTSErrorIsReportedWithoutSecrets",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestContainerCredentialsFullURI",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestContainerFullURIValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIMDSv2",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestCachedKeepsValidCredentialsWhenRefreshFails",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-header-value-multiline",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-header-value-trim",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-unreserved",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-utf8",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla-empty-query-key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla-query-order-key-case",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla-query-order-value",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla-query-unreserved",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla-utf8-query",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-vanilla-with-session-token",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-relative",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-relative-relative",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-slash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-slash-dot-slash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-slash-pointless-dot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-slashes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-space",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/get-special-character",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-header-key-sort",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-sts-header-after",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-sts-header-before",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-vanilla",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-vanilla-query",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-x-www-form-urlencoded",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite/post-x-www-form-urlencoded-parameters",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSSigV4TestSuite",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestAWSDocsIAMListUsersExample",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIndependentReferenceVectors/dynamodb-json-post-x-amz-target",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIndependentReferenceVectors/ec2-query-post-session-token",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIndependentReferenceVectors/lambda-rest-get-encoded-path-duplicate-query",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIndependentReferenceVectors/s3-style-get-object-encoded-key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIndependentReferenceVectors/s3-style-put-with-body-and-dot-segment-kept",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestIndependentReferenceVectors",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestSignReplacesCallerSuppliedAuthHeaders",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestCredentialsNeverFormat",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/awsauth",
+        "name": "TestSignRequiresScopeAndCredentials",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/machine.inspect",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/process.list",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/service.status",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/scalars",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/machine.service.restart",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/container.list",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/CpuUtilization/1m",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/CpuUtilization/5m",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/CpuUtilization/1h",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/CpuUtilization/1d",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/MemoryUtilization/1m",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/MemoryUtilization/5m",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/MemoryUtilization/1h",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery/MemoryUtilization/1d",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringComputeQuery",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/comments_and_blank_lines",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/nested_maps",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/block_sequence_of_scalars",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/container.inspect",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/container.logs",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/container.exec",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/netguard",
+        "name": "TestCheckAddr",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/netguard",
+        "name": "TestCheckHostname",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringResourceBinding/foreign-resource",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/sequence_at_key_indent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/file.read",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/netguard",
+        "name": "TestResolveChecksEveryAddress",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/netguard",
+        "name": "TestDialConnectsToTheVerifiedAddressOnly",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/netguard",
+        "name": "TestNormalizeHost",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringResourceBinding/another-allowed-compartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/sequence_of_maps",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/nested_sequence_in_map_in_sequence",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/flow_collections",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/keys_that_look_like_other_things",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/dotted_keys_and_values_with_colons",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/leading_document_marker",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/CRLF",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/numbers_that_stay_strings",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/negative_and_zero",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/escapes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/apostrophe_inside_plain_scalar",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/top-level_sequence",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/key_with_no_value_then_sibling",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset/one-line_flow_document",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseSupportedSubset",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobValid",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringResourceBinding/unbound",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/network.portCheck",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/stray_text_after_quote",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/tag",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/wrong_kid",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/network.dnsCheck",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/block_scalar_folded",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/sequence_among_keys",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/bad_escape",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/short_unicode_escape",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/at_sign_scalar",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringResourceBinding/empty-binding",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringResourceBinding/foreign-compartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringResourceBinding",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/wrong_typ",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/system.metrics",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/empty",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/resolution-null",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/extra-selector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/mapping_in_flow_seq",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/namespace",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/resource-kind",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/signed_by_a_different_key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/system.logs",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/machine.exec",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/failure",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/binary",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/dns-unresolved",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens/exec-failed",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestResultGoldens",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestContainerListSanitizesAndPaginates",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/alias",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/query-null",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/wrong_runnerId",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/wrong_workspace",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestContainerInspectNeverReturnsEnvironmentOrCommand",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/merge_key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/newline-injection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/expired",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/duplicate_key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/dimension-case",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/resolution-mismatch",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/resolution-type",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/issued_in_the_future",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestContainerNamesAreValidatedBeforeTouchingTheSocket",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestContainerLogsDemuxRedactAndTailLimit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/duplicate_in_flow_map",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/trailing-text",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/extra-field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/wrong_protocol",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestContainerOperationsAreDisabledByDefault",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/unterminated_flow",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/percent_scalar",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/only_comments",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/key_without_value_flow",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/second_document",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/extra-nested-field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/reversed-range",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/unsupported-interval",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/query-type",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/brace-injection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/aggregation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/missing_grant",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/grant_for_another_runner",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/grant_for_another_capability",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestContainerExecOverHijackedStream",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/unterminated_quote",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/invalid_utf8",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestDockerUnavailableIsAFailedResult",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecIsDisabledByDefault",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/anchor",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/missing-resource",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/leading-space",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/grant_for_another_operation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/grant_for_another_workspace",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecPassesArgvWithoutAShell",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecNonZeroExitIsAnObservation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/not_allowed_argv0",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/block_scalar_literal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/double-space",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/quote-injection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/metric",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/resource-shape",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/end-type",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/expired_grant",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/not_a_JWS",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/empty",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/nul_in_element",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/empty-range",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/namespace-type",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/tab_indentation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/duplicate_nested_key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/huge_element",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/argv_as_string",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/resource-wildcard",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/encoded-resource",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/invalid-start",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/namespace-null",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/metric-case",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/extra-dimension",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/multi-line_flow",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/bad_indentation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections/four_parts",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobRejections",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobTamperedPayload",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/traversal_argv0",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/too_many_elements",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/or-injection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs/missing_colon",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseRejectsUnsupportedOrUnsafeConstructs",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestErrorsNameTheLine",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/miniyaml",
+        "name": "TestParseIsLinearOnAdversarialInput",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyRejectsNoneAndOtherAlgorithms",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyRejectsHeaderWithExtraMembers",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobReplay",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyJobSkewBoundary",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/missing-body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/relative_cwd",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestPrecheckRunsBeforeGrant",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestVerifyMachine",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/empty-object",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/shell_string_field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/no_argv",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/empty_argv",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestNextKeyRotationVerifiesBothKeys",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestUnverifiedJTI",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestMemoryReplayCache",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/array",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/relative_argv0",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation/empty_argv0",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineExecValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestExecRunnerWithRealProcesses",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestFileReplayCachePersistsAcrossRestart",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/redact",
+        "name": "TestStringRedactsCredentialShapes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/redact",
+        "name": "TestStringKeepsOrdinaryTextAndStructure",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/redact",
+        "name": "TestLinesSuppressesMultiLinePrivateKeys",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/redact",
+        "name": "TestRedactionHandlesHostileInputQuickly",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/invalid-json",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadReturnsBoundedRedactedContent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadBinaryIsFlaggedAndContentOmitted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/outside_the_allowlist",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/dot-dot_escape",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestFileReplayCachePrunesExpiredAndSurvivesTornLine",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestSigningVector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestSignRequestRoundTripAndTamperDetection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/missing-resolution",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/prefix_but_not_directory",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestEmptyBodyDigest",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/duplicate-query",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/etc_passwd",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/protocol",
+        "name": "TestJWSVector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals/trailing-document",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringQueryRefusals",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestObserveReadQueries/loggingsearch",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/relative_path",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/relative_traversal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestObserveReadQueries/monitoring",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestObserveReadQueries",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/empty",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/allowed/ocid1.compartment.oc1..fixture",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/allowed/ocid1.compartment.oc1..fixture_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/allowed/ocid1.compartment.oc1..fixture/ocid1.loggroup.oc1.iad.fixture",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal/root",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadAllowlistAndTraversal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadRefusesSymlinkEscapes/relative_escape",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/allowed/ocid1.compartment.oc1..fixture/ocid1.loggroup.oc1.iad.fixture_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/allowed/ocid1.compartment.oc1..fixture/ocid1.loggroup.oc1.iad.fixture/ocid1.log.oc1.iad.fixture",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/allowed/ocid1.compartment.oc1..fixture/ocid1.loggroup.oc1.iad.fixture/ocid1.log.oc1.iad.fixture_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/named-group",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadRefusesSymlinkEscapes/file_link_to_outside",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/pipeline",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/missing",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadRefusesSymlinkEscapes/directory_link_to_outside",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/wrong-kind",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadRefusesSymlinkEscapes/link_to_/etc/passwd",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadRefusesSymlinkEscapes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/additional-scope",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/comment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadNeverServesZenithdsOwnState",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/empty",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/not-object",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestFileReadFailuresAreFailedResultsNotRejections",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/invalid-json",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestPortCheckOpenClosedAndMetadataDenial",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestDNSCheck",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/wildcard",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/foreign",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/duplicate",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestRealSystemctlAndJournalctl",
+        "status": "skip"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/too-many-segments",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestUnitNameValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/foreign-nested-selector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestServiceStatusUsesFixedArgvAndParsesOutput",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/tenancy",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestServiceStatusRejectsHostileUnitNamesBeforeRunningAnything",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/wrong-case",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestServiceRestartGuard",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestServiceRestartFailureIsReported",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/control",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/option_injection_via_unit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/flag_as_unit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/not-string",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/unquoted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/command_substitution",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/negative_lines",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/escaped-scope",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/conflicting-allowed-group",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/bad_priority",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/unknown_field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/conflicting-allowed-group_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/foreign-log",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/foreign-log_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/relative_overflow",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/zero_duration",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/free-text_since",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/unbound-group",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/since_flag_injection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/lines_too_many",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/unbound-group_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/unbound-log",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/old_duration_format",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/unbound-log_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/foreign-group",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes/foreign-group_|_sort_by_datetime_desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingCompartmentScopes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly/absolute_timestamp",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemLogsKeepsTheNewestLinesWithinTheByteBudget",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestUnsupportedAndUnknownOperationsAreRefused",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/double-space-before-by",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/different-sort",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSupportedReflectsLocalGuards",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestConfigValidators",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestMachineInspectParsesProcFixture",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestInspectOnAHostWithoutProcIsAFailedResultNotACrash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestInspectBoundsStringsAndOmitsInvalidMeasurements",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/trailing-space",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/double-space-before-desc",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/uppercase-sort",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestProcessListOmitsUnreadStatusInsteadOfGuessingRootAndZeroRSS",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestProcessListParsesStatAndOmitsCommandLines",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/newline",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/extra-pipe",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/different-field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/double-space-before-pipe",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/leading-space",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/foreign-compartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestSystemMetricsFromFixture",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/repeated-suffix",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/double-space-after-pipe",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/double-space-before-field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestDisksComeFromRealFilesystemsOnly",
+        "status": "skip"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/double-space-after-search",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/tab",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/forged-compartment-body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix/trailing-text",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingFixedSuffix",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+        "name": "TestProcfsAgainstTheRealHost",
+        "status": "skip"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/missing",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/foreign",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/duplicate",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/subtree",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/case-variant-subtree",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/case-variant-false-subtree",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/duplicate-subtree",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/case-variant",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment/extra-selector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestMonitoringRequiresURLCompartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestLoggingScopeCannotBeAssertedByQueryCompartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestSignerIndependentNodeVector/GET",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestSignerIndependentNodeVector/POST",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestSignerIndependentNodeVector/PUT",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestSignerIndependentNodeVector/DELETE",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestSignerIndependentNodeVector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestSignerRefusesMissingKeyAndHeaderInjection",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestGoldenAllowlistEveryRule",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a\\b",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/query-control",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Date",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a/%00",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/duplicate-header",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Signature",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a/..",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a/%ff",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a#fragment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/delete",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/tuple",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/query-bound",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a//b",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/café",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/unknown",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Content-Length",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Content-Type",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/service",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/region",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/unsorted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-x-content-sha256",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a/%2F",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a_b",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/null",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Authorization",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a?query",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a/%2e%2e",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/get-body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-x-date",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Cookie",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-Proxy-Foo",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/header-User-Agent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals/path-/a/%5c",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestParseRequestRefusals",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestBodyBoundsAndCanonicalBase64",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestQueryOrderAndEndpointResolution",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestCompartmentBindingsCannotBeAssertedByCaller",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestNamedResourceAndSnapshotBindings",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestResourcePrincipalInlineAndRotation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestResourcePrincipalFilesAndRefusals/OCI_RESOURCE_PRINCIPAL_VERSION1.1",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestResourcePrincipalFilesAndRefusals/OCI_RESOURCE_PRINCIPAL_REGIONeu-fr",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestResourcePrincipalFilesAndRefusals/OCI_RESOURCE_PRINCIPAL_RPSTeyJhb",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestResourcePrincipalFilesAndRefusals/OCI_RESOURCE_PRINCIPAL_PRIVATE_PEMsynth",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestResourcePrincipalFilesAndRefusals",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestInstancePrincipalFederationCacheAndRefresh",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestPrincipalTenancyClaimFormats",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestInstanceAndOKEFailuresDoNotExposeProviderErrors/instance_principal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestInstanceAndOKEFailuresDoNotExposeProviderErrors/oke_workload_identity",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestInstanceAndOKEFailuresDoNotExposeProviderErrors",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestOKEWorkloadExchangeAndTLSConfiguration",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestConcurrentPrincipalCacheAndCancellation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestReleaseWriteBelongsOnlyToDeploy",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestReleaseCreateChecksEveryResourcePointer",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/oci",
+        "name": "TestReleaseNewIDsRemainUnbound",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine",
+        "name": "TestAuditTargetRedactsCredentialArgv",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine",
+        "name": "TestExecFailureWireIncludesUnknownExitCodeAndOutput",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestLimitsClampTimeoutAndOutput",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestUnknownConstraintsAreIgnoredUnlessStrict",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationPersistenceFailureRetriesSameTLSAnnouncement/state-directory-file",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationPersistenceFailureRetriesSameTLSAnnouncement/identity-target-directory",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationPersistenceFailureRetriesSameTLSAnnouncement",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationInvalidDuplicateConflictAndPinnedLimit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationConcurrentReadersObservePersistenceBeforePublication",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationOwnsImmutableRegistrationSnapshot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSSignsWithLocalCredentialsAndReturnsAllowlistedResponse",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSStripsCallerSuppliedAuthenticationHeaders",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSQueryProtocolActionAllowlist",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSActionSmugglingIsRefused/Action_in_query_and_body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSActionSmugglingIsRefused/lower-case_action",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSActionSmugglingIsRefused/malformed_action",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSActionSmugglingIsRefused/target_plus_Action",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSActionSmugglingIsRefused/two_Action_params_in_the_body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSActionSmugglingIsRefused",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist/listing_all_buckets",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist/another_bucket",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist/write_with_read_cap",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist/delete",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist/dot_segments",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist/encoded_dot_segments",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRESTMethodAndPathAllowlist",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSDefaultDeny",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSHostAllowlist",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/look-alike_suffix",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/userinfo_trick",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/backslash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/fragment_host_trick",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/presigned_signature",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/non-ascii_host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/wildcard_host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/host_with_trailing_dot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/metadata_host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/fragment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/relative",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/empty",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/file_scheme",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/plain_http",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/userinfo_on_aws_host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/presigned_credential",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/javascript_scheme",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/ftp",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/double_slash_host_escape",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/query_host_trick",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/non-443_port",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/ip_literal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/presigned_token_(case)",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/opaque",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation/scheme-relative",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSURLValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/bad_region",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/bad_base64",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/bad_header_name",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/missing_service",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/target_bad_action",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/target_trailing_dot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/bad_service",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/non-string_header",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/target_without_dot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/payload_not_an_object",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/unknown_field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/bad_method",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/CRLF_in_header",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/target_leading_dot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestAgentRunsJobsAndPostsSignedResults",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestUnparseableTokensReportNothingAndDoNotStopTheAgent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine",
+        "name": "TestE2EMachineOperationsGuardsAndAudit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine",
+        "name": "TestExecutorRefusesToRunWhenTheAuditLogIsNotWritable",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine",
+        "name": "TestMachineGrantConstraints",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/machine",
+        "name": "TestMachineCommandLine",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestJobTimeoutIsEnforcedAroundTheKind",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestReplayedJobIsNotReportedButAForgedIDIsNotTrusted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestCapabilitiesListEnabledKindsSorted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation/oversized_body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSPayloadValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSErrorResponsesAreObservationsNotJobFailures",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSResponseTooLargeIsFailedNotTruncated",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestE2ERegisterPollExecuteResultRevoke",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestE2EFirstRunRegistersFromEnvironmentToken",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestE2ERunRefusesToStartUnregistered",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner",
+        "name": "TestCommandLine",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSCredentialFailureAndTimeout",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSAllowlistParsing",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/json",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/json_with_version_prefix",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/query_in_body",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/query_in_url",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/rest",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/json_body_mentioning_Action=_is_not_a_form",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/body_Action_ignored_without_form_content_type_stays_REST",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/both",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/duplicate",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/case_variant",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/dot_segment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable/malformed_form",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionTable",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestExtractActionDoesNotBelieveRPCClaimsOnRESTShapedRequests",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestAWSRoute53ConfusedDeputyIsRefusedEndToEnd",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sProxiesAllowedRequestWithServiceAccountToken",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny/namespace_name_is_one_segment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny/other_resource",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny/wrong_verb",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny/cluster-wide_list",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny/extra_segment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny/nodes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sAllowlistIsDefaultDeny",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/secrets",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/node_proxy",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/follow_logs",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/absolute_url",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/unknown_field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/a_secret",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/pod_proxy",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/watch",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/relative_path",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/backslash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/unsupported_content_type",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/all_secrets",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/attach",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/service_proxy",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/serviceaccount_token",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/watch_numeric",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/dot_segment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/encoded_slash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/double_slash",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/exec",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/portforward",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/encoded_dot_segment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/scheme-relative",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/non-ascii",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/bad_method",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals/bad_base64",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sBuiltInRefusals",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sWriteWithBody",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sResponseCapAndErrors",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestK8sConfigValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestReadOnlyPostExemptsOnlyTheTwoQueryEndpoints",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestResultPostingRetriesTransientFailures",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCICreatedMigrationBindingsAndReceiptCleanup/0",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCICreatedMigrationBindingsAndReceiptCleanup/7",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCICreatedMigrationBindingsAndReceiptCleanup",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptUnknownNeverRelaunches",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptRejectsUntrustedResponses/foreign-compartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptRejectsUntrustedResponses/wrong-kind",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptRejectsUntrustedResponses/missing-container",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptRejectsUntrustedResponses/duplicate-id",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptRejectsUntrustedResponses/truncated",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptRejectsUntrustedResponses",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete/running",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete/bad-exit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete/foreign-parent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete/command",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete/image",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestAlreadySettledResultIsNotRetried",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete/cleanup-failed",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptNoTerminalNoDelete",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptPreparedIdentityAndExecutionRecheck",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptTimeoutKeepsUnknownIntent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptCancelledWaitCannotMutate",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptJournalFailsClosed/truncated",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptJournalFailsClosed/duplicate-key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptJournalFailsClosed/unsafe-mode",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptJournalFailsClosed/conflict",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptJournalFailsClosed/persist-failed",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIMigrationReceiptJournalFailsClosed",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/disabled",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/secret",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/unknown-capability",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/region",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/foreign-compartment",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/unscoped",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/delete",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/wrong-capability",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/secretbundle",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/metadata-host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/authorization",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/resource-with-forged-scope",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess/subtree",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPrepareRefusesBeforeCredentialOrNetworkAccess",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIHTTPEndpointSignsExactQueryAndBoundsOutput",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIReadRetriesAndNeverRetriesWrites/GET",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIReadRetriesAndNeverRetriesWrites/POST",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIReadRetriesAndNeverRetriesWrites",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/expired",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/future",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/no-grant",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/runner",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/workspace",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/grant-capability",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare/grant-runner",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIV1EnvelopeClaimsAndReplayBeforePrepare",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIPostSignsEmptyBodyAndRequiresIdempotency",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIRefusesRedirectsAndSanitizesFailures/principal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIRefusesRedirectsAndSanitizesFailures/transport",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIRefusesRedirectsAndSanitizesFailures/read",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIRefusesRedirectsAndSanitizesFailures/audit",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIRefusesRedirectsAndSanitizesFailures",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCITimeoutBackoffAndAuditJSONL",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIResponseHeadersRedactCredentialShapes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIConfigAndLocalPolicySnapshot",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeTCPOpenAndClosed",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeWrappedConnectionRefusedErrnos",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeLoopbackIsDeniedByDefault",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesMetadataAndLinkLocalLiterals",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesHostnameResolvingToMetadata/rebind.example.com",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesHostnameResolvingToMetadata/mixed.example.com",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesHostnameResolvingToMetadata/v6.example.com",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesHostnameResolvingToMetadata/mapped.example.com",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesHostnameResolvingToMetadata/linklocal6.example",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeRefusesHostnameResolvingToMetadata",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeDNS",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPObservesStatusAndBody",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPRedirectHandling",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPTimeoutIsAnObservation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/too_many_hops",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/missing_url",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/host_with_spaces",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/userinfo",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/host_header",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/bad_header_name",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/bad_status",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/unknown_field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/ftp_scheme",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/file_scheme",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/no_host",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/post_method",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation/crlf_header",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeHTTPPayloadValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestProbeTimeoutNeverExceedsJobTimeout",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesTypeScriptVector/empty_file_list",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesTypeScriptVector/one_file,_empty_content",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesTypeScriptVector/unsorted_input,_nested_path,_non-ASCII_content",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesTypeScriptVector/byte_order,_not_locale_order:_uppercase_sorts_before_lowercase,_'-'_before_'.'",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesTypeScriptVector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesNodeVector/single_tf.json_file",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesNodeVector/binary_content_with_NUL_and_0xff_bytes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesNodeVector/nested_paths,_unsorted_input,_dots_and_dashes",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesNodeVector/empty_list",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestMatchesNodeVector",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestConfigDigestIsOrderIndependentAndContentSensitive",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestValidateFilePath",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/local_file_data",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/local_sensitive_file",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/registry_module",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/local-exec_provisioner",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/connection_block",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/local_file_resource",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/external_provider",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/required_http",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/remote_module",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/module_path_traversal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/local_backend_path",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/terraform_data_provisioner",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/local_backend_workdir",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/terraform_block_array",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/external_data_source",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/http_data_source",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess/required_external",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigRejectsCodeExecutionAndHostAccess",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestGuardConfigAcceptsOrdinaryConfigAndReportsBackend",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPlanThenShowThenApply",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced/wrong_sha",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced/different_configuration",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced/different_lockfile",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRevocationViaHeartbeatStopsWorkAndExits3",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced/tampered_plan_file",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRevocationOn401AgentRevokedExits3",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestUpgradeRequiredExits4",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced/expired_plan",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced/the_intact_plan_still_applies",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyRequiresThePlanThisRunnerProduced",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/configDigest_mismatch",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/tampered_file_content_after_digest",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/plan_capability_cannot_apply",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/unrelated_capability",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/unknown_command",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/apply_without_planFileSha256",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/planFileSha256_on_plan",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/unknown_payload_field",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/path_traversal",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/lockfile_smuggled_as_a_file",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/duplicate_path",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/file_and_directory_collide",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/empty_workspace",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/provisioner_is_refused",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/apply_needs_a_remote_backend",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections/destroy_only_with_plan",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPrepareRejections",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuDestroyPlanNeedsDestroyCapability",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuEnvironmentIsAllowlisted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPassEnvRefusesZenithVariables",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuOutputIsRedactedInResultAndLogs",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuVersionIsPinned",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuInitFailureReportsExitCodeAndOutput",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuApplyFailureConsumesThePlanAnyway",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestGracefulShutdownLetsInflightJobsFinish",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestShutdownGraceExpiryCancelsJobsAndStillReports",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuOutputIsBoundedAndKeepsHeadAndTail",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuPlanJSONTooLargeIsAFailureNotATruncation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestPanickingJobIsContained",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConcurrencyIsBounded",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestOversizedResultIsReplacedByAFailure",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuTimeoutKillsTheProcessGroup",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuCancellationReportsFailedNotTimedOut",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuConcurrencyIsBounded",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestRealOpenTofuPlanShowApply",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestPollErrorsBackOffAndRecover",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestLogStreamingIsBatchedOrderedAndRedacted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestNextKeysArePinnedAndPersisted",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRegistrationRequestHasNoPrivateMaterial",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestBackoffGrowsJittersAndCaps",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/query",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/ftp",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/cert_without_key",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/heartbeat_too_frequent",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/zero_concurrency",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/bad_name",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/bad_log_level",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/poll_wait_too_long",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/huge_result",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/too_many_labels",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/missing_url",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/plain_http_remote",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation/userinfo",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigValidation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestConfigEnvOverridesAndDefaults",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestLoadFileAcceptsJSONAndYAMLAndRejectsUnknownFields",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRegistrationHappyPathStoresIdentityPrivately",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRegistrationTokenIsSingleUseAndNeverLeaks",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestIdentityFileMustBePrivate",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationIdentityPersistenceUsesPrivateExclusiveReplacement",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestRotationIdentityPersistenceDoesNotFollowPredictableTempSymlink",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestClientTLSVerificationAndRedirects",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/agent",
+        "name": "TestClientResponseSizeCapAndErrorParsing",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestRealOpenTofuWithProviderAndLockfile",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchIsolation/deep_workspace",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchIsolation/deep_workspace_and_OS_temp_root",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchIsolation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle/success",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle/init_failure",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle/apply_failure",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle/version_failure",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle/timeout",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle/cancellation",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchLifecycle",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestTofuScratchConcurrentJobs",
+        "status": "pass"
+      },
+      {
+        "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+        "name": "TestOCIRegistrationUsesLocalConfigLabels",
+        "status": "pass"
+      }
+    ],
+    "limits": [
+      "Some Go package output says cached; this is not a fresh rerun of every native case.",
+      "These macOS systemd/statfs/procfs skips do not prove the unmerged guest Linux writer runtime."
+    ]
+  },
+  "kindCases": [
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "assertionOrdinal": 1,
+      "fullName": "kubernetes provider against a real cluster (kind) creates the namespace, policy and workload, then a second apply changes nothing",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "assertionOrdinal": 2,
+      "fullName": "kubernetes provider against a real cluster (kind) rolls out, and the drivers observe, verify and report runtime",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "assertionOrdinal": 3,
+      "fullName": "kubernetes provider against a real cluster (kind) refuses to touch a same-named object it does not own",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "assertionOrdinal": 4,
+      "fullName": "kubernetes provider against a real cluster (kind) restarts, scales and reads logs and events through the operations",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "assertionOrdinal": 5,
+      "fullName": "kubernetes provider against a real cluster (kind) deploys a new image, rolls back to the previous revision, and the pods follow",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "assertionOrdinal": 6,
+      "fullName": "kubernetes provider against a real cluster (kind) prunes what is no longer desired and never deletes the namespace",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/kubernetes/release-kind.test.ts",
+      "assertionOrdinal": 1,
+      "fullName": "Kubernetes release ports against a disposable kind cluster rolls out a pre-built digest, observes readiness and runs exactly one migration Job across retries",
+      "status": "passed"
+    }
+  ]
+}

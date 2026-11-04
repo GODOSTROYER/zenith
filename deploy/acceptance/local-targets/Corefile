@@ -1,0 +1,8 @@
+.:53 {
+    errors
+    hosts {
+        172.30.115.10 mixed.j15.test
+        fallthrough
+    }
+    # No public forwarder. Unknown names cannot reach real DNS.
+}

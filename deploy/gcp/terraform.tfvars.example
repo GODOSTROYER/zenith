@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in the values the Zenith connection wizard shows you.
+project_id           = "acme-prod-123456"
+region               = "asia-south1"
+zenith_issuer_uri    = "https://zenith.example.com/api/oidc"
+zenith_workspace_id  = "ws_abc123"
+zenith_connection_id = "conn_def456"
+
+# Optional
+# pool_id                    = "zenith"
+# provider_id                = "zenith-oidc"
+# state_bucket_name          = "acme-prod-zenith-state"
+# enable_apis                = true
+# service_account_name_prefix = "zn"

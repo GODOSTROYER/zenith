@@ -1,4 +1,5 @@
 "use client";
+import { v1View } from "@/lib/resources/upgrade";
 /** One service: config, env, connections, day-two operations, removal. */
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -91,7 +92,7 @@ function OpsPanel({ service }: { service: Service }) {
   const scaleDirty = Object.keys(scaleInput).length > 1;
 
   const { current, projected } = useMemo(
-    () => serviceCost(project.workingManifest, service.id, { size, replicas: nextReplicas }),
+    () => serviceCost(v1View(project.workingManifest), service.id, { size, replicas: nextReplicas }),
     [project.workingManifest, service.id, size, nextReplicas]
   );
 
@@ -188,7 +189,7 @@ export function ServiceEditor({ service, onOpenBinding }: ServiceEditorProps) {
 
   const { current, projected } = useMemo(
     () =>
-      serviceCost(project.workingManifest, service.id, {
+      serviceCost(v1View(project.workingManifest), service.id, {
         size: draft.size,
         kind: draft.kind,
         replicas: draft.replicas.trim() === "" ? service.replicas : Number(draft.replicas) || 0,

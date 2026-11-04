@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "sourceCommit": "105b5ea4a077921d9c9b84cdaf5515ca3e925fe6",
+  "result": {
+    "passed": 1376,
+    "failed": 2,
+    "skipped": 0,
+    "files": 67,
+    "requiredIdentities": 105,
+    "gateStatus": "failed",
+    "testExitCode": 1
+  },
+  "environment": {
+    "architecture": "native Darwin ARM64",
+    "node": "22.23.3",
+    "vitest": "4.1.11",
+    "postgres": "16.15",
+    "temporalCLI": "1.9.1",
+    "temporalServer": "1.32"
+  },
+  "failures": [
+    {
+      "file": "tests/workflows/reconcile-schedule.test.ts",
+      "case": "proves SKIP overlap while the first scheduled activity is actually held",
+      "error": "Error: Test timed out in 90000ms."
+    },
+    {
+      "file": "tests/workflows/reconcile-schedule.test.ts",
+      "case": "the global database lease refuses a direct concurrent sweep despite distinct workflow IDs",
+      "expected": "completed",
+      "observed": "busy"
+    }
+  ],
+  "resourceAndCleanup": {
+    "dirtySource": false,
+    "commit": "105b5ea4a077921d9c9b84cdaf5515ca3e925fe6",
+    "architecture": "native Darwin ARM64",
+    "postgres": "16.15",
+    "beforeFreeBytes": 25070157824,
+    "floorBytes": 23622320128,
+    "serverStarted": true,
+    "testExitCode": 1,
+    "minimumFreeBytes": 24919982080,
+    "durationSeconds": 632.31,
+    "status": "completed",
+    "stopExitCode": 0,
+    "ownedDataRemoved": true,
+    "afterFreeBytes": 25052549120
+  },
+  "qualification": "Controller exit0 does not override test exit1. Fixture isolation/settlement explanation remains a hypothesis until fresh native evidence. No requirement promotion; overlapping counts not summed."
+}

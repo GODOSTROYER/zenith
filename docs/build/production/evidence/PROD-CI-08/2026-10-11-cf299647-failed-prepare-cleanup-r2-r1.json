@@ -1,0 +1,41 @@
+{
+  "schema": "zenith.public.failed-prepare-cleanup-observation.v1",
+  "source": {
+    "head": "cf299647df8551f246e04021a8784a7742b06749",
+    "clean": true,
+    "contentSha256": "61feff56a1114e502392d21acdbc6e17b9f7d02755bfcc435337c03f9979d1bf"
+  },
+  "attempt": "failure-only cleanup R2",
+  "outcome": "cleanup_incomplete",
+  "outerExecution": {
+    "exitCode": 2,
+    "reason": "HeldCommandRefusal",
+    "innerReasonBound": false,
+    "executionLogSha256": "689a9014edd746a987ee0858debd7b478fe1e000f66e0f865bb58021a90f2322"
+  },
+  "terminalReviewSha256": "79524abc1de9cf8034133dc1095f6bc6e011f1a8afb582c39e9a991c5dfd5f45",
+  "checkpointSha256": "d2e8e6d883f751c3cd1be990eb2bddd9d658ca535ba1734668f048b8bb759f2c",
+  "custodySha256": "a5c7a920e3aeee1b6de846b3ffc7d04998f403e326a8afcc7d635b6d4e9661d4",
+  "processCaptureSha256": "67eb89195cdfc31791196a1e670ab3cb02aa6d3c98c204d0fd0014f4590ba8e4",
+  "processEvidence": {
+    "eventCount": 20,
+    "pendingResolvedAbsent": 3,
+    "pendingStillLive": 0,
+    "activeIdentityCountAtTerminal": 0,
+    "scope": "historical terminal process-custody observation only; no current process query"
+  },
+  "cleanupEvidence": {
+    "settlementUncertain": true,
+    "canonicalCleanupReceiptPresent": false,
+    "innerCommandReceiptPresent": false,
+    "ownedResourceAbsenceClaim": false,
+    "hostFloorProofBound": false,
+    "currentResourceInventoryQueried": false
+  },
+  "mutations": {
+    "trust": false,
+    "airplay": false
+  },
+  "acceptanceClaim": false,
+  "milestonePromoted": false
+}

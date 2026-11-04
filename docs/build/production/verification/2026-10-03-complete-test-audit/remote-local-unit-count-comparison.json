@@ -1,0 +1,163 @@
+{
+  "sourceCommit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+  "remoteRunId": 37103826519,
+  "localRun": "fresh root public-unit-9e62a15",
+  "localReportSha256": "0fffacd75c608651fa38e0a3f19c768ee6f7ac47915dbd8f4bce198e0975dbfd",
+  "localReceiptSha256": "86ed6e397ff2a63518ab7057a2d5d40a8d8280ba49eab0b0e9a2f12b85a3beec",
+  "counts": {
+    "remote": {
+      "files": 807,
+      "total": 16826,
+      "passed": 16427,
+      "skipped": 399,
+      "reporterPassedFiles": 785,
+      "reporterSkippedFiles": 22
+    },
+    "local": {
+      "files": 807,
+      "total": 16826,
+      "passed": 16462,
+      "failed": 0,
+      "skipped": 364
+    }
+  },
+  "changedFiles": 13,
+  "rows": [
+    {
+      "file": "tests/machines/ssm-documents.test.ts",
+      "total": 96,
+      "remotePassed": 82,
+      "remoteSkipped": 14,
+      "localPassed": 83,
+      "localSkipped": 13,
+      "additionalLocalPassed": 1,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/security/tofu-workspace-injection.test.ts",
+      "total": 34,
+      "remotePassed": 30,
+      "remoteSkipped": 4,
+      "localPassed": 34,
+      "localSkipped": 0,
+      "additionalLocalPassed": 4,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/tofu/runner.test.ts",
+      "total": 19,
+      "remotePassed": 3,
+      "remoteSkipped": 16,
+      "localPassed": 19,
+      "localSkipped": 0,
+      "additionalLocalPassed": 16,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/execution/journey.test.ts",
+      "total": 3,
+      "remotePassed": 0,
+      "remoteSkipped": 3,
+      "localPassed": 3,
+      "localSkipped": 0,
+      "additionalLocalPassed": 3,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/security/tofu-secrets.test.ts",
+      "total": 14,
+      "remotePassed": 13,
+      "remoteSkipped": 1,
+      "localPassed": 14,
+      "localSkipped": 0,
+      "additionalLocalPassed": 1,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/security/tofu-runner-env.test.ts",
+      "total": 7,
+      "remotePassed": 4,
+      "remoteSkipped": 3,
+      "localPassed": 7,
+      "localSkipped": 0,
+      "additionalLocalPassed": 3,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "total": 14,
+      "remotePassed": 7,
+      "remoteSkipped": 7,
+      "localPassed": 14,
+      "localSkipped": 0,
+      "additionalLocalPassed": 7,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/providers/gcp/bootstrap.test.ts",
+      "total": 14,
+      "remotePassed": 12,
+      "remoteSkipped": 2,
+      "localPassed": 13,
+      "localSkipped": 1,
+      "additionalLocalPassed": 1,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/machines/azure-scripts.test.ts",
+      "total": 6,
+      "remotePassed": 6,
+      "remoteSkipped": 0,
+      "localPassed": 0,
+      "localSkipped": 6,
+      "additionalLocalPassed": -6,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/acceptance/tofu-destroy.test.ts",
+      "total": 9,
+      "remotePassed": 8,
+      "remoteSkipped": 1,
+      "localPassed": 9,
+      "localSkipped": 0,
+      "additionalLocalPassed": 1,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/policy/parity.test.ts",
+      "total": 1,
+      "remotePassed": 0,
+      "remoteSkipped": 1,
+      "localPassed": 1,
+      "localSkipped": 0,
+      "additionalLocalPassed": 1,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/tofu/hcl-template-real.test.ts",
+      "total": 2,
+      "remotePassed": 0,
+      "remoteSkipped": 2,
+      "localPassed": 2,
+      "localSkipped": 0,
+      "additionalLocalPassed": 2,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    },
+    {
+      "file": "tests/tofu/plan-lock.test.ts",
+      "total": 1,
+      "remotePassed": 0,
+      "remoteSkipped": 1,
+      "localPassed": 1,
+      "localSkipped": 0,
+      "additionalLocalPassed": 1,
+      "basis": "Same source, per-file reporter counts vs fresh local raw report statuses; no captured remote skipped title claimed"
+    }
+  ],
+  "inference": "41 cases pass locally across 12 files where tools are available; six Azure collector cases pass remotely but skip locally because the source autodetects the executable named python. Net local passed increase 35 across 13 changed files. Source guards and root environment describe these differences; no captured remote case title claimed.",
+  "localNewPassedCases": 41,
+  "remotePassedLocalSkippedCases": 6,
+  "netAdditionalLocalPassed": 35,
+  "localNewPassedFiles": 12,
+  "remotePassedLocalSkippedFiles": 1
+}

@@ -1,0 +1,32 @@
+{
+  "status": "FAILED_EXACT_NATIVE_ACCEPTANCE_SOURCE_UNCHANGED_OWNED_CLEANUP_PASSED",
+  "recordedAtUtc": "2026-10-05T04:57:59.058428+00:00",
+  "candidateTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "counts": {
+    "passed": 60,
+    "failed": 40,
+    "skipped": 0,
+    "total": 100
+  },
+  "retained46": {
+    "passed": 46,
+    "failed": 0,
+    "skipped": 0
+  },
+  "additive54": {
+    "passed": 14,
+    "failed": 40,
+    "skipped": 0
+  },
+  "countsOverlapDoNotSum": true,
+  "everyRequiredIdentityExecutedInExactOrder": true,
+  "reportSha256": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065",
+  "actualEvidence": "PG16.15 with agent3/platform16 fresh/reapply/verifier and affected ESLint all passed; real OpenTofu fixture admission enabled. Hosted associations/roles/policy remain modeled. No Temporal/Supabase/full/default API acceptance.",
+  "sourceDiagnosis": "Standalone manifest binding/authentication uses pretty+LF engine objectHash, incompatible with compact canonical native artifact manifest_digest. Default dispatch refuses before SQL update/tool spawn; no assumed bypass or acceptance.",
+  "diagnosisSha256": "39712cdbbeebf21a21944f6ee70e7bb95733cf2ee7398c119396156e98ac3b7c",
+  "action": "Separate owned3 canonical digest correction + strict positive/negative regressions, independent review and fresh complete100 rerun. No blind retries of prior operations; all fixtures are newly approved and uniquely owned.",
+  "originalFailedReceiptPreserved": true,
+  "sourceAndStagedEntriesUnchanged": true,
+  "ownedContainerNewImageAbsentAndBaselinePreserved": true,
+  "priorFullPlatform27FailuresStillOpen": true
+}

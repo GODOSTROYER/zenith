@@ -19,6 +19,7 @@ import {
 import { SIZE_SPECS } from "@/lib/cost/pricing";
 import { q } from "@/lib/db/store";
 import { expectedAttributes } from "@/lib/drift";
+import { v1View } from "@/lib/resources/upgrade";
 import { secretStatusAsync, secretStoreState } from "@/lib/secrets";
 import {
   stepBudgetMs,
@@ -231,7 +232,7 @@ async function paced(rt: StepRuntime, lines: [string, "info" | "provider"][]): P
 }
 
 async function executeStep(rt: StepRuntime): Promise<void> {
-  const m = rt.revision.manifest;
+  const m = v1View(rt.revision.manifest);
   const { step, env } = rt;
   const service = m.services.find((s) => s.id === step.targetId);
   const resource = m.resources.find((r) => r.id === step.targetId);

@@ -56,11 +56,13 @@ const DATA = tempDataDir("zenith-agent-journey-", { fast: true });
 const ORIGIN = "http://localhost:3400";
 
 /* Environment before any application import: `@/lib/env` reads it on first use. */
+const previousPlatformOrigin = process.env.ZENITH_PLATFORM_ORIGIN;
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 process.env.ZENITH_AGENT_CONTROL = "1";
 process.env.ZENITH_AGENT_WRITES = "1";
 process.env.ZENITH_AGENT_ORIGIN = ORIGIN;
+process.env.ZENITH_PLATFORM_ORIGIN = ORIGIN;
 process.env.ZENITH_SECRET_KEY = "5".repeat(64);
 process.env.ZENITH_AGENT_CREDENTIAL_FILE = path.join(DATA, "agent-authority", "credentials.json");
 delete process.env.ZENITH_STORE;
@@ -74,6 +76,20 @@ if (WINDOWS)
   );
 
 const session = vi.hoisted(() => ({ user: null as SessionUser | null }));
+const provider = vi.hoisted(() => ({
+  user: null as { id: string; email: string; email_confirmed_at: string | null } | null,
+}));
+// Synthetic provider claims and a verified-factor record let route() exercise
+// the shipping step-up guard; they do not represent a real MFA ceremony.
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: provider.user ? {
+    sub: provider.user.id, session_id: "agent-journey-fixture-session", aal: "aal2",
+    exp: Date.now() / 1000 + 600, amr: [{ method: "totp", timestamp: Date.now() / 1000 }],
+  } : null }, error: null }),
+  getUser: async () => ({ data: { user: provider.user ? {
+    ...provider.user, factors: [{ factor_type: "totp", status: "verified" }],
+  } : null }, error: null }),
+} }) }));
 vi.mock("@/lib/supabase/route", () => ({
   sessionUserFromRequest: async () => session.user,
 }));
@@ -128,10 +144,6 @@ let routes: Packets;
 
 const ADA: SessionUser = { id: "u-ada", email: "ada@zenith.test", name: "Ada" };
 const WORKSPACE = "ws-journey";
-
-const provider = {
-  user: null as { id: string; email: string; email_confirmed_at: string | null } | null,
-};
 
 const signIn = (user: SessionUser | null, verified = true): void => {
   session.user = user;
@@ -267,6 +279,9 @@ beforeAll(async () => {
           async getUser() {
             return { data: { user: provider.user }, error: provider.user ? null : { status: 401 } };
           },
+          async getClaims() {
+            return { data: { claims: provider.user ? { sub: provider.user.id, session_id: "agent-journey-fixture-session" } : null }, error: null };
+          },
         },
       }),
     })
@@ -298,6 +313,8 @@ beforeAll(async () => {
 
 afterAll(() => {
   identity.setSessionAuthorityForTests(null);
+  if (previousPlatformOrigin === undefined) delete process.env.ZENITH_PLATFORM_ORIGIN;
+  else process.env.ZENITH_PLATFORM_ORIGIN = previousPlatformOrigin;
 });
 /* ================================ the journey =============================== */
 

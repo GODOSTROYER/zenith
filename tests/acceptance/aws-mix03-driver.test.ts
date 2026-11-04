@@ -1,0 +1,817 @@
+/**
+ * PROD-MIX-03 browser driver (`browserMix03Product`), offline. Every product call goes through a fake request layer that
+ * records the page, endpoint, method, body and workspace header; approvals, step-up, the signed-in session and the wait between
+ * deployment readbacks are fakes. No browser, stack, AWS call or network access happens here.
+ */
+import type { Page } from "@playwright/test";
+import { describe, expect, it, vi } from "vitest";
+import { buildPlan } from "../../scripts/acceptance/live/plan";
+import { mix03Port, PlanRefusal } from "../../scripts/acceptance/live/product/mix-03";
+import { expandManifest } from "@/lib/resources";
+import { parseManifest } from "@/lib/resources/manifest-v2";
+import { buildParentPlan } from "@/lib/execution/mixed/parent-plan";
+import { connection, PARENT_ENV, PROJECT, WS } from "../execution/mixed/_fixtures";
+import {
+  browserMix03Product, MIX03_REFERENCE, mix01Manifests, mix03Manifests, mixedReadbackOf, runnerStack, teardownStepsOf, type ProductRequest, type RunnerStack, type TenantSession,
+} from "../../scripts/acceptance/live/product/mix-03-driver";
+
+const STACK: RunnerStack = { apiUrl: "http://127.0.0.1:36400", supabaseUrl: "http://127.0.0.1:54321", adminKey: "admin-test", mailpitUrl: "http://127.0.0.1:8025" };
+const OWNER = { name: "owner" } as unknown as Page, APPROVER = { name: "approver" } as unknown as Page;
+const TENANT = { workspaceId: "ws-1", approverId: "u-approver" };
+const ENV = { ZENITH_DEFAULT_STACK_DIRECTORY: "/unused-in-tests", ZENITH_DEFAULT_MAILPIT_URL: "http://127.0.0.1:8025" };
+const EXTERNAL_ID = `zenith-${"a".repeat(32)}`;
+// Partition ids as the planner makes them: "partition/<digest>".
+const P_PRODUCER = `partition/${"1".repeat(64)}`, P_CONSUMER = `partition/${"2".repeat(64)}`;
+const STATE_BUCKET = "zenith-state-123456789012-ap-south-1-live";
+const ARTIFACT = { bucket: STATE_BUCKET, key: "mix03/consumer.zip", versionId: "3HL4kqtJlcpXroDTDmJ", sha256: "c".repeat(64), sourceDigest: "d".repeat(64) };
+const CONNECTION = { accountId: "123456789012", region: "ap-south-1", stateBucket: STATE_BUCKET, bootstrapNameSuffix: "-live", observeRoleArn: "arn:aws:iam::123456789012:role/Observe", deployRoleArn: "arn:aws:iam::123456789012:role/Deploy" };
+
+interface Sent { page: Page; endpoint: string; method: string; body: unknown; workspaceId?: string }
+type Reply = { status: number; data: unknown };
+const ok = (data: unknown): Reply => ({ status: 200, data });
+const action = (result: unknown): Reply => ({ status: 200, data: { ok: true, result } });
+const inputOf = (sent: Sent) => (sent.body as { input: Record<string, unknown> }).input;
+
+/** A fake request layer: records each product call and answers from `route`. */
+function transport(route: (sent: Sent) => Reply) {
+  const sent: Sent[] = [];
+  const request: ProductRequest = async (page, endpoint, body, method, workspaceId) => {
+    const call = { page, endpoint, body, method: method ?? (body === undefined ? "GET" : "POST"), workspaceId };
+    sent.push(call);
+    return route(call);
+  };
+  return { request, sent };
+}
+
+function session(): TenantSession {
+  return {
+    stack: STACK, owner: OWNER, approver: APPROVER, workspaceId: "ws-1", ownerId: "u-owner", approverId: "u-approver",
+    ownerSecret: "OWNER-TOTP-KEY", approverSecret: "APPROVER-TOTP-KEY", projectId: "proj-1",
+  };
+}
+/** A driver whose tenant session already exists, so no browser is started. */
+async function driverWithTenant(overrides: Parameters<typeof browserMix03Product>[1] = {}) {
+  const product = browserMix03Product(ENV, { session: async () => ({ tenant: session(), close: async () => undefined }), sleep: async () => undefined, ...overrides });
+  await product.createTenant();
+  return product;
+}
+
+/**
+ * The product's answers for the whole proposal and start: the sandbox parent deploys, the children are created and deployed, the
+ * plan is proposed and read back, and the children are adopted and the parent started. Each test changes the step it exercises.
+ */
+function proposeRoute(options: { deployStatuses?: string[]; planStatus?: number; planCode?: string } = {}) {
+  const statuses = [...(options.deployStatuses ?? ["succeeded"])];
+  return (sent: Sent): Reply => {
+    const { endpoint } = sent;
+    if (endpoint === "/api/actions/project.updateManifest") return action({ ok: true, data: {} });
+    if (endpoint === "/api/actions/env.create") return action({ ok: true, data: { environmentId: `env-${inputOf(sent).name}` } });
+    if (endpoint === "/api/actions/deploy.apply") {
+      const environmentId = String(inputOf(sent).environmentId);
+      return action({ ok: true, data: environmentId === "env-parent" ? { deploymentId: "dep-parent" } : { deploymentId: "dep-child", operationId: `op-${environmentId}` } });
+    }
+    if (endpoint === "/api/platform/v1/environments/env-parent/autonomy") return ok({ level: 3 });
+    if (endpoint === "/api/environments/env-parent/deployments?limit=1") return ok({ deployments: [{ status: statuses.length > 1 ? statuses.shift() : statuses[0] }] });
+    if (endpoint === "/api/platform/v1/mixed/plans") {
+      return options.planStatus ? { status: options.planStatus, data: { error: { code: options.planCode ?? "plan_refused" } } }
+        : { status: 201, data: { plan: { parentPlanId: "plan-1" }, operationId: "op-parent" } };
+    }
+    if (endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+      { partitionId: P_PRODUCER, childEnvironmentId: "env-producer", dependsOn: [], childOperationId: null },
+      { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer", dependsOn: [P_PRODUCER], childOperationId: null },
+    ] });
+    if (endpoint.endsWith("/children")) return { status: 201, data: { child: { partitionId: "p" } } };
+    if (endpoint === "/api/platform/v1/mixed/plans/plan-1/start") return ok({ operationId: "op-parent", parentPlanId: "plan-1", status: "running" });
+    throw new Error(`unexpected ${endpoint}`);
+  };
+}
+
+describe("runnerStack and the browser session", () => {
+  it("refuses without the exported runner stack, before any browser starts", async () => {
+    expect(() => runnerStack({})).toThrow(/runner stack is not exported/);
+    await expect(browserMix03Product({}).createTenant()).rejects.toThrow("the runner stack is not exported");
+  });
+
+  it("createTenant returns the workspace and approver ids, and close releases the session's browser once", async () => {
+    const close = vi.fn(async () => undefined);
+    const product = browserMix03Product(ENV, { session: async () => ({ tenant: session(), close }) });
+    await expect(product.createTenant()).resolves.toEqual(TENANT);
+    await product.close();
+    await product.close();
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed session start releases nothing and refuses with the fixed step name", async () => {
+    const product = browserMix03Product(ENV, { session: async () => { throw new Error("journey:auth-user"); } });
+    await expect(product.createTenant()).rejects.toThrow("tenant setup refused by the product path (auth-user)");
+  });
+});
+
+describe("connection", () => {
+  it("createAwsConnection runs connection.createAws as the owner, in aws_assume_role mode with the state bucket, and returns the ExternalId", async () => {
+    const t = transport(() => action({ ok: true, data: { connectionId: "conn-1", externalId: EXTERNAL_ID } }));
+    const product = await driverWithTenant({ request: t.request });
+    const result = await product.createAwsConnection(TENANT, CONNECTION);
+    expect(result).toEqual({ connectionId: "conn-1", externalId: EXTERNAL_ID });
+    expect(t.sent).toEqual([{
+      page: OWNER, endpoint: "/api/actions/connection.createAws", method: "POST", workspaceId: "ws-1",
+      body: expect.objectContaining({
+        mode: "execute", scope: {},
+        input: { label: "PROD-MIX live-live", region: "ap-south-1", accountId: "123456789012", stateBucket: STATE_BUCKET, bootstrapNameSuffix: "-live", observeRoleArn: "arn:aws:iam::123456789012:role/Observe", deployRoleArn: "arn:aws:iam::123456789012:role/Deploy", mode: "aws_assume_role" },
+      }),
+    }]);
+  });
+
+  it("createAwsConnection refuses without echoing the product's own error text", async () => {
+    const t = transport(() => action({ ok: false, summary: "no", error: "secret-looking text here" }));
+    const product = await driverWithTenant({ request: t.request });
+    const failure = product.createAwsConnection(TENANT, CONNECTION);
+    await expect(failure).rejects.toThrow("connection.createAws was refused by the product");
+    await expect(failure).rejects.not.toThrow("secret-looking");
+  });
+
+  it("createAwsConnection refuses a product answer without a connection id or ExternalId", async () => {
+    const t = transport(() => action({ ok: true, data: { connectionId: "conn-1" } }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.createAwsConnection(TENANT, CONNECTION)).rejects.toThrow("connection.createAws was refused by the product");
+  });
+
+  it("verifyAws reports a pass, and a product refusal as a failed check instead of an error", async () => {
+    const pass = transport(() => action({ ok: true, data: {} }));
+    expect(await (await driverWithTenant({ request: pass.request })).verifyAws(TENANT, "conn-1")).toEqual({ ok: true, reason: "" });
+    expect(pass.sent[0]).toMatchObject({ endpoint: "/api/actions/connection.verifyAws", body: expect.objectContaining({ input: { connectionId: "conn-1" } }) });
+
+    const refused = transport(() => action({ ok: false, summary: "not yet", error: "sts said no" }));
+    expect(await (await driverWithTenant({ request: refused.request })).verifyAws(TENANT, "conn-1")).toEqual({ ok: false, reason: "connection.verifyAws did not pass" });
+  });
+
+  it("verifyAws refuses an HTTP failure with the fixed reason", async () => {
+    const t = transport(() => ({ status: 500, data: { ok: false } }));
+    await expect((await driverWithTenant({ request: t.request })).verifyAws(TENANT, "conn-1"))
+      .rejects.toThrow("connection verification refused by the product path (http-refused)");
+  });
+});
+
+describe("step-up", () => {
+  it("answers mfa_required with one TOTP step-up by the owner's key, then retries once", async () => {
+    let calls = 0;
+    const t = transport(() => (calls++ === 0 ? { status: 403, data: { error: { code: "mfa_required" } } } : action({ ok: true, data: {} })));
+    const stepUp = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, stepUp });
+    expect(await product.verifyAws(TENANT, "conn-1")).toEqual({ ok: true, reason: "" });
+    expect(stepUp).toHaveBeenCalledTimes(1);
+    expect(stepUp).toHaveBeenCalledWith(OWNER, STACK, "OWNER-TOTP-KEY");
+    expect(t.sent).toHaveLength(2);
+  });
+
+  it("does not loop: a second mfa_required is returned as the refusal", async () => {
+    const t = transport(() => ({ status: 403, data: { error: { code: "mfa_required" } } }));
+    const stepUp = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, stepUp });
+    await expect(product.verifyAws(TENANT, "conn-1")).rejects.toThrow("connection verification refused by the product path (http-refused)");
+    expect(stepUp).toHaveBeenCalledTimes(1);
+    expect(t.sent).toHaveLength(2);
+  });
+});
+
+describe("mixed proposal: the sandbox parent, two AWS children and the plan", () => {
+  it("sets the whole graph on the parent, deploys the parent first, then proposes the plan and returns both children", async () => {
+    const t = transport(proposeRoute());
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT }))
+      .toEqual({ environmentIds: ["env-producer", "env-consumer"], planId: "plan-1", parentOperationId: "op-parent" });
+
+    const creates = t.sent.filter(c => c.endpoint === "/api/actions/env.create").map(inputOf);
+    expect(creates).toEqual([
+      { projectId: "proj-1", name: "parent", class: "sandbox", approvalRequired: false },
+      { projectId: "proj-1", name: "producer", class: "sandbox", connectionId: "conn-1", region: "ap-south-1", approvalRequired: true },
+      { projectId: "proj-1", name: "consumer", class: "sandbox", connectionId: "conn-1", region: "ap-south-1", approvalRequired: true },
+    ]);
+    const { producer, consumer, graph } = mix03Manifests("ap-south-1", ARTIFACT);
+    const manifests = t.sent.filter(c => c.endpoint === "/api/actions/project.updateManifest").map(c => inputOf(c).manifest);
+    expect(manifests).toEqual([graph, producer, consumer]);
+    expect(graph.functions[0]).toMatchObject({ source: { type: "s3", bucket: STATE_BUCKET, version: ARTIFACT.versionId }, env: [{ key: "PRODUCER_BUCKET_ARN", value: "{{zenith.input.bucket_arn}}" }] });
+
+    const deployed = t.sent.filter(c => c.endpoint === "/api/actions/deploy.apply").map(c => inputOf(c).environmentId);
+    expect(deployed).toEqual(["env-parent", "env-producer", "env-consumer"]);
+  });
+
+  it("proposes the plan with exact pins and the one declared reference, after the parent deployment succeeded", async () => {
+    const t = transport(proposeRoute());
+    await (await driverWithTenant({ request: t.request })).proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    const plan = t.sent.find(c => c.endpoint === "/api/platform/v1/mixed/plans");
+    expect(plan).toMatchObject({ page: OWNER, method: "POST", workspaceId: "ws-1", body: {
+      parentEnvironmentId: "env-parent",
+      childEnvironmentIds: ["env-producer", "env-consumer"],
+      pins: [{ address: "object_store/bucket", childEnvironmentId: "env-producer" }, { address: "function/consumer", childEnvironmentId: "env-consumer" }],
+      references: [MIX03_REFERENCE],
+    } });
+    const order = t.sent.map(c => c.endpoint);
+    expect(order.indexOf("/api/environments/env-parent/deployments?limit=1")).toBeLessThan(order.indexOf("/api/platform/v1/mixed/plans"));
+  });
+
+  it("PROD-MIX-01: puts the consumer child on the second connection, pins one bucket per child and declares no reference", async () => {
+    const t = transport(proposeRoute());
+    await (await driverWithTenant({ request: t.request })).proposeMixed(TENANT, { connectionId: "conn-1", consumerConnectionId: "conn-2", independent: true, accountId: "123456789012", region: "ap-south-1" });
+    const created = t.sent.filter(c => c.endpoint === "/api/actions/env.create").map(c => inputOf(c)).filter(input => input.name !== "parent");
+    expect(created.map(input => [input.name, input.connectionId])).toEqual([["producer", "conn-1"], ["consumer", "conn-2"]]);
+    expect(t.sent.find(c => c.endpoint === "/api/platform/v1/mixed/plans")).toMatchObject({ body: {
+      pins: [{ address: "object_store/first", childEnvironmentId: "env-producer" }, { address: "object_store/second", childEnvironmentId: "env-consumer" }],
+      references: [],
+    } });
+    const { producer, consumer, graph } = mix01Manifests("ap-south-1");
+    expect(t.sent.filter(c => c.endpoint === "/api/actions/project.updateManifest").map(c => inputOf(c).manifest)).toEqual([graph, producer, consumer]);
+  });
+
+  it("lowers the parent's autonomy below deployment.deploy's default before the plan, so the parent operation waits for a person", async () => {
+    const t = transport(proposeRoute());
+    await (await driverWithTenant({ request: t.request })).proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    const autonomy = "/api/platform/v1/environments/env-parent/autonomy";
+    expect(t.sent.find(c => c.endpoint === autonomy)).toMatchObject({ page: OWNER, method: "PUT", workspaceId: "ws-1", body: { level: 3 } });
+    const order = t.sent.map(c => c.endpoint);
+    expect(order.indexOf(autonomy)).toBeLessThan(order.indexOf("/api/platform/v1/mixed/plans"));
+  });
+
+  it("waits on a running parent deployment and succeeds when it finishes", async () => {
+    const t = transport(proposeRoute({ deployStatuses: ["running", "succeeded"] }));
+    const sleep = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, sleep });
+    await expect(product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT })).resolves.toMatchObject({ planId: "plan-1" });
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses when the parent deployment fails, before any child is created", async () => {
+    const t = transport(proposeRoute({ deployStatuses: ["failed"] }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT }))
+      .rejects.toThrow("the parent environment's deployment did not succeed");
+    expect(t.sent.some(c => c.endpoint === "/api/actions/env.create" && inputOf(c).name === "producer")).toBe(false);
+  });
+
+  it("refuses with the product's plan refusal code and deploys no child", async () => {
+    const t = transport(proposeRoute({ planStatus: 409, planCode: "missing_connectivity" }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT }))
+      .rejects.toThrow("the product refused the mixed plan (missing connectivity)");
+    expect(t.sent.some(c => c.endpoint === "/api/actions/deploy.apply" && inputOf(c).environmentId === "env-producer")).toBe(false);
+  });
+
+  it("a plan refusal carries the service's own reason code for the rehearsal (details.reason, else the error code)", async () => {
+    const refusedWith = async (data: unknown) => {
+      const base = proposeRoute();
+      const t = transport(sent => sent.endpoint === "/api/platform/v1/mixed/plans" ? { status: 409, data } : base(sent));
+      return (await driverWithTenant({ request: t.request })).proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT }).catch((error: unknown) => error);
+    };
+    const refused = await refusedWith({ error: { code: "invalid_state", message: "Every partition needs a verified, unrevoked connection; one is not.", details: { reason: "connection_unverified" } } });
+    expect(refused).toBeInstanceOf(PlanRefusal);
+    expect((refused as PlanRefusal).reason).toBe("connection_unverified");
+    expect((refused as PlanRefusal).message).toContain("the product refused the mixed plan (invalid state, connection_unverified");
+    expect(((await refusedWith({ error: { code: "invalid_state" } })) as PlanRefusal).reason).toBe("invalid_state");
+    expect(((await refusedWith({ error: { code: "Bad Code!" } })) as PlanRefusal).reason).toBe("unknown");
+  });
+
+  it("a refused child deploy names the product's reason, with identifiers elided", async () => {
+    const base = proposeRoute();
+    const t = transport(sent => sent.endpoint === "/api/actions/deploy.apply" && inputOf(sent).environmentId === "env-producer"
+      ? action({ ok: false, summary: "no", error: "Platform policy denied this deployment for arn:aws:iam::123456789012:role/Deploy." })
+      : base(sent));
+    const product = await driverWithTenant({ request: t.request });
+    const failure = product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    await expect(failure).rejects.toThrow("deploy.apply was refused by the product (Platform policy denied this deployment for …arn)");
+    await expect(failure).rejects.not.toThrow("123456789012");
+  });
+});
+
+describe("mixed start: adoption of both children, then the start", () => {
+  it("adopts the producer then the consumer with their partitions and operations, then starts the parent", async () => {
+    const t = transport(proposeRoute());
+    const product = await driverWithTenant({ request: t.request });
+    await product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    t.sent.length = 0;
+    expect(await product.startMixed(TENANT, "plan-1", "op-parent")).toEqual({ started: true });
+    expect(t.sent.map(c => [c.method, c.endpoint, c.body])).toEqual([
+      ["POST", "/api/platform/v1/mixed/plans/plan-1/children", { partitionId: P_PRODUCER, operationId: "op-env-producer" }],
+      ["POST", "/api/platform/v1/mixed/plans/plan-1/children", { partitionId: P_CONSUMER, operationId: "op-env-consumer" }],
+      ["POST", "/api/platform/v1/mixed/plans/plan-1/start", {}],
+    ]);
+  });
+
+  it("refuses to start a plan whose children were never proposed through this driver", async () => {
+    const product = await driverWithTenant({ request: transport(proposeRoute()).request });
+    await expect(product.startMixed(TENANT, "plan-unknown", "op-parent")).rejects.toThrow("no child operations were recorded for this plan");
+  });
+
+  it("reports a refused child adoption as a fixed reason and does not start the parent", async () => {
+    const t = transport((sent) => (sent.endpoint.endsWith("/children") ? { status: 409, data: { error: { code: "child_mismatch" } } } : proposeRoute()(sent)));
+    const product = await driverWithTenant({ request: t.request });
+    await product.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    t.sent.length = 0;
+    expect(await product.startMixed(TENANT, "plan-1", "op-parent")).toEqual({ started: false, reason: "the product refused a child adoption (child mismatch)" });
+    expect(t.sent.some(c => c.endpoint.endsWith("/start"))).toBe(false);
+  });
+
+  it("startMixed reports the product's refusal code as a fixed reason, and withholds an unsafe code", async () => {
+    const plain = transport((sent) => (sent.endpoint.endsWith("/start") ? { status: 409, data: { error: { code: "invalid_state" } } } : proposeRoute()(sent)));
+    const prodA = await driverWithTenant({ request: plain.request });
+    await prodA.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    expect(await prodA.startMixed(TENANT, "plan-1", "op-parent")).toEqual({ started: false, reason: "the product refused the start (invalid state)" });
+
+    const unsafe = transport((sent) => (sent.endpoint.endsWith("/start") ? { status: 409, data: { error: { code: "Bad Code/with:symbols" } } } : proposeRoute()(sent)));
+    const prodB = await driverWithTenant({ request: unsafe.request });
+    await prodB.proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });
+    expect(await prodB.startMixed(TENANT, "plan-1", "op-parent")).toEqual({ started: false, reason: "the product refused the start (no code)" });
+  });
+
+  it("children maps the plan to producer and consumer, with receipts and the child awaiting approval", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+        { partitionId: P_PRODUCER, dependsOn: [], state: "succeeded", childOperationId: "op-p", receipt: { childOperationId: "op-p" } },
+        { partitionId: P_CONSUMER, dependsOn: [P_PRODUCER], state: "adopted", childOperationId: "op-c", receipt: null },
+      ] });
+      if (sent.endpoint === "/api/platform/v1/operations/op-c") return ok({ operation: { id: "op-c", status: "awaiting_approval" } });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.children(TENANT, "plan-1")).toEqual([
+      { role: "producer", status: "succeeded", childOperationId: "op-p", receiptOperationId: "op-p" },
+      { role: "consumer", status: "pending", childOperationId: "op-c", awaitingOperationId: "op-c", operationStatus: "awaiting_approval" },
+    ]);
+    expect(t.sent.every(call => call.method === "GET")).toBe(true);
+  });
+
+  it("children reports a started child as running and does not mark it awaiting when its operation is not awaiting", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+        { partitionId: P_PRODUCER, dependsOn: [], state: "started", childOperationId: "op-p", receipt: null },
+        { partitionId: P_CONSUMER, dependsOn: [P_PRODUCER], state: "blocked", childOperationId: null, receipt: null },
+      ] });
+      return ok({ operation: { id: "op-p", status: "running" } });
+    });
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.children(TENANT, "plan-1")).toEqual([
+      { role: "producer", status: "running", childOperationId: "op-p", operationStatus: "running" },
+      { role: "consumer", status: "blocked" },
+    ]);
+  });
+
+  it("children names the deploy step a running child's environment is in, as a fixed word only", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+        { partitionId: P_PRODUCER, childEnvironmentId: "env-producer", dependsOn: [], state: "started", childOperationId: "op-p", receipt: null },
+        { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer", dependsOn: [P_PRODUCER], state: "pending", childOperationId: null, receipt: null },
+      ] });
+      if (sent.endpoint === "/api/environments/env-producer/deployments?limit=1") return ok({ deployments: [{ status: "running", steps: [{ id: "step-plan", status: "done" }, { id: "step-apply_infrastructure", status: "running", detail: "arn:aws:s3:::secret" }] }] });
+      return ok({ operation: { id: "op-p", status: "running" } });
+    });
+    const product = await driverWithTenant({ request: t.request });
+    const children = await product.children(TENANT, "plan-1");
+    expect(children[0]).toEqual({ role: "producer", status: "running", childOperationId: "op-p", operationStatus: "running", step: "apply_infrastructure" });
+    expect(JSON.stringify(children)).not.toContain("arn:");
+    // An awaiting operation is not read for a step.
+    const waiting = transport((sent) => sent.endpoint === "/api/platform/v1/mixed/plans/plan-1"
+      ? ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer", dependsOn: [], state: "started", childOperationId: "op-p", receipt: null }] })
+      : ok({ operation: { id: "op-p", status: "awaiting_approval" } }));
+    await (await driverWithTenant({ request: waiting.request })).children(TENANT, "plan-1");
+    expect(waiting.sent.some(sent => sent.endpoint.includes("/deployments"))).toBe(false);
+  });
+
+  it("children names how a child ended: the receipt status, or a fixed category of the operation's halt, never its text", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+        { partitionId: P_PRODUCER, dependsOn: [], state: "uncertain", childOperationId: "op-p", receipt: { childOperationId: "op-p", childStatus: "succeeded_without_reviewed_semantics" } },
+        { partitionId: P_CONSUMER, dependsOn: [P_PRODUCER], state: "uncertain", childOperationId: "op-c", receipt: null },
+      ] });
+      if (sent.endpoint === "/api/platform/v1/operations/op-c") return ok({ operation: { id: "op-c", status: "uncertain", error: "The deploy was applied (secret-ish summary) but verification was inconclusive; its result is unknown." } });
+      if (sent.endpoint === "/api/platform/v1/operations/op-p") return ok({ operation: { id: "op-p", status: "succeeded" } });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    const children = await product.children(TENANT, "plan-1");
+    expect(children).toEqual([
+      { role: "producer", status: "uncertain", childOperationId: "op-p", receiptOperationId: "op-p", operationStatus: "succeeded_without_reviewed_semantics" },
+      { role: "consumer", status: "uncertain", childOperationId: "op-c", operationStatus: "uncertain", halt: "verify_inconclusive" },
+    ]);
+    expect(JSON.stringify(children)).not.toContain("secret-ish");
+  });
+
+  it.each([
+    ["OpenTofu apply did not finish (tofu_timeout); partial", "tofu_apply_tofu_timeout"],
+    ["The apply ended with an unclassified error (TypeError: cannot read arn:aws:secret; cause AbortError/ETIMEDOUT).", "unclassified_typeerror_aborterror"],
+    ["The apply ended with an unclassified error (Error: Original plan dispatch outcome is unconfirmed; cause TofuCommandError/tofu_command_failed).", "tofu_command_failed"],
+    ["The apply ended with an unclassified error (Error: Original plan dispatch outcome is unconfirmed; cause TofuCommandError/tofu_command_failed/apply:api_AccessDeniedException).", "tofu_command_failed_apply_api_accessdeniedexception"],
+    ["The apply ended with an unclassified error (Error: x; cause TofuCommandError/tofu_timeout/providers-lock:unknown).", "tofu_timeout_providers_lock_unknown"],
+    ["The apply ended with an unclassified error (RangeError: bad length).", "unclassified_rangeerror"],
+    ["The environment lease was lost while OpenTofu was applying.", "lease_lost_tofu_apply"],
+    ["An owning runner or machine job expired; the external outcome is unknown.", "job_expired"],
+    ["Something nobody planned for: arn:aws:secret", "other"],
+  ])("children names the apply halt %j as %s and never its text", async (error, halt) => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+        { partitionId: P_CONSUMER, dependsOn: [P_PRODUCER], state: "uncertain", childOperationId: "op-c", receipt: { childOperationId: "op-c", childStatus: "uncertain" } },
+      ] });
+      return ok({ operation: { id: "op-c", status: "uncertain", error } });
+    });
+    const product = await driverWithTenant({ request: t.request });
+    const children = await product.children(TENANT, "plan-1");
+    expect(children[0]!.halt).toBe(halt);
+    expect(JSON.stringify(children)).not.toContain("arn:aws");
+  });
+
+  it("children reads the halt of an uncertain child that already has a receipt, naming only the step", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [
+        { partitionId: P_PRODUCER, dependsOn: [], state: "succeeded", childOperationId: "op-p", receipt: { childOperationId: "op-p", childStatus: "succeeded" } },
+        { partitionId: P_CONSUMER, dependsOn: [P_PRODUCER], state: "uncertain", childOperationId: "op-c", receipt: { childOperationId: "op-c", childStatus: "uncertain" } },
+      ] });
+      if (sent.endpoint === "/api/platform/v1/operations/op-c") return ok({ operation: { id: "op-c", status: "uncertain", error: "deploy did not complete cleanly and may have acted; the outcome is unknown. Reconcile will observe the environment. (arn:aws:lambda:secret)" } });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    const children = await product.children(TENANT, "plan-1");
+    expect(children[1]).toEqual({ role: "consumer", status: "uncertain", childOperationId: "op-c", receiptOperationId: "op-c", operationStatus: "uncertain", halt: "deploy_unclean" });
+    expect(JSON.stringify(children)).not.toContain("arn:aws");
+  });
+
+  it("children names the open review of the changed parent digest as the consumer's awaiting approval", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ parentOperationId: "op-parent", children: [
+        { partitionId: P_PRODUCER, dependsOn: [], state: "succeeded", childOperationId: "op-p", receipt: { childOperationId: "op-p" } },
+        { partitionId: P_CONSUMER, dependsOn: [P_PRODUCER], state: "adopted", childOperationId: "op-c", receipt: null },
+      ] });
+      if (sent.endpoint === "/api/platform/v1/operations/op-c") return ok({ operation: { id: "op-c", status: "approved" } });
+      if (sent.endpoint.startsWith("/api/platform/v1/operations?")) return ok({ operations: [
+        { id: "op-other-review", proposal: { input: { mixedParentReviewOf: "op-someone-else" } } },
+        { id: "op-review", proposal: { input: { mixedParentReviewOf: "op-parent", previousParentDigest: "1".repeat(64), requiredParentDigest: "2".repeat(64),
+          consumers: [{ childId: P_CONSUMER, previousEffectDigest: "3".repeat(64), newEffectDigest: "4".repeat(64), referenceIds: ["ref-1"] }] } } },
+      ] });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.children(TENANT, "plan-1")).toEqual([
+      { role: "producer", status: "succeeded", childOperationId: "op-p", receiptOperationId: "op-p" },
+      { role: "consumer", status: "pending", childOperationId: "op-c", operationStatus: "approved", awaitingOperationId: "op-review",
+        review: { previousParentDigest: "1".repeat(64), requiredParentDigest: "2".repeat(64), consumers: 1, effectChanged: true } },
+    ]);
+    expect(t.sent.every(call => call.method === "GET")).toBe(true);
+  });
+
+  it("children refuses with a fixed reason when the readback is refused", async () => {
+    const t = transport(() => ({ status: 404, data: { error: { code: "not_found" } } }));
+    await expect((await driverWithTenant({ request: t.request })).children(TENANT, "plan-1"))
+      .rejects.toThrow("children readback refused by the product path (http-refused)");
+  });
+});
+
+describe("browser approval", () => {
+  it("approve hands the approver's session and the operation id to the browser approval", async () => {
+    const approve = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ approve, request: transport(() => ok({})).request });
+    await product.approve(TENANT, "op-parent");
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws-1", approverId: "u-approver", approver: APPROVER }), "op-parent");
+  });
+
+  it("approve keeps the product's own journey code and withholds anything else", async () => {
+    const coded = await driverWithTenant({ approve: async () => { throw new Error("journey:human-approval-required"); }, request: transport(() => ok({})).request });
+    await expect(coded.approve(TENANT, "op-parent")).rejects.toThrow("browser approval refused by the product path (human-approval-required)");
+    const other = await driverWithTenant({ approve: async () => { throw new Error("token sk-live-123 leaked"); }, request: transport(() => ok({})).request });
+    const failure = other.approve(TENANT, "op-parent");
+    await expect(failure).rejects.toThrow("browser approval refused by the product path (unexpected)");
+    await expect(failure).rejects.not.toThrow("sk-live");
+  });
+});
+
+describe("output preauthorization: one precise use for the consumer, from the plan's own digests", () => {
+  const DIGEST = { desired: "e".repeat(64), contract: "1".repeat(64), producer: "2".repeat(64), consumer: "3".repeat(64) };
+  const planReadback = (references: unknown[] = [{
+    referenceId: "bucket-arn", producerPartitionId: P_PRODUCER, consumerPartitionId: P_CONSUMER, producerAddress: "object_store/bucket", producerOutput: "arn",
+    consumerAddress: "function/consumer", consumerInput: "bucket_arn", valueType: "resource_id", contractDigest: DIGEST.contract,
+    producerSubplanDigest: DIGEST.producer, consumerSubplanDigest: DIGEST.consumer, state: "unavailable", unavailableReason: "not_produced",
+  }]) => ({
+    parentOperationId: "op-parent", parentEnvironmentId: "env-parent", desiredDigest: DIGEST.desired, references,
+    children: [
+      { partitionId: P_PRODUCER, childEnvironmentId: "env-producer", dependsOn: [] },
+      { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer", dependsOn: [P_PRODUCER] },
+    ],
+  });
+
+  it("issues one use in the parent plan's environment, with the plan's digests and a fifteen minute lifetime", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok(planReadback());
+      if (sent.endpoint === "/api/platform/v1/mixed-output-preauthorizations") return { status: 201, data: { preauthorization: { id: "mop-1" } } };
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.issueOutputPreauthorization(TENANT, "plan-1")).resolves.toBeUndefined();
+    const issued = t.sent.find(c => c.endpoint === "/api/platform/v1/mixed-output-preauthorizations");
+    expect(issued).toMatchObject({ page: OWNER, method: "POST", workspaceId: "ws-1", body: {
+      parentOperationId: "op-parent", environmentId: "env-parent", desiredDigest: DIGEST.desired, referenceId: "bucket-arn",
+      contractDigest: DIGEST.contract, consumerSubplanDigest: DIGEST.consumer, producerSubplanDigest: DIGEST.producer,
+      valueType: "resource_id", maxUses: 1, lifetimeMs: 15 * 60_000, reason: "PROD-MIX-03 one-use output preauthorization",
+    } });
+  });
+
+  it("refuses a plan that does not have exactly one reference, and sends nothing", async () => {
+    const t = transport((sent) => (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1" ? ok(planReadback([])) : ok({})));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.issueOutputPreauthorization(TENANT, "plan-1")).rejects.toThrow("the plan does not have exactly one reference");
+    expect(t.sent.some(c => c.endpoint === "/api/platform/v1/mixed-output-preauthorizations")).toBe(false);
+  });
+
+  it("refuses a digest the readback does not carry, before the preauthorization is sent", async () => {
+    const readback = planReadback();
+    (readback.references[0] as { contractDigest: string }).contractDigest = "not-a-digest";
+    const t = transport((sent) => (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1" ? ok(readback) : ok({})));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.issueOutputPreauthorization(TENANT, "plan-1")).rejects.toThrow("the reference contract digest is not a digest in the plan readback");
+    expect(t.sent.some(c => c.endpoint === "/api/platform/v1/mixed-output-preauthorizations")).toBe(false);
+  });
+
+  it("reports the product's refusal as a fixed reason", async () => {
+    const t = transport((sent) => (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1" ? ok(planReadback())
+      : { status: 403, data: { error: { code: "admin_required" } } }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.issueOutputPreauthorization(TENANT, "plan-1")).rejects.toThrow("the product refused the output preauthorization (admin required)");
+  });
+
+  it("adds the service's reason code and the sanitized message", async () => {
+    const t = transport((sent) => (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1" ? ok(planReadback())
+      : { status: 409, data: { error: { code: "invalid_state", message: "A child environment has no usable platform connection for arn:aws:iam::1:role/x.", details: { reason: "connection_unverified" } } } }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.issueOutputPreauthorization(TENANT, "plan-1")).rejects.toThrow("the product refused the output preauthorization (invalid state, connection_unverified: A child environment has no usable platform connection for …arn)");
+  });
+});
+
+describe("preauthorizationUses", () => {
+  it("counts the parent's grants, their uses and the ones still active, reading both lists", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed-output-preauthorizations?parentOperationId=op-parent") return ok({ preauthorizations: [{ id: "mop-1", uses: 1, maxUses: 1 }] });
+      if (sent.endpoint === "/api/platform/v1/mixed-output-preauthorizations?parentOperationId=op-parent&activeOnly=true") return ok({ preauthorizations: [] });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.preauthorizationUses(TENANT, "op-parent")).toEqual({ total: 1, uses: 1, maxUses: 1, active: 0 });
+    expect(t.sent.every(call => call.method === "GET")).toBe(true);
+  });
+});
+
+describe("preauthorizationStanding", () => {
+  it("reads each of the parent's grants' typed standing, sorted, and maps an unknown word to unknown", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed-output-preauthorizations?parentOperationId=op-parent") {
+        return ok({ preauthorizations: [{ id: "mop-2", standing: "spent" }, { id: "mop-1", standing: "active" }, { id: "mop-3", standing: "<script>" }, { id: "mop-4" }] });
+      }
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.preauthorizationStanding!(TENANT, "op-parent")).toEqual(["active", "spent", "unknown", "unknown"]);
+    expect(t.sent.every(call => call.method === "GET")).toBe(true);
+  });
+
+  it("refuses a malformed parent operation id before sending anything", async () => {
+    const t = transport(() => ok({ preauthorizations: [] }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.preauthorizationStanding!(TENANT, "op parent?")).rejects.toThrow();
+    expect(t.sent).toEqual([]);
+  });
+});
+
+describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, release and sync", () => {
+  const RUN = "/api/platform/v1/operations/op-parent/mixed-run";
+  const stored = (status = "planned", extra: Record<string, unknown> = {}) => ({ childId: P_CONSUMER, addresses: ["function/consumer"], after: [], stepDigest: "e".repeat(64), status, ...extra });
+  const SUMMARY = { outcome: "complete", nextSteps: ["none"], atomicity: "none", automaticCompensation: "never", cancelled: false, appliedWithoutRunCompletion: [], indeterminate: [] };
+  const runReply = (steps: unknown[]) => ok({ summary: SUMMARY, run: { teardown: { planDigest: "f".repeat(64), createdAt: "2026-11-04T00:00:00.000Z", steps } }, ledger: [], references: [] });
+
+  it("mixedRun reads the run's outcome, next steps and teardown steps, counting addresses without returning them", async () => {
+    const t = transport(() => runReply([stored(), { ...stored(), childId: P_PRODUCER, after: [P_CONSUMER], addresses: ["object_store/bucket"] }]));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.mixedRun!(TENANT, "op-parent")).resolves.toEqual({
+      outcome: "complete", nextSteps: ["none"], atomicity: "none", automaticCompensation: "never", cancelled: false, appliedWithoutRunCompletion: [], indeterminate: [], children: [],
+      steps: [{ childId: P_CONSUMER, status: "planned", after: [], addresses: 1 }, { childId: P_PRODUCER, status: "planned", after: [P_CONSUMER], addresses: 1 }],
+    });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: RUN, method: "GET", body: undefined, workspaceId: "ws-1" }]);
+    // No proposal yet: no steps.
+    const none = await driverWithTenant({ request: transport(() => ok({ summary: { ...SUMMARY, outcome: "partial", nextSteps: ["propose_teardown_for_human_approval"] }, run: {} })).request });
+    await expect(none.mixedRun!(TENANT, "op-parent")).resolves.toMatchObject({ steps: [] });
+  });
+
+  it("mixedRun reads a cancelled run's constants, applied and indeterminate children and each child's state, fixed words only", async () => {
+    const reply = ok({
+      summary: { ...SUMMARY, outcome: "partial", nextSteps: ["propose_teardown_for_human_approval", "review_replan"], cancelled: true, appliedWithoutRunCompletion: [P_PRODUCER] },
+      run: { order: [P_PRODUCER, P_CONSUMER], children: {
+        [P_PRODUCER]: { status: "succeeded", effects: "present", startedAt: "2026-11-04T00:00:00.000Z", receiptDigest: "e".repeat(64) },
+        [P_CONSUMER]: { status: "cancelled", effects: "none", reason: "cancelled_before_start" },
+      } },
+    });
+    const product = await driverWithTenant({ request: transport(() => reply).request });
+    await expect(product.mixedRun!(TENANT, "op-parent")).resolves.toMatchObject({
+      outcome: "partial", cancelled: true, atomicity: "none", automaticCompensation: "never", appliedWithoutRunCompletion: [P_PRODUCER], indeterminate: [],
+      children: [{ childId: P_PRODUCER, status: "succeeded", effects: "present", started: true }, { childId: P_CONSUMER, status: "cancelled", effects: "none", started: false, reason: "cancelled_before_start" }],
+    });
+    const bad = await driverWithTenant({ request: transport(() => ok({ summary: { ...SUMMARY, atomicity: "Full!" } })).request });
+    await expect(bad.mixedRun!(TENANT, "op-parent")).rejects.toThrow("the run atomicity has an unexpected shape");
+  });
+
+  it("cancelMixed posts an empty body to the run's cancel route; a refusal names the service's reason", async () => {
+    const t = transport(() => ok({ summary: SUMMARY }));
+    const product = await driverWithTenant({ request: t.request });
+    await product.cancelMixed!(TENANT, "op-parent");
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: `${RUN}/cancel`, method: "POST", body: {}, workspaceId: "ws-1" }]);
+    const refused = await driverWithTenant({ request: transport(() => ({ status: 403, data: { error: { code: "role_insufficient" } } })).request });
+    await expect(refused.cancelMixed!(TENANT, "op-parent")).rejects.toThrow("the product refused the run cancel (role insufficient)");
+  });
+
+  it("reconcileChild posts the child, outcome and evidence digest; a refusal is a reason, and a bad digest is never sent", async () => {
+    const t = transport(() => ok({ summary: SUMMARY }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.reconcileChild!(TENANT, "op-parent", P_PRODUCER, "effects_present", "a".repeat(64))).resolves.toEqual({ recorded: true });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: `${RUN}/reconcile`, method: "POST", body: { childId: P_PRODUCER, outcome: "effects_present", evidenceDigest: "a".repeat(64) }, workspaceId: "ws-1" }]);
+    const refused = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", details: { reason: "illegal_transition" } } } })).request });
+    await expect(refused.reconcileChild!(TENANT, "op-parent", P_PRODUCER, "no_effects", "b".repeat(64))).resolves.toEqual({ recorded: false, reason: "the product refused the reconciliation (invalid state, illegal_transition)" });
+    const none = transport(() => ok({}));
+    await expect((await driverWithTenant({ request: none.request })).reconcileChild!(TENANT, "op-parent", P_PRODUCER, "no_effects", "not-a-digest")).rejects.toThrow("the reconciliation evidence has an unexpected shape");
+    expect(none.sent).toEqual([]);
+  });
+
+  it("revokeConnection runs connection.revoke as the owner and returns the status the product reports", async () => {
+    const t = transport(() => action({ ok: true, data: { connectionId: "conn-2", status: "revoked" } }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.revokeConnection!(TENANT, "conn-2")).resolves.toEqual({ status: "revoked" });
+    expect(t.sent[0]).toMatchObject({ page: OWNER, endpoint: "/api/actions/connection.revoke", body: { mode: "execute", input: { connectionId: "conn-2" } } });
+    const refused = await driverWithTenant({ request: transport(() => action({ ok: false, error: "Only an admin may revoke." })).request });
+    await expect(refused.revokeConnection!(TENANT, "conn-2")).rejects.toThrow("connection.revoke was refused by the product");
+  });
+
+  it("teardownBlocked asks env.reviewTeardown in plan mode for the CHILD's environment and returns its refusal, sanitized", async () => {
+    const reply = (blocked?: string) => transport((sent) => sent.endpoint === "/api/platform/v1/mixed/plans/plan-1"
+      ? ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }, { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer" }] })
+      : ok({ plan: { steps: [], ...(blocked ? { blocked } : {}) } }));
+    const settling = reply("Earlier deploy activity has not settled yet. Teardown can start once every earlier deploy credential and workflow has provably stopped.");
+    await expect((await driverWithTenant({ request: settling.request })).teardownBlocked!(TENANT, "plan-1", P_CONSUMER)).resolves.toMatch(/^Earlier deploy activity has not settled yet\./);
+    expect(settling.sent[1]).toMatchObject({ page: OWNER, endpoint: "/api/actions/env.reviewTeardown", body: { mode: "plan", input: { environmentId: "env-consumer" }, scope: { projectId: "proj-1", environmentId: "env-consumer" } } });
+    await expect((await driverWithTenant({ request: reply().request })).teardownBlocked!(TENANT, "plan-1", P_PRODUCER)).resolves.toBeUndefined();
+  });
+
+  it("proposeTeardown posts the proposal as the owner and returns its steps; a refusal names the service's reason", async () => {
+    const t = transport(() => ({ status: 201, data: { teardown: { steps: [stored()] }, retained: [{ childId: P_CONSUMER, address: "x", ownership: "referenced" }], nothingToDestroy: [] } }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.proposeTeardown!(TENANT, "op-parent")).resolves.toEqual({ steps: [{ childId: P_CONSUMER, status: "planned", after: [], addresses: 1 }], retained: 1, nothingToDestroy: [] });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: `${RUN}/teardown`, method: "POST", body: { action: "propose" }, workspaceId: "ws-1" }]);
+    const refused = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", message: "no", details: { reason: "ownership" } } } })).request });
+    await expect(refused.proposeTeardown!(TENANT, "op-parent")).rejects.toThrow("the product refused the teardown proposal (invalid state, ownership: no)");
+  });
+
+  it("openChildDestroy reviews the CHILD's environment from the stored plan, approves the proposal once and stops at the plan round", async () => {
+    const statuses = ["awaiting_approval", "running", "awaiting_approval"];
+    let reviews = 0;
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }, { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer" }] });
+      if (sent.endpoint === "/api/actions/env.reviewTeardown") return action({ ok: true, data: { reviewOperationId: "op-review" } });
+      if (sent.endpoint === "/api/platform/v1/environments/env-consumer/teardown-review?reviewId=op-review") return ok({ review: reviews++ ? { operationId: "op-destroy", status: "succeeded" } : { status: "running" } });
+      if (sent.endpoint === "/api/platform/v1/operations/op-destroy") {
+        const status = statuses.length > 1 ? statuses.shift()! : statuses[0];
+        return ok({ operation: { status, ...(status === "awaiting_approval" && !statuses.includes("running") ? { startedAt: "2026-11-04T00:00:00.000Z" } : {}) } });
+      }
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const approve = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, approve });
+    await expect(product.openChildDestroy!(TENANT, "plan-1", P_CONSUMER)).resolves.toEqual({ destroyOperationId: "op-destroy", status: "awaiting_approval" });
+    expect(approve).toHaveBeenCalledTimes(1);
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ approver: APPROVER }), "op-destroy");
+    const review = t.sent.find((sent) => sent.endpoint === "/api/actions/env.reviewTeardown")!;
+    expect(review.page).toBe(OWNER);
+    expect(review.body).toMatchObject({ mode: "execute", input: { environmentId: "env-consumer" }, scope: { projectId: "proj-1", environmentId: "env-consumer" } });
+  });
+
+  it("openChildDestroy names the product's reason and the review workflow state when the review ends without a proposal", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }] });
+      if (sent.endpoint === "/api/actions/env.reviewTeardown") return action({ ok: true, data: { reviewOperationId: "op-review" } });
+      if (sent.endpoint === "/api/platform/v1/environments/env-producer/teardown-review?reviewId=op-review") return ok({ review: { status: "failed" } });
+      if (sent.endpoint === "/api/platform/v1/operations/op-review") return ok({ operation: { status: "failed", error: "Teardown review did not complete. Nothing was applied. Finish the active deployment before reviewing teardown." } });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request, reviewWorkflow: async () => "workflow COMPLETED" });
+    await expect(product.openChildDestroy!(TENANT, "plan-1", P_PRODUCER)).rejects.toThrow(
+      "the teardown review ended failed without a destroy proposal (product: Teardown review did not complete. Nothing was applied. Finish the active deployment before reviewing teardown.) [workflow COMPLETED]");
+  });
+
+  it("openChildDestroy refuses a child the stored plan does not have, before any review is requested", async () => {
+    const t = transport(() => ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }] }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.openChildDestroy!(TENANT, "plan-1", P_CONSUMER)).rejects.toThrow("the child environment was not returned by the product");
+    expect(t.sent.map((sent) => sent.endpoint)).toEqual(["/api/platform/v1/mixed/plans/plan-1"]);
+  });
+
+  it("releaseTeardown posts the child and destroy operation; an ordering refusal is a reason, not an error", async () => {
+    const t = transport(() => ok({ summary: {} }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.releaseTeardown!(TENANT, "op-parent", P_CONSUMER, "op-destroy")).resolves.toEqual({ released: true });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: `${RUN}/teardown`, method: "POST", body: { action: "release", childId: P_CONSUMER, destroyOperationId: "op-destroy" }, workspaceId: "ws-1" }]);
+    const blocked = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", details: { reason: "ordering_blocked" } } } })).request });
+    await expect(blocked.releaseTeardown!(TENANT, "op-parent", P_PRODUCER, "op-destroy")).resolves.toEqual({ released: false, reason: "the product refused the release (invalid state, ordering_blocked)" });
+  });
+
+  it("finishChildDestroy approves each round still asked for and returns how the destroy ended, as a category", async () => {
+    const statuses = ["awaiting_approval", "running", "failed"];
+    const t = transport(() => { const status = statuses.shift()!; return ok({ operation: { status, ...(status === "failed" ? { error: "apply_infrastructure failed: arn:aws:s3:::secret" } : {}) } }); });
+    const approve = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, approve });
+    const result = await product.finishChildDestroy!(TENANT, "op-destroy");
+    expect(result).toEqual({ status: "failed", halt: "apply_infrastructure_failed" });
+    expect(approve).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(result)).not.toContain("arn:");
+  });
+
+  it("syncTeardown posts the sync and returns the step as the run now stores it", async () => {
+    const t = transport((sent) => sent.method === "POST" ? ok({ summary: {} }) : runReply([stored("destroyed", { destroyOperationId: "op-destroy" })]));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.syncTeardown!(TENANT, "op-parent", P_CONSUMER)).resolves.toEqual({ childId: P_CONSUMER, status: "destroyed", after: [], addresses: 1, destroyOperationId: "op-destroy" });
+    expect(t.sent.map((sent) => [sent.method, sent.endpoint, sent.body])).toEqual([["POST", `${RUN}/teardown`, { action: "sync", childId: P_CONSUMER }], ["GET", RUN, undefined]]);
+    const early = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", details: { reason: "illegal_transition" } } } })).request });
+    await expect(early.syncTeardown!(TENANT, "op-parent", P_CONSUMER)).rejects.toThrow("the product refused the teardown sync (invalid state, illegal_transition)");
+  });
+
+  it("teardownStepsOf refuses an unexpected shape instead of passing it on", () => {
+    expect(teardownStepsOf(undefined)).toEqual([]);
+    expect(() => teardownStepsOf({ steps: "x" })).toThrow("the run's teardown has no steps");
+    expect(() => teardownStepsOf({ steps: [{ ...stored(), status: "Destroyed!" }] })).toThrow("a teardown step has an unexpected shape");
+    expect(() => teardownStepsOf({ steps: [{ ...stored(), destroyOperationId: "op destroy" }] })).toThrow("a teardown step names an unexpected destroy operation");
+  });
+});
+
+describe("tenant isolation", () => {
+  it("refuses a tenant this driver did not create, without sending anything", async () => {
+    const t = transport(() => ok({}));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.verifyAws({ workspaceId: "ws-other", approverId: "u-x" }, "conn-1")).rejects.toThrow("no signed-in session exists for this tenant");
+    expect(t.sent).toEqual([]);
+  });
+});
+
+describe("the port releases the driver after teardown", () => {
+  const settings = { accountId: "123456789012", region: "ap-south-1", runId: "zlive-202610260000-ab01", durationMinutes: 15, dbSubnetGroup: "zenith-live-sandbox", dbSecurityGroup: "sg-12345678", workloadBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithLiveWorkloadBoundary", scenario: "mix-03" as const };
+  it("closes the browser even when the run refuses before its first AWS call", async () => {
+    const close = vi.fn(async () => undefined);
+    const plan = buildPlan(settings);
+    const port = mix03Port({}, { product: { ...browserMix03Product(ENV, { request: transport(() => ok({})).request }), close } });
+    const outcome = await port.verify({ id: "PROD-MIX-03", acceptance: [], fixtures: [], join: "" }, { plan, commit: "a".repeat(40), call: async () => { throw new Error("no AWS call expected"); } });
+    expect(outcome.complete).toBe(false);
+    expect(outcome.reason).toContain("ZENITH_LIVE_PRODUCT=1");
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PROD-MIX-03 manifests against the real planner", () => {
+  it("plan into one AWS producer and one AWS consumer child with the reference, producer first", () => {
+    const { graph, consumer } = mix03Manifests("us-east-1", ARTIFACT);
+    const expand = (m: unknown, provider: "sandbox" | "aws") => {
+      const parsed = parseManifest(m);
+      if (!parsed.ok) throw new Error("manifest refused");
+      return expandManifest(parsed.manifest, { id: PARENT_ENV, name: "x", class: "sandbox", provider, region: "us-east-1", baseDomain: "example.com" });
+    };
+    expect(expand(consumer, "aws").nodes.find(n => n.address === "function/consumer")?.dependsOn).toEqual([]);
+    const aws = connection("aws");
+    const plan = buildParentPlan({
+      workspaceId: WS, projectId: PROJECT, parentEnvironmentId: PARENT_ENV, graph: expand(graph, "sandbox"),
+      candidates: [{ childEnvironmentId: "env-p", connection: aws }, { childEnvironmentId: "env-c", connection: aws }],
+      pins: [{ address: "object_store/bucket", childEnvironmentId: "env-p" }, { address: "function/consumer", childEnvironmentId: "env-c" }],
+      references: [MIX03_REFERENCE],
+    });
+    expect(plan.children.map(c => c.childEnvironmentId)).toEqual(["env-p", "env-c"]);
+    expect(plan.references).toHaveLength(1);
+  });
+});
+
+describe("PROD-MIX-02 stored plan readback", () => {
+  const h = (c: string) => c.repeat(64);
+  const raw = () => ({
+    parentPlanId: "mpp_1", status: "running", parentOperationId: "op-parent", parentEnvironmentId: PARENT_ENV, parentDigest: h("1"), desiredDigest: h("2"), childSetDigest: h("3"),
+    executionOrder: [P_PRODUCER, P_CONSUMER], teardownOrder: [P_CONSUMER, P_PRODUCER], references: [], connectivity: null,
+    children: [{
+      partitionId: P_PRODUCER, ordinal: 0, childEnvironmentId: "env-p", dependsOn: [], subplanDigest: h("4"), semanticsDigest: h("5"), effectDigest: h("6"), blockedByReferences: [],
+      partition: { provider: "aws" }, nodes: [{ stableAddress: `aws:ap-south-1:${"a".repeat(16)}::aws_s3_bucket.producer`, address: "aws_s3_bucket.producer", kind: "managed", specDigest: h("7") }],
+      state: "succeeded", childOperationId: "op-producer", executableSemanticsDigest: h("d"),
+      receipt: { format: "zenith.mixed-child-receipt.v1", receiptId: `mrc_${"e".repeat(32)}`, workspaceId: "ws-1", parentPlanId: "mpp_1", partitionId: P_PRODUCER, ordinal: 0,
+        childOperationId: "op-producer", outcome: "succeeded", childStatus: "succeeded", executableSemanticsDigest: h("d"), planDigest: h("f"), receiptDigest: h("e"), recordedAt: "2026-10-30T00:00:00.000Z" },
+    }],
+  });
+
+  it("keeps digests, ids, addresses and fixed words, and drops everything else", () => {
+    const plan = mixedReadbackOf(raw());
+    expect(plan.executionOrder).toEqual([P_PRODUCER, P_CONSUMER]);
+    expect(plan.children[0]!.nodes[0]).toEqual({ stableAddress: `aws:ap-south-1:${"a".repeat(16)}::aws_s3_bucket.producer`, address: "aws_s3_bucket.producer", specDigest: h("7") });
+    expect(plan.children[0]!.receipt).toEqual(raw().children[0]!.receipt);
+    expect(Object.keys(plan.children[0]!)).not.toContain("partition");
+  });
+
+  it.each([
+    ["a scrubbed digest", (r: ReturnType<typeof raw>) => { r.children[0]!.subplanDigest = "[redacted]"; }, "subplan digest"],
+    ["a receipt time that is not a timestamp", (r: ReturnType<typeof raw>) => { r.children[0]!.receipt.recordedAt = "yesterday"; }, "receipt time"],
+    ["a missing execution order", (r: ReturnType<typeof raw>) => { (r as { executionOrder?: unknown }).executionOrder = undefined; }, "execution order"],
+  ] as const)("refuses %s", (_name, change, what) => {
+    const r = raw();
+    change(r);
+    expect(() => mixedReadbackOf(r)).toThrow(`the stored plan readback has an unexpected ${what}`);
+  });
+});

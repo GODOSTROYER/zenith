@@ -1,0 +1,29 @@
+# Disposable local interop only. Generate all credentials/certificates with prepare.mjs.
+# Pin from upstream keycloak/keycloak#45415; verifier must inspect native ARM64 manifest.
+services:
+  issuer:
+    image: quay.io/keycloak/keycloak:26.4.7@sha256:9409c59bdfb65dbffa20b11e6f18b8abb9281d480c7ca402f51ed3d5977e6007
+    ports:
+      - "127.0.0.1:8443:8443"
+    command:
+      - start-dev
+      - --http-enabled=false
+      - --hostname=https://localhost:8443
+      - --https-certificate-file=/fixture-tls/server.crt
+      - --https-certificate-key-file=/fixture-tls/server.key
+      - --cache=local
+      - --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: interop-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${ZENITH_INTEROP_ADMIN_PASSWORD:?Run prepare.mjs}
+      JAVA_OPTS_KC_HEAP: "-Xms128m -Xmx512m"
+    volumes:
+      - ${ZENITH_INTEROP_DIR:?Run prepare.mjs}/realm.json:/opt/keycloak/data/import/zenith-interop-realm.json:ro
+      - ${ZENITH_INTEROP_DIR:?Run prepare.mjs}/tls:/fixture-tls:ro
+    tmpfs:
+      - /tmp:uid=1000,gid=0,mode=1777
+      - /opt/keycloak/data:uid=1000,gid=0,mode=0750
+    mem_limit: 768m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true

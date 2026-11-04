@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# L3 owner-gated managed journey. --plan/--template require no credentials.
+set -euo pipefail
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo"
+exec node node_modules/tsx/dist/cli.mjs scripts/acceptance/live/managed/cli.ts --profile managed "$@"

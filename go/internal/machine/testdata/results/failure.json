@@ -1,0 +1,13 @@
+{
+  "args": {
+    "unit": "nginx.service"
+  },
+  "operation": "service.status",
+  "result": {
+    "ok": false,
+    "data": {
+      "error": "command_failed",
+      "reason": "fixture command failed"
+    }
+  }
+}

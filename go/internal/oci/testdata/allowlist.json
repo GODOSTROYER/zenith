@@ -1,0 +1,1033 @@
+{
+  "infrastructure.plan": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "infrastructure.apply": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "deployment.rollback": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "infrastructure.observe": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "internetGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "natGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/health"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/backendSets/{}/health"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b/{}"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues/{}"
+    },
+    {
+      "service": "queue-data",
+      "method": "GET",
+      "pattern": "queues/{}/stats"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "policies"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}/logs"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    },
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "workRequests"
+    }
+  ],
+  "topology.read": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "internetGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "natGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/health"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/backendSets/{}/health"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b/{}"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues/{}"
+    },
+    {
+      "service": "queue-data",
+      "method": "GET",
+      "pattern": "queues/{}/stats"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "policies"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}/logs"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    }
+  ],
+  "incident.investigate": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "internetGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "natGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/health"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/backendSets/{}/health"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b/{}"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues/{}"
+    },
+    {
+      "service": "queue-data",
+      "method": "GET",
+      "pattern": "queues/{}/stats"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "policies"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}/logs"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    },
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "workRequests"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "workRequests"
+    }
+  ],
+  "logs.read": [
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    }
+  ],
+  "metrics.read": [
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
+    }
+  ],
+  "firewall.inspect": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    }
+  ],
+  "deployment.deploy": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "workRequests/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vnics/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "POST",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "DELETE",
+      "pattern": "containerInstances/{}"
+    }
+  ],
+  "service.restart": [
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "POST",
+      "pattern": "containerInstances/{}/actions/restart"
+    }
+  ],
+  "database.snapshot": [
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "POST",
+      "pattern": "backups"
+    }
+  ],
+  "secret.write": [
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "vault",
+      "method": "PUT",
+      "pattern": "secrets/{}"
+    }
+  ]
+}

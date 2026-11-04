@@ -1,0 +1,1853 @@
+{
+  "schema": 1,
+  "program": "Zenith agentic multi-cloud control plane",
+  "integrationBranch": "platform/integration",
+  "integrationWorktree": "/Users/saivedanthava/Desktop/zenith",
+  "baseline": {
+    "commit": "c1049f6",
+    "date": "2026-09-30",
+    "tests": "298 files / 3697 passed / 147 skipped",
+    "typecheck": "clean",
+    "lint": "clean"
+  },
+  "orchestrator": "Codex (planning, review, verification and integration)",
+  "workerModel": "gpt-6.1-sol, high reasoning effort",
+  "workstreams": [
+    {
+      "id": "WS-FOUND",
+      "title": "Contracts, ADRs, ledger, dependencies",
+      "wave": 0,
+      "owner": "orchestrator",
+      "state": "done",
+      "deps": [],
+      "paths": [
+        "src/lib/*/types.ts",
+        "src/lib/capabilities/catalog.ts",
+        "docs/adr",
+        "docs/platform",
+        "docs/build"
+      ],
+      "commit": "e07669a",
+      "branch": "platform/integration",
+      "review": "orchestrator"
+    },
+    {
+      "id": "WS-RES",
+      "title": "Resource model: Manifest V2, upgrade, graph expansion, drift v2",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/resources/**",
+        "tests/resources/**"
+      ],
+      "branch": "ws/res",
+      "commit": "188db18",
+      "tests": "159 passed",
+      "review": "orchestrator: merged 770e245",
+      "notes": "specs.ts + native-types.ts pinned contracts"
+    },
+    {
+      "id": "WS-DB",
+      "title": "Platform control store: executor, migrations, repositories, leases, idempotency, events",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/controlplane/db/**",
+        "src/lib/controlplane/{leases,operations,events,approvals,idempotency}/**",
+        "tests/controlplane/**",
+        "supabase/migrations/0014_platform_*.sql",
+        "scripts/platform/**"
+      ],
+      "branch": "ws/db",
+      "commit": "97483a9",
+      "tests": "383 (PGlite + real PG16)",
+      "review": "orchestrator: merged 4b9e115; fixed hung-renewal lease bug c817404",
+      "notes": "Supavisor pooler + real Supabase grants unverified"
+    },
+    {
+      "id": "WS-POL",
+      "title": "Policy engine: Rego, wasm bundle, evaluator, plan facts",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "policy/**",
+        "src/lib/policy/**",
+        "tests/policy/**"
+      ],
+      "branch": "ws/pol",
+      "commit": "a080e24",
+      "tests": "opa 205/205; vitest 215",
+      "review": "orchestrator: merged cb72738",
+      "notes": "policy/dist sha e04961bb\u2026; cross-OS wasm determinism unverified"
+    },
+    {
+      "id": "WS-CRED",
+      "title": "Credential broker, OIDC issuer, AWS STS, customer bootstrap templates",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/credentials/**",
+        "src/app/api/oidc/**",
+        "deploy/aws/**",
+        "tests/credentials/**"
+      ],
+      "branch": "ws/cred",
+      "commit": "a414b06",
+      "tests": "194 + tofu module test (gated)",
+      "review": "orchestrator: merged 2bfab3b; OIDC routes public e7eb3a7",
+      "notes": "no live AWS; KMS Ed25519/ES256 paths unverified live"
+    },
+    {
+      "id": "WS-TOFU",
+      "title": "OpenTofu engine: workspace assembly, runner, plan normalization, digests, lockfiles",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/tofu/**",
+        "tests/tofu/**"
+      ],
+      "branch": "ws/tofu",
+      "commit": "5ac7f15",
+      "tests": "110 passed + 4 network-gated (4/4 when enabled)",
+      "review": "orchestrator: merged deeb3bc",
+      "notes": "aws 6.66.0 pinned; fingerprintKey must be server-secret-derived in activities (follow-up)"
+    },
+    {
+      "id": "WS-GO",
+      "title": "Go zenith-runner and zenithd",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "go/**",
+        "deploy/helm/zenith-runner/**",
+        "docker/runner.Dockerfile",
+        "docker/zenithd.Dockerfile"
+      ],
+      "branch": "ws/go",
+      "commit": "534289e",
+      "tests": "go vet + go test all packages pass (WSL); SigV4 AWS suite 26/26",
+      "review": "orchestrator: merged ffc87c2, Go tests re-run on integration",
+      "notes": "images built locally, not published"
+    },
+    {
+      "id": "WS-PLACE",
+      "title": "Cost engine v2, price catalog, placement solver",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/placement/**",
+        "tests/placement/**"
+      ],
+      "branch": "ws/place",
+      "commit": "15313bf",
+      "tests": "114 + 2 integration (116)",
+      "review": "orchestrator: merged; fixed spec-key mismatch 2a4690a",
+      "notes": "AWS/Azure/OCI prices mostly from official APIs; GCP partly third-party mirror; zenith tier is internal assumption"
+    },
+    {
+      "id": "WS-OBS",
+      "title": "Observability fabric: sandbox, CloudWatch, Prometheus, Loki",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/observability/**",
+        "tests/observability/**"
+      ],
+      "branch": "ws/obs",
+      "commit": "fd0c098",
+      "tests": "401 passed",
+      "review": "orchestrator: merged",
+      "notes": "all sources contract-level; no trace/CloudTrail source; drivers must publish externalId + native ids"
+    },
+    {
+      "id": "WS-WF",
+      "title": "Temporal workflows, worker, client, test environment",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "paths": [
+        "src/lib/workflows/**",
+        "workers/execution/**",
+        "tests/workflows/**"
+      ],
+      "branch": "ws/wf",
+      "commit": "1dd4fe1",
+      "tests": "205 on real temporal dev server (1 load-sensitive timeout on busy host)",
+      "review": "orchestrator: merged 562589a",
+      "notes": "Activities are composed into the worker by WS-COMPOSE. Local ARM64 worker image built on 2026-10-02 with isolated CLI probes; startup/production Temporal/cloud transports remain unverified."
+    },
+    {
+      "id": "WS-FIX",
+      "title": "Fix baseline audit defects (engine rollback, approvals, journal, naming, docker runner)",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "branch": "ws/fix",
+      "paths": [
+        "src/lib/engine/**",
+        "src/lib/actions/defs/{deploy,promote}.ts",
+        "src/lib/agent-access/control/journal*.ts"
+      ],
+      "commit": "bbf2f0a",
+      "tests": "full suite 3784 passed on branch",
+      "review": "orchestrator: merged 19e48b2",
+      "notes": "LocalStack defect deferred; unapprove not wired to UI"
+    },
+    {
+      "id": "WS-ANALYZE",
+      "title": "Repository analysis to requirements and proposed architecture",
+      "wave": 1,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-FOUND"
+      ],
+      "branch": "ws/analyze",
+      "paths": [
+        "src/lib/analysis/**"
+      ],
+      "commit": "4c7f9aa",
+      "tests": "352",
+      "review": "orchestrator: merged",
+      "notes": "text-pattern analysis; live GitHub intake untested"
+    },
+    {
+      "id": "WS-AWS-NET",
+      "title": "AWS drivers: VPC, subnets, IGW/NAT, security groups, ALB, Route53, ACM",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-RES",
+        "WS-TOFU",
+        "WS-CRED"
+      ],
+      "paths": [
+        "src/lib/providers/aws/drivers/network/**"
+      ],
+      "branch": "ws/aws-net",
+      "commit": "d2563f0",
+      "tests": "part of 915 AWS driver tests",
+      "review": "orchestrator: merged",
+      "notes": ""
+    },
+    {
+      "id": "WS-AWS-CMP",
+      "title": "AWS drivers: ECS/Fargate, ECR, EC2/ASG, Lambda, EventBridge, CodeBuild",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-RES",
+        "WS-TOFU",
+        "WS-CRED"
+      ],
+      "paths": [
+        "src/lib/providers/aws/drivers/compute/**"
+      ],
+      "branch": "ws/aws-cmp",
+      "commit": "409875e",
+      "tests": "part of 915",
+      "review": "orchestrator: merged",
+      "notes": "support/aws-shared copy removed by WS-AWS-INTEGRATE"
+    },
+    {
+      "id": "WS-AWS-DATA",
+      "title": "AWS drivers: RDS, ElastiCache, S3, SQS, Secrets Manager, IAM, log groups",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-RES",
+        "WS-TOFU",
+        "WS-CRED"
+      ],
+      "paths": [
+        "src/lib/providers/aws/drivers/data/**"
+      ],
+      "branch": "ws/aws-data",
+      "commit": "b56da98",
+      "tests": "280 + tofu validate (gated, passed)",
+      "review": "orchestrator: merged",
+      "notes": "_shared copy removed by WS-AWS-INTEGRATE"
+    },
+    {
+      "id": "WS-CAP",
+      "title": "Capability broker, approvals, grants, autonomy, REST /api/platform/v1",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-DB",
+        "WS-POL"
+      ],
+      "paths": [
+        "src/lib/capabilities/**",
+        "src/app/api/platform/v1/**"
+      ],
+      "branch": "ws/cap",
+      "commit": "d8effd7",
+      "tests": "355",
+      "review": "orchestrator: merged; browser-only approval guards checked",
+      "notes": ""
+    },
+    {
+      "id": "WS-RUNSRV",
+      "title": "Runner/zenithd control-plane side and AWS-SDK-over-runner transport",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-DB",
+        "WS-GO"
+      ],
+      "paths": [
+        "src/lib/runners/**",
+        "src/app/api/platform/v1/runners/**",
+        "src/app/api/platform/v1/machines/**"
+      ],
+      "branch": "ws/runsrv",
+      "commit": "fcb7eb2",
+      "tests": "231",
+      "review": "orchestrator: merged; machine_requests as migration 3 + middleware bypass fc92018",
+      "notes": "Go golden vectors cross-checked"
+    },
+    {
+      "id": "WS-MACH",
+      "title": "Machine plane: SSM, Kubernetes exec, zenithd transport",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-RUNSRV",
+        "WS-CRED"
+      ],
+      "paths": [
+        "src/lib/machines/**"
+      ],
+      "branch": "ws/mach",
+      "commit": "3332e06",
+      "tests": "merged suite green",
+      "review": "orchestrator: merged",
+      "notes": ""
+    },
+    {
+      "id": "WS-K8S",
+      "title": "Kubernetes provider drivers (server-side apply, ownership)",
+      "wave": 2,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-RES",
+        "WS-CRED"
+      ],
+      "paths": [
+        "src/lib/providers/kubernetes/**"
+      ],
+      "branch": "ws/k8s",
+      "commit": "e68db91",
+      "tests": "part of 588 (k8s+zenith)",
+      "review": "orchestrator: merged",
+      "notes": "Fresh disposable local kind cluster on 2026-10-02: provider 6/6 and release 1/1, 0 failures/skips; cluster deleted. Managed cloud, StatefulSet and NetworkPolicy enforcement remain unverified."
+    },
+    {
+      "id": "WS-ACT",
+      "title": "Workflow activities + AWS deploy journey + LocalStack acceptance + live harness",
+      "wave": 3,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-AWS-NET",
+        "WS-AWS-CMP",
+        "WS-AWS-DATA",
+        "WS-CAP",
+        "WS-WF"
+      ],
+      "paths": [
+        "src/lib/workflows/activities/**",
+        "scripts/acceptance/**"
+      ],
+      "branch": "ws/act",
+      "commit": "30ae76a",
+      "tests": "286",
+      "review": "orchestrator: merged; leak test updated e5c1518",
+      "notes": "composed into the worker by WS-COMPOSE"
+    },
+    {
+      "id": "WS-INC",
+      "title": "Incident engine and remediation workflow",
+      "wave": 3,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-OBS",
+        "WS-AWS-NET",
+        "WS-CAP"
+      ],
+      "paths": [
+        "src/lib/incidents/**"
+      ],
+      "branch": "ws/inc",
+      "commit": "a5489f0",
+      "tests": "262",
+      "review": "orchestrator: merged; obs signals image_pull_failed/task_exit_code added ce789a2",
+      "notes": "rule weights are judgement; live providers unverified"
+    },
+    {
+      "id": "WS-REC",
+      "title": "Reconciliation controller and persisted drift",
+      "wave": 3,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-DB",
+        "WS-AWS-NET"
+      ],
+      "paths": [
+        "src/lib/reconcile/**"
+      ],
+      "branch": "ws/rec",
+      "commit": "101d8a4",
+      "tests": "168 (+PG lane)",
+      "review": "orchestrator: merged c64871e",
+      "notes": "migration 0002 reconcile_state; ports wired by WS-COMPOSE"
+    },
+    {
+      "id": "WS-MCP",
+      "title": "MCP v3 semantic tools, CLI, SDK, connectors",
+      "wave": 3,
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-CAP"
+      ],
+      "paths": [
+        "src/app/api/agent/v3/**",
+        "packages/cli/**"
+      ],
+      "branch": "ws/mcp",
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "6541dd4",
+      "tests": "agent-v3/agent-access/capabilities/docs/security 889 passed / 4 skipped on integration",
+      "review": "orchestrator: merged; exact middleware bypass; execute starts only approved ops via beginExecution; docs claims updated (MCP v3 merged, workflows start, worker still stubs)"
+    },
+    {
+      "id": "WS-UI",
+      "title": "UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections",
+      "wave": 3,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-CAP",
+        "WS-DB"
+      ],
+      "paths": [
+        "src/app/(product)/platform/**",
+        "src/components/platform/**"
+      ],
+      "branch": "ws/ui",
+      "commit": "854fd53",
+      "tests": "574",
+      "review": "orchestrator: merged; storage label + sensitive flag",
+      "notes": "presentational only; pages not wired yet"
+    },
+    {
+      "id": "WS-GCP",
+      "title": "GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring)",
+      "wave": 4,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-ACT"
+      ],
+      "paths": [
+        "src/lib/providers/gcp/**"
+      ],
+      "branch": "ws/gcp",
+      "commit": "847fa97",
+      "tests": "merged suite green",
+      "review": "orchestrator: merged",
+      "notes": "contract only"
+    },
+    {
+      "id": "WS-AZURE",
+      "title": "Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor)",
+      "wave": 4,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-ACT"
+      ],
+      "paths": [
+        "src/lib/providers/azure/**"
+      ],
+      "branch": "ws/azure",
+      "commit": "9fba0e5",
+      "tests": "222",
+      "review": "orchestrator: merged; DenialReason fix d6ba4a3",
+      "notes": "contract only"
+    },
+    {
+      "id": "WS-OCI",
+      "title": "OCI drivers through the same contracts",
+      "wave": 4,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-ACT"
+      ],
+      "paths": [
+        "src/lib/providers/oci/**"
+      ],
+      "branch": "ws/oci",
+      "commit": "0be47b2",
+      "tests": "merged suite green",
+      "review": "orchestrator: merged",
+      "notes": "runner-only; oci.http protocol proposal"
+    },
+    {
+      "id": "WS-ZM",
+      "title": "Zenith-managed provider (provider=zenith)",
+      "wave": 4,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-K8S"
+      ],
+      "paths": [
+        "src/lib/providers/zenith/**"
+      ],
+      "branch": "ws/zm",
+      "commit": "9439d15",
+      "tests": "part of 588",
+      "review": "orchestrator: merged",
+      "notes": "not operated anywhere; managed Postgres adapter contract-only"
+    },
+    {
+      "id": "WS-SEC",
+      "title": "Threat model, tenant-isolation matrix, secret-leak and chaos tests",
+      "wave": 4,
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-CAP",
+        "WS-ACT"
+      ],
+      "paths": [
+        "tests/security/**",
+        "docs/platform/THREAT-MODEL.md"
+      ],
+      "branch": "ws/sec",
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "fa88a2d",
+      "tests": "tests/security 23 files 268 passed / 4 skipped outside the Codex sandbox (real tofu exploit tests + process tests ran); tests/docs 67 passed",
+      "review": "orchestrator: merged; no production code; findings F1-F13, R1-R2 pinned as expected failures; F5 fix in WS-TOFU-SEC (flip SEC it.fails on merge)"
+    },
+    {
+      "id": "WS-CI",
+      "title": "CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts",
+      "wave": 4,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-ACT"
+      ],
+      "paths": [
+        ".github/workflows/**"
+      ],
+      "branch": "ws/ci",
+      "commit": "2e430af",
+      "tests": "133 passed (+14 bash tests pass under Git Bash)",
+      "review": "orchestrator: merged",
+      "notes": "no job has run on GitHub yet; live-acceptance needs live-sandbox environment + OIDC role"
+    },
+    {
+      "id": "WS-DOCS",
+      "title": "Operator docs, runbooks, capability matrix, acceptance evidence",
+      "wave": 4,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [
+        "WS-ACT"
+      ],
+      "paths": [
+        "docs/platform/**"
+      ],
+      "branch": "ws/docs",
+      "commit": "4ed62c1",
+      "tests": "tests/docs 67 passed; capability matrix --check up to date",
+      "review": "orchestrator: merged; tsc + eslint clean"
+    },
+    {
+      "id": "WS-LIVE",
+      "title": "Live-cloud acceptance harness, scenarios A-J, cleanup, evidence",
+      "wave": 3,
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-CRED",
+        "WS-TOFU"
+      ],
+      "branch": "ws/live",
+      "paths": [
+        "scripts/acceptance/**",
+        "docs/platform/ACCEPTANCE.md"
+      ],
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "00d7c03",
+      "tests": "tests/acceptance 101+ passed (real tofu-destroy test ran outside the Codex sandbox); Demo J ran locally 10/10; A-I dry-run only",
+      "review": "orchestrator: merged; README harness statement updated; no live run (B-AWS-LIVE)"
+    },
+    {
+      "id": "WS-BRIDGE",
+      "title": "Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments)",
+      "wave": 3,
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-CAP",
+        "WS-WF",
+        "WS-DB",
+        "WS-CRED"
+      ],
+      "branch": "ws/bridge",
+      "paths": [
+        "src/lib/bridge/**",
+        "src/lib/actions/defs/{deploy,promote,connection,connection-aws}.ts",
+        "src/lib/engine/engine.ts"
+      ],
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "2e5fc4f",
+      "tests": "bridge/engine/actions/capabilities/docs 865 passed on integration",
+      "review": "orchestrator: merged; preApproved confirmed informational (workflow re-evaluates policy on the concrete plan); agent-refused createAws/verifyAws"
+    },
+    {
+      "id": "WS-AWS-INTEGRATE",
+      "deps": [
+        "WS-AWS-NET",
+        "WS-AWS-CMP",
+        "WS-AWS-DATA"
+      ],
+      "paths": [
+        "src/lib/providers/aws/drivers/**"
+      ],
+      "wave": 3,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "title": "Consolidate AWS driver groups, provider registry, expansion gaps, end-to-end compile test",
+      "state": "integrated",
+      "branch": "ws/aws-integrate",
+      "notes": "Codex job",
+      "commit": "68052dd",
+      "tests": "tests/providers/aws + tests/resources 1406 passed / 12 skipped; real tofu validate (aws 6.66.0) prod+staging 8/8",
+      "review": "orchestrator: added ALB 2-AZ expansion rule + test; removed empty snapshot dirs; docs drift guards updated (AWS index exists; RDS refusal-stub evidence recorded in ratchet)"
+    },
+    {
+      "id": "WS-COMPOSE",
+      "deps": [
+        "WS-ACT",
+        "WS-CAP",
+        "WS-RUNSRV",
+        "WS-REC"
+      ],
+      "paths": [
+        "src/lib/platform/**",
+        "workers/execution/**"
+      ],
+      "wave": 3,
+      "owner": "worker",
+      "title": "Composition roots: real activities in the worker, app-side wiring, deploy e2e test",
+      "state": "integrated",
+      "branch": "ws/compose",
+      "notes": "Codex job",
+      "tests": "outside sandbox: tests/platform + tests/workflows 291 passed incl. deploy-e2e 9/9 on the Temporal test env",
+      "review": "orchestrator: merged; fixed stale aws-shared import, registerAwsDrivers; found plan-level approval seam (adapter predates approval rounds) -> WS-APPROVAL-FLOW; tests/docs claims stale until WS-DOCS-SYNC"
+    },
+    {
+      "id": "WS-MACH-ALIGN",
+      "title": "Align zenithd results with the TS machine contract; dispatcher, session provider, machine capabilities in execution",
+      "wave": 3,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-MACH",
+        "WS-GO",
+        "WS-RUNSRV",
+        "WS-ACT"
+      ],
+      "paths": [
+        "go/internal/machine/**",
+        "src/lib/machines/**",
+        "src/lib/execution/capability.ts",
+        "tests/machines/**",
+        "tests/runners/**",
+        "tests/execution/**"
+      ],
+      "branch": "ws/mach-align",
+      "tests": "go test ./... all packages pass on Windows (incl. probe fix); TS machines/runners/execution 1462 passed",
+      "review": "orchestrator: merged; target resolution strict; uncertain never retried; docs claim updated"
+    },
+    {
+      "id": "WS-TOFU-SEC",
+      "title": "Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard",
+      "wave": 4,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-TOFU"
+      ],
+      "paths": [
+        "src/lib/tofu/**",
+        "tests/tofu/**"
+      ],
+      "branch": "ws/tofu-sec",
+      "notes": "SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive).",
+      "commit": "5a8f0bb",
+      "tests": "outside sandbox with real tofu: tofu/providers/execution/security/acceptance/docs 3873 passed after fixes; differential scanner-vs-tofu test ran",
+      "review": "orchestrator: SEC F5/F4 pins flipped to it(); GCP escaped-literal test corrected; found+fixed AWS-INTEGRATE regression (cache connect grant now AWS-only; OCI refused unmapped redis grant); OCI bootstrap validate runs tofu directly (native HCL is not a workspace)"
+    },
+    {
+      "id": "WS-REF",
+      "title": "Execution compile resolves cross-node refs the way drivers publish them (AWS locals, OCI primary address)",
+      "wave": 3,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-ACT",
+        "WS-AWS-INTEGRATE"
+      ],
+      "paths": [
+        "src/lib/execution/compile.ts",
+        "src/lib/drivers/refs.ts",
+        "tests/execution/compile-refs*"
+      ],
+      "branch": "ws/ref",
+      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex \u2014 blocks any real AWS deploy with a load balancer",
+      "tests": "real tofu outside sandbox: compile-refs-providers 18/18 (AWS/OCI/GCP expanded graphs through the execution path validate); execution+providers sweep 5877 passed",
+      "review": "orchestrator: resumed 3x with approvals (two-phase refs, GCP read_credentials, shared GCP network-of)"
+    },
+    {
+      "id": "WS-APPWIRE",
+      "title": "Bearer access to platform REST, waitlist gate for bearer, SEC-R2, policy bundle shipping",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/appwire",
+      "deps": [],
+      "paths": [],
+      "tests": "server/middleware/capabilities/agent-v3/security 674 passed",
+      "review": "orchestrator: completed SEC-R2 centrally in errors.ts (safeRequestError for every errorResponse); DEPLOYING gaps rewritten as closed"
+    },
+    {
+      "id": "WS-PLACE-WIRE",
+      "title": "provider:auto \u2014 placement recommendation via REST, action, MCP tool and page",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/place-wire",
+      "deps": [],
+      "paths": [],
+      "tests": "placement/agent-v3/actions 701 passed; merge fixes for APPWIRE route() shape and bearer path table",
+      "review": "orchestrator: placement.apply left for people; V2 save pending WS-MANIFEST-V2"
+    },
+    {
+      "id": "WS-CLI",
+      "title": "zenith CLI over the SDK and MCP v3",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/cli",
+      "deps": [],
+      "paths": [],
+      "tests": "tests/cli 215 passed; zenith --help smoke",
+      "review": "orchestrator: added package.json bin + cli script; bin.ts executable"
+    },
+    {
+      "id": "WS-UI-WIRE",
+      "title": "Platform pages wired to REST; resource/drift read routes",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/ui-wire",
+      "deps": [],
+      "paths": [],
+      "tests": "platform-ui/screens/capabilities 1049 passed (worker); broad sweep 6835 passed",
+      "review": "orchestrator: merged; plan-bound approval disabled until WS-APPROVAL-FLOW exposes the gated plan"
+    },
+    {
+      "id": "WS-K8S-CONTRACT",
+      "title": "K8s apply accepts ResourceQuota/LimitRange/HTTPRoute; namespace spec field; zenith native-type row",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/k8s-contract",
+      "deps": [],
+      "paths": [],
+      "tests": "1061 passed (worker); integration broad sweep 6455 passed / 0 failed incl. real tofu",
+      "review": "orchestrator: merged; capability matrix regenerated"
+    },
+    {
+      "id": "WS-DB-LEDGER",
+      "title": "Ledger edges (suspend for approval, plan digest, policy decision, cancel running); no raw SQL in execution",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/db-ledger",
+      "deps": [],
+      "paths": [],
+      "tests": "controlplane/execution/capabilities/docs/ci/agent-v3/bridge 1396+ passed; emit-sql --check current; real-Postgres lane NOT run (Docker down)",
+      "review": "orchestrator: merged; migration 4 reviewed (per-round approver uniqueness, history kept); DEPLOYING migration count updated; WS-CAP denyOperation wiring left as follow-up"
+    },
+    {
+      "id": "WS-SEC-POLICY",
+      "title": "Fix SEC-F8, SEC-F10, SEC-F1",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/sec-policy",
+      "deps": [],
+      "paths": [],
+      "tests": "policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850\u2026); security/policy/credentials/agent-access/capabilities 1092 passed",
+      "review": "orchestrator: rebuilt bundle; removed F1/F10 characterisation tests per the suite procedure"
+    },
+    {
+      "id": "WS-SEC-LEAKS",
+      "title": "Fix SEC-R1, SEC-F11, SEC-F12, SEC-F13",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/sec-leaks",
+      "deps": [],
+      "paths": [],
+      "tests": "outside sandbox incl. real Temporal: security/actions/observability/workflows/reconcile/bridge/agent-v3/execution/docs 2072 passed",
+      "review": "orchestrator: merged; each fix mutation-checked by the worker; operations.getForSystem added to the reviewed SQL-scoping exemptions with a caller-pin test (execution worker only)"
+    },
+    {
+      "id": "WS-GO-OCI",
+      "title": "oci.http runner job kind in Go",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "branch": "ws/go-oci",
+      "deps": [],
+      "paths": [],
+      "tests": "go test ./... all packages pass (oci, runner, kinds); runners/oci/machines 1198 passed",
+      "review": "orchestrator: wired NewOCI in executor (opt-in), dispatch defaults, OCI protocol doc/test updated"
+    },
+    {
+      "id": "WS-TOFU-2",
+      "title": "SEC-F2/F3/F6/F7 + GCS/azurerm/OCI state backends",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/tofu-2",
+      "tests": "real tofu outside sandbox: tofu+gcp+env security 875 passed",
+      "review": "orchestrator: fixed operator proxy allowlist (lowercase names) caught by the GCP offline plan; compile.ts backendFor delegation pending WS-REF merge"
+    },
+    {
+      "id": "WS-APPROVAL-FLOW",
+      "title": "Plan-level approval gate end to end; reviewable gated plan",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/approval-flow",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-MANIFEST-V2",
+      "title": "Product store accepts Manifest V2 (placement, release, provider tuning)",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/manifest-v2",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-DRIVER-FIX",
+      "title": "Driver declaration mismatches; EventBridge/CloudFront reads",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/driver-fix",
+      "tests": "aws/oci/credentials/bootstrap/matrix 1674 passed; matrix --strict 0 problems",
+      "review": "orchestrator: added cloudfront:GetDistribution to broker read actions and bootstrap observe policy (events:List* already present); regenerated tofu bootstrap policies"
+    },
+    {
+      "id": "WS-DOCS-SYNC",
+      "title": "Operator docs and drift tests match what is wired",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/docs-sync",
+      "tests": "tests/docs 93 passed after merge",
+      "review": "orchestrator: merged; SEC-F9 docs/test updated to closed; acceptance F/H/I diagnostics and worker default identity noted"
+    },
+    {
+      "id": "WS-DESTROY",
+      "title": "Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-SECRET-SYNC",
+      "title": "Secret values delivered to cloud secret stores under brokered secret.write; vault:generated",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/secret-sync",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-OBS-WIRE",
+      "title": "Credential broker + incident investigator registered in the app; observability for all providers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/obs-wire",
+      "tests": "observability/incidents/platform/agent-v3/docs 909 passed",
+      "review": "orchestrator: merged; OCI reads pending OCI sessions + operation-less runner read jobs (follow-up)"
+    },
+    {
+      "id": "WS-OPS",
+      "title": "Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/ops",
+      "tests": "server/workers/controlplane/sql-scoping/runners 607 passed",
+      "review": "orchestrator: moved locked prune SQL into repos; fixed worker default identity (colons rejected by runtime) + startup validation; docs"
+    },
+    {
+      "id": "WS-CI-2",
+      "title": "CI covers every suite and gate; Node engines pin (SEC-F9)",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/ci-2",
+      "tests": "tests/ci + runtime-sanity + matrix 231 passed",
+      "review": "orchestrator: set package.json/lock engines >=22.16 <23 (SEC-F9 closed)"
+    },
+    {
+      "id": "WS-AZURE-MORE",
+      "title": "Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/azure-more",
+      "tests": "azure 366 passed incl. real tofu validate (azurerm 5.7.0) outside sandbox",
+      "review": "orchestrator: fixed VM NSG inline security_rule attributes (caught only by real tofu validate); MySQL create refused pending ephemeral resources; Function/SWA/AKS via ARM template deployments"
+    },
+    {
+      "id": "WS-AWS-MORE",
+      "title": "AWS SNS topic, EBS volume, EKS cluster drivers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-more",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-K8S-IDENTITY",
+      "title": "Kubernetes grants to RBAC and cloud workload identity",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/k8s-identity",
+      "tests": "kubernetes+zenith 680 passed (worker); docs+k8s sweep 805 passed",
+      "review": "orchestrator: merged; cloud-side trust (IRSA trust policy, GKE WI binding, AKS federated credential) -> follow-up job"
+    },
+    {
+      "id": "WS-MACH-CLOUDS",
+      "title": "Azure Run Command and GCP OS management machine transports",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/mach-clouds",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-BUILD-MULTI",
+      "title": "GCP Cloud Build and Azure ACR release ports (digest-pinned rollout)",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-multi",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-ZM-TLS",
+      "title": "Managed hosting TLS: per-environment certificates and Gateway listeners",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/zm-tls",
+      "tests": "zenith+kubernetes+platform 769 passed",
+      "review": "orchestrator: merged; teardownZenithTls to be called by the destroy path (WS-DESTROY)"
+    },
+    {
+      "id": "WS-OCI-MORE",
+      "title": "OCI OKE, MySQL DB system and compute instance drivers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-DRIVER-FIX"
+      ],
+      "paths": [],
+      "branch": "ws/oci-more",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-INTEGRATE-W6",
+      "title": "Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden)",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/integrate-w6",
+      "review": "2026-10-01 20:40 IST: staging merged into platform/integration after the final gate (tsc, eslint, gofmt/vet/test, policy 213, emit-sql, matrix --strict, AWS policy templates, full vitest with real OpenTofu + Temporal time-skipping: 15219 passed, 1 flaky test fixed and re-run 8/8)"
+    },
+    {
+      "id": "WS-TRUST-WIRE",
+      "title": "Cloud-side workload identity trust (IRSA/GKE WI/AKS federated) + non-AWS connection verification",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-K8S-IDENTITY"
+      ],
+      "paths": [],
+      "branch": "ws/trust-wire",
+      "tests": "azure+aws/gcp identity+credentials 431 passed incl. real tofu validate; kubernetes/platform/docs 586+89 passed",
+      "review": "orchestrator: fixed AKS federated credential for azurerm 5.x (caught by real tofu validate); docs claims updated; zenith callers must forward full graph to trust (follow-up)"
+    },
+    {
+      "id": "WS-FIX-JOURNEY",
+      "title": "Staging fix: the real-OpenTofu deploy journey test vs immutable plan binding",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-journey",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: re-ran the real-OpenTofu journey outside the sandbox"
+    },
+    {
+      "id": "WS-FIX-CREDS",
+      "title": "Staging fix: credential purpose type after secret.write",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-creds",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-FIX-CI",
+      "title": "Staging fix: CI coverage of network-gated suites",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-ci",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-DESTROY-PROPOSE",
+      "title": "Teardown from the product: action, trusted destroy proposal, workflow start",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy-propose",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: removed the interim C1 ambient .d.ts stubs that shadowed the real teardown modules (tsc 5 -> 0)"
+    },
+    {
+      "id": "WS-DESTROY-GUARDS",
+      "title": "Deletion guards when a deploy drops resources from the manifest",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy-guards",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: a moved final re-plan now reports plan_changed before deletion guards run (caught by the real-OpenTofu journey)"
+    },
+    {
+      "id": "WS-DESTROY-K8S",
+      "title": "Kubernetes environment teardown (C1)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy-k8s",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-DESTROY-UI",
+      "title": "Teardown control on the platform environment pages",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy-ui",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-BUILD-SOURCE",
+      "title": "Source bundles from the product's git source (C3)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-source",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-BUILD-GCP",
+      "title": "GCP: built workloads deploy by digest; no compile-time digest needed",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-gcp",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-BUILD-AZURE",
+      "title": "Azure: built workloads deploy by digest; no :latest",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-azure",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-ZM-TEARDOWN",
+      "title": "Zenith-managed environment teardown (C1)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/zm-teardown",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-ZM-WIRE",
+      "title": "Zenith-managed: Neon credential sink and full-graph identity trust",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/zm-wire",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-OCI-READJOBS",
+      "title": "Runner read jobs without an operation (C4)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/oci-readjobs",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: read-job events carry no operation id; the reaper skips operation-less jobs"
+    },
+    {
+      "id": "WS-OCI-SESSIONS",
+      "title": "OCI platform sessions and real OCI log/metric reads",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/oci-sessions",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: wired the OCI session into agent reads; aligned the loggingsearch service id; LQL suffix, capability split and MQL binding handed to WS-OCI-SIGNALS-WIRE"
+    },
+    {
+      "id": "WS-OCI-GO",
+      "title": "OCI allowlist + Go runner rules for Logging Search and Monitoring",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/oci-go",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: read-only POSTs (Logging Search, summarizeMetricsData) exempt from the retry-token rule; go test run outside the sandbox"
+    },
+    {
+      "id": "WS-EPHEMERAL",
+      "title": "Ephemeral values: passwords never in state; enable MySQL create (C5)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/ephemeral",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: real OpenTofu found two test mismatches, handed to WS-FIX-EPHEMERAL-REAL / WS-FIX-OCI-MYSQL-REAL"
+    },
+    {
+      "id": "WS-TEMPORAL-CODEC",
+      "title": "Encrypt Temporal workflow payloads",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/temporal-codec",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-MCP-OAUTH",
+      "title": "OAuth protected-resource discovery for MCP v3",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/mcp-oauth",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: restored the resourceFor import (MCP 500); route test expects the path-scoped protected-resource URL"
+    },
+    {
+      "id": "WS-AWS-EKS-READS",
+      "title": "AWS EKS observe/verify/runtime with @aws-sdk/client-eks",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-eks-reads",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-AWS-SNS-READS",
+      "title": "AWS SNS observe/verify with @aws-sdk/client-sns",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-sns-reads",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-POLICY-DELETE",
+      "title": "destructive plan facts reach policy; deletions always need a human",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/policy-delete",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: rebuilt the OPA bundle (opa 1.19.1, 213/213 Rego tests); dropped an obsolete comment"
+    },
+    {
+      "id": "WS-FIX-EPHEMERAL-REAL",
+      "title": "make the real-OpenTofu ephemeral test agree with OpenTofu 1.12.5",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-ephemeral-real",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: real OpenTofu 49/49 after allowing the dependency address in raw state"
+    },
+    {
+      "id": "WS-FIX-OCI-MYSQL-REAL",
+      "title": "OCI MySQL write-only password vs the real oracle/oci 9.7.1 schema",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-oci-mysql-real",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: real OpenTofu 9/9 after initializing the backend for providers schema"
+    },
+    {
+      "id": "WS-BUILD-AWS-SOURCE",
+      "title": "AWS CodeBuild consumes the C3 source bundles",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-aws-source",
+      "tests": "source-bundle/codebuild/credentials 736 passed (job); staging re-run green",
+      "review": "orchestrator: resumed after a model-capacity error; IAM boundary gap handed to WS-AWS-BUILD-BOUNDARY"
+    },
+    {
+      "id": "WS-OCI-SIGNALS-WIRE",
+      "title": "make OCI log/metric reads work end to end through the runner",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/oci-signals-wire",
+      "tests": "OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox)",
+      "review": "orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards"
+    },
+    {
+      "id": "WS-AWS-BUILD-BOUNDARY",
+      "title": "Workload permissions boundary lets build roles (only) push images and publish sites",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-build-boundary",
+      "tests": "AWS + credentials 1631 passed with real OpenTofu (orchestrator)",
+      "review": "orchestrator: reviewed principal-conditioned statements; fixture name prefix aligned with production zenith-; scheduled-job and EC2 SSM gaps handed to WS-AWS-BOUNDARY-MORE"
+    },
+    {
+      "id": "WS-DOCS-SYNC-2",
+      "title": "Operator docs tell the truth about wave 7",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/docs-sync-2",
+      "tests": "tests/docs 106 passed (job); staging docs+ci 330 passed",
+      "review": "orchestrator: merged; its open-gap list seeded wave 8"
+    },
+    {
+      "id": "WS-AWS-BOUNDARY-MORE",
+      "title": "Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-AWS-BUILD-BOUNDARY"
+      ],
+      "paths": [],
+      "branch": "ws/aws-boundary-more",
+      "tests": "credentials + AWS 1691 passed with real OpenTofu; tsc 0 (orchestrator)",
+      "review": "orchestrator: merged; size headroom 161 chars (GovCloud) and remaining blocked families handed to WS-AWS-BOUNDARY-SPLIT"
+    },
+    {
+      "id": "WS-DESTROY-REVIEW",
+      "title": "a first, read-only destroy review anyone authorized can start",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy-review",
+      "tests": "Independent typecheck/lint and 983 passed,0 failed,1 skipped, including disposable Temporal review workflow. Go formatting/vet/tests with real OpenTofu passed. Local kind provider6/6 and release1/1 passed.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "58843d5",
+      "notes": "Atomic cancellation only accepts awaiting_approval; already-approved proposals and immutable approval digests survive refresh."
+    },
+    {
+      "id": "WS-AZURE-SOURCE-WIRE",
+      "title": "default composition builds Azure workloads from C3 source bundles",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/azure-source-wire",
+      "tests": "Independent typecheck/lint and 904 passed,0 failed,1 skipped. Go formatting/vet/tests with real OpenTofu passed. Local kind provider6/6 and release1/1 passed.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "a83cdbe",
+      "notes": "Trusted tenant storage bindings, Storage audience, exact Blob host policy and redirect refusal; no live Azure acceptance."
+    },
+    {
+      "id": "WS-RELEASE-K8S",
+      "title": "release ports for Kubernetes environments (image rollout + migration jobs)",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/release-k8s",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge 7eee16e; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "bdb4762"
+    },
+    {
+      "id": "WS-RELEASE-OCI",
+      "title": "release ports for OCI environments (container image rollout + migrations through the runner)",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/release-oci",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge 0078228; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "72046a4"
+    },
+    {
+      "id": "WS-DNS-GUARDS-CLOUDS",
+      "title": "DNS deletion target-ownership guards for GCP, Azure and OCI",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/dns-guards-clouds",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge fef65c5; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "7f8e64c"
+    },
+    {
+      "id": "WS-IMAGE-PINS",
+      "title": "every build/tool image Zenith runs is digest-pinned, with a guard",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/image-pins",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge f8ab8f8; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "2e4d351"
+    },
+    {
+      "id": "WS-VAULT-REWRAP",
+      "title": "product-vault key rotation: re-wrap tooling and runbook",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/vault-rewrap",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge 1b9198c; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "3ad2661"
+    },
+    {
+      "id": "WS-TEMPORAL-MTLS",
+      "title": "Temporal client/worker mTLS configuration",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/temporal-mtls",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge f83abf9; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "2e93617"
+    },
+    {
+      "id": "WS-MACHINE-PORT",
+      "title": "default composition supplies the machine port",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/machine-port",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge 21e65f2; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "b5254a7"
+    },
+    {
+      "id": "WS-GITHUB-SOURCE",
+      "title": "tenant-scoped GitHub App connector for private source repositories",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/github-source",
+      "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
+      "review": "Historical checkpoint merge 27af346; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "5a0dfa4"
+    },
+    {
+      "id": "WS-AWS-BOUNDARY-SPLIT",
+      "title": "One permissions boundary per AWS role family, so every Zenith role can do its job",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-AWS-BOUNDARY-MORE"
+      ],
+      "paths": [],
+      "branch": "ws/aws-boundary-split",
+      "tests": "Independent typecheck/lint and 1728 passed,0 failed,0 skipped. Go formatting/vet/tests with real OpenTofu passed; generated templates unchanged. Local kind provider6/6 and release1/1 passed.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "8421fae",
+      "notes": "Six family boundaries; own-family coverage and cross-family principal denial. Largest rendered legacy boundary6136 and deploy policy5951 characters in GovCloud, below6144."
+    },
+    {
+      "id": "WS-GATE-W8",
+      "title": "Repair checkpoint dependency and verification defects",
+      "wave": 8,
+      "owner": "worker",
+      "state": "integrated",
+      "deps": [],
+      "branch": "ws/gate-fixes",
+      "paths": [
+        "package-lock.json",
+        "src/lib/observability/redact.ts",
+        "src/app/api/platform/v1/_lib/bearer-paths.ts"
+      ],
+      "tests": "Independent targeted checks:104 passed,0 failed,0 skipped; typecheck,eslint,gofmt,go vet and go test passed. OPA213/213 on baseline.",
+      "commit": "007716e,641c989,d0137d6",
+      "review": "Orchestrator maintains verification evidence. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "notes": "Baseline full suite:15636 passed,2 failed,208 skipped plus a Temporal hook timeout. Both code defects fixed;14 deployment cases pass after cold test-server download. Final full gate passed on 2026-10-02: 15,854 passed, 0 failed, 194 skipped; both fresh local kind suites passed."
+    },
+    {
+      "id": "WS-GITHUB-MIGRATION",
+      "title": "Integrate GitHub source schema as platform migration 6",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-GITHUB-SOURCE"
+      ],
+      "branch": "ws/github-migration",
+      "paths": [
+        "src/lib/controlplane/db/migrations",
+        "src/lib/sources/github",
+        "supabase/migrations/0014_platform_core.sql",
+        "src/app/(product)/platform/layout.tsx"
+      ],
+      "tests": "Independent broad lane943 passed,1 stale migration assertion failed,17 skipped. Corrected assertion rerun22/22; final migration/source/docs lane148 passed,0 failed,14 skipped. Typecheck/lint, Go with real OpenTofu and emitted SQL check passed.",
+      "commit": "c1bfcf4",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "notes": "Immutable additive migration6; manual installations and migration1-5 checksums preserved; browser navigation link added."
+    },
+    {
+      "id": "WS-MACHINE-DOCS",
+      "title": "Correct default machine-port documentation",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-MACHINE-PORT"
+      ],
+      "branch": "ws/machine-docs",
+      "paths": [
+        "docs/platform/operations/README.md",
+        "docs/platform/operations/AWS-SETUP.md"
+      ],
+      "tests": "Independent typecheck/lint/docs56 passed,0 failed,0 skipped. Go formatting/vet/tests with real OpenTofu passed after scratch-path repair.",
+      "commit": "84ea407",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "notes": "Default AWS/Azure/GCP/zenithd transports documented with provider-specific execution limits."
+    },
+    {
+      "id": "WS-OCI-CLEANUP",
+      "title": "Bind created OCI migration instances and clean up finished jobs",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-RELEASE-OCI"
+      ],
+      "branch": "ws/oci-cleanup",
+      "paths": [
+        "go/internal/runner/kinds/ocihttp.go",
+        "go/internal/oci",
+        "src/lib/providers/oci/release",
+        "src/lib/providers/oci/allowlist.ts"
+      ],
+      "tests": "Independent typecheck/lint and OCI/provider contracts693 passed,0 failed,0 skipped. Go formatting/vet/tests with real OpenTofu passed. Targeted Go race lane8 top-level and18 subtests passed.",
+      "commit": "898b61c",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "notes": "Runner-created compartment bindings and durable job-scoped receipts. Finished migrations request narrow cleanup; lost create responses remain unknown without relaunch. No live OCI acceptance."
+    },
+    {
+      "id": "WS-GO-TEMP",
+      "title": "Keep OpenTofu provider scratch paths short and private",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [],
+      "paths": [
+        "go/internal/runner/kinds/tofu.go",
+        "go/internal/runner/kinds/tofu_test.go"
+      ],
+      "branch": "ws/gate-runtime",
+      "tests": "Independent typecheck, full eslint, gofmt, Go vet passed; Go218 top-level +521 subtests passed (3 Linux-only tests skipped,6 packages without tests). Both real OpenTofu tests passed. TS runtime/teardown lane335 passed with1 unrelated runner membership assertion failure under separate repair.",
+      "review": "Source reviewed and independently checked before merge ca7a84e into staging. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "d043460"
+    },
+    {
+      "id": "WS-KIND-GATE",
+      "title": "Repair real Kubernetes apply and acceptance checks",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [],
+      "paths": [
+        "src/lib/providers/kubernetes",
+        "tests/providers/kubernetes"
+      ],
+      "branch": "ws/kind-gates",
+      "tests": "Independent386 Kubernetes contract tests passed; local kind provider6/6 and release1/1 passed,0 failures/skips. Typecheck,eslint,gofmt and real Go checks passed.",
+      "review": "Reviewed and merged fc6e538 after independent real local cluster checks. Final fresh-cluster gate remains pending. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "359bb92"
+    },
+    {
+      "id": "WS-RUNNER-CONTRACT",
+      "title": "Make operation job membership checks independent of timestamp ties",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [],
+      "paths": [
+        "tests/runners/store-contract.test.ts"
+      ],
+      "branch": "ws/runner-contract",
+      "tests": "Independent44 passed,0 failed/skipped; typecheck,eslint,gofmt,Go vet/test with real OpenTofu passed.",
+      "review": "Reviewed and merged after independent verification. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "36aa390"
+    },
+    {
+      "id": "WS-FINAL-DEPLOY-GATE",
+      "title": "Refresh composed AWS fixtures and bound database setup hooks",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-AWS-BOUNDARY-SPLIT",
+        "WS-GITHUB-MIGRATION"
+      ],
+      "paths": [
+        "tests/platform/aws-cloud.ts",
+        "tests/platform/deploy-e2e.test.ts",
+        "vitest.config.ts"
+      ],
+      "branch": "ws/final-deploy-gate",
+      "tests": "Independent typecheck/lint and7 affected suites115 passed,0 failed,1 skipped. Go formatting/vet/tests with real OpenTofu passed. Worker4-suite42/42 result independently broadened before merge.",
+      "review": "Orchestrator reviewed and merged b9baf61 after independent verification. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "d8b18d6,924e4f0",
+      "notes": "Shared fixture uses app-family boundary and matching role names;2 regressions preserve refusal of legacy/build boundaries. Hook budget60s; functional20s and lease safety/performance limits unchanged."
+    },
+    {
+      "id": "WS-FINAL-ROLLOUT-GATE",
+      "title": "Make rollout polling evidence independent of setup timing",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-KIND-GATE"
+      ],
+      "paths": [
+        "tests/providers/kubernetes/rollout.test.ts"
+      ],
+      "branch": "ws/kind-gates",
+      "tests": "Independent typecheck/lint, rollout22 passed,0 failed/skipped, Go formatting/vet/tests with real OpenTofu passed; both local kind suites provider6/6 and release1/1 passed before merge.",
+      "review": "Orchestrator merged7b17a19 after independent checks, then deleted disposable zenith-w8-rollout cluster. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "commit": "643708c"
+    },
+    {
+      "id": "WS-NODE-RUNTIME",
+      "title": "Align Node minimum, CI and worker base with locked dependencies",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-GATE-W8"
+      ],
+      "paths": [
+        "package.json",
+        "package-lock.json",
+        ".github/workflows",
+        "docker/worker.Dockerfile",
+        "tests/server/appwire-policy-bundle.test.ts",
+        "tests/ci/release-gates.test.ts",
+        "tests/security/runtime-sanity.test.ts",
+        "docs/platform/THREAT-MODEL.md",
+        "docs/platform/operations/DEPLOYING.md"
+      ],
+      "branch": "ws/node-runtime",
+      "tests": "127 passed, 0 failed, 0 skipped in 4 focused suites; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips. Local ARM64 Docker build passed; Node version, UID 10001, policy hash and OpenTofu CLI probes passed.",
+      "review": "Orchestrator independently verified install, typecheck, lint, 127 tests, Go and real OpenTofu, ARM64 image build and isolated CLI probes; merged 3f1213d. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "notes": "Node metadata and 15 CI pins: b2f316d. Worker image packaging and build-layout regression: 2a65956. Node minimum >=22.22.2 <23; exact patch 22.23.3. Dependency versions and integrities unchanged. Image ce29c543b822 uses verified base index 43ac6c60. No worker/server startup; AMD64 image, Temporal polling and cloud transports remain unverified. Legacy setup/doctor and separate hosted SQLite/recipe admission are follow-ups.",
+      "commit": "2a65956"
+    },
+    {
+      "id": "WS-FINAL-UI-GATE",
+      "title": "Verify persisted teardown review in environment page wiring",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "integrated",
+      "deps": [
+        "WS-DESTROY-REVIEW"
+      ],
+      "paths": [
+        "tests/platform-ui/teardown-page.test.tsx"
+      ],
+      "branch": "ws/final-ui-gate",
+      "commit": "a4fc524",
+      "tests": "Independent typecheck, lint and 53 passed, 0 failed, 0 skipped in 3 adjacent UI suites. Go formatting/vet/tests with real OpenTofu passed: 226 top-level tests plus 539 subtests, 3 Linux-only skips.",
+      "review": "Orchestrator reviewed and independently verified; merged b9e1b2f. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
+      "notes": "The full gate exposed an outdated expectation of no initial request. Page wiring now asserts the persisted read-only review GET, exact environment/workspace/browser context, plan target and typed-name gate. Production code is unchanged."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B-AWS-LIVE",
+      "what": "No AWS sandbox account credentials on this machine",
+      "blocks": "live AWS acceptance (Demos A-F on real AWS)",
+      "workaround": "mocked-SDK contract tests + live harness scripts/acceptance/aws-live (LocalStack on hold per user, 2026-09-30)"
+    },
+    {
+      "id": "B-GCP-AZ-OCI-LIVE",
+      "what": "No GCP / Azure / OCI accounts",
+      "blocks": "live verification of those providers",
+      "workaround": "contract tests with recorded HTTP; live harness"
+    },
+    {
+      "id": "B-TEMPORAL-CLOUD",
+      "what": "No Temporal Cloud namespace",
+      "blocks": "production workflow hosting",
+      "workaround": "temporal server start-dev locally and in CI"
+    }
+  ],
+  "decisions": [
+    {
+      "date": "2026-09-30",
+      "decision": "LocalStack on hold per user; no new LocalStack code/tests; existing provider untouched"
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Claude session limit interrupted all Sonnet workers (reset 00:20 IST); all 19 resumed from partial worktree state at 13:01 IST. A peer session proposed Codex CLI as the build lane; kept Sonnet per the user instruction, Codex held as fallback if the limit recurs."
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "User: switch all agents to Codex CLI gpt-6.1-sol at xhigh reasoning; workstreams >80% done finish on Sonnet. Codex jobs run headless with workspace-write (no .git writes: orchestrator verifies and commits)."
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Resumed build on Saivedant Hava's Mac. User requires gpt-6.1-sol high workers and Saivedant author/committer identity. Full-suite concurrency was reduced to one after this 8 GB Mac exceeded 4 GB swap. Coverage and functional/security deadlines were preserved."
+    }
+  ],
+  "verification": [
+    {
+      "date": "2026-10-01T13:45+05:30",
+      "head": "2fc0198",
+      "result": "full suite 10811 passed / 5 failed / 222 skipped (559 files) under heavy machine load; all 5 failing files pass in isolation (131/131)",
+      "loadSensitive": [
+        "tests/capabilities/platform.test.ts",
+        "tests/machines/ssm-transport.test.ts (real sh)",
+        "tests/providers/kubernetes/rollout.test.ts",
+        "tests/workflows/operations.test.ts",
+        "tests/workflows/replay.test.ts"
+      ]
+    },
+    {
+      "date": "2026-10-02",
+      "head": "b9e1b2fc54a77b2346e0ff6a9f7589267a6afb2e",
+      "result": "Final full gate passed: Vitest 15,854 passed, 0 failed, 194 skipped across 788 files; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; typecheck/lint/formatting and SQL/matrix/18 policy templates clean. Fresh local kind provider 6/6 and release 1/1, no failures/skips; cluster and kubeconfig deleted.",
+      "evidence": "docs/build/verification/2026-10-02-wave8.md",
+      "classification": "Local macOS, ARM64 worker image and disposable kind cluster evidence; no live-cloud acceptance.",
+      "integrationMerge": "7bd6798f4058cd2c9af57e80fa4c4090f05d1420",
+      "documentation": "109 passed, 0 failed, 0 skipped in 4 documentation suites; ledger render/check and diff check passed."
+    }
+  ]
+}

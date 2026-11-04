@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+  "scope": "Combined source, local Darwin ARM64 compiler/lint/build. No default API/server startup or native worker architecture proof.",
+  "observedBy": "root",
+  "checks": [
+    {
+      "name": "typecheck",
+      "exit": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "whole_eslint",
+      "exit": 0,
+      "errors": 0,
+      "warnings": 3,
+      "warningScope": "unchanged copied upstream sprintf source",
+      "logSha256": "b167f348ed0da0df4f45583ecfbdf8ab76d08270e0ade0aef4175337458f3a14"
+    },
+    {
+      "name": "next_build",
+      "exit": 0,
+      "version": "15.5.24",
+      "buildWorkers": 1,
+      "maxOldSpaceSizeMiB": 4096,
+      "logSha256": "a3c8c870d4e99c3ebcb5591c710db308ce174b2ad108ff6bc0ba4e9d22d4658f"
+    }
+  ],
+  "staticBundlingReadback": {
+    "patchedFormatterChunks": [
+      ".next/server/chunks/5451.js",
+      ".next/server/chunks/8218.js"
+    ],
+    "yamlAlias": "installed authentic yaml1.10.3; bundled local import has no external alias require in these chunks",
+    "scope": "Static bundle inspection only; no server startup",
+    "initialInspection": "Expected standalone alias package directory was absent; corrected bundle inspection found local formatter/YAML wrappers bundled. This was an incorrect inspection assumption, not a failed build."
+  },
+  "freshCI": "pending",
+  "releasePromotion": false
+}

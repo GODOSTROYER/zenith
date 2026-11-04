@@ -1,0 +1,32 @@
+{
+  "acceptedRunReceipt": false,
+  "completed_files": [
+    {
+      "command_exit": 0,
+      "failed": 0,
+      "passed": 136,
+      "path": "tests/ci/release-gates.test.ts",
+      "skipped": 0
+    },
+    {
+      "command_exit": 0,
+      "failed": 0,
+      "passed": 198,
+      "path": "tests/ci/guest-file-write-gate.test.ts",
+      "skipped": 0
+    }
+  ],
+  "custody": "The two completed Vitest command records were joined and closed; no accepted run receipt was issued.",
+  "evidence_type": "focused-ci-partial-run-wrapper-refusal",
+  "failure_code": "vitest-report-command-failure-or-skip",
+  "interpretation": "No test assertion failure is reported for the two completed files. The wrapper refused because the focused selection was incomplete; do not treat these partial passes as full focused validation or acceptance.",
+  "not_run": [
+    "tests/ci/gate-manifest.test.ts",
+    "tests/ci/platform-coverage.test.ts",
+    "lint"
+  ],
+  "outcome": "wrapper-refused-incomplete-selection",
+  "receipt_sha256": "403f124e546a48334eabb1f08452d78c5c733a985e441c052f27e0ca7d5ac661",
+  "source_sha": "7bd4b85d39a73002906173942c622fdbb377ae20",
+  "tracked_source_freeze_sha256": "a066055728dc3d6d2e41b2312da6fcd58f83c1b9021dd87caf11e18fe0b4a404"
+}

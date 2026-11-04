@@ -1,0 +1,872 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-10T12:17:14.834335+00:00",
+  "integratedSource": "e8970f2510d617da825b6861e2c3b1023456e152",
+  "baseSource": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+  "scope": "Reviewed browser fixture repair and diagnostic-only Linux failure metadata; no product guard changes or production promotion. Browser runs use synthetic IdP, not default Supabase MFA.",
+  "agentBrowser": {
+    "commit": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+    "sourceFileSha256": "b3dab152bcced66c4124d17f32a7c2d107ef3ac9a4f42d0f83a730f63d2d0d00",
+    "tools": {
+      "node": "v22.23.3",
+      "playwrightCore": "1.56.1",
+      "chromium": "Chromium 141.0.7390.37",
+      "chromiumRevision": "1194",
+      "arch": "arm64"
+    },
+    "exitCode": 0,
+    "stoppedReason": null,
+    "elapsedSeconds": 40.01,
+    "diskGuard": {
+      "floorBytes": 23622320128,
+      "minFreeBytes": 398064435200,
+      "passed": true
+    },
+    "receipt": {
+      "gate": "agent-approval",
+      "steps": [
+        {
+          "viewport": "desktop 1280px",
+          "name": "signed out, the approval page redirects to /login",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "and the redirect carries the code, not only the path",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the screen shows the code the terminal is showing",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "it names what is being asked",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the client name is marked as unverified text a program supplied",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "it says approving is not deploying",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the workspace and the project are offered by name",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "read: on by default, and locked",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "plan: on by default",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "write: on by default",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "logs: off by default",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "export: off by default",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "publish: off by default",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the expiry defaults to 30 days",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the workspace picker is reachable from the keyboard and labelled",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "so is the project selection",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "and so are Approve and Deny",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the page does not scroll sideways",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "Approve confirms, and sends the person back to their terminal",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the terminal's poll completes with a credential",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "Deny is a real answer and the terminal is told which one",
+          "ok": true
+        },
+        {
+          "viewport": "desktop 1280px",
+          "name": "the screen logged no console errors",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "signed out, the approval page redirects to /login",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "and the redirect carries the code, not only the path",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the screen shows the code the terminal is showing",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "it names what is being asked",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the client name is marked as unverified text a program supplied",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "it says approving is not deploying",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the workspace and the project are offered by name",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "read: on by default, and locked",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "plan: on by default",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "write: on by default",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "logs: off by default",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "export: off by default",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "publish: off by default",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the expiry defaults to 30 days",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the workspace picker is reachable from the keyboard and labelled",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "so is the project selection",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "and so are Approve and Deny",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the page does not scroll sideways",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "Approve confirms, and sends the person back to their terminal",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the terminal's poll completes with a credential",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "Deny is a real answer and the terminal is told which one",
+          "ok": true
+        },
+        {
+          "viewport": "narrow 380px",
+          "name": "the screen logged no console errors",
+          "ok": true
+        }
+      ],
+      "passed": 44,
+      "failed": 0,
+      "total": 44,
+      "result": "pass"
+    },
+    "cleanup": {
+      ".data-agent-browser": "removed",
+      ".next": "removed"
+    }
+  },
+  "hostedBrowser": {
+    "commit": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+    "sourceSha256": "aae43cc3989efb6bc26878d92e07e0cae08985f364e694cea437d7552df07372",
+    "node": "v22.23.3",
+    "playwrightCore": "1.56.1",
+    "chromium": "Chromium 141.0.7390.37",
+    "architecture": "arm64",
+    "command": "node tsx scripts/hosted-browser.ts",
+    "exitCode": 0,
+    "timedOut": false,
+    "diskFloorExceeded": false,
+    "elapsedSeconds": 8.545,
+    "initialFreeBytes": 396545527808,
+    "minFreeBytes": 396502183936,
+    "diskFloorBytes": 23622320128,
+    "caseCount": 24,
+    "passed": 24,
+    "failed": 0,
+    "cases": [
+      {
+        "viewport": "desktop 1280px",
+        "case": "the __Host- session cookie is accepted on http://*.localhost",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "the built app renders on its own host",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "the page names the release that served it",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "Tab reaches the New request control",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "opening the form moves focus into it",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "Enter submits the form and the request is saved",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "the request is still there after a reload",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "a second identity changes the record through the broker",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "the conflict is shown rather than one edit overwriting the other",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "the draft that was refused is still in the field",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "the next navigation after a revocation is refused",
+        "ok": true
+      },
+      {
+        "viewport": "desktop 1280px",
+        "case": "no uncaught exception and no unexpected console error",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the __Host- session cookie is accepted on http://*.localhost",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the built app renders on its own host",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the page names the release that served it",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "Tab reaches the New request control",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "opening the form moves focus into it",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "Enter submits the form and the request is saved",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the request is still there after a reload",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "a second identity changes the record through the broker",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the conflict is shown rather than one edit overwriting the other",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the draft that was refused is still in the field",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "the next navigation after a revocation is refused",
+        "ok": true
+      },
+      {
+        "viewport": "mobile 375px",
+        "case": "no uncaught exception and no unexpected console error",
+        "ok": true
+      }
+    ],
+    "result": "pass",
+    "cleanup": {
+      "hostedDataAbsent": true,
+      "nextAbsent": true,
+      "nodeModulesLinkRemoved": true,
+      "preexistingGate12SummaryPreserved": true
+    }
+  },
+  "reconciliation": {
+    "source": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+    "command": "node scripts/ci/run-gate.mjs reconciliation --run",
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "architecture": "native Darwin ARM64 TemporalCLI1.9.1 plus Linux ARM64 PostgreSQL16.15",
+    "minimumFreeBytes": 398889807872,
+    "diskFloorBytes": 23622320128,
+    "cleanup": "exact owned PostgreSQL container and private credentials removed",
+    "cases": [
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable reconciliation scalar boundary narrows resource pressure with explicit bounded integers",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable reconciliation scalar boundary refuses accessors and serialization hooks without evaluating them",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable reconciliation scalar boundary refuses a cross-realm plain record at the strict caller boundary",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable reconciliation scalar boundary defines finite no-retry passes, SKIP overlap and bounded catchup",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable reconciliation scalar boundary rejects a forged ready capability before talking to Temporal",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service creates one compatible schedule, provisions concurrently and preserves an operator pause",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service refuses changed configuration and foreign ownership without updating the existing action",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service a real concurrent operator pause invalidates activation CAS and is preserved",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service refuses absent prerequisites and a production PGlite store before schedule creation",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service proves SKIP overlap while the first scheduled activity is actually held",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service the global database lease refuses a direct concurrent sweep despite distinct workflow IDs",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service the valid sweep-v1 environment retains its distinct lease while the global sweep runs",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service keeps durable minute scheduling active after an actual database statement failure and recovers",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service preserves the schedule and queued execution through an actual server process restart",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service a completed pass replays after a worker restart without rerunning its SQL activity",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service cancellation reaches a held controller read, releases the global lease and runs no compensation",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service claims a bounded fair SQL batch and leaves unvisited environments due for the next pass",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service checks every authority-bearing schedule field on a genuine describe result",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workflows/reconcile-schedule.test.ts",
+        "name": "durable schedule on an actual isolated Temporal service refuses persisted raw versioning and workflow-ID policies that SDK decoding omits",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models rechecks result freshness after an awaited read: 'crossed boundary'",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models rechecks result freshness after an awaited read: 'still fresh'",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models requires explicit permission and bounded resource configuration",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models keeps arbitrary queue parsing but refuses a worker unable to serve the fixed sweep",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models retains the four-check health shape for old callers, but supplied reconciliation cannot be omitted",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models observes both current poller kinds and refuses a non-running worker before service queries",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "reconciliation composition contract models stale, foreign, malformed or workflow-only records never confirm current polling",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal refuses actual PGlite, closes a refused handle, and does not inherit a global broker ready flag",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal confirms its real configured namespace, closes its client, and refuses an unavailable namespace",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal owning PostgreSQL canonical broker with modeled current product membership: unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal owning PostgreSQL canonical broker with modeled current product membership: demoted",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal owning PostgreSQL canonical broker with modeled current product membership: cancelled",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal polls the full default activity set before provisioning and observes encrypted real SQL results",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal preserves operator pause and refuses incompatible ownership/routing in both permission modes",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal a held actual fleet lease reports busy and cannot advertise successful observation",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal bounded real PostgreSQL lock outage defers a pass and the unpaused schedule recovers",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal pre-acquisition cancellation during an observed schema prerequisite waiter starts no compensation",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal default controller cancellation after an observed post-acquisition SQL waiter releases its exact live fleet lease",
+        "status": "passed"
+      },
+      {
+        "file": "tests/workers/reconcile-composition.test.ts",
+        "name": "actual default activity composition: PostgreSQL and owned durable Temporal a canonical eligible empty graph completes in SQL, then owned worker restart services the same schedule",
+        "status": "passed"
+      }
+    ],
+    "canonicalExecutionReceiptSha256": "5ace445e24fac5862e4cd92ba406f99909e1b768b08797cfa63ae0755bddb1fe"
+  },
+  "integratedChecks": {
+    "typecheck": {
+      "exitCode": 0,
+      "heapMiB": 5120
+    },
+    "lint": {
+      "exitCode": 0
+    },
+    "sys1Contracts": {
+      "passed": 186,
+      "failed": 0,
+      "skipped": 0
+    },
+    "classifierFocused": {
+      "passed": 1,
+      "failed": 0,
+      "excluded": 205,
+      "note": "Root name-filtered combined invocation selected classifier only; subsequent entire SYS1 file passed186/0/0."
+    }
+  },
+  "independentReview": "Sol6.1 source review accepted browser delta and bounded reconciliation/SYS1 diagnostics. Luna independently reviewed SYS1 diagnostic. No actual privileged SYS1 acceptance claim.",
+  "remoteCI": {
+    "observedAt": "2026-10-10T12:14:31.050233+00:00",
+    "runs": [
+      {
+        "id": 38049794295,
+        "name": "CI",
+        "sha": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38049794295",
+        "jobs": [
+          {
+            "id": 114206450642,
+            "name": "verify",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 114206450739,
+            "name": "tofu",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450777,
+            "name": "workflow-history-replay",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450786,
+            "name": "supply-chain",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450788,
+            "name": "generated",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450800,
+            "name": "build",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450812,
+            "name": "adversarial",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450831,
+            "name": "postgres",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450840,
+            "name": "policy",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450858,
+            "name": "agent",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 114206450863,
+            "name": "platform-postgres",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450871,
+            "name": "wave5-contract",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450885,
+            "name": "ledger",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450909,
+            "name": "docker",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450925,
+            "name": "operation-gates (reconciliation)",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 114206450941,
+            "name": "go",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 114206450945,
+            "name": "operation-gates (workflow-intents)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450989,
+            "name": "workflows",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206451041,
+            "name": "hosted",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 114206451262,
+            "name": "j15-operated-upgrade",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206451357,
+            "name": "drv2-crash-partition",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206451380,
+            "name": "recovery",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206451440,
+            "name": "drv2-drift-repair",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206451455,
+            "name": "drivers-d4-two-tenants",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206451515,
+            "name": "drivers-d4-export",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206451629,
+            "name": "drv1-private-source",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206472973,
+            "name": "j15-operated-restore",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 114206477240,
+            "name": "drv1-update-rollback",
+            "status": "completed",
+            "conclusion": "skipped"
+          }
+        ]
+      },
+      {
+        "id": 38049794278,
+        "name": "Native packaged workers",
+        "sha": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38049794278",
+        "jobs": [
+          {
+            "id": 114206450127,
+            "name": "packaged-worker (amd64, ubuntu-24.04)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450263,
+            "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 38049794308,
+        "name": "Native skipped platforms",
+        "sha": "e8540c59d4fd85f6fbdb7cdf954ac5902d01761e",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/38049794308",
+        "jobs": [
+          {
+            "id": 114206450114,
+            "name": "windows-acl",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 114206450271,
+            "name": "linux-systemd",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "remaining": [
+    "Complete coherent local unit and engine gates",
+    "Native Linux SYS1 actual case with required159 unique identities",
+    "Inspect diagnostic successor Linux reconciliation startup",
+    "Real default Supabase stack, real MFA/browser and operated journeys",
+    "Inspect every exact-published-SHA CI job"
+  ],
+  "releaseStatus": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  }
+}

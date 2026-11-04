@@ -1,0 +1,20 @@
+{
+  "version": "v1.37.0",
+  "platform": "darwin/arm64",
+  "source": "https://dl.k8s.io/release/v1.37.0/bin/darwin/arm64/kubectl",
+  "checksumSource": "https://dl.k8s.io/release/v1.37.0/bin/darwin/arm64/kubectl.sha256",
+  "sha256": "583beedaebe422e71d3f1a96acef8b1fef86ea2f09a45ad01aa6c9ce287c1380",
+  "verified": true,
+  "clientVersion": {
+    "major": "1",
+    "minor": "37",
+    "gitVersion": "v1.37.0",
+    "gitCommit": "f54c212e3a2f75d674b717a9b29052b20b60aefc",
+    "gitTreeState": "clean",
+    "buildDate": "2026-08-26T10:48:06Z",
+    "goVersion": "go1.26.6",
+    "compiler": "gc",
+    "platform": "darwin/arm64"
+  },
+  "globalClientReplaced": false
+}

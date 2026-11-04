@@ -1,0 +1,63 @@
+{
+  "R10ImportOnly": {
+    "acceptanceFunctionInvoked": false,
+    "childLeaderExitCode": 0,
+    "custodySettled": true,
+    "diagnosticRecordStatus": "returned",
+    "exportCallable": true,
+    "independentSourceReviewSha256": "b61a0a6f4417ebc60e5721e7c830031075d474cbe31a63e46fe5b495a3a91d01",
+    "moduleLoaded": true,
+    "mutationAttempted": false,
+    "receiptSha256": "f2b7db058cd21a903a11ff7546a725a85e1486e32d4f073ee0428ed3da14605a",
+    "resultDiagnosisSha256": "b23e3d6cf4d927de712db7b081f62c98a9440a14a093794a6f7ad65bc3c1a2ce",
+    "scope": "captured import-only diagnostic and process settlement; not original failure reproduction or acceptance",
+    "sourceObservationScope": "canonical source 55463591, clean source content, and five original baseline bindings; supplemental filesystem-only observation",
+    "sourceObservationSha256": "b9e773e273789f9db692cc06f5b596ce65351add75234954a9f4cade47c67c97",
+    "terminalReviewSha256": "315299aef490ef8bdf21d194c92b424ba096af4230455c7a87a539fd76b7a41c",
+    "wrapperExitCode": 2,
+    "wrapperReason": "Last-line JSON parser encountered trailing Node SQLite ExperimentalWarning after valid returned JSON",
+    "wrapperStatus": "refused-retain-evidence"
+  },
+  "acceptance": false,
+  "causeAssessment": {
+    "comparisonSha256": "37fecb6594f58a0ba1ac5b82e67c3ce9e4858ea73d10680dc6052eb57720827f",
+    "failureCauseProven": false,
+    "status": "source-supported-unconfirmed-candidate",
+    "summary": "Source comparison notes explicit host ToFu binary and identity inputs are not present in the J4 environment, while the worker requires a verified identity. This is a candidate configuration gap only; it does not localize the original failure. The actual child environment carries its configured CA path, so no missing TLS trust file is established."
+  },
+  "kind": "j4_readonly_guard_and_import_diagnostics",
+  "milestonePromotion": false,
+  "originalJ4": {
+    "acceptance": false,
+    "exitCode": 1,
+    "phase": "j4MachineSchedules",
+    "status": "failed-retain-owned-state",
+    "underlyingCauseLocalized": false
+  },
+  "readOnlyGuards": {
+    "R2": {
+      "receiptSha256": "b3a765ad8f2580fc71b78135ce972f49d0926ce3005cfe7582dc395b99c3d852",
+      "scope": "readState and prestart checks; evidence-link limitation recorded by reviewer; no acceptance",
+      "status": "diagnostic-passed-terminal-review",
+      "terminalReviewSha256": "72c6f225f18a6cc28cee0e40908797f5f3e003b224de63d5fdef3aed3fbf82ce"
+    },
+    "R5": {
+      "receiptSha256": "9deb003cbbac8821193b58792ab30142692c59a8b53b9ec9c89c2b4e3f3a6e7e",
+      "scope": "read-only CLI guards and three constant DB precondition SELECTs; DB closed; no maintenance or acceptance",
+      "status": "diagnostic-passed-terminal-review",
+      "terminalReviewSha256": "593dd0e023e2b799d8f848ffccdc057c802f16b98760e13095e976b5cf819339"
+    },
+    "R9": {
+      "receiptSha256": "442bdcc70a920419f85b8f0d4e64fc4c81764942a6c98c640aacb83ee8044c7e",
+      "scope": "read-only CLI/DB/Temporal admission prefix; expected schedules absent, no pollers, DB/Temporal closed; no maintenance or acceptance",
+      "status": "diagnostic-passed-terminal-review",
+      "terminalReviewSha256": "245eaf5c38905823a259967de87625d372ccc6d2d2faf57474759287089d6471"
+    }
+  },
+  "schemaVersion": 1,
+  "source": {
+    "commit": "554635916dfc8ce6c74e7b699a24e2f61670bebc",
+    "contentSha256": "d2418c6022e4aea3ccb7ba0d1557d73b692d59815b6e3525226f4397fa8981c8",
+    "dirty": false
+  }
+}

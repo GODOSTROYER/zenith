@@ -1,0 +1,139 @@
+{
+  "status": "FROZEN_SOURCE_ONLY_INDEPENDENT_REVIEW_REQUIRED",
+  "recordedAtUtc": "2026-10-05T04:57:40.199159+00:00",
+  "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-manifest-digest-20261005",
+  "branch": "codex/saved-plan-manifest-digest-20261005",
+  "head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "candidateTree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+  "sourcePaths": 3854,
+  "ownedPaths": [
+    "src/lib/tofu/engine.ts",
+    "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+  ],
+  "outsideCount": 3851,
+  "ownedFiles": [
+    {
+      "path": "src/lib/tofu/engine.ts",
+      "before": {
+        "sha256": "95e4f6131397ca4a65723f049606b72a40112e03d93a8802e19a3a7fd3d65c45",
+        "bytes": 33740,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "29321ecbb3360b161787d191efad09b1482281adbf8b56250d1ebfc9d738be66",
+        "bytes": 33784,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "before": {
+        "sha256": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+        "bytes": 105618,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+        "bytes": 106086,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "before": {
+        "sha256": "4a4b61d33eeddbb918eb50dcef74e21855ccd6acd145daf795eb206eafbf1e4e",
+        "bytes": 7519,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "b2a2536ed715ea1c233fa274a10a5ef89fb8df58c3979843e3dfc1a5f5a78f37",
+        "bytes": 9014,
+        "mode": 420
+      }
+    }
+  ],
+  "preparation": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-preparation-20261005/PREPARATION.json",
+    "sha256": "81ef96bb903890cd4b1e4bd2857e79d194133ee859d0351a63e99383b568b8f1"
+  },
+  "previousFrozenR2": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE-CORRECTED.json",
+    "sha256": "70e773273973550173e287ccc7d761610ef682db3b56e5495ea50af18ebeb2db"
+  },
+  "patch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/manifest-digest-correction.patch",
+    "sha256": "b086e37d202591929e938ca2c86764285d3c09a2b61de33e69750c173536208e",
+    "bytes": 9736
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/CASE-CONTRACT.json",
+    "sha256": "3b3c3c3e87c56648a1296476d3899fb4dc6ea71103b60f455b2d5224f7c3816c",
+    "bytes": 48410
+  },
+  "inventory": {
+    "FULL-BEFORE-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/FULL-BEFORE-INVENTORY.json",
+      "sha256": "185baa1c0d2c23703144d7ea6bb5fd7304c85a4b908923aa59efbe64ebe80aa0",
+      "bytes": 659762
+    },
+    "FULL-AFTER-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/FULL-AFTER-INVENTORY.json",
+      "sha256": "efbef4e7380c47e86066fd6406bcea4f44e952a7d1e36dbe9f377689fa16aaa4",
+      "bytes": 659762
+    },
+    "OUTSIDE-INVENTORY.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/OUTSIDE-INVENTORY.json",
+      "sha256": "419d1568540402f33e658779f4570f6259fd7e437465e7d60f381188f63a2b89",
+      "bytes": 659237
+    },
+    "SOURCE-PRESERVATION.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/SOURCE-PRESERVATION.json",
+      "sha256": "8b4539b3360da4a88b19243d69ece20c75b6584fd3a2f57600b2c600a36a2ac5",
+      "bytes": 963
+    },
+    "PRE-EDIT-BASELINE.json": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/PRE-EDIT-BASELINE.json",
+      "sha256": "cefd44c307341b7dad346bdeabfb1cee5792d366a6a967b10b18b873983e27dc",
+      "bytes": 628
+    }
+  },
+  "realIndex": {
+    "path": "/Users/saivedanthava/Desktop/zenith/.git/worktrees/saved-plan-manifest-digest-20261005/index",
+    "beforeSha256": "9e31fd0c901cc8c9e819d06a16080d1e1ce4e8c9dfd750256e60a906775ea328",
+    "afterSha256": "9e31fd0c901cc8c9e819d06a16080d1e1ce4e8c9dfd750256e60a906775ea328",
+    "stageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "optionalLocks": "0",
+    "realIndexWrites": false
+  },
+  "privateGitRoundtrip": {
+    "forwardTree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+    "reverseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+    "applyCheckPassed": true,
+    "privateIndices": [
+      "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/candidate.private.index",
+      "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/roundtrip.private.index"
+    ]
+  },
+  "failedPredecessor": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-native-root-r2-20261005/settlement.json",
+    "sha256": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065",
+    "passed": 60,
+    "failed": 40,
+    "skipped": 0,
+    "preserved": true
+  },
+  "verificationUnrun": [
+    "Pinned Node compiler",
+    "Scoped ESLint engine and native fixture",
+    "Fresh actual PostgreSQL16/OpenTofu100 with required native flags",
+    "Exact canonical mandatory gate hash rebind and whole gates"
+  ],
+  "outsideFollowups": [
+    "Exact cleanup native test source SHA in pending gate11 follows independent acceptance",
+    "Root compiler/lint and actual native100 successor",
+    "MACH01/03 reachable service convergence contract remains queued"
+  ],
+  "scope": "No guard weakening, no runtime acceptance, no assumption all40 cured; original46 bodies/all100 names/current private origins and authority predicates preserved."
+}

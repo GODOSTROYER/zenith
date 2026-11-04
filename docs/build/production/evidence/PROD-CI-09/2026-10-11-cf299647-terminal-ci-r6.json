@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "kind": "zenith_exact_source_ci_terminal_summary",
+  "sourceSha": "cf299647df8551f246e04021a8784a7742b06749",
+  "status": "terminal_success_for_required_jobs",
+  "runs": {
+    "main": 38135971580,
+    "nativePackagedWorkers": 38135971585,
+    "nativeSkippedPlatforms": 38135971579
+  },
+  "jobCounts": {
+    "main": {
+      "total": 28,
+      "requiredSucceeded": 20,
+      "conditionalSkipped": 8,
+      "failed": 0,
+      "active": 0
+    },
+    "nativePackagedWorkers": {
+      "total": 2,
+      "succeeded": 2
+    },
+    "nativeSkippedPlatforms": {
+      "total": 2,
+      "succeeded": 2
+    },
+    "aggregate": {
+      "total": 32,
+      "requiredSucceeded": 24,
+      "conditionalSkipped": 8,
+      "failed": 0,
+      "active": 0
+    }
+  },
+  "verify": {
+    "status": "success",
+    "testsPassed": 24585,
+    "testsFailed": 0,
+    "testsSkipped": 1925,
+    "testsTotal": 26510,
+    "filesPassed": 1143,
+    "filesSkipped": 97,
+    "maxWorkers": 2,
+    "durationSeconds": 1671.91,
+    "reportSha256": "393a5856817bf3d1b19929f58271eb4fc7f01ab7f08e056bae8a773c896f3326"
+  },
+  "inventorySha256": "1b1cba4f8f0eb2d47b32c8faf9e7481990e2d4db9cc016f2d3b436e4a639bf6b",
+  "auditIndexSha256": "68091254e9c56dae877fae120309d6f63f09ee66fb7f4abc1af8af4852ba2a00",
+  "auditIndexSnapshotUtc": "2026-10-11T12:10:16Z",
+  "freshnessBoundary": "Main CI terminal status was refreshed at 12:10:16Z; native workflow terminal statuses carry forward from the 11:59:55Z snapshot. Verify remote counts are separate from local R16 counts and are not summed.",
+  "acceptanceClaim": false,
+  "scopeLimit": "Exact-source hosted CI only. Eight conditional jobs remain skipped, not passed. CI does not establish local engine or production acceptance."
+}

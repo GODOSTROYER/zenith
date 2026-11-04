@@ -1,0 +1,39 @@
+{
+  "status": "PASSED_SCOPED_NATIVE_AND_OWNED_CLEANUP",
+  "recordedAtUtc": "2026-10-05T04:35:40.198610+00:00",
+  "originalReceipt": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r14-8e91f39e222f40cd2b28451a2e129b64/receipt.json",
+    "sha256": "1b3e332a7f0cce4e8cd8c60b02352e77f58a77255eb52c2251907c120662cb9d"
+  },
+  "candidateTree": "f2f8779e77ca7cb1ac3df57031503f4794d79811",
+  "actualArchitecture": "linux/arm64 native Docker daemon, Go1.27.1, pinned Debian12/dpkg1.21.23",
+  "linuxModeledLeaves": {
+    "passed": 31,
+    "failed": 0,
+    "skipped": 0,
+    "parentEventsExcluded": 2,
+    "sha256": "4b37a7c99039af0197ca7b8367cb790afeabc5784794cf4cb430c9c789dc1796"
+  },
+  "nativeRequiredScenarios": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "signedRequiredChildControlsPassed": 5,
+    "terminalEvents": 9,
+    "leafEvents": 8,
+    "parentEventsExcluded": 1,
+    "sha256": "1526710537a526fdbf0bad2444c9a7230e7ed97fbcdcc0f103d6ddb3ed4978f6"
+  },
+  "countsOverlapDoNotSum": true,
+  "protectedNativeRegistryConfigUnchanged": true,
+  "hostGoSource273Unchanged": true,
+  "ownedContainerVolumeNewImageAbsent": true,
+  "unrelatedBaselineImagesPreserved": true,
+  "loopDetachAndMountCleanup": "All original successful bounded detach/mount acknowledgements and fresh unbound/file readbacks retained in original receipt; resources now absent, no further VM commands needed.",
+  "freeGiB": 13.03,
+  "limitations": [
+    "Installed CHOWN-only systemd service/daemon0/default backend remains unverified",
+    "No native AMD64/package worker22/full candidate/defaultAPI/live cloud acceptance",
+    "R11/R13 actual failures and R12 compilation failure preserved; successor supersedes only native4 and targetedLinux31 scope"
+  ]
+}

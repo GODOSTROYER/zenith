@@ -1,0 +1,65 @@
+{
+  "acceptance": false,
+  "commit": "6aed3a99734ac53c1a62286da13c777ee890603b",
+  "failure": {
+    "classification": "same-worker-child-settlement-custody-issue-reported-in-two-jobs",
+    "diagnostic": {
+      "path": "/private/tmp/zenith-6aed3a99-verify-unit-failure-r1/verify-unit-failure.private.json",
+      "rawPersisted": false,
+      "sha256": "d5e0217f887a494c882a457dd3148c69c20fed9f0721d070ec4758e61ed7a86a"
+    },
+    "notTwoUnrelatedBugs": true,
+    "observations": [
+      "worker did not naturally close",
+      "bounded cleanup did not close worker; parent remained held for outer custody"
+    ],
+    "oneUnderlyingTestIdentity": "tests/hosted/build/recipe-worker-child-settlement.test.ts :: recipe worker actual-child settlement :: builds a real React TSX recipe through the production worker"
+  },
+  "kind": "6aed_exact_source_terminal_ci_evidence",
+  "ledgerAppend": {
+    "appendOnlyProposal": true,
+    "applied": false,
+    "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-6aed3a99-terminal-ci.json",
+    "releaseStatusChange": false,
+    "requirementStateChange": false
+  },
+  "level": "remote_ci",
+  "milestonePromotion": false,
+  "requirement": "PROD-CI-08",
+  "results": {
+    "fullVerify": {
+      "failed": 1,
+      "passed": 24641,
+      "skipped": 1925,
+      "status": "failed",
+      "total": 26567
+    },
+    "goJob": "passed",
+    "hostedJob": "failed",
+    "nativePlatformAndPackagedWorkers": {
+      "failed": 0,
+      "passed": 4
+    },
+    "typecheck": "passed"
+  },
+  "schemaVersion": 1,
+  "scopeLimits": [
+    "Exact-source status snapshot for 6aed3a99; 8 skips remain conditional, not passes.",
+    "Two failed jobs expose one shared worker-child-settlement test issue; do not count them as unrelated defects.",
+    "This evidence records a broken fresh gate; it does not establish production acceptance or promotion."
+  ],
+  "snapshot": {
+    "conditionalSkipped": 8,
+    "failed": 2,
+    "jobCount": 32,
+    "passed": 22,
+    "path": "/private/tmp/zenith-6aed3a99-ci-monitor-r3/snapshot.json",
+    "runs": [
+      38228703482,
+      38228703634,
+      38228703515
+    ],
+    "sha256": "2638023e98f5eaf95c6311ed1794469b3794b13bcf2d14a91da8ed82f4cb309b",
+    "terminal": true
+  }
+}

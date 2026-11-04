@@ -83,6 +83,11 @@ export default function AccountPage() {
           <EmailCard currentEmail={user.email} />
           <PasswordCard email={user.email} />
           <IdentitiesCard />
+          <Card title="Authenticator verification">
+            <p>Approve changes and manage privileged workspace controls with a verified authenticator.</p>
+            <a href="/account/mfa/enrol" className="text-signal underline">Set up an authenticator</a>{" · "}
+            <a href="/account/mfa/challenge" className="text-signal underline">Verify your authenticator</a>
+          </Card>
         </section>
 
         <section id="sessions" tabIndex={-1} className="space-y-4">

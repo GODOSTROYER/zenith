@@ -1,0 +1,16 @@
+{
+  "status": "PORTABLE_HANDOFF_ONLY_NO_SOURCE_OR_RUNTIME_CHANGE",
+  "recordedAtUtc": "2026-10-05T07:53:08.160912+00:00",
+  "freezeSha256": "60c09316eeefc67c011a1fe29c09b19061640697fd26ce8968be8f8016fbf256",
+  "handoffSha256": "aefcf3fdb7ea71ec856ec656137be019fbfdcb4d631bf55e51b6ff90ac0336f8",
+  "bundleSha256": "8312535de867082e8e9d87513277abad4b59a74fdacfdd32e768775ee67899cd",
+  "bundleBytes": 692399,
+  "onlyCurrentOwnedDeltaAbsentRoot": [
+    "src/lib/tofu/engine.ts",
+    "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+  ],
+  "review": "PENDING_INDEPENDENT",
+  "runtime": "UNRUN",
+  "sourceImmutable": true
+}

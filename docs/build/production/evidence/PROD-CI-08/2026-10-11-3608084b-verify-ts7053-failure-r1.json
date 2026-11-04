@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_source_verify_typecheck_failure",
+  "source": {
+    "commit": "3608084bff2059bbcd44c4a56bc384a96ed44b8c",
+    "branch": "codex/production-2026-10-02",
+    "event": "push"
+  },
+  "ciInventory": {
+    "runId": 38150310414,
+    "inventoryObservedAt": "2026-10-11T15:39:35Z",
+    "status": "completed",
+    "mainJobsTotal": 28,
+    "mainJobConclusions": {
+      "success": 19,
+      "failure": 1,
+      "cancelled": 0,
+      "skipped": 8
+    },
+    "mainActiveJobs": 0,
+    "workflowAggregate": {
+      "workflows": 3,
+      "jobsTotal": 32,
+      "success": 23,
+      "failure": 1,
+      "cancelled": 0,
+      "conditionalSkipped": 8,
+      "active": 0
+    },
+    "inventorySha256": "71622366521bb98c33d8f2fa6d9795d048cc6e8c55aa59a5238e43df999f2b05",
+    "conclusion": "failure"
+  },
+  "verifyJob": {
+    "jobId": 114502212923,
+    "status": "completed",
+    "conclusion": "failure",
+    "step": "Typecheck",
+    "command": "tsc --noEmit",
+    "exitCode": 2,
+    "diagnostic": {
+      "code": "TS7053",
+      "file": "tests/ci/packaged-workers.test.ts",
+      "line": 174,
+      "column": 12,
+      "message": "Expression of type string cannot index the inferred object returned by assertNativePrerequisites; the object has no string index signature."
+    },
+    "cause": "Boundary test callback key widened to string and indexed a finite inferred prerequisite object.",
+    "npmCi": "passed",
+    "lintAndUnitSuites": "skipped_after_typecheck_failure",
+    "priorFullSourceTypecheck": "not_run_on_this_exact_source_before_this_CI_job",
+    "narrowFollowup": "Implemented in an isolated uncommitted candidate as a literal-key tuple; the below-18-GiB rejection and exact-18-GiB acceptance assertions are unchanged."
+  },
+  "limits": {
+    "notWorkerImplementationFailure": true,
+    "ciTerminal": true,
+    "acceptancePromotion": false
+  },
+  "focusedCandidateValidation": {
+    "sourceBase": "3608084bff2059bbcd44c4a56bc384a96ed44b8c",
+    "candidateStatus": "included_in_this_publication_candidate; validation was recorded before publication",
+    "patchSha256": "1f026c5fae241eb881031fdb107147b52a77b1da707ad1437fa431e47b2044da",
+    "postimageSha256": "81f67ab87efe83511800e68ea756f9b7a773fa74124787c7320bcf32494a95e2",
+    "typecheck": "passed: full-project npm run typecheck; NODE_OPTIONS=--max-old-space-size=5120",
+    "affectedEslint": "passed: eslint tests/ci/packaged-workers.test.ts",
+    "node": "v22.23.3",
+    "fullVitest": "not_run",
+    "reviewedSourceReportSha256": "36361bfa2544d47cfaa02a6bac785a5c77711a453db1a32c7093dfe811000ef1",
+    "reviewedSourceReportJsonSha256": "ccfdfdd10a5ddfcdcc0f923395d0df7680d78ab2342b9d14338126cc674753d0",
+    "remoteSuccessorCi": "pending; this terminal Verify failure is the prior source snapshot",
+    "validationScope": "full project TypeScript check plus affected-file ESLint; full Vitest not run"
+  },
+  "platformPostgresJob": {
+    "jobId": 114502212830,
+    "status": "completed",
+    "conclusion": "success",
+    "runId": 38150310414
+  }
+}

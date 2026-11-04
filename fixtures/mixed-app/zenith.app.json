@@ -1,0 +1,143 @@
+{
+  "version": 2,
+  "services": [
+    {
+      "id": "web",
+      "name": "web",
+      "kind": "web",
+      "source": {
+        "type": "image",
+        "image": "registry.example.test/zenith-mixed-web:1"
+      },
+      "size": "small",
+      "replicas": 1,
+      "port": 8080,
+      "healthPath": "/health",
+      "env": [
+        {
+          "key": "DATABASE_URL_FILE",
+          "value": "/run/secrets/database-url"
+        },
+        {
+          "key": "WEB_PROVIDER",
+          "value": "gcp"
+        },
+        {
+          "key": "ENRICHER_MODE",
+          "value": "lambda"
+        },
+        {
+          "key": "ENRICHER_LAMBDA_ARN",
+          "value": "arn:aws:lambda:us-east-1:000000000000:function:REPLACE_WITH_PUBLISHED_FUNCTION:1"
+        },
+        {
+          "key": "ENRICHER_LAMBDA_CREDENTIAL_FILE",
+          "value": "/run/secrets/lambda-invoker"
+        },
+        {
+          "key": "ENRICHER_LAMBDA_SHA256",
+          "value": "REPLACE_WITH_PACKAGE_SHA256"
+        }
+      ],
+      "ownership": "managed"
+    }
+  ],
+  "resources": [
+    {
+      "id": "db",
+      "name": "db",
+      "kind": "postgres",
+      "config": {},
+      "size": "small",
+      "ownership": "managed"
+    }
+  ],
+  "routes": [
+    {
+      "id": "route-web",
+      "host": "mixed.example.test",
+      "pathPrefix": "/",
+      "tls": true,
+      "managedDns": false
+    }
+  ],
+  "bindings": [
+    {
+      "id": "route-to-web",
+      "from": "route-web",
+      "to": "web",
+      "capability": "http",
+      "note": "public HTTPS entry to the web tier on GCP"
+    },
+    {
+      "id": "web-to-db",
+      "from": "web",
+      "to": "db",
+      "capability": "sql",
+      "note": "web writes and reads orders in PostgreSQL on Azure over a protected endpoint"
+    }
+  ],
+  "placement": {
+    "provider": "gcp",
+    "regions": [
+      "us-central1"
+    ],
+    "residency": [
+      "us"
+    ]
+  },
+  "constraints": {
+    "budgetUsdMonthly": 60,
+    "latencyTargetMs": 120
+  },
+  "policies": {
+    "deletion": "approval",
+    "backup": "daily"
+  },
+  "nodePlacement": {
+    "web": {
+      "provider": "gcp",
+      "region": "us-central1"
+    },
+    "db": {
+      "provider": "azure",
+      "region": "eastus"
+    }
+  },
+  "release": {
+    "migrate": {
+      "service": "web",
+      "command": [
+        "node",
+        "web/migrate.mjs"
+      ],
+      "timeoutSec": 120
+    }
+  },
+  "functions": [
+    {
+      "id": "enricher",
+      "name": "enricher",
+      "kind": "function",
+      "provider": "aws",
+      "region": "us-east-1",
+      "runtime": "nodejs22.x",
+      "handler": "enricher/handler.handler",
+      "memoryMb": 128,
+      "timeoutSec": 10,
+      "architecture": "x86_64",
+      "source": {
+        "type": "s3",
+        "bucket": "zenith-mixed-artifacts",
+        "key": "mixed/enricher.zip",
+        "version": "REPLACE_WITH_S3_VERSION",
+        "sha256": "REPLACE_WITH_PACKAGE_SHA256",
+        "sourceDigest": "REPLACE_WITH_SOURCE_DIGEST"
+      },
+      "env": [],
+      "invokedBy": [
+        "web"
+      ]
+    }
+  ]
+}

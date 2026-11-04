@@ -67,7 +67,9 @@ state through a half-open authority. Verified in both files, the order is:
 
 1. **config** — `assertHostedPreconditions()` calls `hostedConfig()`, which
    validates every `ZENITH_*` variable and throws naming the offender. In
-   hosted mode it additionally requires an identity provider and Node ≥ 22.16.
+   hosted mode it additionally requires an identity provider and Node
+   `>=22.22.2 <23`, matching the locked toolchain's supported runtime. Setup,
+   doctor and recipe metadata use the same pure policy in `lib/node-runtime.ts`.
    Hosted mode fails closed: a missing precondition stops the process rather
    than serving a private app on guesswork.
 2. **authority** — the one place the implementation is chosen. On SQLite,
@@ -92,6 +94,14 @@ state through a half-open authority. Verified in both files, the order is:
 entered per request, from `src/app/hosted-gateway/[host]/[[...path]]` after
 `edge.ts` rewrites; a runtime is selected when a release stages or an app is
 created. Neither has boot-time state.
+
+The recipe's Node metadata now states this supported range. Source contract
+version 1, recipe id `vite-react-v1`, package pins, input validation and job
+schema stay compatible. This corrects advertised runtime requirements; it
+does not rewrite existing recipe provenance or claim that a previously
+recorded job ran on the new floor. Hosted admission keeps its existing local
+demo behavior; setup and doctor continue reporting problems without changing
+their exit or seeding behavior. All supported deployments must use Node 22.
 
 ## The HTTP layers
 

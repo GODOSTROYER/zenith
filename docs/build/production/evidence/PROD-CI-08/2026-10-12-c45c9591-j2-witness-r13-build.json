@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "kind": "PKG-05-J2-witness-build",
+  "acceptanceClaim": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "contentSha256": "f2f0fd1fad96012b01780161bc293c3b3299460f1c22eca9d5a7c61a4aa1f8eb",
+    "sourceInventoryCount": 5960,
+    "stable": true
+  },
+  "rootSession": {
+    "id": 9015,
+    "closed": true,
+    "exitCode": 0
+  },
+  "build": {
+    "status": "built",
+    "exitCode": 0,
+    "architecture": "arm64",
+    "imageId": "sha256:85ec5eead300d3f5e16c3adc8730c3d09fdde4c92b372d9d1b59b03b717869b4",
+    "runtimeUser": "65532:65532",
+    "push": false,
+    "networkNoneForRunInstructions": true,
+    "baseImagesDigestPinned": true,
+    "provenanceMatchesImage": true
+  },
+  "custody": {
+    "telemetryComplete": true,
+    "eventsTruncated": false,
+    "droppedEvents": 0,
+    "quarantines": 0,
+    "pendingLive": 0,
+    "processesAbsent": true,
+    "leaderExitCode": 0
+  },
+  "diskFloorBytes": 23622320128,
+  "minimumHostFreeBytes": 272324608000,
+  "minimumDockerVmFreeBytes": 416569233408,
+  "summarySha256": "4f017a4204fc84c92af3139e44db1c73a778f9ff09d7995d959ff1cee572b436",
+  "terminalReviewSha256": "985ed7f079a9f91dfccb2f159adf32658a648aa570ba17b690d5d3a565402c84",
+  "scope": "Fresh ARM64 witness build only. Process custody review state is root_approved_source_fullrun_pending; no J2 acceptance."
+}

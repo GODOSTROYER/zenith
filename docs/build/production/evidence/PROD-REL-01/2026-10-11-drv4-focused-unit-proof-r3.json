@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-REL-01",
+  "slice": "DRV-4 two-tenant driver unit-contract regression",
+  "publicationStatus": "proposed_private_draft_for_root_review",
+  "evidenceKind": "focused_unit_and_lint_proof",
+  "acceptanceMeaning": "focused unit tests and lint only; not operated acceptance",
+  "sourceBinding": {
+    "primaryHeadBefore": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+    "primaryHeadAfter": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+    "primarySourceFreezeSha256Before": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+    "primarySourceFreezeSha256After": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+    "primarySourceCount": 5868,
+    "primaryFreezeStable": true,
+    "candidateHead": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+    "candidatePorcelainPaths": [
+      " M scripts/release/drivers/operated.ts",
+      "?? tests/release/drivers/operated-tenants.test.ts"
+    ],
+    "candidatePostimageSha256": {
+      "scripts/release/drivers/operated.ts": "da9f4562a2f0c3ad146a143f81c22e2af08283a8b60a04d1ac2ffa9d9aa2f33b",
+      "tests/release/drivers/operated-tenants.test.ts": "fd2ef0d15f03ffdfce0d9602148154c041e6cc3023fd82aa34d77ab75071987a"
+    },
+    "isolatedCandidateArtifactLabel": "isolated R3 D4 validation candidate"
+  },
+  "patches": {
+    "operatedSource": {
+      "artifactLabel": "R2 operated driver source patch",
+      "sha256": "0b1894f91a29a473efae197c5191d233aabdd1180a60da6ccb8bd3e0b24b6d58"
+    },
+    "tenantRegressionTest": {
+      "artifactLabel": "R3 tenant regression test patch",
+      "sha256": "9aae9e00a79f2d7e390883fdf39cddd7b831db9df90dd275a27e5e578677377d"
+    }
+  },
+  "successfulRun": {
+    "receiptSha256": "b3c1b19065485510024efd0170be6eeb524047aece619835048fd596368523f9",
+    "outcome": "passed-focused-unit-proof-only",
+    "acceptedRunReceipt": false,
+    "node": {
+      "toolLabel": "Pinned Node.js 22.23.3 Darwin ARM64",
+      "sha256": "68f4d07ca49e0500cc135c7e0a445093e228e42e126ac22306d045f0a8c2636b"
+    },
+    "vitest": {
+      "sha256": "39db22f579acf5639bbb17a261408debbde03f4692c0c439e77e7f13aeba74d6",
+      "command": "$PINNED_NODE $CANDIDATE/node_modules/vitest/vitest.mjs run --project=node --maxWorkers=1 --allowOnly=false tests/release/drivers/operated-tenants.test.ts tests/release/drivers/d4.test.ts",
+      "summary": {
+        "filesPassed": 2,
+        "testsPassed": 28,
+        "testsFailed": 0,
+        "testsSkipped": 0
+      },
+      "stdoutSha256": "feaaf7c54682b83256a54f8ecaf55403f58895be0287680447c1d665034d66ea",
+      "returnCode": 0,
+      "toolLabel": "Pinned Vitest entry in isolated candidate",
+      "packageSha256": "a28126d97bcaf567da5bed69443b7f3bcd9a7a8c38c8b66e554686b6bb2c10e0"
+    },
+    "eslint": {
+      "files": [
+        "scripts/release/drivers/operated.ts",
+        "tests/release/drivers/operated-tenants.test.ts"
+      ],
+      "command": "$PINNED_NODE $CANDIDATE/node_modules/eslint/bin/eslint.js scripts/release/drivers/operated.ts tests/release/drivers/operated-tenants.test.ts",
+      "returnCode": 0,
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "toolLabel": "Pinned ESLint 9.39.5 entry in isolated candidate",
+      "executableSha256": "6280b95e2a6ab3b04be45cbd3b1627654be518e6a4da163ec0adcbba9cd5fcd8",
+      "packageSha256": "361210aa42b55fd814c48a01e3724559ec6f0f3e1c021d0f8aa2e8b00276060e"
+    },
+    "primarySourceStable": true,
+    "candidateSourceStable": true,
+    "minimumFreeBytes": {
+      "primaryCheckout": 344972107776,
+      "privateRuntime": 344972107776
+    },
+    "floorWatcherJoined": true,
+    "strictHeldCommandCloseout": true,
+    "nodeModulesSymlinksRetained": 517,
+    "signalObserved": null,
+    "deadlineExceededAtFinalization": false,
+    "receiptArtifactLabel": "R3 held D4 focused validation receipt",
+    "runtimeArtifactLabel": "private R3 held validation runtime"
+  },
+  "preservedPriorFailure": {
+    "receiptSha256": "075041262d1beb8f20ca6216c40db4caeff6bb1ce0b1ce604e63deb6e2c23368",
+    "outcome": "refused-retain-artifacts",
+    "failureCode": "eslint-d4-scope",
+    "vitest": {
+      "filesPassed": 2,
+      "testsPassed": 28,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "returnCode": 0
+    },
+    "eslint": {
+      "returnCode": 1,
+      "eslintDiagnosticsReportedByRoot": 5
+    },
+    "sourcePatchSha256": "0b1894f91a29a473efae197c5191d233aabdd1180a60da6ccb8bd3e0b24b6d58",
+    "priorTestPatchSha256": "a4ef545fdf5dfe0fe8f00411f0acca45401c6f29ee0a2df56e8b7c1ccf787ef5",
+    "candidateAggregateStableField": false,
+    "candidatePostimageHashesBeforeAndAfterMatch": true,
+    "candidateCacheResultsBytesBefore": 204,
+    "candidateCacheResultsBytesAfter": 395,
+    "note": "The R2 refusal is retained as a failed attempt. Its reported aggregate candidateSourceStable field is false because the permitted Vitest cache results payload grew; the exact source and test postimage hashes were identical before and after.",
+    "receiptArtifactLabel": "R2 held D4 failed validation receipt"
+  },
+  "scopeAndLimitations": [
+    "This proof covers only the offline tenant-driver regression and existing offline D4 contract fixture plus scoped lint.",
+    "It is not the gated operated two-tenant browser/API/MCP scenario, not live tenant isolation, and not engine or MinIO/PostgreSQL/MySQL acceptance.",
+    "No D4 operated acceptance, release milestone, or PROD-REL-01 ledger status promotion is asserted.",
+    "The existing ledger is not changed; its PROD-REL-01 row remains in progress with verification pending."
+  ],
+  "testedCommit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "baseCommit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430"
+}

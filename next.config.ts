@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
   // in docs/RUNNING.md keeps working.
   output: "standalone",
 
+  // The broker reads its committed wasm and sibling hash manifest at runtime.
+  // Product actions and older agent routes can reach it through the action
+  // bridge too, so include the bundle for every API route, not just REST/MCP v3.
+  outputFileTracingIncludes: {
+    "/api/platform/v1/**": ["./policy/dist/**"],
+    "/api/agent/v3/**": ["./policy/dist/**"],
+    "/api/**": ["./policy/dist/**"],
+  },
+
   // Gimbal's home on the landing is the bottom-left corner; keep the dev-only
   // Next.js indicator out of its way so reviews see the character, not a badge.
   devIndicators: { position: "bottom-left" },
@@ -25,6 +34,15 @@ const nextConfig: NextConfig = {
     "vite",
     "@vitejs/plugin-react",
     "e2b",
+    // The platform control store's local engine ships wasm and data files that
+    // must not be bundled; the executor imports it dynamically, so the Postgres
+    // path never loads it.
+    "@electric-sql/pglite",
+    // Native Temporal core bridge and the OPA wasm runtime (policy engine).
+    "@temporalio/worker",
+    "@temporalio/client",
+    "@open-policy-agent/opa-wasm",
+    "@kubernetes/client-node",
   ],
 
   // `env.ts` defaults ZENITH_DATA to path.join(process.cwd(), ".data"), which

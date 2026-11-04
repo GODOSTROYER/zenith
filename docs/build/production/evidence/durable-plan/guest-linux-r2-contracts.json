@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "status": "reviewed_and_root_contracts_passed_native_acceptance_pending",
+  "sourcePaths": 7,
+  "sourceFreezeSha256": "95585fa3d62b16248896784847818f93293f02a0c3144898c4ade471839fc28a",
+  "independentReviewSha256": "3fdf656253d02b1bdbdf880699464fe69bad12a55ce77c45f20c6f59853a9b33",
+  "sourceSha256": {
+    ".github/workflows/ci.yml": "6fc28a6ca67e40e6e4f7ef5b44ed54ca4cb15595e4b3deed906d243fc8ef2d3b",
+    "scripts/ci/gate-manifest.mjs": "2a1ced01dccd77e5d6a5631c3d2d704e3cc096470ddb562c908ff426f7d45030",
+    "scripts/ci/run-guest-file-write-gate.mjs": "9387fcd96f11d9b0a9c5751b0b30e54eba212f98abfeb083e4ad4086c11d44dc",
+    "scripts/ci/guest-file-write-fixtures.sh": "4c417656c982e1f1692187bca40464ea4aadf7f61de27c05691b2abb60d2c2db",
+    "tests/ci/guest-file-write-gate.test.ts": "876f9734466a892743ef9ab1adb32c12d9cc0d81f649dc1c7f0092e88eda9f1d",
+    "tests/ci/gate-manifest.test.ts": "7d5107d4ecfcd7d6b1f7dd6e82248d8fb3f42460db22be571910159ef57d8545",
+    "docs/build/production/guest-linux-gate.md": "7776b3483b5cb8fae728c026eb68797aadee5c057b645797409cfe0af8805e1f"
+  },
+  "steps": [
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "seconds": 41.19,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "eslint",
+      "exitCode": 0,
+      "seconds": 1.71,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "bash-syntax",
+      "exitCode": 0,
+      "seconds": 0.01,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "node-syntax",
+      "exitCode": 0,
+      "seconds": 0.03,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "affected",
+      "exitCode": 0,
+      "seconds": 1.18,
+      "logSha256": "8995e75b061804bed3122a0822ca6e964864428906b24e3dcfa4052c0a9cb367"
+    }
+  ],
+  "counts": {
+    "total": 102,
+    "passed": 102,
+    "failed": 0,
+    "skipped": 0
+  },
+  "embeddedPythonAstSyntax": "passed_not_executed",
+  "sourceUnchangedAfterChecks": true,
+  "resolvedAtSource": [
+    "GUEST-LINUX-STALE-01"
+  ],
+  "limits": [
+    "TypeScript/report/publication fixtures and syntax do not prove native Linux filesystem/mount/ACL/Go/golden or actual hosted CI behavior.",
+    "Actual supported-root Linux and full runtime/CI/release acceptance remain required."
+  ]
+}

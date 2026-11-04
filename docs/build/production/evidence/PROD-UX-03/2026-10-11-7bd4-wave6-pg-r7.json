@@ -1,0 +1,20 @@
+{
+  "acceptance": "Scoped PG evidence only; no milestone promotion or release acceptance.",
+  "cases": {
+    "total": 60,
+    "ux03_launch_integration": 39,
+    "ux03_service": 21
+  },
+  "evidence_type": "source-bound-pg-r7-scoped-result",
+  "gates": {
+    "cleanup": true,
+    "custody": true,
+    "floors": true,
+    "source_stable": true
+  },
+  "outcome": "passed-within-scoped-suite",
+  "receipt_sha256": "e01d6c718a7ccdd791c67c4251686e2f28f263cd9632369def9252f60d9544b6",
+  "run": "R7",
+  "scope": "PROD-UX-03 only; schema cases are excluded from this scoped view.",
+  "source_sha": "7bd4b85d39a73002906173942c622fdbb377ae20"
+}

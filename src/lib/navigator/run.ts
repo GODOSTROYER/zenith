@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions/core";
 import { registerAllActions } from "@/lib/actions/defs";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
+import { v1View } from "@/lib/resources/upgrade";
 import { db, q, save } from "@/lib/db/store";
 import { env } from "@/lib/env";
 import { fmtUsd } from "@/lib/format";
@@ -280,7 +281,7 @@ export async function executeRun(
     autonomy: level,
   };
 
-  const costBefore = monthlyCostUsd(project.workingManifest);
+  const costBefore = monthlyCostUsd(v1View(project.workingManifest));
   const done: string[] = [];
   let pending = 0;
   let deployed = false;
@@ -405,7 +406,7 @@ export async function executeRun(
       if (s.seq > failure.seq && s.status === "proposed") s.status = "skipped";
   if (cancelled) for (const s of run.steps) if (s.status === "proposed") s.status = "skipped";
 
-  const costAfter = monthlyCostUsd(db().projects.find((candidate) => candidate.id === run.projectId)!.workingManifest);
+  const costAfter = monthlyCostUsd(v1View(db().projects.find((candidate) => candidate.id === run.projectId)!.workingManifest));
   run.summary = summarize(run, { done, pending, failure, deployed, costBefore, costAfter });
   if (cancelled)
     run.summary = `${run.summary} You cancelled the run — the steps that had not started were skipped.`;

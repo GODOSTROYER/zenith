@@ -1,0 +1,90 @@
+{
+  "sourceCommit": "e69eccaac2f833cdb43fcc2c8b1f848d12ba6a84",
+  "sourceTree": "148b6c84bf217a66481c74a81bb108ec28f78954",
+  "scriptSha256": "42d7f431a524fef43975aa28a7f51d9e1aea14991c5a2dd578f44d5e572908ee",
+  "node": "22.23.3",
+  "heapMiB": 1536,
+  "floorBytes": 23622320128,
+  "status": "failed",
+  "exitCode": 1,
+  "reason": null,
+  "diskBeforeBytes": 26258300928,
+  "diskMinBytes": 25932976128,
+  "diskAfterBytes": 26253807616,
+  "elapsedSeconds": 239.08,
+  "sourceBound": true,
+  "cleanupComplete": true,
+  "cleanupErrors": [],
+  "counts": {
+    "passed": 8,
+    "failed": 30,
+    "discovered": 38
+  },
+  "logSha256": "cc21f661dd9d1b2a5bd54272453cde3f038b16b3b85375826facede206be5767",
+  "scope": "Real Chrome original44 consent checks at1280/380; declared loopback identity-provider double, not default Supabase/operator375px accessibility acceptance.",
+  "requiredOriginalChecks": 44,
+  "allOwnedGroupsAbsent": true,
+  "diagnostics": [
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "desktop",
+      "route": "/agent/link",
+      "networkError": "unknown"
+    },
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "desktop",
+      "route": "/agent/link",
+      "networkError": "ERR_CONNECTION_REFUSED"
+    },
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "desktop",
+      "route": "/agent/link",
+      "networkError": "ERR_CONNECTION_REFUSED"
+    },
+    {
+      "diagnostic": "agent-browser-journey-failed",
+      "viewport": "desktop",
+      "server": {
+        "exitCode": null,
+        "signalCode": null,
+        "nodeOomObserved": false,
+        "devMemoryRestartCount": 2
+      },
+      "fetchCauseCode": "unknown"
+    },
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "narrow",
+      "route": "/agent/link",
+      "networkError": "unknown"
+    },
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "narrow",
+      "route": "/agent/link",
+      "networkError": "ERR_CONNECTION_REFUSED"
+    },
+    {
+      "diagnostic": "agent-browser-journey-failed",
+      "viewport": "narrow",
+      "server": {
+        "exitCode": null,
+        "signalCode": null,
+        "nodeOomObserved": false,
+        "devMemoryRestartCount": 4
+      },
+      "fetchCauseCode": "unknown"
+    },
+    {
+      "diagnostic": "agent-browser-server-final",
+      "server": {
+        "exitCode": null,
+        "signalCode": null,
+        "nodeOomObserved": false,
+        "devMemoryRestartCount": 4
+      }
+    }
+  ]
+}

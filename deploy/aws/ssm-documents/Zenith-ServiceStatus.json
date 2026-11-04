@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith service.status: systemctl show for one unit. Read-only. Output format zenith.service.status/v1.",
+  "parameters": {
+    "unit": {
+      "type": "String",
+      "description": "systemd unit name ending in .service, .socket or .timer.",
+      "allowedPattern": "^[A-Za-z0-9@._:-]{1,128}\\.(service|socket|timer)$",
+      "maxChars": 160,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "unit=\"${SSM_unit-}\"",
+          "[ -n \"$unit\" ] || die 64 'parameter unit is empty (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)'",
+          "case \"$unit\" in -*|*[!A-Za-z0-9@._:-]*) die 64 'invalid unit name' ;; esac",
+          "case \"$unit\" in *.service|*.socket|*.timer) ;; *) die 64 'invalid unit name' ;; esac",
+          "[ \"${#unit}\" -le 160 ] || die 64 'invalid unit name'",
+          "command -v systemctl >/dev/null 2>&1 || die 69 'systemctl is not available on this machine'",
+          "[ -d /run/systemd/system ] || die 69 'systemd is not running on this machine'",
+          "echo 'zenith.service.status/v1'",
+          "systemctl show --no-pager --property=Id,LoadState,ActiveState,SubState,UnitFileState,MainPID,ExecMainStatus,NRestarts,Result,ActiveEnterTimestamp -- \"$unit\" 2>&1 | head -n 40",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

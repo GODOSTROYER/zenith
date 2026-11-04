@@ -1,0 +1,17 @@
+{
+  "awsLive": {
+    "schema": 1,
+    "decision": "DEC-CLOUD",
+    "approvedBy": null,
+    "approvedAt": null,
+    "expiresAt": null,
+    "sourceCommit": null,
+    "accountId": null,
+    "region": null,
+    "runId": null,
+    "planSha256": null,
+    "maxUsd": null,
+    "maxMinutes": null,
+    "grants": []
+  }
+}

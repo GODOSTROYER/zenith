@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "integratedCodeCommit": "56aeb01a0bfd306df9135223540c592c12676fd8",
+  "commits": {
+    "nativeSourceHashModels": "005cd1cc9c80b15b72567609a371fb6d24156bdb",
+    "publicSyntheticSourceModes": "7a3c1909b27764b7880c924f904df376263d4412",
+    "idleJobContract": "56aeb01a0bfd306df9135223540c592c12676fd8"
+  },
+  "exactCommitChecks": {
+    "testedCommit": "7a3c1909b27764b7880c924f904df376263d4412",
+    "twoAffectedSuites": {
+      "passed": 438,
+      "failed": 0,
+      "skipped": 0
+    },
+    "umask": "077",
+    "ownedDataRemoved": true
+  },
+  "idleJobPacketChecks": {
+    "publishedBaseCommit": "45b853afbb519ddc85372c5c43c451943471c766",
+    "candidateGitTree": "2f30f00ffb6c51e7058cff257b5c31e9161a798a",
+    "sourceManifestSha256": "56c7bed8a8b281c00885db28bec52d2daa7e294daa33abf1cebe300c594c9dd5",
+    "incrementalPatchSha256": "fb74b39388009376cadf21fa138bfaa1009efbd7deef1caea5f9925d77e1990f",
+    "rootPassed": 181,
+    "rootFailed": 0,
+    "rootSkipped": 0,
+    "scopedLintExit": 0,
+    "gofmtOutput": "empty",
+    "pythonAstExit": 0,
+    "scope": "Executed reviewed packet postimage; four owned files match integrated56 byte-for-byte. Not a whole-commit/native service execution claim.",
+    "independentSourceReviewSha256": "a5308a75dcf1d5dc3881dbdf89d4fe2e474ae6930462f3c929fc7af9f120096f"
+  },
+  "compilerAndFullLint": {
+    "testedCommit": "56aeb01a0bfd306df9135223540c592c12676fd8",
+    "compilerExit": 0,
+    "compilerHeapMiB": 4096,
+    "incremental": false,
+    "fullLintExit": 0
+  },
+  "upstreamContract": "https://github.com/systemd/systemd/blob/v255/src/systemctl/systemctl-show.c#L1023-L1032",
+  "preserved": {
+    "nativeGuestRequired": 152,
+    "nativeSystemdRequired": 15,
+    "native100Required": 100,
+    "missingDuplicateForeignPropertyRefusal": true,
+    "uidGidCapabilitiesNoNewPrivilegesOwnershipCleanupGuards": true,
+    "privateReceiptMode": "0600"
+  },
+  "actualNativeSystemdOnCorrectedSource": "pending",
+  "wholeCorrectedSourceGate": "running; no green verdict",
+  "releaseStatesChanged": false
+}

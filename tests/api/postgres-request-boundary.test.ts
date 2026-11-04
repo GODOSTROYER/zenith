@@ -17,6 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { tempDataDir } from "../_support/data-dir";
+import { productFlushRpc } from "../_support/product-flush-rpc";
 
 tempDataDir("zenith-pg-boundary-", { fast: true });
 process.env.ZENITH_STORE = "postgres";
@@ -88,6 +89,7 @@ function builder(table: string, op: string) {
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
+    rpc: productFlushRpc((call) => calls.push(call), (_table, op) => op === "update" && stale),
     from(table: string) {
       return {
         select: (...args: unknown[]) => {
@@ -118,6 +120,18 @@ vi.mock("@supabase/supabase-js", () => ({
       };
     },
   }),
+}));
+
+/** Auth configured or not, for the anonymous-caller case; off by default, as the cases above assume. */
+const auth = vi.hoisted(() => ({ configured: false }));
+vi.mock("@/lib/supabase/env", async (original) => ({
+  ...(await original<typeof import("@/lib/supabase/env")>()),
+  isSupabaseConfigured: () => auth.configured,
+}));
+// No session cookie: every request below is anonymous.
+vi.mock("@/lib/supabase/route", async (original) => ({
+  ...(await original<typeof import("@/lib/supabase/route")>()),
+  sessionUserFromRequest: async () => null,
 }));
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://project.supabase.co";
@@ -203,5 +217,32 @@ describe("route() over the Postgres store", () => {
     const body = (await res.json()) as { error: { message: string; fix?: string } };
     expect(body.error.message).toBe("Someone else changed this workspace; reload and retry");
     expect(body.error.fix).toContain("Reload");
+  });
+});
+
+describe("an anonymous request with auth configured (PROD-OPS-01 capacity)", () => {
+  beforeEach(() => {
+    reset();
+    pg.clearProcessSnapshot();
+    pg.resetPgClient();
+    auth.configured = true;
+    return () => { auth.configured = false; };
+  });
+
+  it("reads no tenant table: it can reach no workspace, so it loads nobody's rows", async () => {
+    const handler = route(async () => ({ workspaces: db().workspaces.length }));
+    const res = await call(handler, "GET");
+    expect(await res.json()).toEqual({ workspaces: 0 });
+    for (const table of ["members", "workspaces", "projects", "environments", "connections", "invites", "workspace_versions"])
+      expect(calls).not.toContain(`select:${table}`);
+    expect(calls).toContain("select:settings");
+  });
+
+  it("the in-process Navigator still acts over the whole store", async () => {
+    const { navigatorHeaders } = await import("@/lib/server/actor");
+    const handler = route(async () => ({ workspaces: db().workspaces.map((w) => w.slug) })) as Handler;
+    const res = await handler(new NextRequest("http://zenith.test/api/test", { method: "GET", headers: navigatorHeaders() }), { params: Promise.resolve({}) });
+    expect(await res.json()).toEqual({ workspaces: ["acme"] });
+    expect(calls).toContain("select:workspaces");
   });
 });

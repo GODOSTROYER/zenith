@@ -421,6 +421,8 @@ function blockedCategory(address: string): string | undefined {
   // IPv4-compatible IPv6 (`::a.b.c.d`), deprecated by RFC 4291 and still
   // routed as the embedded address by some stacks.
   if (prefix(v6, 96) === 0n) return transition("ipv4-compatible", v6);
+  // IPv4-translated (RFC 2765 SIIT, `::ffff:0:a.b.c.d`) is the same smuggling shape as the compatible form.
+  if (prefix(v6, 96) === 0xffff0000n) return transition("ipv4-translated", v6);
   // NAT64, both the well-known prefix and RFC 8215's local-use prefix.
   if (prefix(v6, 96) === NAT64_WELL_KNOWN) return transition("nat64", v6);
   if (prefix(v6, 48) === NAT64_LOCAL_USE) return transition("nat64", v6);
@@ -435,6 +437,12 @@ function blockedCategory(address: string): string | undefined {
   if (prefix(v6, 32) === 0x20010db8n) return "documentation";
   // Teredo, 2001::/32 — a tunnelled path to an arbitrary IPv4 destination.
   if (prefix(v6, 32) === 0x20010000n) return "teredo";
+  // Remaining special-purpose space is not a tenant's public endpoint either: IETF protocol assignments 2001::/23
+  // (ORCHID, benchmarking), the discard prefix 100::/64, documentation 3fff::/20 and deprecated site-local fec0::/10.
+  if (prefix(v6, 23) === prefixOf("2001::", 23)) return "reserved";
+  if (prefix(v6, 64) === prefixOf("100::", 64)) return "reserved";
+  if (prefix(v6, 20) === prefixOf("3fff::", 20)) return "documentation";
+  if (prefix(v6, 10) === 0x3fbn) return "site-local";
   return undefined;
 }
 

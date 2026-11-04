@@ -1,0 +1,1082 @@
+{
+  "schemaVersion": 1,
+  "lane": "platform-postgres",
+  "validatedAt": "2026-10-03T02:38:11.825Z",
+  "verdict": "passed",
+  "provenance": {
+    "commit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+    "trackedChangesSha256": "8334018c0cfe3925121d6d36e543bf8f72a9907d4b14c456a71aad992b1d6bde",
+    "untrackedContentSha256": "9188b3967c7b0241bdef64de3114bf0959358c58c6838bb912992ef7d87fd641",
+    "worktreeDirty": true,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "e4948f86a46d652d266c70c76dda6083b4db6939ebbd853f3da9541fb225a000"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "90acd76119a4f70e222ce4fc4ace801027315ba7558d76687eb723a987acdb40",
+      "inventorySha256": "f25bb74cd35efaad37be1067b31b27ecf2eb77ae36fdba24e116e62a3dfc19b3",
+      "shellContextSha256": "bcd24814f5c4b74643d1467cee7fd55b59b19e42cfdd8774b5efc041fe73885d",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "0e451bfd86034f9d3a87c7d3ddec24134c6d85f3800af8eff2bac83feed1d09c",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "6c4f91d54786b1660a3a9223dbe6f1fc4712d750f619c4d2f0c91b149022cb93",
+  "manifestSha256": "b1eb3a3b0ffac7246ef0c79d57a7b82b55d33c503a166cfb329656970fc5fbe7",
+  "expectedTools": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "tofu": "1.12.5"
+  },
+  "counts": {
+    "total": 1532,
+    "passed": 1532,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "platform-postgres:tests/controlplane/approvals.test.ts:6ddfd23d8015",
+      "file": "tests/controlplane/approvals.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/execution-ledger.test.ts:d3ed8a471fd3",
+      "file": "tests/controlplane/execution-ledger.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/executor.test.ts:4888cff6ca72",
+      "file": "tests/controlplane/executor.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/executor.test.ts:d69df0758896",
+      "file": "tests/controlplane/executor.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/grants.test.ts:3d6d7d84146f",
+      "file": "tests/controlplane/grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/leases.test.ts:6de269b022e6",
+      "file": "tests/controlplane/leases.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/migrations.test.ts:29219ff1efa5",
+      "file": "tests/controlplane/migrations.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+      "file": "tests/controlplane/migrations.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/open.test.ts:0c007f0b8d15",
+      "file": "tests/controlplane/open.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/operations.test.ts:a01f112f6412",
+      "file": "tests/controlplane/operations.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 30,
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:d26fb36561c4",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 15,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/read-jobs.test.ts:5efbbf2bc497",
+      "file": "tests/controlplane/read-jobs.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/runners.test.ts:339ae101d8f6",
+      "file": "tests/controlplane/runners.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/services.test.ts:00a3e30c0b02",
+      "file": "tests/controlplane/services.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/state.test.ts:58a2ad6a3f2d",
+      "file": "tests/controlplane/state.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/tenancy.test.ts:43f6b8c82d58",
+      "file": "tests/controlplane/tenancy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/action-bridge.test.ts:2fe1ac885e84",
+      "file": "tests/capabilities/action-bridge.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/approvals.test.ts:29d0664a29e4",
+      "file": "tests/capabilities/approvals.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/approvals.test.ts:d848150e2f8b",
+      "file": "tests/capabilities/approvals.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/approvals.test.ts:8cd1a98d65be",
+      "file": "tests/capabilities/approvals.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/autonomy.test.ts:63669e2430ca",
+      "file": "tests/capabilities/autonomy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/autonomy.test.ts:57fd1bbf4abd",
+      "file": "tests/capabilities/autonomy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:0bd902a87c54",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:c201238449a2",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:ab0d286c0f42",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:d508a2c0e133",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:b00e430ff65c",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:f01db1989132",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/broker.test.ts:472c11957bd9",
+      "file": "tests/capabilities/broker.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/execution.test.ts:e30c89e9b970",
+      "file": "tests/capabilities/execution.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 13,
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/execution.test.ts:40d3fbed80d7",
+      "file": "tests/capabilities/execution.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/execution.test.ts:eeffa47ee392",
+      "file": "tests/capabilities/execution.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/execution.test.ts:93339dc41876",
+      "file": "tests/capabilities/execution.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/store-contract.test.ts:2ebeb5ebf5b7",
+      "file": "tests/capabilities/store-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 28,
+        "passed": 28,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/tenancy.test.ts:a67e3c40e7a8",
+      "file": "tests/capabilities/tenancy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/tenancy.test.ts:d9a8309454d7",
+      "file": "tests/capabilities/tenancy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/tenancy.test.ts:f0d3f162c01e",
+      "file": "tests/capabilities/tenancy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/tenancy.test.ts:3171d6670c22",
+      "file": "tests/capabilities/tenancy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/capabilities/tenancy.test.ts:4fb2a01c6de4",
+      "file": "tests/capabilities/tenancy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/reconcile/platform.test.ts:ebcdbbbe2264",
+      "file": "tests/reconcile/platform.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 58,
+        "passed": 58,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/migrations.test.ts:a2de3856f6f9",
+      "file": "tests/controlplane/migrations.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:10dacc753e0f",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:4a13f88c48f9",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:4919725ee426",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:4658c0fcd269",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:1a2b54eeda39",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/plan-artifacts.test.ts:c8b7cba68a73",
+      "file": "tests/controlplane/plan-artifacts.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/controlplane/operations.test.ts:107121d95264",
+      "file": "tests/controlplane/operations.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:866597c43f5e",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:37b02f85810a",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:afbbc9e1f26a",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:30c54b0570ef",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:9f54454f6925",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:640649532efe",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:6490ca54e048",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:784d800ec8a0",
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/execution/apply.test.ts:36a847c44804",
+      "file": "tests/execution/apply.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/execution/apply.test.ts:03d5ae9b3a97",
+      "file": "tests/execution/apply.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/execution/apply.test.ts:410c090f8448",
+      "file": "tests/execution/apply.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/execution/apply.test.ts:4d35ceb9681d",
+      "file": "tests/execution/apply.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/execution/apply.test.ts:f35ffbdc8bf1",
+      "file": "tests/execution/apply.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/plan-approval.test.ts:308268fae16e",
+      "file": "tests/platform/plan-approval.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/execution/destroy-review.test.ts:56da75e505e0",
+      "file": "tests/execution/destroy-review.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/security/plan-artifact-secrecy.test.ts:b4872c9365c4",
+      "file": "tests/security/plan-artifact-secrecy.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:0d8ff3f76036",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:4c41f432b9fa",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:fd0865a92c75",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:6dd542936245",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:c228bbfa6520",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:af4c1b6a8582",
+      "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "validation": {
+    "failureCount": 0,
+    "complete": true,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": 0,
+    "termination": "exit",
+    "signal": null,
+    "observed": true,
+    "binding": "matched",
+    "receiptSha256": "772043ad804084d68de4c38940eeb6a3d03f787140fa654da4f2bdd4f0ae848b",
+    "originReceipt": {
+      "schemaVersion": 2,
+      "lane": "platform-postgres",
+      "reportSha256": "6c4f91d54786b1660a3a9223dbe6f1fc4712d750f619c4d2f0c91b149022cb93",
+      "manifestSha256": "b1eb3a3b0ffac7246ef0c79d57a7b82b55d33c503a166cfb329656970fc5fbe7",
+      "sourceSha256": "67bc30e9b297e3487cd3da0372c6339dae47b9c7f648175df85e1f73f3a9603f",
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": "90acd76119a4f70e222ce4fc4ace801027315ba7558d76687eb723a987acdb40",
+      "environmentInventorySha256": "f25bb74cd35efaad37be1067b31b27ecf2eb77ae36fdba24e116e62a3dfc19b3",
+      "shellContextSha256": "bcd24814f5c4b74643d1467cee7fd55b59b19e42cfdd8774b5efc041fe73885d",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "0e451bfd86034f9d3a87c7d3ddec24134c6d85f3800af8eff2bac83feed1d09c",
+      "runtimeSha256": "c9d534cf7052b2444c3efb279dc68d7be14f9de9db36e980b2623c6ec13d1157",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null
+    },
+    "checks": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "f25bb74cd35efaad37be1067b31b27ecf2eb77ae36fdba24e116e62a3dfc19b3",
+      "counts": {
+        "unchanged": 71,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    }
+  },
+  "externalAcceptance": []
+}

@@ -1,0 +1,33 @@
+{
+  "acceptedRunReceipt": false,
+  "cleanup": {
+    "custody_lock_retained": true,
+    "independent_cleanup_pending": true,
+    "independent_diagnosis_pending": true,
+    "no_other_baseline_changes_reported": true,
+    "plugin_container_inventory_empty": true,
+    "plugin_volume_inventory_empty": true,
+    "status": "refused-retain-unknown-or-changed-content"
+  },
+  "correction": "Manifest-only correction preserved the first binding.",
+  "evidence_type": "ux03-r9-pretest-image-refusal",
+  "execution_report_sha256": "3a95fda33da6c976ae3136c554612324104356e4645992e4c51455ee29d38694",
+  "first_invocation": {
+    "outcome": "preflight-refusal",
+    "reason": "Manifest image reference lacked the required tag-mapped reference."
+  },
+  "fresh_r16_source_binding": true,
+  "real_engine_attempt": {
+    "approved_reference_family": "docker.io/library/node@",
+    "failure_code": "approved-image-post-pull-platform-or-digest-mismatch",
+    "observed_image_id": "sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
+    "observed_repo_digest": "node@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
+    "observed_repo_tag": "node@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
+    "outcome": "refused-before-tests",
+    "pull_return_code": 0,
+    "test_started": false
+  },
+  "review": "passed",
+  "source_freeze_sha256": "f6a65a481df07826f409970a41f79aee9e04d95538b7e7769fb04256a0032650",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f"
+}

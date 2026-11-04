@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Boxes } from "lucide-react";
 import { db, readAuditPageAsync, runInStoreScope } from "@/lib/db/store";
+import { v1View } from "@/lib/resources/upgrade";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { diffManifests } from "@/lib/domain/graph";
-import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
+import { emptyManifest, type Deployment, type AnyManifest } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import { currentWorkspace } from "@/lib/server/context";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -83,7 +84,7 @@ async function renderOverview() {
 
   const rows: ProjectRow[] = projects.map((p) => {
     const envs = data.environments.filter((e) => e.projectId === p.id);
-    const working = monthlyCostUsd(p.workingManifest);
+    const working = monthlyCostUsd(v1View(p.workingManifest));
     let deployedUsd = 0;
     let lastDeployedAt: string | undefined;
 
@@ -93,10 +94,10 @@ async function renderOverview() {
         : connection?.provider === "localstack" ? "LocalStack · may include simulation"
         : connection?.provider === "aws" ? "AWS Preview · plan and export"
         : connection?.provider ?? "Connection unavailable";
-      const deployed: Manifest | undefined = e.deployedRevisionId
+      const deployed: AnyManifest | undefined = e.deployedRevisionId
         ? revisions.get(e.deployedRevisionId)?.manifest
         : undefined;
-      if (deployed) deployedUsd += monthlyCostUsd(deployed);
+      if (deployed) deployedUsd += monthlyCostUsd(v1View(deployed));
       // The same diff the project screen shows, against what this env runs.
       const changeset = diffManifests(deployed ?? emptyManifest(), p.workingManifest);
       const done = lastSuccess.get(e.id);

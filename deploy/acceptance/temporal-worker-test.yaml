@@ -1,0 +1,82 @@
+# Disposable acceptance only. Temporal Server v1.32.0, source d94e34a1.
+# The harness substitutes this one bounded hex password into a private copy.
+# No production deployment, public ports, permissive proxy or TLS bypass.
+log:
+  stdout: true
+  level: warn
+persistence:
+  numHistoryShards: 4
+  defaultStore: default
+  visibilityStore: visibility
+  datastores:
+    default:
+      sql:
+        pluginName: postgres12
+        databaseName: temporal
+        connectAddr: postgres:5432
+        connectProtocol: tcp
+        user: postgres
+        password: "__OWNED_POSTGRES_PASSWORD__"
+        maxConns: 4
+        maxIdleConns: 4
+        maxConnLifetime: 1h
+    visibility:
+      sql:
+        pluginName: postgres12
+        databaseName: temporal_visibility
+        connectAddr: postgres:5432
+        connectProtocol: tcp
+        user: postgres
+        password: "__OWNED_POSTGRES_PASSWORD__"
+        maxConns: 4
+        maxIdleConns: 4
+        maxConnLifetime: 1h
+global:
+  membership:
+    maxJoinDuration: 30s
+    broadcastAddress: 127.0.0.1
+  tls:
+    internode:
+      server:
+        certFile: /etc/zenith-temporal/server.crt
+        keyFile: /etc/zenith-temporal/server.key
+        requireClientAuth: true
+        clientCaFiles: [/etc/zenith-temporal/ca.crt]
+      client:
+        serverName: temporal
+        rootCaFiles: [/etc/zenith-temporal/ca.crt]
+    frontend:
+      server:
+        certFile: /etc/zenith-temporal/server.crt
+        keyFile: /etc/zenith-temporal/server.key
+        requireClientAuth: true
+        clientCaFiles: [/etc/zenith-temporal/ca.crt]
+      client:
+        serverName: temporal
+        rootCaFiles: [/etc/zenith-temporal/ca.crt]
+services:
+  frontend:
+    rpc: {grpcPort: 7233, membershipPort: 6933, bindOnIP: 0.0.0.0, httpPort: 0}
+  history:
+    rpc: {grpcPort: 7234, membershipPort: 6934, bindOnIP: 0.0.0.0}
+  matching:
+    rpc: {grpcPort: 7235, membershipPort: 6935, bindOnIP: 0.0.0.0}
+  worker:
+    rpc: {grpcPort: 7239, membershipPort: 6939, bindOnIP: 0.0.0.0}
+publicClient:
+  hostPort: temporal:7233
+clusterMetadata:
+  enableGlobalNamespace: false
+  failoverVersionIncrement: 10
+  masterClusterName: active
+  currentClusterName: active
+  clusterInformation:
+    active: {enabled: true, initialFailoverVersion: 1, rpcName: frontend, rpcAddress: "temporal:7233"}
+dcRedirectionPolicy: {policy: noop}
+archival:
+  history: {state: disabled, enableRead: false}
+  visibility: {state: disabled, enableRead: false}
+namespaceDefaults:
+  archival:
+    history: {state: disabled}
+    visibility: {state: disabled}

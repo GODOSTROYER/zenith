@@ -1,0 +1,31 @@
+{
+  "schema": "zenith.public.migration-race-assertion-repair.v1",
+  "baseCommit": "f07030bcb4fed1349448161ad5b5fe0708ff66b5",
+  "candidate": {
+    "file": "tests/controlplane/migrations.test.ts",
+    "postimageSha256": "7211b5f7e3f676fb13401cce299b86e6902523da12164620946ae54593e16365",
+    "patchSha256": "977724807fd58cb65e2feb390e8e845c4761b8aa1d25017b23552fcaf6473a84",
+    "status": "reviewed source-only candidate; not integrated"
+  },
+  "change": "Numerically sort flattened applied migration IDs before exact comparison with ALL; retains exact-once coverage of all 58 versions and existing schema-current, ledger-count, and idempotency assertions.",
+  "review": {
+    "verdict": "PASS",
+    "sha256": "5254ddc65d953d012fec0fb11fbca8d85aa0fe0fa18ccbdca0df87547fb1c0df"
+  },
+  "recordedValidation": {
+    "focusedEslint": "passed",
+    "pureManifestTest": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 25,
+      "changedPostgresRaceExercised": false
+    },
+    "postgresConcurrencyCase": "not run",
+    "freshPostgresCi": "pending",
+    "fullCi": "pending",
+    "localAcceptance": "pending"
+  },
+  "historicalFailureEvidence": "docs/build/production/evidence/PROD-CI-08/2026-10-11-a58bb8ff-platform-postgres-failure-r1.json",
+  "acceptanceClaim": false,
+  "milestonePromoted": false
+}

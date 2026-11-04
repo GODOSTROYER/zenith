@@ -1,0 +1,92 @@
+{
+  "disposition": "SOURCE_DIAGNOSIS_PRODUCTION_CORRECTION_REQUIRED_NO_EDITS",
+  "recordedAtUtc": "2026-10-05T04:49:43.973633+00:00",
+  "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/cleanup-native-integration-20261005",
+  "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "sourcePaths": 3854,
+  "preparedSourceHashMismatches": [],
+  "sourceHashes": {
+    "src/lib/tofu/engine.ts": "95e4f6131397ca4a65723f049606b72a40112e03d93a8802e19a3a7fd3d65c45",
+    "src/lib/tofu/stable.ts": "520dad9cd7e1e2d2ce003dbfa1a6c540ce1bdc13487547875c0c4e77e8875280",
+    "src/lib/controlplane/digest.ts": "5ea255c4af66f00e1251eddee1d5f13dfcee87b9ee8f139c7a03c017e221a672",
+    "src/lib/controlplane/db/repos/plan-artifacts.ts": "de670526d19331a824365a6659a955e2d2750e44a84f7b9466795255b87f309a",
+    "src/lib/platform/plan-artifacts.ts": "fc64499e805755f80ae7d1ddd9b70da7250d43f0c22d21d31f745c6ba952ea89",
+    "tests/controlplane/cleanup-writer-barriers.test.ts": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+    "tests/controlplane/_support/saved-native-plan.ts": "973d9045675813376a62a7cc5de0dee981cd43b0d19c1b466684cfdd41cd6b59"
+  },
+  "failedRuntimeReport": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-native-root-r2-20261005/settlement.json",
+    "sha256": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065",
+    "passed": 60,
+    "failed": 40,
+    "skipped": 0,
+    "retained": true
+  },
+  "findings": [
+    {
+      "severity": "blocking",
+      "title": "Native standalone manifest binding uses a different serialization from its immutable owning row",
+      "source": [
+        "src/lib/tofu/engine.ts:219",
+        "src/lib/tofu/engine.ts:384",
+        "src/lib/tofu/stable.ts:25",
+        "src/lib/controlplane/digest.ts:17",
+        "src/lib/controlplane/db/repos/plan-artifacts.ts:128",
+        "src/lib/controlplane/db/repos/plan-artifacts.ts:372",
+        "src/lib/controlplane/db/repos/plan-artifacts.ts:577"
+      ],
+      "cause": "Engine manifestDigest hashes sorted 2-space JSON with a trailing newline. Owning native manifest_digest hashes compact sorted canonical JSON. Dispatch requires equality, so a valid emitted binding is refused before dispatch UPDATE/apply. The wrapper sets its local dispatched flag before the repository await, then masks the pre-child rejection as unconfirmed while the failed transaction and finish(false) restore ready.",
+      "minimalCorrection": "Use the canonical controlplane digest for native standalone binding.manifestDigest creation and authenticateSettlement manifest comparison only. Preserve objectHash in existing plan artifact cipher refs, config/backend/executable digests, settlement digest/ref and payload serialization; preserve every native current source/product/member/approval/lease CAS."
+    },
+    {
+      "severity": "fixture",
+      "title": "Two genuine producer method-tampering controls expect the wrong refusal message",
+      "source": [
+        "tests/controlplane/cleanup-writer-barriers.test.ts:743",
+        "tests/controlplane/cleanup-writer-barriers.test.ts:751",
+        "src/lib/tofu/runner.ts:329",
+        "src/lib/tofu/runner.ts:111"
+      ],
+      "cause": "Finite producer refuses the own init/plan shadow; runner finally independently detects the same compromised known run and emits Canonical standalone run origin changed. The existing substring settlement expectation does not match this canonical refusal.",
+      "minimalCorrection": "Retain both literal case identities and negative behavior. Assert the exact canonical origin refusal plus zero execution of the shadow backend-override callback, no local state, no settlement, and unchanged original artifact. Do not loosen production origin/finally checks."
+    }
+  ],
+  "publicRuleWitness": {
+    "scope": "Stdlib reproduction of the two read source serialization rules on fixed public synthetic JSON; no project code or actual native manifest executed",
+    "canonicalUtf8Sha256": "1f36115774e5dd779c7708da02e0dce67eb317014f58e558c70c8adc940604a2",
+    "stableJsonUtf8Sha256": "bb32c405e221c672395e7235bb4878e21e530fbf4798f1e526e1408ad2b0431c",
+    "different": true
+  },
+  "proposedOwnedCorrection": [
+    "src/lib/tofu/engine.ts",
+    "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+  ],
+  "proposedRegression": "Existing genuine original-byte apply positive explicitly requires receipt.binding.manifestDigest === immutable native row.manifest_digest; keep same-scope apply/destroy and all100 names, post-await getter-zero and final current-authority/uncertainty controls. New failure successors require actual root PostgreSQL and pinned OpenTofu; source diagnosis does not prove remaining40 all cured.",
+  "outsideFollowups": [
+    "Exact gate source-hash rebinding only after corrected source independently reviewed",
+    "Root compiler/lint and actual native100 successor",
+    "MACH01/03 bounded reachable service convergence source recommendation deferred by priority"
+  ],
+  "gitDisclosure": {
+    "oneReadUsedPlainGitStatus": true,
+    "possibleStatCacheRefresh": true,
+    "noStagingOrSourceEdits": true,
+    "currentRawIndexSha256": "442704875f165aaae5d5af9d4cda6b22a0656197c8431e27691b2c39a6d6e234",
+    "currentStageNulSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "originalRuntimeSourceReceipt": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/settlement-package-root-compose-r1-20261005/SOURCE.json",
+      "sha256": "4e01034dfdf37a81d27bec2ed67dd6011afd2239b720f06c2cdc0282ae049ee3"
+    },
+    "all3854SourceHashesStillExact": true
+  },
+  "execution": {
+    "projectImports": false,
+    "tests": false,
+    "compiler": false,
+    "services": false,
+    "database": false,
+    "commits": false,
+    "sourceEdits": false
+  }
+}

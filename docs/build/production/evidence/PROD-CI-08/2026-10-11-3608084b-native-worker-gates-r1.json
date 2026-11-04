@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_source_native_packaged_worker_gate",
+  "sourceCommit": "3608084bff2059bbcd44c4a56bc384a96ed44b8c",
+  "gate": {
+    "minimumDiskAdmissionGiB": 18,
+    "ramTotalGiB": 12,
+    "ramAvailableGiB": 8,
+    "continuousReserveGiB": 8
+  },
+  "jobs": [
+    {
+      "platform": "linux/amd64",
+      "runId": "38150310411",
+      "jobId": 114502212236,
+      "runner": "ubuntu-24.04",
+      "status": "passed",
+      "checksPassed": 22,
+      "checksFailed": 0,
+      "childExitCode": 0,
+      "emulated": false,
+      "minimumObservedFreeGiB": 80.31,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "sanitizedReportSha256": "5819d399a818a3302dbaf91991f1b28a16c9c959abe197bec69a0889dac5fca9",
+      "detailedReportSha256": "b5a5dd988254cee215e67616091088fac07c34e742beb46d77f7c14da2538337"
+    },
+    {
+      "platform": "linux/arm64",
+      "runId": "38150310411",
+      "jobId": 114502212434,
+      "runner": "ubuntu-24.04-arm",
+      "status": "passed",
+      "checksPassed": 22,
+      "checksFailed": 0,
+      "childExitCode": 0,
+      "emulated": false,
+      "minimumObservedFreeGiB": 102.29,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "sanitizedReportSha256": "52fdcdcff084e8b54909b987e0fb91159b3d8c7a53de85d21eaf984e61f00367",
+      "detailedReportSha256": "d2396b36e32c5547141e9583c9fcf562bc8cbd82aa6b4d4f2aaa477a4156592e"
+    }
+  ],
+  "limits": {
+    "scope": "hosted native packaged-worker jobs only",
+    "localMacStackAcceptance": false,
+    "browserAcceptance": false,
+    "prodPkg05JourneyAcceptance": false,
+    "ledgerPromotion": false
+  }
+}

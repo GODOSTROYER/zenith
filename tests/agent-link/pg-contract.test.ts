@@ -38,7 +38,7 @@
  * ## What it runs against
  *
  * The `postgres` job in `.github/workflows/ci.yml`: a disposable
- * `postgres:16.15-alpine` service with `supabase/migrations/0001`–`0007`
+ * `postgres:16.15-alpine` service with `supabase/migrations/0001`–`0015`
  * applied by `scripts/ci/apply-supabase-migrations.sh`. Both
  * `ZENITH_CONTRACT_POSTGRES=1` and `SUPABASE_DB_URL` are required — the flag
  * says you meant it, the URL says there is something to mean it about — and
@@ -114,14 +114,17 @@ let sql: Sql;
 beforeAll(async () => {
   if (!enabled()) return;
   const { createPgAuthorityClient } = await import("@/lib/hosted/authority/pg/client");
+  const { AGENT_CONTROL_MIGRATIONS } = await import("@/lib/agent-access/control/journal-pg");
+  const { verifyAgentSchema } = await import("../../scripts/agent/verify-schema");
   sql = createPgAuthorityClient(process.env.SUPABASE_DB_URL!);
+  await verifyAgentSchema(sql);
   // Fail here, naming the migration, rather than inside the first scenario
   // with a bare "relation does not exist".
   const ledger = await sql`select version, name from agent.schema_migrations order by version`;
   expect(
     ledger.map((row) => `${String(row.version)}:${String(row.name)}`),
-    "supabase/migrations/0006_agent_link.sql and 0007_agent_control.sql must both be applied"
-  ).toEqual(["1:agent-link-v1", "2:agent-control-v1"]);
+    "the exact canonical agent migration registry, including native OAuth schema 0015, must be applied"
+  ).toEqual(AGENT_CONTROL_MIGRATIONS.map(({ version, name }) => `${version}:${name}`));
 });
 
 afterAll(async () => {

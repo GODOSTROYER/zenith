@@ -1,0 +1,1365 @@
+diff --git a/docs/LIMITATIONS.md b/docs/LIMITATIONS.md
+index 3efd1cd..e974bb5 100644
+--- a/docs/LIMITATIONS.md
++++ b/docs/LIMITATIONS.md
+@@ -79,7 +79,7 @@ Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
+ - 🟡 The Go runner/daemon transport was not run here; source assertions do not prove executor or customer-network behavior.
+ - 🟡 Temporal Cloud, API-key authentication, encrypted production replay/rotation/recovery and a production self-hosted cluster were not run here.
+ - ⬜ OCI MySQL creation is disabled: pinned `oracle/oci` 9.7.1 lacks a proven write-only password or Vault-reference sink (`src/lib/providers/oci/drivers/data/mysql.ts`).
+-- ⬜ Teardown has no public first read-only destroy-review trigger; the browser requires current execution evidence and an authorized readable matching PlanView artifact for plan approval.
++- 🟡 Teardown's first read-only destroy review is exposed by `env.reviewTeardown`, REST and MCP. The execution worker records evidence, a matching PlanView and a pending admin-approval proposal under the environment lease. This dispatch requires Temporal standalone activity support; that transport and live provider planning remain unverified. Managed Zenith still requires the session opener below.
+ - ⬜ Default managed Zenith execution has no session opener/substrate integration; managed teardown needs injected `withZenithSession` plus a trusted database inventory and current approval flags.
+ - ⬜ Azure source builds require a source reader and provider-dispatched preparation port; default composition supplies neither.
+ - ⬜ Private GitHub source access needs a tenant-scoped connector; default composition supplies none.
+diff --git a/docs/platform/operations/TEARDOWN.md b/docs/platform/operations/TEARDOWN.md
+index 26cc58a..3043d0f 100644
+--- a/docs/platform/operations/TEARDOWN.md
++++ b/docs/platform/operations/TEARDOWN.md
+@@ -1,6 +1,6 @@
+ # Tearing down an environment
+ 
+-Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
++Updated for WS-DESTROY-REVIEW on `ws/destroy-review`, based on `53d5e2d` (2026-10-01).
+ 
+ Teardown is an explicit, human-approved operation. It is never rollback or
+ automatic compensation after a failed deploy. The action and workflow are
+@@ -10,22 +10,40 @@ verified in this sync.
+ ## Review and request
+ 
+ 1. Finish any active deployment and confirm the workspace and environment.
+-   The product action `env.teardown` requires an **admin**, a signed-in human
++   Any workspace member authorized for `infrastructure.plan` may request a
++   **Review teardown** through the product action `env.reviewTeardown`,
++   `POST /api/platform/v1/environments/<id>/teardown-review` or MCP
++   `zenith_review_teardown`. Agents need the integration `plan` scope, not
++   `write`; they cannot approve. REST takes `{ "idempotencyKey": "<random-key>" }`
++   and optional `refresh: true`. MCP also takes the workspace/project/environment
++   target. Retry an unconfirmed dispatch with the same key.
++   The legacy product action `env.teardown` requires an **admin**, a signed-in human
+    browser session and a verified connection with a ready execution plane.
+    Bearers, integrations, Navigator actors and supplied actor headers cannot
+    authorize it (`src/lib/actions/defs/env-teardown.ts`,
+    `src/lib/bridge/teardown-session.ts`).
+-2. Obtain a **current recorded destroy review** from the execution integration.
++2. The execution worker creates the **current recorded destroy review**.
++   The control plane dispatches the standalone Temporal `reviewTeardown`
++   activity with workspace and operation ids only. It never opens cloud
++   credentials or runs OpenTofu in the web process. The server must support
++   standalone activities and the execution worker must be polling the queue.
+    `planDestroyInfrastructure` in `src/lib/execution/destroy.ts` can review an
+    `infrastructure.plan` operation without deleting anything, under the
+    environment lease. It records a `tofu_plan` evidence row with `destroy: true`,
+    the digest, deletion facts and addresses; direct provider reviews also record
+-   retained references. The browser consumes that evidence rather than accepting
++   retained references. It also records the bounded, redacted matching PlanView
++   on the pending teardown proposal so the existing browser approval can read it.
++   The browser consumes that evidence rather than accepting
+    caller-supplied plan facts (`src/lib/capabilities/destroy-plan.ts`).
+-3. On `/platform/environments/<id>`, use **Review teardown plan**, inspect the
++3. On `/platform/environments/<id>`, the review state persists across reloads.
++   `GET /api/platform/v1/environments/<id>/teardown-review` reads the latest
++   request; optional `?reviewId=<id>` follows a specific request. A queued/running
++   review is not a plan or a successful teardown. Once complete, inspect the
++   pending proposal through **Review teardown operation for approval**.
++   The legacy **Review teardown plan** path also consumes the recorded review; inspect the
+    digest, counts, stateful deletions and retained resources, then type the exact
+    environment name and choose **Request teardown for approval**. This records
+-   an `awaiting_approval` operation; it does not delete anything. Follow its link
++   an `awaiting_approval` operation (or reuses the current review); it does not delete anything. Follow its link
+    to `/platform/operations/<id>` (`src/app/(product)/platform/environments/[id]/environment-teardown.tsx`).
+ 4. Approve through the browser operation review. The approval route claims the
+    operation once and starts `infrastructureDestroyWorkflow` through `startDestroy`
+@@ -35,13 +53,24 @@ verified in this sync.
+    (`src/lib/workflows/definitions/destroy.ts`). A changed concrete plan needs a
+    new review; the initial proposal approval cannot authorize a different plan.
+ 
+-**Current entry-point limits:** there is no public UI, REST or MCP trigger that
+-creates the first read-only destroy review. **Review teardown plan** consumes
+-an existing review; it does not run the worker planner. With no current review,
+-the action refuses and asks for one. REST destroy proposals are denied
+-`plan_required`, and MCP has no destroy execution tool. Plan-bound browser
+-approval also stays disabled without an authorized readable matching PlanView
+-artifact. Do not synthesize evidence, inject SQL rows or bypass that refusal.
++One pending review is kept per environment under the environment lease. A
++request reuses it while its stored environment/revision/resource inputs match
++and its 15-minute validity window remains open. An expired review, changed
++inputs or explicit refresh supersedes the pending review with a recorded
++cancellation reason. An approved, running or uncertain teardown blocks a new
++review. This freshness window does not attest to live drift: the final destroy
++plan must still match before apply.
++
++**Current entry-point limits:** ordinary REST destroy proposals still need
++execution-supplied evidence and MCP still has no destroy execution tool.
++The worker-created proposal records the real requester, checks their current
++plan access at approval/execution, and evaluates destruction as a deterministic
++service requiring at least one browser admin approval. It grants no mutation
++authority to the requester. Plan-bound browser approval stays disabled without
++an authorized readable matching PlanView artifact and exact plan digest.
++Standalone Temporal dispatch, live cloud/cluster planning and deletion are
++unverified here; unavailable/unsupported dispatch fails closed. Do not
++synthesize evidence, inject SQL rows or bypass a refusal.
+ Managed Zenith teardown additionally requires an injected `withZenithSession`
+ opener; default execution composition does not supply it
+ (`src/lib/platform/execution.ts`, `src/lib/execution/destroy.ts`).
+diff --git a/src/app/(product)/platform/environments/[id]/environment-teardown-review.tsx b/src/app/(product)/platform/environments/[id]/environment-teardown-review.tsx
+new file mode 100644
+index 0000000..e2d7f25
+--- /dev/null
++++ b/src/app/(product)/platform/environments/[id]/environment-teardown-review.tsx
+@@ -0,0 +1,76 @@
++"use client";
++/** First read-only review and persisted status. Lost replies retain the same intent key. */
++import Link from "next/link";
++import { useEffect, useRef, useState } from "react";
++import type { RoleName } from "@/lib/domain/roles";
++import { api, executeAction } from "@/lib/client/api";
++import { Button } from "@/components/ui/button";
++import { Callout } from "@/components/ui/callout";
++import { mutationError } from "../../_lib/browser-api";
++
++interface Review { reviewOperationId: string; status: string; operationId?: string; planDigest?: string; planReview?: unknown }
++const pending = (status: string) => ["approved", "queued", "running"].includes(status);
++function parsedReview(value: unknown): Review | null {
++  if (!value || typeof value !== "object" || !("review" in value) || !value.review || typeof value.review !== "object") return null;
++  const row = value.review as Partial<Review>;
++  if (typeof row.reviewOperationId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(row.reviewOperationId) || typeof row.status !== "string") return null;
++  if (row.operationId !== undefined && (typeof row.operationId !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(row.operationId))) return null;
++  if (row.planDigest !== undefined && (typeof row.planDigest !== "string" || !/^[a-f0-9]{64}$/.test(row.planDigest))) return null;
++  return row as Review;
++}
++
++export function EnvironmentTeardownReview({ workspaceId, environmentId, viewerRole }: { workspaceId: string; environmentId: string; viewerRole: RoleName }) {
++  const [review, setReview] = useState<Review | null>(null);
++  const [busy, setBusy] = useState(false);
++  const [error, setError] = useState("");
++  const intent = useRef<string | undefined>(undefined);
++  const inFlight = useRef(false);
++  const alive = useRef(true);
++  const path = `/api/platform/v1/environments/${encodeURIComponent(environmentId)}/teardown-review`;
++  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
++  useEffect(() => {
++    let active = true;
++    let timer: ReturnType<typeof setTimeout> | undefined;
++    const load = async () => {
++      try {
++        const result = parsedReview(await api<unknown>(path, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId } }));
++        if (!active) return;
++        setReview(result);
++        if (result && pending(result.status) && !result.operationId) timer = setTimeout(() => void load(), 2000);
++      } catch (failure) { if (active) setError(mutationError(failure)); }
++    };
++    if (viewerRole !== "none") void load();
++    return () => { active = false; clearTimeout(timer); };
++  }, [workspaceId, path, viewerRole, busy]);
++
++  const request = async () => {
++    if (inFlight.current || viewerRole === "none" || (review && pending(review.status))) return;
++    inFlight.current = true; setBusy(true); setError("");
++    intent.current ??= crypto.randomUUID();
++    try {
++      const result = await executeAction("env.reviewTeardown", { scope: { environmentId },
++        input: { environmentId, idempotencyKey: intent.current }, idempotencyKey: intent.current });
++      if (!alive.current) return;
++      if (!result?.ok || !result.data || typeof result.data !== "object" || !("reviewOperationId" in result.data) || typeof result.data.reviewOperationId !== "string") {
++        setError("The review request could not be confirmed. Reload to inspect its recorded state.");
++      } else {
++        const next = parsedReview(await api<unknown>(`${path}?reviewId=${encodeURIComponent(result.data.reviewOperationId)}`, { credentials: "same-origin", headers: { "x-zenith-workspace": workspaceId } }));
++        if (alive.current) { setReview(next); intent.current = undefined; }
++      }
++    } catch (failure) { if (alive.current) setError(mutationError(failure)); }
++    finally { inFlight.current = false; if (alive.current) setBusy(false); }
++  };
++  return <div className="space-y-3" aria-label="Read-only teardown review">
++    <p className="text-[13px] text-ink-mute">Run a read-only destroy plan and record a proposal for separate human approval. No infrastructure is changed by this review.</p>
++    <Button busy={busy} onClick={() => void request()} disabled={viewerRole === "none" || Boolean(review && pending(review.status))}
++      disabledReason={viewerRole === "none" ? "Workspace membership is required." : "The recorded review or teardown is still in progress."}>Review teardown</Button>
++    {review && <div role="status" className="space-y-2 text-[13px]">
++      <p>{review.status === "awaiting_approval" ? "Teardown review is awaiting human approval." : `Teardown review: ${review.status}.`}</p>
++      {review.planDigest && <p className="break-all">Plan digest: {review.planDigest}</p>}
++      <Link href={`/platform/operations/${encodeURIComponent(review.operationId ?? review.reviewOperationId)}`} className="text-signal underline underline-offset-4">
++        {review.operationId ? "Review teardown operation for approval" : "View review progress"}</Link>
++      {review.operationId && !review.planReview && <Callout tone="warn">The recorded PlanView is unavailable. Approval requires a readable matching plan.</Callout>}
++    </div>}
++    {error && <Callout tone="warn" title="Teardown review unavailable">{error}</Callout>}
++  </div>;
++}
+diff --git a/src/app/(product)/platform/environments/[id]/page.tsx b/src/app/(product)/platform/environments/[id]/page.tsx
+index 3b29879..e31e379 100644
+--- a/src/app/(product)/platform/environments/[id]/page.tsx
++++ b/src/app/(product)/platform/environments/[id]/page.tsx
+@@ -5,6 +5,7 @@ import { EvidenceNote, PageState } from "../../_components/page-state";
+ import { EnvironmentState } from "./environment-state";
+ import { EnvironmentAutonomy } from "./environment-autonomy";
+ import { EnvironmentTeardown } from "./environment-teardown";
++import { EnvironmentTeardownReview } from "./environment-teardown-review";
+ export const dynamic = "force-dynamic";
+ export default async function EnvironmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Search> }) {
+   const [{ id }, search] = await Promise.all([params, searchParams]);
+@@ -18,6 +19,10 @@ export default async function EnvironmentPage({ params, searchParams }: { params
+     {data.resources.nextCursor && <Link className="text-signal hover:underline" href={`/platform/environments/${encodeURIComponent(id)}?cursor=${encodeURIComponent(data.resources.nextCursor)}`}>Next resources</Link>}
+     {one(search, "cursor") && <Link className="text-signal hover:underline" href={`/platform/environments/${encodeURIComponent(id)}`}>First resources</Link>}
+     <EnvironmentAutonomy key={data.autonomy.version} initial={data.autonomy} workspaceId={context.workspaceId} viewerRole={context.role} environmentName={name} />
++    <section className="app-panel p-5" aria-label="Read-only teardown review">
++      <h2 className="mb-3 text-base font-medium">Review teardown</h2>
++      <EnvironmentTeardownReview key={`${context.workspaceId}:${id}:${context.role}`} workspaceId={context.workspaceId} environmentId={id} viewerRole={context.role} />
++    </section>
+     <EnvironmentTeardown workspaceId={context.workspaceId} environmentId={id} viewerRole={context.role} environmentName={context.environments.find((e) => e.id === id)?.name} />
+   </div>;
+ }
+diff --git a/src/app/api/platform/v1/_lib/bearer-paths.ts b/src/app/api/platform/v1/_lib/bearer-paths.ts
+index 1d91bf2..32fda56 100644
+--- a/src/app/api/platform/v1/_lib/bearer-paths.ts
++++ b/src/app/api/platform/v1/_lib/bearer-paths.ts
+@@ -24,6 +24,7 @@ export const PLATFORM_PATHS: readonly {
+   // reads authorised by the broker (authorizeRead); placement is a POST only to carry constraints
+   { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
+   { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },
++  { path: new RegExp(`^${ROOT}/environments/${ID}/teardown-review$`), methods: { GET: "bearer-capable", POST: "bearer-capable" } },
+   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
+   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
+   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },
+diff --git a/src/app/api/platform/v1/environments/[id]/teardown-review/route.ts b/src/app/api/platform/v1/environments/[id]/teardown-review/route.ts
+new file mode 100644
+index 0000000..46d64c5
+--- /dev/null
++++ b/src/app/api/platform/v1/environments/[id]/teardown-review/route.ts
+@@ -0,0 +1,26 @@
++/** Read-only review trigger/polling. Bearers need plan scope; this never approves or applies. */
++import { z } from "zod";
++import { platformBroker } from "@/lib/capabilities/platform";
++import { getDestroyReview, requestDestroyReview, DestroyReviewOptions } from "@/lib/capabilities/destroy-review";
++import { notFound } from "@/lib/capabilities/errors";
++import { callerOf } from "../../../_lib/principal";
++import { parseWith, platformRoute, readJson } from "../../../_lib/http";
++
++export const dynamic = "force-dynamic";
++export const runtime = "nodejs";
++const Id = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
++
++export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
++  const caller = await callerOf(req);
++  if (!Id.safeParse(id).success) throw notFound();
++  const body = parseWith(DestroyReviewOptions, await readJson(req));
++  return { status: 202, body: await requestDestroyReview(await platformBroker(), { workspaceId: caller.workspaceId, environmentId: id }, caller.principal, body) };
++});
++
++export const GET = platformRoute<{ id: string }>(async (req, { id }) => {
++  const caller = await callerOf(req);
++  if (!Id.safeParse(id).success) throw notFound();
++  const reviewId = req.nextUrl.searchParams.get("reviewId") ?? undefined;
++  if (reviewId !== undefined && !/^[A-Za-z0-9_-]{1,200}$/.test(reviewId)) throw notFound();
++  return { body: await getDestroyReview(await platformBroker(), { workspaceId: caller.workspaceId, environmentId: id }, caller.principal, reviewId) };
++});
+diff --git a/src/lib/actions/defs/env-teardown.ts b/src/lib/actions/defs/env-teardown.ts
+index 1420ff4..aba2fd6 100644
+--- a/src/lib/actions/defs/env-teardown.ts
++++ b/src/lib/actions/defs/env-teardown.ts
+@@ -4,8 +4,30 @@ import { defineAction } from "@/lib/actions/core";
+ import { proposeTeardown, teardownPlan } from "@/lib/bridge/destroy";
+ import { requireEnvironment } from "./_shared";
+ import { inFlight } from "./env";
++import { principalFromAction } from "@/lib/capabilities/action-bridge";
++import { platformBroker } from "@/lib/capabilities/platform";
++import { getDestroyReview, requestDestroyReview } from "@/lib/capabilities/destroy-review";
++import { bridgeDeps } from "@/lib/bridge/deps";
+ 
+ const Input = z.object({ environmentId: z.string().min(1).max(200) }).strict();
++const ReviewInput = Input.extend({ idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{8,100}$/), refresh: z.boolean().optional() });
++defineAction<z.infer<typeof ReviewInput>>({
++  id: "env.reviewTeardown", title: "Review teardown", category: "environment",
++  risk: "low", requiredRole: "viewer", mutates: false, input: ReviewInput,
++  plan(ctx, input) {
++    const env = requireEnvironment(ctx, input.environmentId);
++    return { summary: `Review teardown of "${env.name}".`, details: ["Run a read-only destroy plan under observe credentials and record a proposal for separate human approval."],
++      costDeltaUsd: 0, risk: "low", warnings: [], requiresApproval: false,
++      ...(inFlight(env.id) ? { blocked: "Wait for the environment's active deployment to finish." } : {}) };
++  },
++  async execute(ctx, input) {
++    const env = requireEnvironment(ctx, input.environmentId);
++    if (inFlight(env.id)) return { ok: false, summary: "Teardown review refused.", error: "Wait for the environment's active deployment to finish." };
++    const data = await requestDestroyReview(await platformBroker(), { workspaceId: ctx.workspaceId, projectId: env.projectId, environmentId: env.id },
++      principalFromAction(ctx), { idempotencyKey: input.idempotencyKey, refresh: input.refresh }, "ui");
++    return { ok: true, summary: "Read-only teardown review requested. Nothing was applied.", data };
++  },
++});
+ defineAction<z.infer<typeof Input>>({
+   id: "env.teardown", title: "Tear down environment infrastructure", category: "environment",
+   risk: "high", requiredRole: "admin", mutates: true, input: Input,
+@@ -18,6 +40,16 @@ defineAction<z.infer<typeof Input>>({
+   async execute(ctx, input) {
+     const env = requireEnvironment(ctx, input.environmentId);
+     if (inFlight(env.id)) return { ok: false, summary: "Teardown refused.", error: "Wait for the environment's active deployment to finish." };
++    const broker = await bridgeDeps().broker();
++    const existing = await getDestroyReview(broker, { workspaceId: ctx.workspaceId, projectId: env.projectId, environmentId: env.id }, principalFromAction(ctx));
++    if (existing.review && ["approved", "queued", "running", "uncertain"].includes(existing.review.status)) {
++      return { ok: false, summary: "Teardown refused.", error: "Inspect the current teardown review or operation before proposing another teardown." };
++    }
++    if (existing.review && "operation" in existing.review && existing.review.status === "awaiting_approval") {
++      const plan = await teardownPlan(ctx, env);
++      if (plan.blocked) return { ok: false, summary: "Teardown refused.", error: plan.blocked };
++      return { ok: true, summary: "The current teardown review is already awaiting human approval.", data: { operationId: existing.review.operationId } };
++    }
+     return proposeTeardown(ctx, env);
+   },
+ });
+diff --git a/src/lib/agent-access/v3/catalog.ts b/src/lib/agent-access/v3/catalog.ts
+index ea2c454..ea2bc44 100644
+--- a/src/lib/agent-access/v3/catalog.ts
++++ b/src/lib/agent-access/v3/catalog.ts
+@@ -42,6 +42,7 @@ import {
+   RestartServiceInput,
+   ScaleServiceInput,
+ } from "./schemas";
++import { ReviewTeardownInput } from "./teardown-review-schema";
+ 
+ /** MCP `ToolAnnotations` (2025-06-18 and later). */
+ export interface ToolHints {
+@@ -125,6 +126,13 @@ const SOURCES: Record<ToolName, Source> = {
+     annotations: PROPOSE,
+     schema: PlanChangeInput,
+   },
++  zenith_review_teardown: {
++    title: "Review teardown",
++    description: "Request a read-only destroy review for an environment under observe credentials and the environment lease. The execution worker records the exact destroy PlanView and a pending admin-approval proposal. It never applies, approves or deletes. Poll the returned review operation; only a signed-in person may approve in the browser. Reuses a current review and records why a stale review is superseded.",
++    access: "propose", capability: "infrastructure.plan", requiredScope: "plan", schemaVersion: 1,
++    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
++    schema: ReviewTeardownInput,
++  },
+   zenith_prepare_deploy: {
+     title: "Prepare a deployment",
+     description:
+diff --git a/src/lib/agent-access/v3/contract.ts b/src/lib/agent-access/v3/contract.ts
+index 5c8cd01..fdb7eb6 100644
+--- a/src/lib/agent-access/v3/contract.ts
++++ b/src/lib/agent-access/v3/contract.ts
+@@ -43,6 +43,7 @@ export const TOOL_NAMES = [
+   "zenith_get_topology",
+   "zenith_get_capabilities",
+   "zenith_plan_change",
++  "zenith_review_teardown",
+   "zenith_prepare_deploy",
+   "zenith_execute_approved_operation",
+   "zenith_query_logs",
+diff --git a/src/lib/agent-access/v3/teardown-review-schema.ts b/src/lib/agent-access/v3/teardown-review-schema.ts
+new file mode 100644
+index 0000000..ec794c1
+--- /dev/null
++++ b/src/lib/agent-access/v3/teardown-review-schema.ts
+@@ -0,0 +1,4 @@
++/** Strict additive MCP review schema; identifiers and flags only. */
++import { z } from "zod/v4";
++import { EnvTarget, IdempotencyKey } from "./schemas";
++export const ReviewTeardownInput = z.strictObject({ target: EnvTarget, idempotencyKey: IdempotencyKey, refresh: z.boolean().optional() });
+diff --git a/src/lib/agent-access/v3/tools/index.ts b/src/lib/agent-access/v3/tools/index.ts
+index b507b62..1545219 100644
+--- a/src/lib/agent-access/v3/tools/index.ts
++++ b/src/lib/agent-access/v3/tools/index.ts
+@@ -27,6 +27,7 @@ import { investigateIncident, queryLogs, queryMetrics } from "./observe";
+ import { compareRevisions, estimateCost, getCapabilities, getTopology } from "./project";
+ import { planChange, prepareDeploy, restartService, scaleService } from "./propose";
+ import { recommendPlacementTool } from "./placement";
++import { reviewTeardown } from "./teardown-review";
+ 
+ type Handler = (args: never, ctx: ToolContext) => Promise<ToolOutput>;
+ 
+@@ -34,6 +35,7 @@ const HANDLERS: Record<ToolName, Handler> = {
+   zenith_get_topology: getTopology as Handler,
+   zenith_get_capabilities: getCapabilities as Handler,
+   zenith_plan_change: planChange as Handler,
++  zenith_review_teardown: reviewTeardown as Handler,
+   zenith_prepare_deploy: prepareDeploy as Handler,
+   zenith_execute_approved_operation: executeApprovedOperation as Handler,
+   zenith_query_logs: queryLogs as Handler,
+diff --git a/src/lib/agent-access/v3/tools/teardown-review.ts b/src/lib/agent-access/v3/tools/teardown-review.ts
+new file mode 100644
+index 0000000..f503a11
+--- /dev/null
++++ b/src/lib/agent-access/v3/tools/teardown-review.ts
+@@ -0,0 +1,13 @@
++/** Read-only worker review. No approval fields, commands, cloud values or apply path. */
++import { z } from "zod/v4";
++import { requestDestroyReview } from "@/lib/capabilities/destroy-review";
++import { ReviewTeardownInput } from "../teardown-review-schema";
++import type { ToolContext } from "../context";
++import type { ToolOutput } from "../envelope";
++
++export async function reviewTeardown(args: z.infer<typeof ReviewTeardownInput>, ctx: ToolContext): Promise<ToolOutput> {
++  const review = await requestDestroyReview(ctx.broker, args.target, ctx.principal.principal,
++    { idempotencyKey: args.idempotencyKey, refresh: args.refresh }, "mcp");
++  return { data: { ...review, poll: { tool: "zenith_get_operation", workspaceId: args.target.workspaceId, operationId: review.reviewOperationId } },
++    notes: ["This requests read-only planning. The worker records a destroy PlanView and a pending teardown proposal. Only a person in the browser can approve it. Nothing is applied by this tool."] };
++}
+diff --git a/src/lib/capabilities/action-bridge.ts b/src/lib/capabilities/action-bridge.ts
+index 4b36fbc..638a8d2 100644
+--- a/src/lib/capabilities/action-bridge.ts
++++ b/src/lib/capabilities/action-bridge.ts
+@@ -68,6 +68,7 @@ export const ACTION_CAPABILITY_MAP: Readonly<Record<string, ActionMapping>> = {
+   "ops.investigate": cap("incident.investigate", []),
+   /* environments and projects */
+   "env.teardown": cap("infrastructure.destroy", ["environmentId"]),
++  "env.reviewTeardown": cap("infrastructure.plan", ["environmentId", "idempotencyKey", "refresh"]),
+   "env.delete": cap("infrastructure.destroy", []),
+   "env.create": local("Creates an environment record; provisioning happens at deploy."),
+   "env.update": local("Edits environment settings inside Zenith."),
+diff --git a/src/lib/capabilities/approvals.ts b/src/lib/capabilities/approvals.ts
+index cfc5de6..c31da10 100644
+--- a/src/lib/capabilities/approvals.ts
++++ b/src/lib/capabilities/approvals.ts
+@@ -134,6 +134,10 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve"
+     }
+     const round = approvalRoundOf(op);
+     const review = operationPlanReview(op);
++    const teardownReview = (op.proposal as import("./types").BrokerProposal).broker?.teardownReview;
++    if (decision === "approve" && teardownReview && (!review || input.planDigest !== op.planDigest)) {
++      throw new BrokerError("digest_mismatch", "Review the recorded destroy PlanView and supply its exact plan digest before approving teardown.");
++    }
+     if ((input.planDigest !== undefined && input.planDigest !== op.planDigest) ||
+         (decision === "approve" && round > 0 && op.planDigest && input.planDigest !== op.planDigest)) {
+       throw new BrokerError("digest_mismatch", "The reviewed plan digest does not match the gated plan.", "Reload and review the current plan.");
+diff --git a/src/lib/capabilities/broker.ts b/src/lib/capabilities/broker.ts
+index fd8e735..72ff88d 100644
+--- a/src/lib/capabilities/broker.ts
++++ b/src/lib/capabilities/broker.ts
+@@ -158,6 +158,7 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
+       ...(parsed.constraints ? { requestedConstraints: parsed.constraints } : {}),
+       ...(parsed.request.requestedDurationSec !== undefined ? { requestedDurationSec: parsed.request.requestedDurationSec } : {}),
+       risk: evaluation.risk,
++      ...(ctx.teardownReview && args.destroyPlan ? { teardownReview: true as const } : {}),
+       ...(plan ? { plan } : {}),
+       ...(args.destroyPlan ? { destroyPlan: { operationId: args.destroyPlan.operationId, evidenceId: args.destroyPlan.evidenceId, retained: args.destroyPlan.retained } } : {}),
+     },
+@@ -169,8 +170,8 @@ async function trustedEvaluationRequest(deps: BrokerDeps, parsed: ParsedRequest,
+   if (parsed.def.name !== "infrastructure.destroy") return { ...evaluationRequest(parsed, principal, ctx), destroyPlan: undefined };
+   // A normalized caller context cannot stand in for recorded destroy evidence.
+   const base = evaluationRequest(parsed, principal, { ...ctx, plan: undefined, cost: undefined });
+-  if (!ctx.destroyPlan || principal.kind !== "user") return { ...base, destroyPlan: undefined };
+-  requireHumanSession(principal, ctx.session, "propose teardown");
++  if (!ctx.destroyPlan || (principal.kind !== "user" && !ctx.teardownReview)) return { ...base, destroyPlan: undefined };
++  if (!ctx.teardownReview) requireHumanSession(principal, ctx.session, "propose teardown");
+   const access = await deps.roles.resolve(principal, parsed.request.scope.workspaceId);
+   const resolved = await deps.scopes.resolve(parsed.request.scope);
+   if (access.role === "none" || !resolved ||
+@@ -179,7 +180,7 @@ async function trustedEvaluationRequest(deps: BrokerDeps, parsed: ParsedRequest,
+   const destroyPlan = await loadDestroyPlan(deps, parsed.request.scope, ctx.destroyPlan);
+   const facts: PlanFactsWithCost = destroyPlan.facts;
+   return { facts, planDigest: destroyPlan.planDigest,
+-    req: { ...base.req, plan: destroyPlan.facts, planDigest: destroyPlan.planDigest }, destroyPlan };
++    req: { ...base.req, plan: destroyPlan.facts, planDigest: destroyPlan.planDigest, ...(ctx.teardownReview ? { teardownReview: true as const } : {}) }, destroyPlan };
+ }
+ 
+ const cleanPrincipal = (p: Principal): Principal => ({
+@@ -247,6 +248,7 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
+     ...(destroyPlan ? { destroyPlan: { operationId: destroyPlan.operationId, evidenceId: destroyPlan.evidenceId } } : {}),
+     cost: facts ? { d: facts.costDeltaUsdMonthly ?? null, p: facts.projectedMonthlyUsd ?? null } : null,
+     risk: ctx.risk ?? null,
++    teardownReview: ctx.teardownReview === true,
+   });
+ 
+   const created = await deps.store.createOperation({
+diff --git a/src/lib/capabilities/destroy-review-dispatch.ts b/src/lib/capabilities/destroy-review-dispatch.ts
+new file mode 100644
+index 0000000..fb6f7ab
+--- /dev/null
++++ b/src/lib/capabilities/destroy-review-dispatch.ts
+@@ -0,0 +1,21 @@
++/** Worker-only planning dispatch. Requires Temporal standalone activity support;
++ * unsupported/unreachable servers fail closed. No live transport is claimed. */
++import { ActivityIdConflictPolicy, ActivityIdReusePolicy } from "@temporalio/client";
++import { TASK_QUEUE } from "@/lib/workflows/types";
++import { workflowClient } from "@/lib/workflows/client";
++
++type Dispatch = (input: { workspaceId: string; operationId: string }) => Promise<void>;
++let override: Dispatch | undefined;
++export function setDestroyReviewDispatcherForTests(dispatch: Dispatch | undefined) { override = dispatch; }
++export const dispatchDestroyReview: Dispatch = async (input) => {
++  if (override) return override(input);
++  const client = await workflowClient();
++  await client.activity.start("reviewTeardown", {
++    activityId: `teardown-review-${input.operationId}`, taskQueue: TASK_QUEUE,
++    args: [{ workspaceId: input.workspaceId, operationId: input.operationId }],
++    startToCloseTimeout: "30m", scheduleToCloseTimeout: "35m", heartbeatTimeout: "60s",
++    retry: { maximumAttempts: 1 },
++    activityIdConflictPolicy: ActivityIdConflictPolicy.USE_EXISTING,
++    activityIdReusePolicy: ActivityIdReusePolicy.REJECT_DUPLICATE,
++  });
++};
+diff --git a/src/lib/capabilities/destroy-review.ts b/src/lib/capabilities/destroy-review.ts
+new file mode 100644
+index 0000000..2bf3cb9
+--- /dev/null
++++ b/src/lib/capabilities/destroy-review.ts
+@@ -0,0 +1,165 @@
++/**
++ * First teardown review. Public callers request infrastructure.plan only.
++ * The worker serializes reviews with the environment lease, records a bounded
++ * PlanView, and opens an immutable admin-approval proposal. It never applies.
++ * Freshness covers stored inputs and a 15-minute window, not live drift; the
++ * existing destroy workflow always replans before applying. No live proof.
++ */
++import { z } from "zod";
++import { digest } from "@/lib/controlplane/digest";
++import type { OperationRecord, Principal, Scope } from "@/lib/controlplane/types";
++import { projectPlanReview } from "@/lib/controlplane/db/repos/operation-review";
++import { withKeepAlive } from "@/lib/execution/keepalive";
++import type { Runtime } from "@/lib/execution/runtime";
++import type { LeaseRef, PlanSummary } from "@/lib/workflows/types";
++import { BrokerError, notFound } from "./errors";
++import { loadDestroyPlan } from "./destroy-plan";
++import type { Broker } from "./platform";
++import type { BrokerProposal, ProposeContext } from "./types";
++import { operationView } from "./views";
++import { dispatchDestroyReview } from "./destroy-review-dispatch";
++
++export const DESTROY_REVIEW_TTL_MS = 15 * 60_000;
++export const DestroyReviewOptions = z.object({
++  idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{8,100}$/),
++  refresh: z.boolean().optional(),
++}).strict();
++const Intent = z.object({ environmentId: z.string().min(1).max(100), teardownReview: z.literal(true), refresh: z.boolean() }).strict();
++const Result = z.object({ operationId: z.string().min(1).max(200), planDigest: z.string().regex(/^[a-f0-9]{64}$/), replayed: z.boolean() }).strict();
++export type DestroyReviewResult = z.infer<typeof Result>;
++
++async function authorize(broker: Broker, scope: Scope, principal: Principal) {
++  const auth = await broker.authorizeRead({ capability: "infrastructure.plan", scope }, principal, { audience: "worker" });
++  if (auth.decision.outcome !== "allow" || !auth.claims) throw new BrokerError("policy_denied", "Current policy does not authorize a teardown review.");
++}
++
++/** Dispatch carries ids only. Failed/ambiguous transport never creates mutation authority. */
++export async function requestDestroyReview(broker: Broker, scope: Scope, principal: Principal, raw: unknown, via: ProposeContext["via"] = "rest") {
++  const options = DestroyReviewOptions.safeParse(raw);
++  if (!options.success) throw new BrokerError("invalid_request", "The teardown review request is invalid. Supply an idempotency key and optional refresh flag.");
++  await authorize(broker, scope, principal);
++  const result = await broker.propose({ capability: "infrastructure.plan", scope,
++    input: { environmentId: scope.environmentId, teardownReview: true, refresh: options.data.refresh ?? false },
++    idempotencyKey: options.data.idempotencyKey }, principal, { via, ttlMs: DESTROY_REVIEW_TTL_MS });
++  if (result.operation.status === "denied" || result.operation.status === "awaiting_approval") throw new BrokerError("policy_denied", "Current policy does not allow read-only teardown planning.");
++  if (["approved", "queued"].includes(result.operation.status)) {
++    try { await dispatchDestroyReview({ workspaceId: scope.workspaceId, operationId: result.operation.id }); }
++    catch { throw new BrokerError("platform_store_unavailable", "Teardown review dispatch could not be confirmed. Retry with the same idempotency key or inspect the review operation.", undefined, { reviewOperationId: result.operation.id }); }
++  }
++  return { reviewOperationId: result.operation.id, status: result.operation.status, replayed: result.replayed };
++}
++
++/** Authorized polling, including after reload; no raw worker or provider output. */
++export async function getDestroyReview(broker: Broker, scope: Scope, principal: Principal, reviewOperationId?: string) {
++  await authorize(broker, scope, principal);
++  let source: OperationRecord | undefined;
++  if (reviewOperationId) {
++    const row = await broker.deps.store.getOperation(scope.workspaceId, reviewOperationId);
++    if (!row || row.environmentId !== scope.environmentId || (scope.projectId && row.projectId !== scope.projectId) || !Intent.safeParse(row.proposal.input).success || row.capability !== "infrastructure.plan") throw notFound();
++    source = row;
++  } else {
++    let cursor: string | undefined;
++    do {
++      const page = await broker.deps.store.listOperations(scope.workspaceId, { environmentId: scope.environmentId, capability: "infrastructure.plan" }, { limit: 100, cursor });
++      source = page.items.find((op) => Intent.safeParse(op.proposal.input).success);
++      cursor = page.nextCursor;
++    } while (!source && cursor);
++  }
++  if (!source) return { review: null };
++  const completed = Result.safeParse(source.result);
++  if (!completed.success || source.status !== "succeeded") return { review: { reviewOperationId: source.id, status: source.status } };
++  const detail = await broker.getOperationDetail({ workspaceId: scope.workspaceId, operationId: completed.data.operationId, principal });
++  if (detail.operation.environmentId !== scope.environmentId || detail.operation.capability !== "infrastructure.destroy") throw notFound();
++  return { review: { reviewOperationId: source.id, ...completed.data, status: detail.operation.status,
++    operation: detail.operation, planReview: detail.planReview } };
++}
++
++/** Worker entry: a scoped, stored planning intent is required before any I/O. */
++export async function runDestroyReview(rt: Runtime, broker: Broker, input: { workspaceId: string; operationId: string }, planDestroy: (lease: LeaseRef) => Promise<PlanSummary>): Promise<DestroyReviewResult> {
++  const op = await broker.deps.store.getOperation(input.workspaceId, input.operationId);
++  const intent = Intent.safeParse(op?.proposal.input);
++  if (!op || op.capability !== "infrastructure.plan" || !intent.success || op.environmentId !== intent.data.environmentId) throw notFound();
++  await authorize(broker, op.proposal.scope, op.principal);
++  const priorResult = Result.safeParse(op.result);
++  if (op.status === "succeeded" && priorResult.success) return priorResult.data;
++  if (!["approved", "queued"].includes(op.status)) throw new BrokerError("invalid_state", "This teardown review has already started or ended. Inspect its recorded state.");
++  const lease = await rt.d.leases.acquire({ workspaceId: op.workspaceId, scope: `env:${op.environmentId}`, holder: rt.holder(op.id), ttlMs: rt.limits.leaseTtlMs });
++  if (!lease) {
++    await broker.deps.store.cancelOperation({ workspaceId: op.workspaceId, id: op.id, reason: "Teardown review refused: the environment lease is busy.", actor: op.principal });
++    throw new BrokerError("conflict", "The environment is busy. Wait for its active operation before requesting a review.");
++  }
++  let claimed = false;
++  try {
++    await broker.beginExecution({ workspaceId: op.workspaceId, operationId: op.id, holder: `workflow:${op.id}`, audience: "worker", lease });
++    claimed = true;
++    const result = await withKeepAlive(rt, { lease, detail: "teardown review", operation: { workspaceId: op.workspaceId, operationId: op.id } }, async () => {
++      const product = await rt.d.product.loadContext({ workspaceId: op.workspaceId, environmentId: intent.data.environmentId });
++      if (product.environment.activeDeploymentId) throw new BrokerError("conflict", "Finish the active deployment before reviewing teardown.");
++      const rows = await rt.d.resources.list(op.workspaceId, intent.data.environmentId);
++      const basis = digest({ environment: product.environment, revision: product.revision,
++        resources: rows.map((row) => ({ address: row.address, provider: row.provider, ownership: row.ownership, specDigest: row.specDigest, externalId: row.externalId })).sort((a, b) => a.address.localeCompare(b.address)) });
++      const pending: OperationRecord[] = [];
++      let cursor: string | undefined;
++      do {
++        const page = await broker.deps.store.listOperations(op.workspaceId, { environmentId: op.environmentId, capability: "infrastructure.destroy", status: ["proposed", "awaiting_approval", "approved", "queued", "running", "uncertain"] }, { limit: 100, cursor });
++        pending.push(...page.items); cursor = page.nextCursor;
++      } while (cursor);
++      if (pending.some((current) => current.status !== "awaiting_approval")) throw new BrokerError("conflict", "An existing teardown has been approved, started or has an uncertain outcome. Inspect it before requesting a new review.");
++      for (const current of pending) {
++        const proposal = current.proposal as BrokerProposal;
++        const storedBasis = (proposal.input as { reviewBasis?: string } | null)?.reviewBasis;
++        if (pending.length === 1 && !intent.data.refresh && storedBasis === basis && Date.parse(current.expiresAt) > broker.deps.clock.now().getTime()) {
++          await ensureReviewEvidence(rt, broker, current);
++          return { operationId: current.id, planDigest: current.planDigest!, replayed: true };
++        }
++      }
++      const plan = await planDestroy(lease);
++      const reviewed = await loadDestroyPlan(broker.deps, op.proposal.scope, { operationId: op.id, planDigest: plan.planDigest });
++      const source = await broker.deps.store.getPlanEvidence(op.workspaceId, op.id, plan.planDigest);
++      if (!source || !projectPlanReview(source.summary, plan.planDigest)) throw new BrokerError("invalid_state", "The destroy PlanView is unavailable. Nothing was applied.");
++      await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
++      // Recheck input freshness before binding it into the immutable proposal.
++      const latest = await rt.d.product.loadContext({ workspaceId: op.workspaceId, environmentId: intent.data.environmentId });
++      const latestRows = await rt.d.resources.list(op.workspaceId, intent.data.environmentId);
++      if (digest({ environment: latest.environment, revision: latest.revision,
++        resources: latestRows.map((row) => ({ address: row.address, provider: row.provider, ownership: row.ownership, specDigest: row.specDigest, externalId: row.externalId })).sort((a, b) => a.address.localeCompare(b.address)) }) !== basis) throw new BrokerError("conflict", "The environment changed during review. Request a new review.");
++      for (const stale of pending) {
++        const reason = Date.parse(stale.expiresAt) <= broker.deps.clock.now().getTime() ? "Superseded by a new teardown review: the previous review expired."
++          : intent.data.refresh ? "Superseded by an explicitly refreshed teardown review."
++          : pending.length > 1 ? "Superseded by a new teardown review: multiple pending reviews were consolidated."
++          : "Superseded by a new teardown review: the environment inputs changed.";
++        const cancelled = await broker.deps.store.cancelOperation({ workspaceId: op.workspaceId, id: stale.id, reason, actor: op.principal, expectedStatus: "awaiting_approval" });
++        if (!cancelled) throw new BrokerError("conflict", "The previous teardown changed while it was being superseded. Inspect it before proceeding.");
++      }
++      const proposal = await broker.propose({ capability: "infrastructure.destroy", scope: op.proposal.scope,
++        input: { environmentId: op.environmentId, reviewBasis: basis }, idempotencyKey: `review:${op.id}:${reviewed.planDigest}` }, op.principal,
++        { via: "workflow", teardownReview: true, destroyPlan: { operationId: op.id, planDigest: reviewed.planDigest }, ttlMs: DESTROY_REVIEW_TTL_MS });
++      if (proposal.operation.status !== "awaiting_approval") throw new BrokerError("policy_denied", "Workspace policy refused the teardown proposal. Nothing was applied.");
++      const stored = await broker.deps.store.getOperation(op.workspaceId, proposal.operation.id);
++      if (!stored) throw new BrokerError("invalid_state", "The teardown proposal could not be read back.");
++      await ensureReviewEvidence(rt, broker, stored);
++      await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
++      return { operationId: stored.id, planDigest: reviewed.planDigest, replayed: false };
++    });
++    await broker.completeExecution({ workspaceId: op.workspaceId, operationId: op.id, outcome: "succeeded", result, fence: lease });
++    return result;
++  } catch (error) {
++    if (claimed) await broker.completeExecution({ workspaceId: op.workspaceId, operationId: op.id, outcome: "failed", error: "Teardown review did not complete. Nothing was applied." }).catch(() => undefined);
++    // External diagnostics are data and may contain credentials. Never propagate them.
++    if (error instanceof BrokerError) throw error;
++    throw new BrokerError("invalid_state", "Teardown review failed or lost its lease. Nothing was applied. Inspect the operation and request a new review.");
++  } finally { await rt.d.leases.release(lease).catch(() => false); }
++}
++
++async function ensureReviewEvidence(rt: Runtime, broker: Broker, op: OperationRecord) {
++  const ref = (op.proposal as BrokerProposal).broker?.destroyPlan;
++  if (!op.planDigest || !ref) throw new BrokerError("invalid_state", "The teardown review has no recorded source plan.");
++  const row = await broker.deps.store.getPlanEvidence(op.workspaceId, ref.operationId, op.planDigest);
++  if (!row || row.simulated || !projectPlanReview(row.summary, op.planDigest)) throw new BrokerError("invalid_state", "The destroy PlanView is unavailable.");
++  await rt.d.evidence.append({ id: `evd_${digest({ operationId: op.id, destroyReview: op.planDigest }).slice(0, 32)}`,
++    workspaceId: op.workspaceId, operationId: op.id, kind: "tofu_plan", digest: op.planDigest, summary: row.summary, simulated: false });
++  // Both approval surfaces read the proposal's own evidence, not the source row.
++  const stored = await broker.deps.store.getOperation(op.workspaceId, op.id);
++  const evidence = await broker.deps.store.getPlanEvidence(op.workspaceId, op.id, op.planDigest);
++  if (!stored || operationView(stored).planDigest !== op.planDigest || !evidence || !projectPlanReview(evidence.summary, op.planDigest)) throw new BrokerError("invalid_state", "The teardown review could not be verified.");
++}
+diff --git a/src/lib/capabilities/evaluate.ts b/src/lib/capabilities/evaluate.ts
+index d8cb970..2eb05a2 100644
+--- a/src/lib/capabilities/evaluate.ts
++++ b/src/lib/capabilities/evaluate.ts
+@@ -124,6 +124,8 @@ export interface EvaluationRequest {
+   /** digest of the reviewed OpenTofu plan those facts came from */
+   planDigest?: string;
+   origin?: "reconciler";
++  /** Recorded worker review, never accepted from a public request. */
++  teardownReview?: true;
+ }
+ 
+ export interface Evaluation {
+@@ -146,9 +148,10 @@ export function applyGuards(args: {
+   autonomyLevel?: number;
+   plan?: PlanFactsWithCost;
+   planDigest?: string;
++  teardownReview?: boolean;
+ }): PolicyReason[] {
+   const reasons: PolicyReason[] = [];
+-  if (args.def.name === "infrastructure.destroy" && args.principal.kind !== "user") {
++  if (args.def.name === "infrastructure.destroy" && args.principal.kind !== "user" && !args.teardownReview) {
+     reasons.push(guardReason("teardown_human_only", "Only a signed-in person may propose teardown. Agents and Navigator cannot."));
+   }
+   if ((args.def.name === "infrastructure.apply" || args.def.name === "infrastructure.destroy") && (!args.plan || !args.planDigest)) {
+@@ -158,6 +161,7 @@ export function applyGuards(args: {
+   }
+   if (
+     args.def.mutates &&
++    !args.teardownReview &&
+     (args.principal.kind === "integration" || args.principal.kind === "navigator") &&
+     args.autonomyLevel !== undefined &&
+     args.autonomyLevel < 2
+@@ -177,6 +181,16 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
+   const { def, principal } = req;
+   const workspaceId = req.scope.workspaceId;
+ 
++  const delegatedReview = req.teardownReview === true && def.name === "infrastructure.destroy";
++  if (delegatedReview) {
++    if (!req.plan || !req.planDigest) throw new BrokerError("invalid_state", "A teardown review requires recorded plan facts and a digest.");
++    // A review requester supplies no mutation authority. Recheck their current
++    // plan access at approval and every worker grant; the deterministic service
++    // supplies execution authority only through the existing admin approval gate.
++    const planning = await evaluate(deps, { def: CAPABILITIES["infrastructure.plan"], scope: req.scope, principal, risk: "low" });
++    if (planning.decision.outcome !== "allow") throw new BrokerError("policy_denied", "Current policy does not authorize this teardown review.");
++  }
++
+   assertScopeComplete(def, req.scope);
+ 
+   const access = await deps.roles.resolve(principal, workspaceId);
+@@ -219,7 +233,7 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
+       ...(req.requestedDurationSec !== undefined ? { requestedDurationSec: req.requestedDurationSec } : {}),
+       ...(req.constraints ? { constraints: { ...req.constraints } } : {}),
+     },
+-    principal: {
++    principal: delegatedReview ? { kind: "system", id: "teardown-review", role: "none" } : {
+       kind: principal.kind,
+       id: principal.id,
+       role: access.role,
+@@ -239,7 +253,7 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
+     ...(resolved.resource ? { resource: resolved.resource } : {}),
+     ...(req.plan ? { plan: req.plan } : {}),
+     workspacePolicy,
+-    context: { now: deps.clock.now().toISOString(), origin: originFor(principal, req.origin) },
++    context: { now: deps.clock.now().toISOString(), origin: delegatedReview ? "system" : originFor(principal, req.origin) },
+   };
+ 
+   let engine;
+@@ -251,7 +265,8 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
+   }
+   const evaluated = await engine.evaluate(input);
+ 
+-  const guard = applyGuards({ def, principal, autonomyLevel: autonomy?.level, plan: req.plan, planDigest: req.planDigest });
++  const guard = applyGuards({ def, principal, teardownReview: delegatedReview,
++    autonomyLevel: autonomy?.level, plan: req.plan, planDigest: req.planDigest });
+   let decision: PolicyDecision = guard.length > 0 ? { outcome: "deny", reasons: [...guard, ...evaluated.decision.reasons] } : evaluated.decision;
+   if (def.name === "infrastructure.destroy" && decision.outcome !== "deny") {
+     decision = { ...decision, outcome: "require_approval", approval: {
+diff --git a/src/lib/capabilities/memory-store.ts b/src/lib/capabilities/memory-store.ts
+index 0078882..ec98dfc 100644
+--- a/src/lib/capabilities/memory-store.ts
++++ b/src/lib/capabilities/memory-store.ts
+@@ -284,9 +284,10 @@ export class MemoryBrokerStore implements BrokerStore {
+     return { items: items.map((s) => clone(s.record)), nextCursor };
+   }
+ 
+-  async cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null> {
++  async cancelOperation(input: Parameters<BrokerStore["cancelOperation"]>[0]): Promise<OperationRecord | null> {
+     const stored = this.operations.get(opKey(input.workspaceId, input.id));
+     if (!stored || !PRE_EXECUTION.includes(stored.record.status)) return null;
++    if (input.expectedStatus && stored.record.status !== input.expectedStatus) return null;
+     const op = stored.record;
+     op.status = "cancelled";
+     op.updatedAt = this.nowIso();
+diff --git a/src/lib/capabilities/platform-store.ts b/src/lib/capabilities/platform-store.ts
+index c09d587..9bc1cf0 100644
+--- a/src/lib/capabilities/platform-store.ts
++++ b/src/lib/capabilities/platform-store.ts
+@@ -52,7 +52,7 @@ import * as settingsRepo from "@/lib/controlplane/db/repos/settings";
+ import { decide } from "@/lib/controlplane/approvals";
+ import { cancelOperation as cancelOperationService, denyOperation as denyOperationService, claimOperation, completeOperation as completeOperationService, proposeOperation, recordPolicyOutcome } from "@/lib/controlplane/operations";
+ import { emitForOperation } from "@/lib/controlplane/events";
+-import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Principal, type Sql } from "@/lib/controlplane/types";
++import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Sql } from "@/lib/controlplane/types";
+ import type { AutonomyLevel } from "@/lib/policy";
+ import { BrokerError, notFound } from "./errors";
+ import type {
+@@ -198,8 +198,16 @@ export class PlatformBrokerStore implements BrokerStore {
+     return this.run(() => operationRepo.list(this.db, workspaceId, filters, page));
+   }
+ 
+-  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null> {
+-    return this.run(() => cancelOperationService(this.db, input));
++  cancelOperation(input: Parameters<BrokerStore["cancelOperation"]>[0]): Promise<OperationRecord | null> {
++    if (!input.expectedStatus) return this.run(() => cancelOperationService(this.db, input));
++    // Teardown supersession must not cancel an approval which won the race.
++    // Keep this row locked through the existing cancellation/event transaction.
++    return this.run(() => this.db.tx(async (tx) => {
++      const rows = await tx.query<{ status: string }>(
++        "select status from platform.operations where workspace_id = $1 and id = $2 for update", [input.workspaceId, input.id]);
++      if (rows[0]?.status !== input.expectedStatus) return null;
++      return cancelOperationService(tx, input);
++    }));
+   }
+ 
+   expireOperation(input: { workspaceId: string; id: string }): Promise<OperationRecord | null> {
+diff --git a/src/lib/capabilities/ports.ts b/src/lib/capabilities/ports.ts
+index ac735c4..95f383c 100644
+--- a/src/lib/capabilities/ports.ts
++++ b/src/lib/capabilities/ports.ts
+@@ -294,9 +294,10 @@ export interface BrokerStore {
+    * Cancel an operation that has not started (`proposed`, `awaiting_approval`,
+    * `approved`, `queued`): one conditional transition that also revokes its live
+    * grants. `null` when it is missing, in another workspace, or already
+-   * running/terminal.
++   * running/terminal. Teardown supersession supplies `expectedStatus`; the
++   * check is atomic with cancellation, so a concurrent approval wins safely.
+    */
+-  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null>;
++  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval" }): Promise<OperationRecord | null>;
+   /** Move a pre-execution operation that is past its `expiresAt` to `expired`. `null` when it is not in such a state. */
+   expireOperation(input: { workspaceId: string; id: string }): Promise<OperationRecord | null>;
+   /**
+diff --git a/src/lib/capabilities/reevaluate.ts b/src/lib/capabilities/reevaluate.ts
+index 09ed1a2..b9db755 100644
+--- a/src/lib/capabilities/reevaluate.ts
++++ b/src/lib/capabilities/reevaluate.ts
+@@ -33,6 +33,7 @@ export function requestFromOperation(op: OperationRecord): EvaluationRequest {
+     constraints: proposal.broker?.requestedConstraints,
+     plan: proposal.broker?.plan,
+     planDigest: proposal.planDigest,
++    ...(proposal.broker?.teardownReview ? { teardownReview: true as const } : {}),
+     origin: proposal.broker?.via === "reconciler" && op.principal.kind === "system" ? "reconciler" : undefined,
+   };
+ }
+diff --git a/src/lib/capabilities/types.ts b/src/lib/capabilities/types.ts
+index 4c8b259..04f1e58 100644
+--- a/src/lib/capabilities/types.ts
++++ b/src/lib/capabilities/types.ts
+@@ -49,6 +49,8 @@ export interface BrowserSessionProof {
+  * `request.input` is ever read as a policy fact.
+  */
+ export interface ProposeContext {
++  /** Trusted worker review only. The requester needs plan access; an admin must still approve destruction. */
++  teardownReview?: true;
+   /** Server-side reference only; the broker reloads the recorded destroy facts. */
+   destroyPlan?: { operationId: string; planDigest: string };
+   /** Required when a human proposes teardown. Never read from request.input. */
+@@ -91,6 +93,8 @@ export interface BrokerProposalExt {
+   /** facts (plan + cost) evaluated at proposal time; re-evaluated verbatim at execution */
+   plan?: PlanFactsWithCost;
+   destroyPlan?: { operationId: string; evidenceId: string; retained: string[] };
++  /** Server-created, read-only review request delegated to deterministic execution after human approval. */
++  teardownReview?: true;
+ }
+ 
+ export type PlanFactsWithCost = NonNullable<import("@/lib/policy").PolicyInput["plan"]>;
+diff --git a/src/lib/execution/destroy.ts b/src/lib/execution/destroy.ts
+index e0e40c4..8aea40d 100644
+--- a/src/lib/execution/destroy.ts
++++ b/src/lib/execution/destroy.ts
+@@ -26,6 +26,8 @@ import { driverContext, LONG_SESSION_SEC, OBSERVE_CAPABILITY, PLAN_CAPABILITY, w
+ import { safeText } from "./text";
+ import { buildDesiredState } from "./graph";
+ import { z } from "zod";
++import { platformBroker, type Broker } from "@/lib/capabilities/platform";
++import { runDestroyReview, type DestroyReviewResult } from "@/lib/capabilities/destroy-review";
+ 
+ const HEX64 = /^[0-9a-f]{64}$/;
+ 
+@@ -36,6 +38,8 @@ export interface TeardownInput {
+ }
+ export interface TeardownResult { deleted: string[]; retained: string[]; skipped: string[]; uncertain: string[] }
+ export interface DestroyProviderPorts {
++  /** Scoped broker override for worker contract tests. */
++  reviewBroker?: () => Promise<Broker>;
+   teardownKubernetesEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
+   teardownZenithEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
+   /** Managed sessions need a platform opener: the customer credential broker has no zenith config. */
+@@ -211,8 +215,14 @@ export async function checkDestroyApproval(rt: Runtime, operationId: string): Pr
+   return { approved: status.approved === true && !!approvalId && !status.rejected, rejected: status.rejected === true, ...(approvalId ? { approvalId } : {}) };
+ }
+ 
+-export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts = (rt.d as typeof rt.d & { destroyProviders?: DestroyProviderPorts }).destroyProviders ?? {}): DestroyActivities {
++export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts = (rt.d as typeof rt.d & { destroyProviders?: DestroyProviderPorts }).destroyProviders ?? {}): DestroyActivities & {
++  reviewTeardown(input: { workspaceId: string; operationId: string }): Promise<DestroyReviewResult>;
++} {
+   return {
++    async reviewTeardown(input) {
++      return runDestroyReview(rt, await (ports.reviewBroker ?? platformBroker)(), input,
++        (lease) => planStage(rt, input.operationId, lease, ports));
++    },
+     planDestroyInfrastructure: ({ operationId, lease }) => planStage(rt, operationId, lease, ports),
+     finalDestroyPlan: ({ operationId, approvedPlanDigest, lease }) => planStage(rt, operationId, lease, ports, approvedPlanDigest),
+     async applyDestroyInfrastructure({ operationId, planDigest, lease }) {
+diff --git a/tests/actions/env-teardown.test.ts b/tests/actions/env-teardown.test.ts
+index 1df5d3e..789bae6 100644
+--- a/tests/actions/env-teardown.test.ts
++++ b/tests/actions/env-teardown.test.ts
+@@ -4,7 +4,8 @@ import { tempDataDir } from "../_support/data-dir";
+ import { seed, ctx, ready } from "../bridge/support";
+ import { makePlan, change } from "../execution/fakes/fixtures";
+ import { allowDecision, scriptedEngine, sessionFor } from "../capabilities/support";
+-import { createBroker, type Broker } from "@/lib/capabilities/platform";
++import { createBroker, setPlatformBrokerForTests, type Broker } from "@/lib/capabilities/platform";
++import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
+ import { MemoryBrokerStore } from "@/lib/capabilities/memory-store";
+ import { productRoleResolver, productScopeResolver } from "@/lib/capabilities/product-adapters";
+ import { systemClock } from "@/lib/capabilities/ports";
+@@ -27,6 +28,7 @@ beforeEach(async () => {
+   const store = new MemoryBrokerStore();
+   broker = createBroker({ store, scopes: productScopeResolver(), roles: productRoleResolver(), clock: systemClock,
+     policy: async () => scriptedEngine("allow", () => allowDecision()), signer: { ready: async () => undefined, sign: async () => "fake-grant-never-returned" } });
++  setPlatformBrokerForTests(broker);
+   const scope = { workspaceId: ctx.workspaceId, projectId: ctx.projectId, environmentId: ctx.environmentId };
+   const plan = makePlan({ changes: [change({ address: "aws_s3_bucket.assets", type: "aws_s3_bucket", action: "delete", destroysData: true })] });
+   const facts = buildPlanFacts(plan)!;
+@@ -36,7 +38,7 @@ beforeEach(async () => {
+   setBridgeDepsForTests({ broker: async () => broker, readiness: async () => ready, platformConnection: async () => ({ status: "verified" }),
+     teardownSession: async (context) => sessionFor(context.actor.id), workflows: { startDestroy, startDeploy: async () => undefined, signalApproval, cancelOperation: async () => ({ delivered: true }) } });
+ });
+-afterEach(() => { setBridgeDepsForTests(null); vi.restoreAllMocks(); });
++afterEach(() => { setBridgeDepsForTests(null); setPlatformBrokerForTests(null); setDestroyReviewDispatcherForTests(undefined); vi.restoreAllMocks(); });
+ 
+ async function proposal() {
+   const { result } = await runAction("env.teardown", ctx, input, { mode: "execute" });
+@@ -103,3 +105,31 @@ describe("env.teardown", () => {
+     expect((await runAction("env.teardown", ctx, input, { mode: "execute" })).result?.ok).toBe(false);
+   });
+ });
++
++describe("env.reviewTeardown", () => {
++  it("a viewer can plan and request a read-only worker review without proposing a mutation", async () => {
++    const viewer = { ...ctx, actor: { type: "user" as const, id: "viewer", name: "Viewer" } };
++    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    const reviewInput = { ...input, idempotencyKey: "browser-review-001" };
++    const before = (await broker.deps.store.listOperations(ctx.workspaceId)).items.length;
++    expect((await runAction("env.reviewTeardown", viewer, reviewInput, { mode: "plan" })).plan).toMatchObject({ risk: "low", requiresApproval: false });
++    expect((await broker.deps.store.listOperations(ctx.workspaceId)).items).toHaveLength(before);
++    const executed = await runAction("env.reviewTeardown", viewer, reviewInput, { mode: "execute" });
++    expect(executed.result?.ok).toBe(true); expect(dispatch).toHaveBeenCalledTimes(1);
++    expect((await broker.deps.store.listOperations(ctx.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(0);
++    expect(startDestroy).not.toHaveBeenCalled();
++  });
++  it("refuses active deployment and approval fields before worker dispatch", async () => {
++    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    expect((await runAction("env.reviewTeardown", ctx, { ...input, idempotencyKey: "browser-review-001", approved: true }, { mode: "execute" })).result?.ok).toBe(false);
++    db().deployments.push({ id: "busy", projectId: ctx.projectId!, environmentId: ctx.environmentId!, revisionId: "bridge-r1", status: "applying", steps: [], outputs: [], actor: ctx.actor, changeSummary: "busy", estCostDeltaUsd: 0, createdAt: new Date().toISOString() });
++    expect((await runAction("env.reviewTeardown", ctx, { ...input, idempotencyKey: "browser-review-002" }, { mode: "execute" })).result?.ok).toBe(false);
++    expect(dispatch).not.toHaveBeenCalled();
++  });
++  it("the legacy browser path refuses another proposal while a first review is still pending", async () => {
++    setDestroyReviewDispatcherForTests(async () => undefined);
++    expect((await runAction("env.reviewTeardown", ctx, { ...input, idempotencyKey: "pending-review-001" }, { mode: "execute" })).result?.ok).toBe(true);
++    expect((await runAction("env.teardown", ctx, input, { mode: "execute" })).result).toMatchObject({ ok: false, error: expect.stringContaining("current teardown review") });
++    expect((await broker.deps.store.listOperations(ctx.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(0);
++  });
++});
+diff --git a/tests/capabilities/destroy-review-mcp.test.ts b/tests/capabilities/destroy-review-mcp.test.ts
+new file mode 100644
+index 0000000..90bdc43
+--- /dev/null
++++ b/tests/capabilities/destroy-review-mcp.test.ts
+@@ -0,0 +1,38 @@
++/** MCP dispatch contract with fake worker transport; no cloud or Temporal calls. */
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { makeHarness, ids, target, identity } from "../agent-v3/support";
++import { principalFromIdentity } from "@/lib/agent-access/v3/principal";
++import { runTool } from "@/lib/agent-access/v3/tools";
++import { toolDescriptor, catalogFor } from "@/lib/agent-access/v3/catalog";
++import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
++
++afterEach(() => setDestroyReviewDispatcherForTests(undefined));
++describe("MCP teardown review", () => {
++  it("is listed for plan credentials and dispatches identifiers without a mutation scope", async () => {
++    const h = await makeHarness();
++    h.world.members.set(`${ids.ws}|bob`, "viewer");
++    h.world.integrations.get(`${ids.ws}|${ids.integration}`)!.scopes = ["read", "plan"];
++    const principal = principalFromIdentity(identity({ scopes: ["read", "plan"] }));
++    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    const result = await runTool("zenith_review_teardown", { target, idempotencyKey: "mcp-review-intent" }, { ports: h.ports, principal });
++    expect(result.ok).toBe(true);
++    expect(result.data).toMatchObject({ status: "approved", poll: { tool: "zenith_get_operation" } });
++    expect(dispatch).toHaveBeenCalledExactlyOnceWith({ workspaceId: ids.ws, operationId: result.data.reviewOperationId });
++    expect(h.starts.deploy).toHaveLength(0); expect(h.starts.dayTwo).toHaveLength(0);
++    expect(toolDescriptor("zenith_review_teardown")).toMatchObject({ capability: "infrastructure.plan", requiredScope: "plan", access: "propose", annotations: { destructiveHint: false, readOnlyHint: false } });
++    expect(catalogFor(["plan"]).map((t) => t.name)).toContain("zenith_review_teardown");
++    expect(catalogFor(["write"]).map((t) => t.name)).not.toContain("zenith_review_teardown");
++  });
++  it.each(["approved", "approval", "planDigest", "command"])("strictly refuses injected %s before dispatch", async (field) => {
++    const h = await makeHarness(); const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    const result = await h.invoke("zenith_review_teardown", { target, idempotencyKey: "mcp-review-intent", [field]: "untrusted" });
++    expect(result.ok).toBe(false); expect(result.error?.code).toBe("invalid_input"); expect(dispatch).not.toHaveBeenCalled();
++  });
++  it("refuses a credential without plan scope and foreign targets before product reads", async () => {
++    const h = await makeHarness(); const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    const readOnly = principalFromIdentity(identity({ scopes: ["read"] }));
++    expect((await runTool("zenith_review_teardown", { target, idempotencyKey: "mcp-review-intent" }, { ports: h.ports, principal: readOnly })).ok).toBe(false);
++    expect((await h.invoke("zenith_review_teardown", { target: { ...target, environmentId: ids.foreignEnv }, idempotencyKey: "mcp-review-intent" })).ok).toBe(false);
++    expect(dispatch).not.toHaveBeenCalled(); expect(h.ports.reads.environment).not.toHaveBeenCalled();
++  });
++});
+diff --git a/tests/capabilities/routes.test.ts b/tests/capabilities/routes.test.ts
+index 358ede8..0f3b930 100644
+--- a/tests/capabilities/routes.test.ts
++++ b/tests/capabilities/routes.test.ts
+@@ -9,7 +9,8 @@
+  * reject / autonomy / policy, tenant isolation over HTTP, and that nothing
+  * secret-shaped ever appears in a response.
+  */
+-import { beforeEach, describe, expect, it, vi } from "vitest";
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
+ import type { NextRequest as RequestType } from "next/server";
+ import type { SessionUser } from "@/lib/auth/session";
+ import type { CloudConnection, Environment, Manifest, Member, Project, Workspace } from "@/lib/domain/types";
+@@ -65,7 +66,7 @@ vi.mock("@/lib/agent-access/authority", async () => {
+ const { resetDb } = await import("@/lib/db/store");
+ const { WORKSPACE_COOKIE } = await import("@/lib/server/workspace");
+ const { NextRequest } = await import("next/server");
+-const { platformBroker, resetPlatformBrokerForTests, setPlatformBrokerForTests } = await import("@/lib/capabilities/platform");
++const { createBroker, platformBroker, resetPlatformBrokerForTests, setPlatformBrokerForTests } = await import("@/lib/capabilities/platform");
+ const propose = await import("@/app/api/platform/v1/capabilities/propose/route");
+ const check = await import("@/app/api/platform/v1/capabilities/check/route");
+ const operations = await import("@/app/api/platform/v1/operations/route");
+@@ -76,6 +77,8 @@ const reject = await import("@/app/api/platform/v1/operations/[id]/reject/route"
+ const cancel = await import("@/app/api/platform/v1/operations/[id]/cancel/route");
+ const autonomy = await import("@/app/api/platform/v1/environments/[id]/autonomy/route");
+ const policy = await import("@/app/api/platform/v1/workspace/policy/route");
++const teardownReview = await import("@/app/api/platform/v1/environments/[id]/teardown-review/route");
++afterEach(() => setDestroyReviewDispatcherForTests(undefined));
+ 
+ const CANARY = "AKIAIOSFODNN7EXAMPLE";
+ const ORIGIN = "https://zenith.test";
+@@ -166,6 +169,44 @@ beforeEach(async () => {
+   signIn("eve");
+ });
+ 
++describe("environment teardown-review REST", () => {
++  beforeEach(async () => {
++    const broker = await platformBroker();
++    setPlatformBrokerForTests(createBroker({ ...broker.deps, signer: { ready: async () => undefined, sign: async () => "contract-test-read-grant" } }));
++  });
++  it("a viewer starts only a read-only review and polls it without approval", async () => {
++    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    signIn("vic");
++    const result = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", body: { idempotencyKey: "rest-review-001" } });
++    expect(result.status).toBe(202); expect(result.body).toMatchObject({ status: "approved", replayed: false });
++    expect(dispatch).toHaveBeenCalledExactlyOnceWith({ workspaceId: "ws-a", operationId: result.body.reviewOperationId });
++    const poll = await call(teardownReview.GET as Handler, "GET", "environments/env-sbx/teardown-review", { id: "env-sbx", query: `?reviewId=${result.body.reviewOperationId}` });
++    expect(poll.status).toBe(200); expect(poll.body.review).toMatchObject({ reviewOperationId: result.body.reviewOperationId, status: "approved" });
++    expect(result.text).not.toMatch(/eyJ[A-Za-z0-9_-]+\./);
++  });
++  it("accepts plan-only bearer access, rejects write-only access and hides foreign ids", async () => {
++    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++    signIn(null); state.credentials[0].scopes = ["plan"];
++    const headers = { authorization: `Bearer ${state.token}` };
++    const accepted = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", headers, body: { idempotencyKey: "bearer-review-001" } });
++    expect(accepted.status).toBe(202);
++    const foreign = await call(teardownReview.POST as Handler, "POST", "environments/env-b/teardown-review", { id: "env-b", headers, body: { idempotencyKey: "foreign-review-001" } });
++    const absent = await call(teardownReview.POST as Handler, "POST", "environments/missing/teardown-review", { id: "missing", headers, body: { idempotencyKey: "missing-review-001" } });
++    expect(foreign.status).toBe(404); expect(foreign.body).toEqual(absent.body);
++    state.credentials[0].scopes = ["write"];
++    const denied = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", headers, body: { idempotencyKey: "write-review-001" } });
++    expect(denied.status).toBe(403); expect(dispatch).toHaveBeenCalledTimes(1);
++  });
++  it("rejects approval/facts injection and reports unconfirmed dispatch without leaking transport text", async () => {
++    const dispatch = vi.fn(async () => { throw new Error("Bearer transport-canary"); }); setDestroyReviewDispatcherForTests(dispatch);
++    const injected = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", body: { idempotencyKey: "injected-review", approved: true } });
++    expect(injected.status).toBe(400); expect(dispatch).not.toHaveBeenCalled();
++    const unknown = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", body: { idempotencyKey: "unknown-review" } });
++    expect(unknown.status).toBe(503); expect(unknown.body.error.details.reviewOperationId).toEqual(expect.any(String));
++    expect(unknown.text).not.toContain("transport-canary");
++  });
++});
++
+ /* ---------------------------------- propose -------------------------------- */
+ 
+ describe("POST capabilities/propose and check", () => {
+diff --git a/tests/capabilities/store-contract.test.ts b/tests/capabilities/store-contract.test.ts
+index 20a77b2..dbffe37 100644
+--- a/tests/capabilities/store-contract.test.ts
++++ b/tests/capabilities/store-contract.test.ts
+@@ -146,6 +146,18 @@ describe.each(STORE_KINDS)("BrokerStore contract [%s]", (kind) => {
+       expect((await h.store.listEvents(h.ids.wsA, { operationId: operation.id })).map((e) => e.type)).toContain("operation.cancelled");
+     });
+ 
++    it("supersedes an awaiting teardown only while its expected status still matches", async () => {
++      const h = await makeHarness({ kind });
++      const waiting = (await h.store.createOperation(newOperation(h, { proposal: { capability: "infrastructure.destroy" } }))).operation;
++      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsB, id: waiting.id, expectedStatus: "awaiting_approval" })).toBeNull();
++      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsA, id: waiting.id, expectedStatus: "awaiting_approval", reason: "Superseded by a new teardown review." })).toMatchObject({ status: "cancelled" });
++      const approved = (await h.store.createOperation(newOperation(h, { proposal: { capability: "infrastructure.destroy" } }))).operation;
++      await h.store.recordApproval({ workspaceId: h.ids.wsA, operationId: approved.id, approver: user("erin"), approverRole: "admin", decision: "approve", proposalDigest: approved.proposalDigest, policyVersion: "v1" });
++      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsA, id: approved.id, expectedStatus: "awaiting_approval" })).toBeNull();
++      expect((await h.store.getOperation(h.ids.wsA, approved.id))?.status).toBe("approved");
++      expect((await h.store.listEvents(h.ids.wsA, { operationId: approved.id })).some((e) => e.type === "operation.cancelled")).toBe(false);
++    });
++
+     it("revokes live grants when cancelling", async () => {
+       const h = await makeHarness({ kind });
+       const { operation } = await h.store.createOperation(newOperation(h, { decision: { policyVersion: "v1", inputDigest: "d".repeat(64), outcome: "allow", reasons: [{ code: "ok", message: "ok" }] } }));
+diff --git a/tests/execution/destroy-review-temporal.test.ts b/tests/execution/destroy-review-temporal.test.ts
+new file mode 100644
+index 0000000..9599319
+--- /dev/null
++++ b/tests/execution/destroy-review-temporal.test.ts
+@@ -0,0 +1,17 @@
++/** Opt-in worker transport check. A deliberately missing scoped operation cannot touch a cloud. */
++import { afterAll, describe, expect, it } from "vitest";
++import { randomUUID } from "node:crypto";
++import { workflowClient, closeWorkflowClients } from "@/lib/workflows/client";
++import { TASK_QUEUE } from "@/lib/workflows/types";
++
++const enabled = process.env.ZENITH_TEST_TEMPORAL_DESTROY_REVIEW === "1";
++afterAll(async () => { if (enabled) await closeWorkflowClients(); });
++describe.skipIf(!enabled)("Temporal standalone teardown-review worker transport", () => {
++  it("the real registered worker refuses a missing operation through the standalone activity API", async () => {
++    const client = await workflowClient();
++    const handle = await client.activity.start("reviewTeardown", { activityId: `test-review-${randomUUID()}`, taskQueue: TASK_QUEUE,
++      args: [{ workspaceId: "missing-review-workspace", operationId: `missing-review-${randomUUID()}` }],
++      startToCloseTimeout: "30s", scheduleToCloseTimeout: "45s", retry: { maximumAttempts: 1 } });
++    await expect(handle.result()).rejects.toMatchObject({ cause: { type: "BrokerError" } });
++  }, 60_000);
++});
+diff --git a/tests/execution/destroy-review.test.ts b/tests/execution/destroy-review.test.ts
+new file mode 100644
+index 0000000..9da1c01
+--- /dev/null
++++ b/tests/execution/destroy-review.test.ts
+@@ -0,0 +1,200 @@
++/** Real PGlite ledger, broker and committed OPA; cloud/Tofu/product ports are explicit contract fakes. */
++import { afterEach, describe, expect, it, vi } from "vitest";
++import { createDestroyActivities } from "@/lib/execution/destroy";
++import { createRuntime } from "@/lib/execution/runtime";
++import { createPlatformPorts } from "@/lib/execution/platform";
++import { createExecutionBroker } from "@/lib/platform/broker";
++import { requestDestroyReview, getDestroyReview } from "@/lib/capabilities/destroy-review";
++import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
++import { loadDestroyPlan } from "@/lib/capabilities/destroy-plan";
++import { createWorld, type World } from "./fakes/world";
++import { bucketManifest, change, makePlan, REVISION, CANARY_SECRET, CANARY_SESSION_KEY } from "./fakes/fixtures";
++import { upgradeManifest } from "@/lib/resources/upgrade";
++import { closeSharedPgliteAfterAll, integrationOf, makeHarness, sessionFor, user, PG_URL } from "../capabilities/support";
++import { deliverPlanApproval } from "@/lib/bridge/lifecycle";
++import { setBridgeDepsForTests } from "@/lib/bridge/deps";
++
++closeSharedPgliteAfterAll();
++const worlds: World[] = [];
++afterEach(() => { worlds.splice(0).forEach((w) => w.dispose()); setDestroyReviewDispatcherForTests(undefined); setBridgeDepsForTests(null); vi.restoreAllMocks(); });
++
++async function setup(kind: "pglite" | "postgres" = "pglite") {
++  const h = await makeHarness({ kind });
++  const w = createWorld(); worlds.push(w);
++  const scope = { workspaceId: h.ids.wsA, projectId: h.ids.projA, environmentId: h.ids.envASbx };
++  const env = w.product.base.environment;
++  env.id = scope.environmentId; env.class = "sandbox"; env.deployedRevisionId = REVISION;
++  w.product.base.workspace.id = scope.workspaceId; w.product.base.project.id = scope.projectId;
++  const manifest = upgradeManifest(bucketManifest(), { provider: "aws", region: "us-east-1" });
++  manifest.policies = { backup: "daily", ...manifest.policies, deletion: "allow" }; w.product.setManifest(manifest);
++  vi.spyOn(w.product, "loadContext").mockImplementation(async () => ({ ...structuredClone(w.product.base), revision: structuredClone(w.product.revisions.get(REVISION)!) }));
++  w.tofu.planFactory = (ws) => makePlan({ configDigest: ws.configDigest, lockDigest: ws.lockDigest,
++    changes: [change({ address: "aws_s3_bucket.object_store_assets", nodeAddress: "object_store/assets", type: "aws_s3_bucket", action: "delete", destroysData: true })] });
++  vi.spyOn(w.connections, "resolve").mockResolvedValue({ ...w.connections.connections.values().next().value!, workspaceId: scope.workspaceId });
++  const platform = createPlatformPorts(h.db!);
++  const rt = createRuntime({ ...w.deps, ...platform, product: w.product, connections: w.connections,
++    broker: createExecutionBroker(h.db!, async () => h.broker), clock: () => h.clock.now(), limits: { heartbeatIntervalMs: 1000 } });
++  const activities = createDestroyActivities(rt, { reviewBroker: async () => h.broker });
++  const agent = integrationOf(h, "intRO");
++  h.world.integrations.get(`${scope.workspaceId}|${agent.id}`)!.scopes = ["plan"];
++  h.world.members.set(`${scope.workspaceId}|bob`, "viewer");
++  const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
++  const request = (key = "destroy-intent-001", refresh = false, actor = agent) => requestDestroyReview(h.broker, scope, actor, { idempotencyKey: key, refresh });
++  const run = (operationId: string) => activities.reviewTeardown({ workspaceId: scope.workspaceId, operationId });
++  const review = async (key = "destroy-intent-001", refresh = false) => { const queued = await request(key, refresh); return run(queued.reviewOperationId); };
++  return { h, w, scope, rt, activities, agent, dispatch, request, run, review };
++}
++
++describe("first destroy review", () => {
++  it("a plan-only viewer agent creates evidence, a readable PlanView and an immutable pending proposal without apply", async () => {
++    const { h, w, scope, agent, request, run, dispatch } = await setup();
++    const queued = await request();
++    expect(dispatch).toHaveBeenCalledExactlyOnceWith({ workspaceId: scope.workspaceId, operationId: queued.reviewOperationId });
++    expect(w.tofu.planCalls).toHaveLength(0);
++    const result = await run(queued.reviewOperationId);
++    const detail = await h.broker.getOperationDetail({ workspaceId: scope.workspaceId, operationId: result.operationId, principal: user("erin") });
++    expect(detail.operation).toMatchObject({ capability: "infrastructure.destroy", status: "awaiting_approval", principal: { id: agent.id, kind: "integration" }, planDigest: result.planDigest });
++    expect(detail.decision?.approval).toMatchObject({ minRole: "admin", count: 1 });
++    expect(detail.planReview?.view).toMatchObject({ planDigest: result.planDigest, resources: [{ action: "delete" }], untrustedValues: true });
++    expect((await h.store.getPlanEvidence(scope.workspaceId, result.operationId, result.planDigest))?.summary).toMatchObject({ destroy: true, stage: "plan", statefulDeletes: ["aws_s3_bucket.object_store_assets"] });
++    expect(w.credentials.sessions[0]).toMatchObject({ purpose: "observe", capability: "infrastructure.plan", revoked: true });
++    expect(w.tofu.applyCalls).toHaveLength(0);
++    const poll = await getDestroyReview(h.broker, scope, agent, queued.reviewOperationId);
++    expect(poll.review).toMatchObject({ operationId: result.operationId, status: "awaiting_approval", planReview: { planDigest: result.planDigest } });
++    expect(JSON.stringify(poll)).not.toContain(CANARY_SECRET); expect(JSON.stringify(poll)).not.toContain(CANARY_SESSION_KEY);
++  });
++  it("reuses an open environment review across different callers and keys", async () => {
++    const { h, w, scope, request, run, review } = await setup();
++    const first = await review();
++    const replayIntent = await request();
++    expect(replayIntent.replayed).toBe(true);
++    expect(await run(replayIntent.reviewOperationId)).toEqual(first);
++    const another = await request("another-intent-002", false, user("carol"));
++    expect(await run(another.reviewOperationId)).toEqual({ ...first, replayed: true });
++    expect(w.tofu.planCalls).toHaveLength(1);
++    expect((await h.store.listOperations(scope.workspaceId, { environmentId: scope.environmentId, capability: "infrastructure.destroy", status: "awaiting_approval" })).items).toHaveLength(1);
++  });
++  it.each(["changed", "expired", "refresh"])("supersedes a %s review with a recorded reason", async (mode) => {
++    const { h, scope, w, review } = await setup();
++    const first = await review();
++    if (mode === "changed") w.product.base.environment.baseDomain = "changed.zenith.test";
++    if (mode === "expired") await h.expireOperation(first.operationId);
++    const next = await review("new-intent-002", mode === "refresh");
++    expect(next.operationId).not.toBe(first.operationId);
++    expect((await h.store.getOperation(scope.workspaceId, first.operationId))?.status).toBe("cancelled");
++    const events = await h.store.listEvents(scope.workspaceId, { operationId: first.operationId });
++    expect(events.some((e) => e.type === "operation.cancelled" && String(e.data.reason).includes(mode === "changed" ? "inputs changed" : mode === "expired" ? "expired" : "refreshed"))).toBe(true);
++    expect(w.tofu.applyCalls).toHaveLength(0);
++  });
++  it("refuses agent approval, missing/moved digest and viewer approval; browser admin starts the existing destroy workflow", async () => {
++    const { h, scope, agent, review, w } = await setup(); const result = await review();
++    const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
++    const decide = (actor = user("erin"), planDigest?: string) => h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest,
++      planDigest, approver: actor, session: sessionFor(actor.id) });
++    await expect(decide(agent, result.planDigest)).rejects.toMatchObject({ code: "approver_not_human" });
++    await expect(decide(user("erin"), undefined)).rejects.toMatchObject({ code: "digest_mismatch" });
++    await expect(decide(user("erin"), "b".repeat(64))).rejects.toMatchObject({ code: "digest_mismatch" });
++    await expect(decide(user("carol"))).rejects.toMatchObject({ code: "approver_role_insufficient" });
++    const startDestroy = vi.fn(async () => undefined);
++    setBridgeDepsForTests({ broker: async () => h.broker, workflows: { startDestroy, startDeploy: async () => undefined,
++      signalApproval: async () => ({ delivered: true }), cancelOperation: async () => ({ delivered: true }) } });
++    const approved = await decide(user("erin"), result.planDigest);
++    expect(await deliverPlanApproval(approved.operation)).toEqual({ delivered: true });
++    expect(startDestroy).toHaveBeenCalledExactlyOnceWith({ workspaceId: scope.workspaceId, environmentId: scope.environmentId, operationId: op.id });
++    expect(w.tofu.applyCalls).toHaveLength(0);
++  });
++  it("revoked plan access prevents human approval of the delegated review", async () => {
++    const { h, scope, agent, review } = await setup(); const result = await review();
++    const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
++    h.world.integrations.get(`${scope.workspaceId}|${agent.id}`)!.scopes = [];
++    await expect(h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
++      approver: user("erin"), session: sessionFor("erin") })).rejects.toMatchObject({ code: "policy_denied" });
++  });
++  it("does not supersede a teardown approved while a fresh review is being planned", async () => {
++    const { h, scope, review, w } = await setup(); const first = await review();
++    const op = (await h.store.getOperation(scope.workspaceId, first.operationId))!;
++    const original = w.tofu.planWorkspace.bind(w.tofu);
++    vi.spyOn(w.tofu, "planWorkspace").mockImplementation(async (...args) => {
++      const plan = await original(...args);
++      await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: first.planDigest,
++        approver: user("erin"), session: sessionFor("erin") });
++      return plan;
++    });
++    await expect(review("approval-race-intent", true)).rejects.toMatchObject({ code: "conflict" });
++    expect((await h.store.getOperation(scope.workspaceId, op.id))?.status).toBe("approved");
++    expect((await h.store.listOperations(scope.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(1);
++    expect(w.tofu.applyCalls).toHaveLength(0);
++  });
++  it("consolidates pre-existing duplicate pending reviews with recorded reasons", async () => {
++    const { h, scope, agent, review, w } = await setup(); const first = await review();
++    const op = (await h.store.getOperation(scope.workspaceId, first.operationId))!;
++    const proposal = op.proposal as import("@/lib/capabilities/types").BrokerProposal;
++    const duplicate = await h.broker.propose({ capability: "infrastructure.destroy", scope, input: proposal.input, idempotencyKey: "legacy-duplicate-review" }, agent,
++      { via: "workflow", teardownReview: true, destroyPlan: { operationId: proposal.broker!.destroyPlan!.operationId, planDigest: first.planDigest } });
++    const next = await review("consolidate-intent");
++    expect(next.operationId).not.toBe(first.operationId);
++    for (const id of [first.operationId, duplicate.operation.id]) {
++      expect((await h.store.getOperation(scope.workspaceId, id))?.status).toBe("cancelled");
++      expect((await h.store.listEvents(scope.workspaceId, { operationId: id })).some((e) => String(e.data.reason).includes("consolidated"))).toBe(true);
++    }
++    expect((await h.store.listOperations(scope.workspaceId, { capability: "infrastructure.destroy", status: "awaiting_approval" })).items).toHaveLength(1);
++    expect(w.tofu.applyCalls).toHaveLength(0);
++  });
++  it("refuses a busy lease and concurrent request without another open proposal", async () => {
++    const { h, scope, rt, request, run, w } = await setup();
++    const a = await request(), b = await request("concurrent-intent");
++    let release!: () => void;
++    const wait = new Promise<void>((resolve) => { release = resolve; });
++    const original = w.tofu.planWorkspace.bind(w.tofu);
++    vi.spyOn(w.tofu, "planWorkspace").mockImplementation(async (...args) => { await wait; return original(...args); });
++    const first = run(a.reviewOperationId);
++    // Wait for the first worker to have entered the provider callback.
++    await vi.waitFor(() => expect(w.credentials.sessions).toHaveLength(1));
++    await expect(run(b.reviewOperationId)).rejects.toMatchObject({ code: "conflict" });
++    release(); await first;
++    expect((await h.store.listOperations(scope.workspaceId, { capability: "infrastructure.destroy", status: "awaiting_approval" })).items).toHaveLength(1);
++    expect(await rt.d.leases.acquire({ scope: `env:${scope.environmentId}`, holder: "test-after", ttlMs: 1000, workspaceId: scope.workspaceId })).toBeTruthy();
++    expect(w.tofu.applyCalls).toHaveLength(0);
++  });
++  it("refuses foreign scope, no plan scope and injected approval/plan fields before dispatch", async () => {
++    const { h, scope, agent, dispatch } = await setup();
++    await expect(requestDestroyReview(h.broker, { ...scope, workspaceId: h.ids.wsB }, agent, { idempotencyKey: "foreign-intent" })).rejects.toMatchObject({ code: "not_found" });
++    h.world.integrations.get(`${scope.workspaceId}|${agent.id}`)!.scopes = ["read"];
++    await expect(requestDestroyReview(h.broker, scope, agent, { idempotencyKey: "no-plan-intent" })).rejects.toMatchObject({ code: "policy_denied" });
++    await expect(requestDestroyReview(h.broker, scope, agent, { idempotencyKey: "injected-intent", approved: true, planDigest: "a".repeat(64) })).rejects.toMatchObject({ code: "invalid_request" });
++    expect(dispatch).not.toHaveBeenCalled();
++  });
++  it.each(["active", "connection", "unmapped", "changed-during-plan"])("refuses %s planning without a teardown proposal", async (mode) => {
++    const { h, scope, request, run, w } = await setup();
++    if (mode === "active") w.product.base.environment.activeDeploymentId = "busy";
++    if (mode === "connection") vi.mocked(w.connections.resolve).mockResolvedValue(null);
++    if (mode === "unmapped") w.tofu.planFactory = () => makePlan({ changes: [change({ address: "terraform_data.foreign", type: "terraform_data", action: "delete" })] });
++    if (mode === "changed-during-plan") { const before = w.tofu.planFactory; w.tofu.planFactory = (ws, n) => { w.product.base.environment.region = "us-west-2"; return before(ws, n); }; }
++    const queued = await request();
++    await expect(run(queued.reviewOperationId)).rejects.toBeDefined();
++    expect((await h.store.listOperations(scope.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(0);
++    expect(w.tofu.applyCalls).toHaveLength(0);
++  });
++  it("a missing PlanView refuses approval even through the browser broker endpoint", async () => {
++    const { h, scope, review } = await setup(); const result = await review();
++    const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
++    await h.db!.query("delete from platform.evidence where workspace_id = $1 and operation_id = $2", [scope.workspaceId, op.id]);
++    await expect(h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
++      approver: user("erin"), session: sessionFor("erin") })).rejects.toMatchObject({ code: "digest_mismatch" });
++  });
++  it("records a valid source destroy plan and refuses to supersede an approved teardown", async () => {
++    const { h, scope, review } = await setup(); const result = await review();
++    const op = (await h.store.getOperation(scope.workspaceId, result.operationId))!;
++    expect(await loadDestroyPlan(h.deps, scope, { operationId: result.operationId, planDigest: result.planDigest })).toMatchObject({ facts: { delete: 1 } });
++    await h.broker.approve({ workspaceId: scope.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: result.planDigest,
++      approver: user("erin"), session: sessionFor("erin") });
++    await expect(review("refresh-approved", true)).rejects.toMatchObject({ code: "conflict" });
++  });
++});
++
++describe.skipIf(!PG_URL)("real Postgres destroy-review lane", () => {
++  it("persists the first pending review with a readable PlanView", async () => {
++    const { h, scope, review } = await setup("postgres"); const result = await review();
++    expect((await h.broker.getOperationDetail({ workspaceId: scope.workspaceId, operationId: result.operationId, principal: user("erin") })).planReview?.planDigest).toBe(result.planDigest);
++  });
++});
+diff --git a/tests/screens/platform/teardown-review.test.tsx b/tests/screens/platform/teardown-review.test.tsx
+new file mode 100644
+index 0000000..d5aa243
+--- /dev/null
++++ b/tests/screens/platform/teardown-review.test.tsx
+@@ -0,0 +1,52 @@
++/** Client behavior with fake HTTP/action replies, not browser/cloud acceptance. */
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { EnvironmentTeardownReview } from "@/app/(product)/platform/environments/[id]/environment-teardown-review";
++import { mount, button, click, flush, text } from "./render";
++
++const mocks = vi.hoisted(() => ({ api: vi.fn(), execute: vi.fn() }));
++vi.mock("@/lib/client/api", () => ({ api: mocks.api, executeAction: mocks.execute }));
++beforeEach(() => { mocks.api.mockReset().mockResolvedValue({ review: null }); mocks.execute.mockReset(); });
++afterEach(() => vi.restoreAllMocks());
++const props = { workspaceId: "ws-a", environmentId: "env-a", viewerRole: "viewer" as const };
++const digest = "a".repeat(64);
++describe("first teardown review UI", () => {
++  it("a viewer requests only the read-only action and sees the recorded pending proposal", async () => {
++    const el = mount(<EnvironmentTeardownReview {...props} />); await flush();
++    mocks.execute.mockResolvedValue({ ok: true, data: { reviewOperationId: "op-review" } });
++    mocks.api.mockResolvedValue({ review: { reviewOperationId: "op-review", operationId: "op-destroy", status: "awaiting_approval", planDigest: digest, planReview: { planDigest: digest } } });
++    click(button(el, "Review teardown")); await flush();
++    expect(mocks.execute).toHaveBeenCalledExactlyOnceWith("env.reviewTeardown", expect.objectContaining({ input: expect.objectContaining({ environmentId: "env-a", idempotencyKey: expect.any(String) }) }));
++    expect(text(el)).toContain("awaiting human approval"); expect(text(el)).toContain(digest);
++    expect(el.querySelector('a[href="/platform/operations/op-destroy"]')).toBeTruthy();
++    expect(text(el)).not.toContain("Approve teardown");
++  });
++  it("restores a recorded review on reload and warns when the PlanView is absent", async () => {
++    mocks.api.mockResolvedValue({ review: { reviewOperationId: "op-review", operationId: "op-destroy", status: "awaiting_approval", planDigest: digest } });
++    const el = mount(<EnvironmentTeardownReview {...props} />); await flush();
++    expect(text(el)).toContain("recorded PlanView is unavailable"); expect(mocks.execute).not.toHaveBeenCalled();
++    expect(mocks.api).toHaveBeenCalledWith("/api/platform/v1/environments/env-a/teardown-review", expect.objectContaining({ headers: { "x-zenith-workspace": "ws-a" }, credentials: "same-origin" }));
++  });
++  it("blocks duplicate clicks while the request is in progress", async () => {
++    const el = mount(<EnvironmentTeardownReview {...props} />); await flush();
++    let settle!: (value: unknown) => void; mocks.execute.mockReturnValue(new Promise((resolve) => { settle = resolve; }));
++    click(button(el, "Review teardown")); click(button(el, "Review teardown"));
++    expect(mocks.execute).toHaveBeenCalledTimes(1);
++    settle({ ok: false }); await flush(); expect(text(el)).toContain("could not be confirmed");
++  });
++  it("keeps external errors out of the UI and retains the same key after a lost reply", async () => {
++    const el = mount(<EnvironmentTeardownReview {...props} />); await flush();
++    mocks.execute.mockRejectedValue(new Error("Bearer secret-canary"));
++    click(button(el, "Review teardown")); await flush();
++    const key = mocks.execute.mock.calls[0][1].input.idempotencyKey;
++    expect(text(el)).not.toContain("secret-canary");
++    click(button(el, "Review teardown")); await flush();
++    expect(mocks.execute.mock.calls[1][1].input.idempotencyKey).toBe(key);
++  });
++  it("requires membership and disables requests while a recorded review is running", async () => {
++    const noMember = mount(<EnvironmentTeardownReview {...props} viewerRole="none" />); await flush();
++    expect(button(noMember, "Review teardown").disabled).toBe(true); expect(mocks.api).not.toHaveBeenCalled();
++    mocks.api.mockResolvedValue({ review: { reviewOperationId: "op-review", status: "running" } });
++    const running = mount(<EnvironmentTeardownReview {...props} />); await flush();
++    expect(button(running, "Review teardown").disabled).toBe(true); expect(text(running)).toContain("running");
++  });
++});

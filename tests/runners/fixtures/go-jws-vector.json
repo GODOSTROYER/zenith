@@ -1,0 +1,46 @@
+{
+  "controlPlanePublicKey": "5_FioQvsVZr-oZXk3OhLaVaNXSywlj60RsBoXisX8vA",
+  "controlPlaneSeedHex": "2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40",
+  "description": "Compact JWS job signed by the fake control plane. Verify with Ed25519 over 'header.payload' using controlPlanePublicKey; the embedded grant is a second JWS (typ zenith-grant+jwt) signed by the same key. jti values in the grant are derived from the clock and will differ if regenerated at another time; the fixed clock keeps them stable.",
+  "grantClaims": {
+    "aud": "runner:run_golden",
+    "cap": "infrastructure.plan",
+    "digest": "sha256:test",
+    "exp": 1790000300,
+    "iat": 1790000000,
+    "iss": "zenith-control-plane",
+    "jti": "grt_1790000000000000000_1",
+    "op": "op_golden",
+    "sub": "user_test",
+    "ws": "ws_golden"
+  },
+  "jobHeader": {
+    "alg": "EdDSA",
+    "kid": "cp-golden",
+    "typ": "zenith-job+jwt"
+  },
+  "jobPayload": {
+    "capability": "infrastructure.plan",
+    "exp": 1790000300,
+    "grant": "eyJhbGciOiJFZERTQSIsImtpZCI6ImNwLWdvbGRlbiIsInR5cCI6Inplbml0aC1ncmFudCtqd3QifQ.eyJqdGkiOiJncnRfMTc5MDAwMDAwMDAwMDAwMDAwMF8xIiwiaXNzIjoiemVuaXRoLWNvbnRyb2wtcGxhbmUiLCJhdWQiOiJydW5uZXI6cnVuX2dvbGRlbiIsInN1YiI6InVzZXJfdGVzdCIsImlhdCI6MTc5MDAwMDAwMCwiZXhwIjoxNzkwMDAwMzAwLCJjYXAiOiJpbmZyYXN0cnVjdHVyZS5wbGFuIiwib3AiOiJvcF9nb2xkZW4iLCJkaWdlc3QiOiJzaGEyNTY6dGVzdCIsIndzIjoid3NfZ29sZGVuIn0.6PRvqtWyJey34puaZKtrXsYGL4m_gHV0oaD1ny2p4fTX-pt7ZK5iKJyChXRtmNsvRjbri-0QwicBdCOPo8haDA",
+    "iat": 1790000000,
+    "jti": "job_golden",
+    "kind": "probe.tcp",
+    "maxOutputBytes": 65536,
+    "operationId": "op_golden",
+    "payload": {
+      "host": "10.0.0.1",
+      "port": 22,
+      "timeoutMs": 2000
+    },
+    "protocol": "zenith.runner/v1",
+    "runnerId": "run_golden",
+    "timeoutSec": 60,
+    "workspaceId": "ws_golden"
+  },
+  "jobToken": "eyJhbGciOiJFZERTQSIsImtpZCI6ImNwLWdvbGRlbiIsInR5cCI6Inplbml0aC1qb2Irand0In0.eyJwcm90b2NvbCI6Inplbml0aC5ydW5uZXIvdjEiLCJqdGkiOiJqb2JfZ29sZGVuIiwicnVubmVySWQiOiJydW5fZ29sZGVuIiwid29ya3NwYWNlSWQiOiJ3c19nb2xkZW4iLCJvcGVyYXRpb25JZCI6Im9wX2dvbGRlbiIsImNhcGFiaWxpdHkiOiJpbmZyYXN0cnVjdHVyZS5wbGFuIiwia2luZCI6InByb2JlLnRjcCIsInBheWxvYWQiOnsiaG9zdCI6IjEwLjAuMC4xIiwicG9ydCI6MjIsInRpbWVvdXRNcyI6MjAwMH0sImdyYW50IjoiZXlKaGJHY2lPaUpGWkVSVFFTSXNJbXRwWkNJNkltTndMV2R2YkdSbGJpSXNJblI1Y0NJNklucGxibWwwYUMxbmNtRnVkQ3RxZDNRaWZRLmV5SnFkR2tpT2lKbmNuUmZNVGM1TURBd01EQXdNREF3TURBd01EQXdNRjh4SWl3aWFYTnpJam9pZW1WdWFYUm9MV052Ym5SeWIyd3RjR3hoYm1VaUxDSmhkV1FpT2lKeWRXNXVaWEk2Y25WdVgyZHZiR1JsYmlJc0luTjFZaUk2SW5WelpYSmZkR1Z6ZENJc0ltbGhkQ0k2TVRjNU1EQXdNREF3TUN3aVpYaHdJam94Tnprd01EQXdNekF3TENKallYQWlPaUpwYm1aeVlYTjBjblZqZEhWeVpTNXdiR0Z1SWl3aWIzQWlPaUp2Y0Y5bmIyeGtaVzRpTENKa2FXZGxjM1FpT2lKemFHRXlOVFk2ZEdWemRDSXNJbmR6SWpvaWQzTmZaMjlzWkdWdUluMC42UFJ2cXRXeUpleTM0cHVhWkt0clhzWUdMNG1fZ0hWMG9hRDFueTJwNGZUWC1wdDdaSzVpS0p5Q2hYUnRtTnN2UmpicmktMFF3aWNCZENPUG84aGFEQSIsImlhdCI6MTc5MDAwMDAwMCwiZXhwIjoxNzkwMDAwMzAwLCJ0aW1lb3V0U2VjIjo2MCwibWF4T3V0cHV0Qnl0ZXMiOjY1NTM2fQ.VWeECTmnxi0EO0yneAGPHkkFxWDy6x5HMyhQYBjXaCUxBVRrKbZB2NGuXAtWyftuhbHDSHJKnAl5TbICeEW6CQ",
+  "kid": "cp-golden",
+  "nowUnix": 1790000000,
+  "runnerId": "run_golden",
+  "workspaceId": "ws_golden"
+}

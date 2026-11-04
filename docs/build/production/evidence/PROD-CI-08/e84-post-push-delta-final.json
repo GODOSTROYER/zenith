@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "repository": "GODOSTROYER/zenith",
+  "publishedCandidateSha": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+  "priorNativeSourceSha": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "sourceOverlaySeparation": "Local native R9-R14 receipts are pinned to prior source 94; do not attribute them to published e84 CI.",
+  "publishedCi": {
+    "snapshotSha256": "bcd18afd9b72445ba64d179ed3ff469d507464c5024d156ea4515c088922224d",
+    "snapshotAtUtc": "2026-10-11T01:48:21Z",
+    "main": {
+      "success": 18,
+      "failure": 2,
+      "skipped": 8,
+      "terminal": true
+    },
+    "nativePackagedWorkers": {
+      "success": 2,
+      "total": 2
+    },
+    "nativeSkippedPlatforms": {
+      "success": 2,
+      "total": 2
+    },
+    "amd64GoLane": {
+      "racePackages": 22,
+      "racePassed": 1074,
+      "raceFailed": 0,
+      "raceSkipped": 3,
+      "packageNativeRequiredCases": 4,
+      "packageNativeLeaves": 8,
+      "packageNativeSkipped": 0,
+      "pid1ExitCode": 1,
+      "goTestEvents": 0,
+      "requiredSystemdCase": "missing",
+      "failureStage": "guest-baseline",
+      "failureOperation": "unknown"
+    }
+  },
+  "typecheckHistory": {
+    "R1": {
+      "result": "failed",
+      "receiptSha256": "b001a98d5f2dbef79d2c127f7556a69d09597e7613aae1051912634e8b306bc6"
+    },
+    "R2": {
+      "result": "failed",
+      "receiptSha256": "a80e4f1addd6b390c9f357e90f152ad2d9f86998061349a06df13a7605ba6ab3"
+    },
+    "R3": {
+      "result": "failed",
+      "receiptSha256": "47ed32a4111c1e0f50afc12cc804a5fbd0124b21b7017d2057dd6555566e6b67"
+    },
+    "R4": {
+      "result": "passed",
+      "exitCode": 0,
+      "receiptSha256": "a559843cf0395a5b9d955861ab755a6e65673283aabcc3c5cf88de86ae65550f",
+      "scope": "targeted tsc only",
+      "fullAcceptance": false
+    }
+  },
+  "focusedFourPath": {
+    "result": "passed",
+    "receiptSha256": "d6cb819668856261fd597e46c7fe0962e75578aa71ccaf22e43432ad6df0784a",
+    "actualTsc": "passed",
+    "vitest": {
+      "passed": 195,
+      "failed": 0,
+      "skipped": 0,
+      "files": 2,
+      "durationSeconds": 25.71
+    },
+    "strictCustody": {
+      "heldCommands": 2,
+      "bothSettled": true,
+      "sourceFreezes": true,
+      "diskFloors": true,
+      "rootAuditedAllOutputHashes": true
+    },
+    "scope": "focused validation only",
+    "baseCommit": "e84e3f3c30609ffdc78fb50be76cd5cc272ff9ee",
+    "overlayFileSha256": {
+      "scripts/ci/guest-pid1-fixtures.py": "349024ba1c05bc08ce36ebe83ed57ea4fc17be2d2fef5016dbe6a4cbc4e7fd33",
+      "scripts/ci/run-guest-file-write-gate.mjs": "eac516ae53c144a9189b16fc8e135c9f12275a3667cb9e1cc70961a1578591a0",
+      "tests/ci/guest-file-write-gate.test.ts": "b74fd1623a327ecd49ac6f60f8397a82964fd6cf47fb07705ed0f4bf75008695",
+      "tests/release/drivers/operated-tenants.test.ts": "e1bfc4dcbf30d011e09d740411b3312ca87d673c2bf475a62bcc267925b6b1d7"
+    }
+  },
+  "priorSourceNativeHistory": {
+    "R9": {
+      "result": "refusedBeforeCases",
+      "reason": "Go VCS probing exited 128"
+    },
+    "R10": {
+      "result": "fixtureImageGuardRefusalBeforeCases",
+      "daemonBuildExitCode": 0,
+      "aptBuildExitCode": 0,
+      "cleanupR4": {
+        "exitCode": 0,
+        "strictHeldCommands": 33,
+        "allExitZero": true,
+        "exactContextAbsent": true,
+        "receiptSha256": "82446fec944c42ffc5525ae82e970ed2357ba3619ef1982e04d1a9730b23cb6f"
+      }
+    },
+    "R11": {
+      "result": "oneCasePassButWrapperRefused",
+      "casePassed": 1,
+      "caseFailed": 0,
+      "caseSkipped": 0,
+      "wrapperExitCode": 2,
+      "containerExitCode": 130,
+      "oomObserved": false,
+      "receiptSha256": "b4016cafc6092c3e4feddbf45f2d66ceebdfa22c77672a99f2d1c53e70b02e90"
+    },
+    "R13": {
+      "result": "oneCasePassButWrapperRefused",
+      "casePassed": 1,
+      "caseFailed": 0,
+      "caseSkipped": 0,
+      "wrapperExitCode": 2,
+      "containerExitCode": 130,
+      "accepted": false,
+      "cleanupR4": {
+        "exitCode": 0,
+        "strictHeldCommands": 48,
+        "allExitZero": true,
+        "rootAuditedAllOutputHashes": true,
+        "sourceStable": true,
+        "floorsClean": true,
+        "baselineParity": true,
+        "guestImageContextAbsent": true,
+        "receiptSha256": "fd7bf4b8babbadbee6bab2acf4c1ec62bf4aff216d2e9023709df91001012a49"
+      },
+      "receiptSha256": "c01822600db56b47a6aad5df2ccb80b84114d6e21dd8aa2d9ba2cf721eaf8d76"
+    },
+    "R14": {
+      "result": "oneNativeCasePassOnly",
+      "wrapperExitCode": 0,
+      "casePassed": 1,
+      "caseFailed": 0,
+      "caseSkipped": 0,
+      "guestPostcondition": true,
+      "goExitCode": 0,
+      "guestExitCode": 0,
+      "oomObserved": false,
+      "cleanupComplete": true,
+      "sourceStable": true,
+      "baselineParity": true,
+      "custodyClean": true,
+      "floorsClean": true,
+      "strictCommands": {
+        "main": 85,
+        "vm": 24,
+        "total": 109,
+        "allExitZero": true,
+        "rootAuditedAllOutputHashes": true
+      },
+      "acceptedRunReceipt": false,
+      "fullGoGate": false,
+      "receiptSha256": "63356b21eda49c6264e3c965d6c930b1adb335576750be42217e5eba09cd8252",
+      "goTestOverlaySha256": "221ddb233f78d68b85cb5eafc181eb6eebd137e89e138ca1393a2916b3e15b1d"
+    }
+  },
+  "minio": {
+    "R6": {
+      "result": "refusedBeforeMutation",
+      "reason": "pinned base absent",
+      "vmSampling": false,
+      "dockerMutation": false
+    },
+    "baseR2": {
+      "result": "preflightRefusedBeforeMutation",
+      "reason": "unreconciled MinIO held-child marker",
+      "separateCustodyMapping": "existing R9/R11 markers"
+    },
+    "python39Collector": {
+      "result": "refusedBeforeLaunch",
+      "reason": "CField.type absent",
+      "diagnosis": "constructor-only",
+      "collectorChanged": false
+    },
+    "python314Diagnostic": {
+      "result": "passed",
+      "commands": 6
+    },
+    "baseDownloaded": false
+  },
+  "ledger": {
+    "verified": 9,
+    "inProgress": 67,
+    "planned": 2,
+    "allFourReleaseFlags": false,
+    "promotion": false
+  }
+}

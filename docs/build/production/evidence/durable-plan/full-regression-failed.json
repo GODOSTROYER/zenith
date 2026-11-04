@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T03:36:17.790543+00:00",
+  "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "status": "failed_unit_not_integrated",
+  "label": "prod-durable-full-root",
+  "environment": {
+    "host": "Saivedant Mac",
+    "platform": "darwin-arm64",
+    "memoryGiB": 8,
+    "concurrency": "one heavy local process",
+    "versions": {
+      "node": "22.23.3",
+      "openTofu": "1.12.5",
+      "opa": "1.19.1",
+      "go": "1.27.1"
+    }
+  },
+  "sourceBinding": {
+    "lockSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "gateManifestSha256": "e4948f86a46d652d266c70c76dda6083b4db6939ebbd853f3da9541fb225a000",
+    "rawResultsSha256": "343ad1ea3a1f24f65cb7677bc24ed81cbbac3a7897a3cfc737edaf2176ac9cdc",
+    "rawUnitJsonSha256": "75d8a0c9a3b0cf2cf794d1184ede04602fec965b8c1c4c098143bc035bd730c2",
+    "rawUnitLogSha256": "626931481aeee514ffc0954ec1a09183d59b86869cf21de6cb7d2670ea0a2909"
+  },
+  "steps": [
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "seconds": 11.3
+    },
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "seconds": 24.15
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.04
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 0.52
+    },
+    {
+      "name": "go-race",
+      "exitCode": 0,
+      "seconds": 28.21
+    },
+    {
+      "name": "policy-generated",
+      "exitCode": 0,
+      "seconds": 0.77
+    },
+    {
+      "name": "emit-sql",
+      "exitCode": 0,
+      "seconds": 0.43
+    },
+    {
+      "name": "matrix",
+      "exitCode": 0,
+      "seconds": 2.94
+    },
+    {
+      "name": "aws-templates",
+      "exitCode": 0,
+      "seconds": 0.28
+    },
+    {
+      "name": "ledger",
+      "exitCode": 0,
+      "seconds": 0.04
+    },
+    {
+      "name": "unit",
+      "exitCode": 1,
+      "seconds": 946.98,
+      "counts": {
+        "passed": 16588,
+        "failed": 70,
+        "skipped": 212,
+        "total": 16870
+      }
+    }
+  ],
+  "unit": {
+    "passed": 16588,
+    "failed": 70,
+    "skipped": 212,
+    "total": 16870
+  },
+  "failedFiles": [
+    {
+      "path": "tests/ci/assert-lane-report.test.ts",
+      "failed": 2
+    },
+    {
+      "path": "tests/ci/evidence-sanitizer.test.ts",
+      "failed": 5
+    },
+    {
+      "path": "tests/ci/gate-manifest.test.ts",
+      "failed": 5
+    },
+    {
+      "path": "tests/ci/platform-coverage.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/ci/release-gates.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/execution/aws-bootstrap-context.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/execution/deletion-guards.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/execution/destroy-review-temporal.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/execution/ecs-replica-repair.test.ts",
+      "failed": 13
+    },
+    {
+      "path": "tests/platform/deploy-e2e.test.ts",
+      "failed": 16
+    },
+    {
+      "path": "tests/platform/machine-composition.test.ts",
+      "failed": 6
+    },
+    {
+      "path": "tests/platform/source-bundle-composition.test.ts",
+      "failed": 7
+    },
+    {
+      "path": "tests/security/controlplane-sql-scoping.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/workers/worker-health-wiring.test.ts",
+      "failed": 1
+    },
+    {
+      "path": "tests/workflows/codec-wiring.test.ts",
+      "failed": 2
+    },
+    {
+      "path": "tests/sources/github-migrations.test.ts",
+      "failed": 4
+    },
+    {
+      "path": "tests/tofu/destroy.test.ts",
+      "failed": 2
+    },
+    {
+      "path": "tests/tofu/runner.test.ts",
+      "failed": 1
+    }
+  ],
+  "opa": {
+    "passed": 213,
+    "failed": 0
+  },
+  "goRace": {
+    "topLevelPassed": 226,
+    "subtestsPassed": 539,
+    "failed": 0,
+    "linuxOnlyMacSkipped": 3,
+    "passedPackages": 11
+  },
+  "notExecutedInThisAttempt": [
+    "mandatory security audit",
+    "canonical workflows",
+    "canonical policy",
+    "canonical OpenTofu",
+    "local API/browser startup",
+    "live cloud acceptance"
+  ],
+  "limitations": [
+    "Full gate stopped at unit exit 1. Separate actual PostgreSQL, Supabase, kind and packaged receipts remain distinct.",
+    "Current dependency audit independently remains blocking with five findings. No waiver or gate relaxation.",
+    "Corrections under implementation; this evidence covers exact isolated commit only. No release approval."
+  ]
+}

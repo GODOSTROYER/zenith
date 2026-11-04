@@ -1,0 +1,22 @@
+{
+  "description": "Ed25519 (RFC 8032) is deterministic: the same seed and signing string always give this signature. The signing string is the six fields joined by \\n with no trailing newline.",
+  "agentSeedHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "agentPublicKey": "ebVWLo_mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ",
+  "protocol": "zenith.runner/v1",
+  "agentId": "run_golden",
+  "method": "post",
+  "pathAndQuery": "/api/platform/v1/runners/run_golden/poll?after=42",
+  "body": "{\"max\":1,\"waitSec\":20}",
+  "timestamp": 1790000000,
+  "nonce": "QEFCQ0RFRkdISUpLTE1OTw",
+  "contentSha256": "fcabcd475bfd4fc175c841413976bd61577854b37c0cdf970fd58c9f6c9bdbd4",
+  "signingString": "zenith.runner/v1\nPOST\n/api/platform/v1/runners/run_golden/poll?after=42\n1790000000\nQEFCQ0RFRkdISUpLTE1OTw\nfcabcd475bfd4fc175c841413976bd61577854b37c0cdf970fd58c9f6c9bdbd4",
+  "signature": "8DM4_NHG_x9vnJCRUDcAVqMeUDrcrwq0ajP9-45H-guEjlFHiN8I-xxn0q9qnNK8f2SqqntNuKHiq6sh_x59Dg",
+  "headers": {
+    "X-Zenith-Agent": "run_golden",
+    "X-Zenith-Content-SHA256": "fcabcd475bfd4fc175c841413976bd61577854b37c0cdf970fd58c9f6c9bdbd4",
+    "X-Zenith-Nonce": "QEFCQ0RFRkdISUpLTE1OTw",
+    "X-Zenith-Signature": "8DM4_NHG_x9vnJCRUDcAVqMeUDrcrwq0ajP9-45H-guEjlFHiN8I-xxn0q9qnNK8f2SqqntNuKHiq6sh_x59Dg",
+    "X-Zenith-Timestamp": "1790000000"
+  }
+}

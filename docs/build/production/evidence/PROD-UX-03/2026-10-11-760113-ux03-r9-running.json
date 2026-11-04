@@ -1,0 +1,18 @@
+{
+  "acceptance": false,
+  "correction": "Manifest-only correction; first binding preserved.",
+  "current_invocation": {
+    "status": "running",
+    "verdict": "pending"
+  },
+  "evidence_type": "ux03-r9-running-status",
+  "first_invocation": {
+    "outcome": "preflight-refusal",
+    "reason": "Manifest image reference lacked the required tag-mapped reference."
+  },
+  "fresh_r16_source_bound": true,
+  "historical_snapshot": true,
+  "review": "passed",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "superseded_by": "2026-10-11-760113-ux03-r9-result-r3.json"
+}

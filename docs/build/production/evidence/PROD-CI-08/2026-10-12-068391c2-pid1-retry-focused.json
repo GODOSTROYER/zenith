@@ -1,0 +1,45 @@
+{
+  "evidenceId": "PROD-CI-09-pid1-retry-focused-068391c2-r1",
+  "laterIntegratedCommit": "27c0126888a3f5cbafabb6ca8e3033eeaa96aed3",
+  "laterIntegrationStatus": "source fixes integrated; these terminal runs were performed against 068391c2, not 27c01268",
+  "limitations": [
+    "Focused readiness tests only; not actual Linux PID 1 acceptance or broader integration.",
+    "The prior Go 203P/1F attempt remains distinct historical evidence and is not superseded by this 204P focused run.",
+    "No evidence here claims a full focused-test rerun at 27c01268."
+  ],
+  "pins": {
+    "primarySourceCommit": "068391c2bd8eae625f159855c55ce913146ba792",
+    "proofSha256": "14975dc8bfc889c28de6cb7ba25450227339a27261ac4b2bfaf27d8b0128a3c1",
+    "review": {
+      "path": "/tmp/zenith-068391c2-pid1-retry-focused-terminal-review-r1/review.json",
+      "sha256": "11fa8a34a43a01f3ece1edecf263d152e72dd6a66097c3016a7b93d709652c68"
+    },
+    "sourceFreezeSha256": "da427c75e11a3158af3c522306b063af52b5b3803eb0a49addaacf4d1d9443ca",
+    "vitestReportSha256": "d00ed8c6559078054b68fade482b2ebad9aa9941cbfcda27adb32ad97b1eb5ad"
+  },
+  "result": {
+    "acceptedRunReceipt": false,
+    "active": 0,
+    "allTerminalAbsenceProven": true,
+    "custodyLedgers": 29,
+    "droppedEvents": 0,
+    "failed": 0,
+    "heldCommands": 29,
+    "heldGitCommands": 28,
+    "overflow": false,
+    "passed": 204,
+    "pendingLive": 0,
+    "quarantine": 0,
+    "skipped": 0,
+    "sourceBeforeAfterFinalStable": true,
+    "status": "pass-focused-only",
+    "suitesFailed": 0,
+    "suitesPassed": 11,
+    "telemetryComplete": true,
+    "truncation": false
+  },
+  "schema": "zenith.scoped-test-evidence.v1",
+  "scope": "focused PID1 readiness/retry diagnostics test file only; not actual Linux PID 1 acceptance",
+  "testedSourceCommit": "068391c2bd8eae625f159855c55ce913146ba792",
+  "testedSourceFreezeSha256": "453ea3c1f96965d98a3e2d99fbf9fbaeb2427d6f34465d9742421432dc110b35"
+}

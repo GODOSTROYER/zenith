@@ -1,0 +1,79 @@
+{
+  "testedWorkerCommit": "ddc27415f77c090cd9d26423c7cf9a1eaf519d92",
+  "integratedRootCommit": "0f995b44391bf935df262f729cde688bf8af1a2f",
+  "sourceInputs": {
+    "package.json": "02e632c348679aeaa32f1bca5bcc7f720e89809bdca87759de4e3748901055a8",
+    "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c",
+    ".github/workflows/ci.yml": "1fbd8f64d9cb16598ecbc570ff8656092235fc13c30b26d559742572a686b66f",
+    "tests/providers/kubernetes/kind.test.ts": "c84cf010e12b77aca04a40bbfba8445f11cf435affb7f5540b0ae1a59368c277",
+    "tests/providers/kubernetes/release-kind.test.ts": "28e45cf6ba378834704ca75172450c466ed804a681ee903e31909633c8adbdd9",
+    "tests/machines/kubernetes-kind.test.ts": "9585d4e787bfa13d78a8e7d3cf09f016801e3b46c092c96724ec099f9c3cfc35",
+    "src/lib/providers/kubernetes/client.ts": "a54de62dd38a9c042bee47e067883d384960cc1dee9202a1cce929f234080ed4",
+    "src/lib/providers/kubernetes/session.ts": "0dc46c8f56d4c52221266be08c8dbb5d00026f7bad4e92820aea4f235377821a",
+    "src/lib/machines/transports/kubernetes.ts": "da5aa14444d5a02a008cb119b4bd024c911773cf42e5e3858feb72a420cd18e5",
+    "src/lib/platform/release.ts": "978b7d50be631d981045aced3c12b26ff31f53f9125146f64ad83810a66952b5",
+    "docs/build/production/verify/PROD-CI-REPAIR.md": "c65752b4c0a037ac3ae65c3655a11d3948b7ff3e57a66f309e029a4dfb119abd",
+    "scripts/ci/gate-manifest.mjs": "66859918884e8e741d779f0fb0e2f29f00f5e0a464ba11b5a9bc3c1bd6898f95"
+  },
+  "allSourceInputsIndependentlyMatchedTestedGit": true,
+  "sourceParityAtIntegration": {
+    "package.json": true,
+    "package-lock.json": true,
+    ".github/workflows/ci.yml": true,
+    "tests/providers/kubernetes/kind.test.ts": true,
+    "tests/providers/kubernetes/release-kind.test.ts": true,
+    "tests/machines/kubernetes-kind.test.ts": true,
+    "src/lib/providers/kubernetes/client.ts": true,
+    "src/lib/providers/kubernetes/session.ts": true,
+    "src/lib/machines/transports/kubernetes.ts": true,
+    "src/lib/platform/release.ts": true,
+    "docs/build/production/verify/PROD-CI-REPAIR.md": true,
+    "scripts/ci/gate-manifest.mjs": true
+  },
+  "controllerSha256": "0f78094de1d85083f9b4b4916ba82e848b8c63e1df4623af09f5428d9211ce9f",
+  "freezeSha256": "93164e12140ed266d0b448752cc96c24a4be848252cd609465996071c08cc8a1",
+  "rawReceiptSha256": "d31a65b63d716f1bbd618f102f53b8a4fc16831eb88fd5114e53e6c2fef023b5",
+  "observedParentExit": 0,
+  "provider": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "a765e90ed43a6d1e6568de158b0d9232014c60e7011353fdfacdfb288f14bd7c"
+  },
+  "release": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "5ad0d24c6f245cbe492af241ff77b166a30dad77afe713942d1a375eb095dba8"
+  },
+  "guest": {
+    "passed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "24378be8155e7fa4c03b01a36f245b18a31b9e29e74c7a690c7616dc5c27dbe9"
+  },
+  "cleanupComplete": true,
+  "registeredGroupsAbsent": true,
+  "originalApiListenerAbsent": true,
+  "privateInputsAndRootsAbsent": true,
+  "baselineImagesPreserved": true,
+  "floorBytes": 23622320128,
+  "nodeVersion": "22.23.3",
+  "clientServerVersion": "1.37.0",
+  "architecture": "nativeLinuxARM64 kind / nativeDarwinARM64 client",
+  "dockerMemoryGiB": 4,
+  "dockerSwapGiB": 4,
+  "compilerExit": 0,
+  "compilerHeapMiB": 4096,
+  "compilerLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "eslintExit": 0,
+  "eslintLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "fixtureScope": "Exact namespace read ceiling; four positive and eleven negative real minter-token authorization setup checks. No changed test IDs, deadlines, assertions, production broker or administrator fallback.",
+  "limitations": [
+    "Local kind56 only; no managed-cloud/default-API/systemd/full-guest152/full-workers proof.",
+    "Nine real API controls use a PGlite tenant ledger and signed fixture claims; browser/current-human SQL authorization is unproved.",
+    "Default kind CNI does not prove NetworkPolicy enforcement."
+  ],
+  "failedPredecessorsPreserved": true,
+  "status": "passed_local_kind56_only"
+}

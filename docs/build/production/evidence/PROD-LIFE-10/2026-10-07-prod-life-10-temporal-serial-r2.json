@@ -1,0 +1,36 @@
+{
+  "id": "PROD-LIFE-10-TEMPORAL",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 21,
+  "failed": 0,
+  "skipped": 0,
+  "commandTargets": [
+    "tests/platform/deploy-e2e.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24077586432,
+  "diskMinBytes": 24050343936,
+  "diskAfterBytes": 24078987264,
+  "elapsedSeconds": 62.29,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "fa07dd36e3849fdf1f89203568479204ea91e528be1c69526b7bac6930091381",
+  "perFile": [
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open."
+}

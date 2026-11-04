@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+  "status": "verification_paused_on_old_host",
+  "supervisor": {
+    "passed": 142,
+    "failed": 0,
+    "skipped": 0,
+    "nativeCases": 6,
+    "receiptSha256": "debb725611bbfb094b4d77a63e3285c6d6ebde2272c50e08be8e961b02d81375",
+    "scope": "Native Linux ARM64 six process cases; remaining136 source/report models. Original full raw case JSON removed with volume; strict checker hash and stdout retained.",
+    "cleanup": true,
+    "independentlyAbsentGroups": 44
+  },
+  "pid1": {
+    "originalAttempt": "setup failed; zero tests; owned image subsequently removed separately",
+    "R2": "independently source reviewed; preflight passed; actual execution pending"
+  },
+  "hosted": "source reviewed; actual journey pending",
+  "sys1": "interrupted draft; unreviewed; no runtime evidence",
+  "nativeWorkers": {
+    "AMD64": "22 passed / 0 failed / 0 skipped at 28ea0b75",
+    "ARM64": "22 passed / 0 failed / 0 skipped at 28ea0b75"
+  },
+  "limits": [
+    "Full raw supervisor case JSON removed with owned volume; cannot reconstruct all 142 raw identities.",
+    "Source-bound historical receipts do not prove current or rebased bytes.",
+    "No full default-stack application acceptance.",
+    "No live-cloud acceptance."
+  ]
+}

@@ -1,0 +1,766 @@
+diff --git a/docs/LIMITATIONS.md b/docs/LIMITATIONS.md
+index 3efd1cd..0e3ef11 100644
+--- a/docs/LIMITATIONS.md
++++ b/docs/LIMITATIONS.md
+@@ -67,7 +67,7 @@ The composed control plane (`docs/platform/`) is separate from the legacy provid
+ - 🟡 **The agents and runner-job reaper are wired, without live transport acceptance.** AWS runner sessions use `src/lib/runners/aws-runner-transport.ts`; the machine activity path requires an injected `machines` port, absent from default worker composition. `oci.http` is opt-in and wired in the Go executor and TypeScript dispatch defaults. Cron passes call `platformRunnerReaperPass`, which expires jobs and marks owning operations uncertain without re-dispatch. Go, Docker and cloud end-to-end operation were not verified in this docs sync.
+ - ✅ **Maintenance is wired.** Leased housekeeping (`src/lib/platform/housekeeping.ts`) prunes expired idempotency keys/nonces with skip-locked expiry rechecks and runs the operation-ledger backstop. The worker has loopback liveness/readiness and terminal-owner binary-plan cleanup. None establishes provider readiness or production recovery.
+ - ✅ **Destruction requires human review.** `env.teardown` consumes trusted recorded evidence; stateful/DNS delete or replace always needs a human at every autonomy and environment. A moved final plan fails `plan_changed` before deletion guards; ownership/deletion-policy refusals still apply ([TEARDOWN.md](platform/operations/TEARDOWN.md), [POLICY.md](platform/operations/POLICY.md#deletion-approvals)).
+-- ✅ **Source and secret boundaries are implemented.** AWS source uploads are canonical ZIP, GCP tar.gz; Azure adapters use tar.gz with injected readers. Database credentials use service-managed/passwordless paths or ephemeral write-only sinks; Temporal client/worker payloads use AES-256-GCM with decrypt-only previous keys. These are code/contract claims, not live evidence ([BUILDS.md](platform/operations/BUILDS.md), [DEPLOYING.md](platform/operations/DEPLOYING.md)).
++- ✅ **Source and secret boundaries are implemented.** AWS source uploads are canonical ZIP, GCP/Azure tar.gz. Default Azure composition prepares and rereads storage-bound bundles; the Blob credential audience remains an open integration gap. Database credentials use service-managed/passwordless paths or ephemeral write-only sinks; Temporal client/worker payloads use AES-256-GCM with decrypt-only previous keys. These are code/contract claims, not live evidence ([BUILDS.md](platform/operations/BUILDS.md), [DEPLOYING.md](platform/operations/DEPLOYING.md)).
+ - 🟡 **Cost and placement are estimates.** `2026-09-30.1` is a static list-price snapshot, partly remembered, derived or internally assumed. Placement is exposed by REST, actions, MCP and `/platform/placement`; staging edits the working manifest, not cloud infrastructure. Legacy cost screens still use their older table. No forecast or billing actual is produced.
+ - ✅ **MCP registration and OAuth discovery are wired.** App composition registers cloud-read and investigator ports; OCI Logging Search/Monitoring use scoped runner read jobs without operations. Protected-resource metadata and the 401 challenge advertise the exact v3 resource. Missing evidence stays unavailable ([MCP.md](platform/MCP.md), [OCI-SIGNALS.md](platform/operations/OCI-SIGNALS.md)).
+ 
+@@ -81,7 +81,7 @@ Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
+ - ⬜ OCI MySQL creation is disabled: pinned `oracle/oci` 9.7.1 lacks a proven write-only password or Vault-reference sink (`src/lib/providers/oci/drivers/data/mysql.ts`).
+ - ⬜ Teardown has no public first read-only destroy-review trigger; the browser requires current execution evidence and an authorized readable matching PlanView artifact for plan approval.
+ - ⬜ Default managed Zenith execution has no session opener/substrate integration; managed teardown needs injected `withZenithSession` plus a trusted database inventory and current approval flags.
+-- ⬜ Azure source builds require a source reader and provider-dispatched preparation port; default composition supplies neither.
++- ⬜ Azure source preparation and stored-bundle reading are composed, but require a trusted workspace/environment storage binding. The broker lacks the Blob Storage audience/host policy; default sessions refuse customer Blob calls. Container data permissions and network reachability remain unverified.
+ - ⬜ Private GitHub source access needs a tenant-scoped connector; default composition supplies none.
+ - ⬜ Default source-build release ports for OCI, Kubernetes and managed Zenith are absent; registered drivers and the separate hosted builder do not supply them.
+ - ⬜ Non-AWS runner-mode sessions other than OCI are unsupported; OCI verification checks registered runner labels, not OCI permission or reachability.
+diff --git a/docs/platform/operations/BUILDS.md b/docs/platform/operations/BUILDS.md
+index f17a9a5..9272668 100644
+--- a/docs/platform/operations/BUILDS.md
++++ b/docs/platform/operations/BUILDS.md
+@@ -1,6 +1,7 @@
+ # Builds from source
+ 
+ Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
++Azure source storage and composition updated by `WS-AZURE-SOURCE-WIRE` from `53d5e2d`.
+ 
+ Customer repository code runs in the provider's build service, not in the
+ control-plane or worker process. The worker downloads, validates and packages
+@@ -36,7 +37,7 @@ not deployment evidence.
+ |---|---|---|
+ | AWS | Deterministic **ZIP**, uploaded to the customer's tagged S3 source bucket. CodeBuild uses native `S3` source and the exact object key; image output goes to ECR. | Pipeline and bucket ownership/account/region are checked before upload. No live CodeBuild acceptance. |
+ | GCP | Deterministic **tar.gz**, uploaded to the pipeline's GCS bucket, then Cloud Build uses `storageSource` and publishes to Artifact Registry. | Upload identity/size/integrity and scope are checked. No live Cloud Build acceptance. |
+-| Azure | Deterministic **tar.gz** through the shared reader, uploaded to ACR's short-lived Blob SAS URL, then a `DockerBuildRequest` is scheduled in the customer registry. | The build adapter and durable tenant-scoped launch journal exist, but default worker composition supplies neither the Azure source reader nor a provider-dispatched source preparation port. It refuses; operators cannot enable this with an environment variable alone. |
++| Azure | Deterministic **tar.gz** uploaded by C3 to a bound customer Blob container. Build start rereads and hashes that object, uploads the verified bytes to ACR's short-lived Blob SAS URL, then schedules a `DockerBuildRequest` in the customer registry. | Default composition supplies preparation, stored-source reading and the durable launch journal. A trusted environment storage binding is required. The current broker lacks the Storage token audience and rejects Blob hosts; that credential integration remains open. No live Azure build acceptance. |
+ | OCI, Kubernetes, Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
+ 
+ AWS's assembler uploads with `application/zip`, expected bucket owner, checksum
+@@ -47,13 +48,49 @@ object is checked against the bundle. Both use scoped, digest-addressed keys
+ `src/lib/providers/aws/drivers/compute/codebuild-project.ts`; Cloud Build's
+ storage source is in `src/lib/providers/gcp/drivers/build/build-api.ts`.
+ 
+-Azure integration must pass the shared reader to `createReleasePorts` as
+-`azure.sourceBundles` and dispatch Azure preparation through
+-`createAzureSourceBundlePort`, retaining the AWS/GCP C3 port for those providers.
+-The reader runs again at build start and must match the recorded digest.
+-`src/lib/providers/azure/release/source.ts`,
++Default Azure composition passes C3's `readAzureSource` to `createReleasePorts`
++as `azure.readSource`. The same C3 preparation call dispatches AWS ZIP and
++GCP/Azure tar.gz. Azure returns only the digest, scoped object key, account/container
++identifier and unsigned object URI. Build start reads the stored bytes, not the
++GitHub ref again, and must match the recorded SHA-256. This avoids changing build
++input when a branch moves between preparation and launch. Explicit legacy
++`azure.sourceBundles`/`createAzureSourceBundlePort` overrides remain available;
++those reread the repository and refuse a changed digest.
++
++Configure the trusted worker's `ComposeExecutionOptions.sourceBundles.azureStorage`
++resolver with `{ workspaceId, environmentId, subscriptionId, region }`. It must
++return `{ accountResourceId, container, resourceAddress }` for that scope, or
++`null` when no binding exists. `resourceAddress` identifies the managed
++`object_store/...` whose ownership tags the account carries. The resolver must
++use tenant-scoped storage/configuration lookup; it never returns keys or SAS URLs.
++No source container is inferred from the state backend or another workspace.
++Missing bindings refuse before GitHub acquisition or Blob writes.
++
++`src/lib/providers/azure/release/source-storage.ts` verifies the ARM account's
++workspace/environment/resource/managed tags, subscription, region, endpoint and
++Entra-only private posture, then the exact private container identity. Blob keys
++are `zenith/<environment>/<service>/<sha256>.tar.gz`. Uploads use `Put Blob`,
++create-only `If-None-Match: *` and transport MD5; both new and existing objects
++are reread and checked for SHA-256 and size. The reader caps streamed and declared
++lengths at C3's 32 MiB compressed ceiling (or a lower injected ceiling), checks
++empty/truncated responses, and bounds stalled requests and body reads.
++See Microsoft's [Put Blob contract](https://learn.microsoft.com/en-us/rest/api/storageservices/put-blob).
++
++All customer Blob calls use the current broker session's `authorizedFetch`, request
++`redirect: "error"`, reject redirected/foreign response URLs, and supply no bearer.
++The existing session in
++`src/lib/providers/azure/credentials.ts` still refuses Blob hosts: integration must
++add the Storage audience `https://storage.azure.com/.default` with an exact public
++cloud account-host policy and tests, without sending an ARM token to Blob Storage.
++That integration must also honor `redirect: "error"` before following a redirect;
++the current session internally follows allowed hosts despite that caller option.
++The worker identity also needs container-scoped Blob data read/write permission
++and network reachability to the customer account. These are requirements, not
++verified permissions or live acceptance. An environment variable alone cannot
++enable this path. The source transport never exchanges credentials itself.
++
+ `src/lib/providers/azure/release/build.ts` and
+-`src/lib/providers/azure/release/acr-task.ts` implement this contract. The SAS URL
++`src/lib/providers/azure/release/acr-task.ts` implement the ACR contract. The SAS URL
+ stays inside the call, goes only to the validated plain upload transport and
+ never receives the broker's ARM bearer. A consumed launch key without a receipt
+ is unknown and is not launched again automatically; investigate the ACR run.
+diff --git a/src/lib/platform/execution.ts b/src/lib/platform/execution.ts
+index 8bdd23e..36ade11 100644
+--- a/src/lib/platform/execution.ts
++++ b/src/lib/platform/execution.ts
+@@ -20,6 +20,7 @@ import { platformDriverLookup } from "./driver-lookup";
+ import { createReleasePorts } from "./release";
+ import { composeReconcilePorts } from "./reconcile";
+ import { createSourceBundles, type SourceBundleDeps } from "./source-bundle";
++import { createAzureSourceStorage, type AzureBuildOptions } from "./release-azure";
+ 
+ export interface ComposeExecutionOptions {
+   db: Sql;
+@@ -28,7 +29,7 @@ export interface ComposeExecutionOptions {
+   secretKey?: string;
+   /** Deliberate dependency overrides for contract tests or source acquisition. */
+   ports?: Partial<Omit<ExecutionDeps, "fingerprintKey" | "workerId" | "planDir">>;
+-  /** Optional tenant-scoped GitHub connector and bounded download settings. */
++  /** Optional tenant-scoped GitHub connector, Azure storage binding and download bounds. */
+   sourceBundles?: Omit<SourceBundleDeps, "resources">;
+ }
+ 
+@@ -42,14 +43,21 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
+   registerAllDrivers();
+   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
+   const platformPorts = createPlatformPorts(opts.db);
++  const sourceBundles = opts.ports?.sourceBundle ? undefined : createSourceBundles({ ...opts.sourceBundles, resources: opts.ports?.resources ?? platformPorts.resources });
++  const azure: AzureBuildOptions = {
++    readSource: sourceBundles?.readAzureSource ?? ((ctx, source) => createAzureSourceStorage({
++      resolveStorage: opts.sourceBundles?.azureStorage,
++      maxBytes: opts.sourceBundles?.limits?.maxArchiveBytes, timeoutMs: opts.sourceBundles?.timeoutMs,
++    }).readSource(ctx, source)),
++  };
+   const deps: ExecutionDeps = {
+     ...platformPorts,
+     drivers: platformDriverLookup,
+     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
+     tofu: { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
+     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
+-    prober: createSafeProber(), ...createReleasePorts({ db: opts.db }),
+-    sourceBundle: opts.ports?.sourceBundle ?? createSourceBundles({ ...opts.sourceBundles, resources: opts.ports?.resources ?? platformPorts.resources }).port,
++    prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
++    sourceBundle: opts.ports?.sourceBundle ?? sourceBundles!.port,
+     ...opts.ports,
+     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,
+   };
+diff --git a/src/lib/platform/release-azure.ts b/src/lib/platform/release-azure.ts
+index 6eb258d..6cca3ee 100644
+--- a/src/lib/platform/release-azure.ts
++++ b/src/lib/platform/release-azure.ts
+@@ -5,3 +5,4 @@ export { createMigrationsPort as createAzureMigrationsPort } from "@/lib/provide
+ export type { LaunchJournal as AzureReleaseLaunchJournal, LaunchScope as AzureReleaseLaunchScope } from "@/lib/providers/azure/release/support";
+ export { createLaunchJournal as createAzureReleaseLaunchJournal } from "@/lib/providers/azure/release/journal";
+ export { createSourceBundlePort as createAzureSourceBundlePort, type AzureSourceReader } from "@/lib/providers/azure/release/source";
++export { createAzureSourceStorage, type AzureSourceStorageBinding, type AzureSourceStorageResolver } from "@/lib/providers/azure/release/source-storage";
+diff --git a/src/lib/platform/source-bundle.ts b/src/lib/platform/source-bundle.ts
+index 28c6a23..33a8e74 100644
+--- a/src/lib/platform/source-bundle.ts
++++ b/src/lib/platform/source-bundle.ts
+@@ -1,7 +1,7 @@
+ /**
+  * C3: bounded GitHub source archives and canonical customer-bucket uploads.
+- * AWS uses deterministic ZIP for CodeBuild's native S3 source; GCP and standalone
+- * reads keep tar.gz. Both preserve binary bytes, paths and executable intent.
++ * AWS uses deterministic ZIP for CodeBuild's native S3 source; GCP/Azure and
++ * standalone reads keep tar.gz. All preserve bytes, paths and executable intent.
+  * Uses the product intake's codeload endpoint/header-only source access convention
+  * (analysis/github.ts); its lossy analysis snapshot is deliberately not build input.
+  * Files, binary assets and executable bits are preserved. Links/special entries and
+@@ -11,11 +11,13 @@
+  * workspace-scoped connector. HTTP/SDK tests are contract evidence, not live evidence.
+  * CodeBuild source consumption and bootstrap IAM are covered by contract tests;
+  * no live customer build is claimed.
++ * Azure requires a trusted storage binding and a Blob-capable broker session;
++ * the current default broker's missing Storage audience still refuses Blob calls.
+  */
+ import { createHash } from "node:crypto";
+ import { crc32, deflateRawSync, gunzipSync, gzipSync } from "node:zlib";
+ import { GetBucketTaggingCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+-import type { AwsSession, GcpSession } from "@/lib/credentials/types";
++import type { AwsSession, AzureSession, GcpSession } from "@/lib/credentials/types";
+ import { canonical, sha256Hex } from "@/lib/controlplane/digest";
+ import type { DriverContext } from "@/lib/drivers/types";
+ import type { ResourceNode } from "@/lib/resources/types";
+@@ -23,6 +25,7 @@ import type { ResourcesPort, SourceBundlePort, StoredResource } from "@/lib/exec
+ import { StepFailedError } from "@/lib/execution/errors";
+ import { loadProject, sourceBucketOf } from "@/lib/providers/aws/drivers/compute/codebuild-project";
+ import { assertLabels, context as gcpContext, get, pipelineNames } from "@/lib/providers/gcp/release/support";
++import { AzureSourceStorageRefusedError, createAzureSourceStorage, type AzureSourceStorageResolver } from "@/lib/providers/azure/release/source-storage";
+ 
+ export interface BundleSource { repo: string; ref: string; dockerfile?: string }
+ export interface SourceBundle { archive: Uint8Array; sha256: string; bytes: number }
+@@ -38,6 +41,8 @@ export interface SourceBundleDeps {
+   limits?: Partial<SourceBundleLimits>;
+   /** Whole download/prepare deadline; defaults to 60 seconds, maximum 5 minutes. */
+   timeoutMs?: number;
++  /** Trusted worker binding lookup; no credential or SAS URL may be returned. */
++  azureStorage?: AzureSourceStorageResolver;
+   /** Standalone read requires a connector already bound to its workspace. */
+   withGithubAccess?<T>(input: { owner: string; repo: string; workspaceId?: string; environmentId?: string }, fn: (token?: string) => Promise<T>): Promise<T>;
+ }
+@@ -347,11 +352,13 @@ async function uploadGcp(ctx: DriverContext<GcpSession>, bucket: string, key: st
+ 
+ export function createSourceBundles(deps: SourceBundleDeps = {}): {
+   read(source: BundleSource, signal?: AbortSignal): Promise<SourceBundle>;
++  readAzureSource(ctx: DriverContext<AzureSession>, source: { s3Key: string; digest: string; bucket?: string }): Promise<Uint8Array>;
+   port: PreparedSourceBundlePort;
+ } {
+   const limits = { ...SOURCE_BUNDLE_LIMITS, ...deps.limits }; const timeoutMs = deps.timeoutMs ?? 60_000;
+   for (const key of Object.keys(SOURCE_BUNDLE_LIMITS) as (keyof SourceBundleLimits)[]) if (!Number.isSafeInteger(limits[key]) || limits[key] <= 0 || limits[key] > SOURCE_BUNDLE_LIMITS[key]) refuse("Source limits must be positive integers within the hard ceilings.");
+   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) refuse("Source deadline must be 1–300000 milliseconds.");
++  const azureStorage = createAzureSourceStorage({ resolveStorage: deps.azureStorage, maxBytes: limits.maxArchiveBytes, timeoutMs });
+   const boundedSignal = (signal?: AbortSignal) => AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(timeoutMs)]);
+   const acquire = async (source: BundleSource, signal: AbortSignal, scope: { workspaceId?: string; environmentId?: string } = {}, format: "tar.gz" | "zip" = "tar.gz"): Promise<SourceBundle> => {
+     checkSignal(signal); const location = coordinates(source);
+@@ -366,38 +373,44 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
+   };
+   return {
+     read: (source, signal) => acquire(source, boundedSignal(signal)),
++    readAzureSource: azureStorage.readSource,
+     port: {
+       async prepare(raw, input): Promise<PreparedSourceBundle> {
+         const ctx = { ...raw, signal: boundedSignal(raw.signal) };
+         checkSignal(ctx.signal); coordinates(input.source);
+         if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(ctx.environmentId) || !ctx.workspaceId || !/^[a-z_]+\/[A-Za-z0-9_.-]{1,128}$/.test(input.service.address) || [".", ".."].includes(input.service.address.split("/")[1])) refuse("Source scope or service identifier is invalid.");
+         const provider = (ctx.session as { provider?: string } | undefined)?.provider;
+-        if (!["aws", "gcp"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS or GCP brokered session.");
++        if (!["aws", "gcp", "azure"].includes(ctx.provider) || provider !== ctx.provider || (ctx.session as { region?: string } | undefined)?.region !== ctx.region) refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.");
+         try {
+           const pipeline = await abortable(pipelineFor(deps, ctx, input.service, input.source), ctx.signal);
+           let bucket: string;
++          let azureLocation: Awaited<ReturnType<typeof azureStorage.resolve>> | undefined;
+           if (ctx.provider === "aws") {
+             const aws = ctx as DriverContext<AwsSession>;
+             if (!/^\d{12}$/.test(aws.session.accountId)) refuse("Source AWS session account is invalid.");
+             bucket = await abortable(awsBucket(aws, pipeline), ctx.signal);
+-          } else {
++          } else if (ctx.provider === "gcp") {
+             const gcp = gcpContext(ctx); bucket = pipelineNames(gcp, pipeline).bucket;
+             if (pipeline.externalRef && ![bucket, `projects/_/buckets/${bucket}`].includes(pipeline.externalRef)) refuse("Source bucket is outside this build pipeline.");
+             const metadata = await abortable(get(gcp, `https://storage.googleapis.com/storage/v1/b/${bucket}`), ctx.signal);
+             if (metadata.name !== bucket) refuse("Source bucket identity does not match the pipeline.");
+             assertLabels(gcp, pipeline, metadata);
++          } else {
++            azureLocation = await azureStorage.resolve(ctx); bucket = azureLocation.bucket;
+           }
+           const format = ctx.provider === "aws" ? "zip" : "tar.gz";
+           const bundle = await acquire(input.source, ctx.signal, { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId }, format);
+           const key = `zenith/${ctx.environmentId}/${input.service.address.split("/")[1]}/${bundle.sha256}.${format}`;
+           checkSignal(ctx.signal);
+           if (ctx.provider === "aws") await abortable(uploadAws(ctx as DriverContext<AwsSession>, bucket, key, bundle), ctx.signal);
+-          else await abortable(uploadGcp(ctx as DriverContext<GcpSession>, bucket, key, bundle, limits), ctx.signal);
++          else if (ctx.provider === "gcp") await abortable(uploadGcp(ctx as DriverContext<GcpSession>, bucket, key, bundle, limits), ctx.signal);
++          else await azureStorage.upload(ctx, azureLocation!, key, bundle);
+           checkSignal(ctx.signal);
+-          return { s3Key: key, digest: bundle.sha256, bucket, objectKey: key, uri: `${ctx.provider === "aws" ? "s3" : "gs"}://${bucket}/${key}` };
++          const uri = azureLocation ? `${azureLocation.origin}/${azureLocation.container}/${key}` : `${ctx.provider === "aws" ? "s3" : "gs"}://${bucket}/${key}`;
++          return { s3Key: key, digest: bundle.sha256, bucket, objectKey: key, uri };
+         } catch (err) {
+           if (ctx.signal.aborted) throw interrupted();
+-          if (err instanceof Refused) throw err;
++          if (err instanceof Refused || err instanceof AzureSourceStorageRefusedError) throw err;
+           throw new Error("Source bundle preparation could not be confirmed; outcome is unknown.");
+         }
+       },
+diff --git a/src/lib/providers/azure/release/source-storage.ts b/src/lib/providers/azure/release/source-storage.ts
+new file mode 100644
+index 0000000..a294ebb
+--- /dev/null
++++ b/src/lib/providers/azure/release/source-storage.ts
+@@ -0,0 +1,147 @@
++/**
++ * C3 customer Blob Storage transport. A trusted workspace/environment binding
++ * names the account/container; ARM ownership and private-container checks precede
++ * data-plane calls. Bytes are bounded and SHA-256 checked, never logged or stored
++ * in execution evidence. All authorization belongs to the current broker session.
++ * Contract evidence only. The current broker lacks the Storage token audience;
++ * it refuses these calls until that separate credential workstream enables it.
++ */
++import { createHash } from "node:crypto";
++import type { AzureSession } from "@/lib/credentials/types";
++import type { DriverContext } from "@/lib/drivers/types";
++import { sha256Hex } from "@/lib/controlplane/digest";
++import { StepFailedError } from "@/lib/execution/errors";
++import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
++import { API } from "@/lib/providers/azure/platform";
++import { assertResource, context, rec, validId } from "./support";
++
++export interface AzureSourceStorageBinding {
++  accountResourceId: string;
++  container: string;
++  /** The managed object_store address whose ownership tags the account carries. */
++  resourceAddress: string;
++}
++export type AzureSourceStorageResolver = (scope: {
++  workspaceId: string; environmentId: string; subscriptionId: string; region: string;
++}) => Promise<AzureSourceStorageBinding | null>;
++export interface AzureSourceStorageOptions {
++  resolveStorage?: AzureSourceStorageResolver;
++  maxBytes?: number;
++  timeoutMs?: number;
++}
++interface Location { bucket: string; origin: string; container: string }
++interface Bundle { archive: Uint8Array; sha256: string; bytes: number }
++interface Reference { s3Key: string; digest: string; bucket?: string }
++const HARD_MAX_BYTES = 32 * 1024 * 1024;
++const STORAGE_VERSION = "2023-11-03";
++export class AzureSourceStorageRefusedError extends StepFailedError {}
++function refuse(message: string): never { throw new AzureSourceStorageRefusedError(message); }
++const interrupted = (): Error => { const error = new Error("Azure source storage operation was interrupted."); error.name = "AbortError"; return error; };
++const check = (signal: AbortSignal) => { if (signal.aborted) throw interrupted(); };
++const cancel = (res: Response) => { void res.body?.cancel().catch(() => undefined); };
++
++function abortable<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
++  return new Promise((resolve, reject) => {
++    const abort = () => { signal.removeEventListener("abort", abort); reject(interrupted()); };
++    signal.addEventListener("abort", abort, { once: true });
++    pending.then((value) => { signal.removeEventListener("abort", abort); resolve(value); }, (error: unknown) => { signal.removeEventListener("abort", abort); reject(error); });
++    if (signal.aborted) abort();
++  });
++}
++
++function sourceKey(ctx: DriverContext<AzureSession>, reference: Reference): string {
++  if (!reference || typeof reference.digest !== "string" || typeof reference.s3Key !== "string") refuse("Azure source object reference is malformed.");
++  const hex = reference.digest.replace(/^sha256:/, "");
++  const parts = reference.s3Key.split("/");
++  if (!/^[a-f0-9]{64}$/.test(hex) || parts.length !== 4 || parts[0] !== "zenith" || parts[1] !== ctx.environmentId || !/^[A-Za-z0-9_.-]{1,128}$/.test(parts[2]) || [".", ".."].includes(parts[2]) || parts[3] !== `${hex}.tar.gz`) refuse("Azure source object is outside this environment or does not match its digest.");
++  return hex;
++}
++const objectUrl = (location: Location, key: string) => `${location.origin}/${location.container}/${key.split("/").map(encodeURIComponent).join("/")}`;
++
++export function createAzureSourceStorage(options: AzureSourceStorageOptions = {}) {
++  const maxBytes = options.maxBytes ?? HARD_MAX_BYTES, timeoutMs = options.timeoutMs ?? 60_000;
++  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0 || maxBytes > HARD_MAX_BYTES || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) refuse("Azure source storage bounds are invalid.");
++  const bounded = (raw: DriverContext) => { check(raw.signal); return context({ ...raw, signal: AbortSignal.any([raw.signal, AbortSignal.timeout(timeoutMs)]) }); };
++  const safe = async <T>(ctx: DriverContext<AzureSession>, fn: () => Promise<T>): Promise<T> => {
++    try { check(ctx.signal); return await abortable(fn(), ctx.signal); }
++    catch (error) { if (ctx.signal.aborted) throw interrupted(); if (error instanceof AzureSourceStorageRefusedError) throw error; throw new Error("Azure source storage operation could not be confirmed; no build source is available."); }
++  };
++  const resolve = async (ctx: DriverContext<AzureSession>): Promise<Location> => {
++    if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(ctx.environmentId) || !ctx.workspaceId) refuse("Azure source storage scope is invalid.");
++    if (!options.resolveStorage) refuse("Azure source preparation requires a trusted storage account/container binding for this environment.");
++    const resolved = await abortable(options.resolveStorage({ workspaceId: ctx.workspaceId, environmentId: ctx.environmentId, subscriptionId: ctx.session.subscriptionId, region: ctx.region }), ctx.signal);
++    if (!resolved) refuse("Azure source preparation requires a trusted storage account/container binding for this environment.");
++    const binding = { ...resolved }; // Snapshot identifiers across asynchronous ARM reads.
++    if (typeof binding.accountResourceId !== "string" || !validId(ctx, binding.accountResourceId, "Microsoft.Storage/storageAccounts") || typeof binding.resourceAddress !== "string" || !/^object_store\/[A-Za-z0-9_.-]{1,128}$/.test(binding.resourceAddress) || [".", ".."].includes(binding.resourceAddress.split("/")[1]) || typeof binding.container !== "string" || !/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]$/.test(binding.container)) refuse("Azure source storage binding is outside this subscription or malformed.");
++    const accountName = binding.accountResourceId.split("/").at(-1)!;
++    if (!/^[a-z0-9]{3,24}$/.test(accountName)) refuse("Azure source storage account name is invalid.");
++    const arm = armClient(ctx.session, ctx.signal);
++    const account = (await abortable(arm.get<ArmResource>(binding.accountResourceId, { apiVersion: API.storage }), ctx.signal)).body;
++    try { assertResource(ctx, { address: binding.resourceAddress } as Parameters<typeof assertResource>[1], account, "Microsoft.Storage/storageAccounts"); }
++    catch { refuse("Azure source storage account is outside this workspace/environment/subscription."); }
++    const origin = `https://${accountName}.blob.core.windows.net`;
++    const properties = rec(account.properties);
++    if (account.id.toLowerCase() !== binding.accountResourceId.toLowerCase() || account.name !== accountName || account.location?.toLowerCase() !== ctx.region || properties.provisioningState !== "Succeeded" || properties.allowSharedKeyAccess !== false || properties.allowBlobPublicAccess !== false || properties.supportsHttpsTrafficOnly !== true || rec(properties.primaryEndpoints).blob !== `${origin}/`) refuse("Azure source storage account identity or private Entra-only posture could not be verified.");
++    const containerId = `${account.id}/blobServices/default/containers/${binding.container}`;
++    const container = (await abortable(arm.get<ArmResource>(containerId, { apiVersion: API.storage }), ctx.signal)).body;
++    if (typeof container.id !== "string" || container.id.toLowerCase() !== containerId.toLowerCase() || container.name !== binding.container || container.type?.toLowerCase() !== "microsoft.storage/storageaccounts/blobservices/containers" || ![undefined, "None"].includes(rec(container.properties).publicAccess as string | undefined)) refuse("Azure source container identity or private access could not be verified.");
++    return { bucket: `${accountName}/${binding.container}`, origin, container: binding.container };
++  };
++  const request = async (ctx: DriverContext<AzureSession>, url: string, init: RequestInit = {}) => {
++    check(ctx.signal);
++    const pending = ctx.session.authorizedFetch(url, { ...init, headers: { "x-ms-version": STORAGE_VERSION, "x-ms-date": ctx.now().toUTCString(), ...init.headers }, redirect: "error", signal: ctx.signal });
++    void pending.then((res) => { if (ctx.signal.aborted) cancel(res); }, () => undefined);
++    const res = await abortable(pending, ctx.signal);
++    if (res.redirected || (res.url && res.url !== url)) { cancel(res); refuse("Azure source transport returned a redirected or foreign object response."); }
++    return res;
++  };
++  const read = async (ctx: DriverContext<AzureSession>, location: Location, reference: Reference): Promise<Uint8Array> => {
++    const hex = sourceKey(ctx, reference);
++    if (reference.bucket !== location.bucket) refuse("Azure source object names a foreign storage account or container.");
++    const res = await request(ctx, objectUrl(location, reference.s3Key));
++    if (res.status !== 200) { cancel(res); refuse("Azure source blob could not be read from the bound container."); }
++    const length = res.headers.get("content-length");
++    if (length !== null && (!/^\d+$/.test(length) || Number(length) <= 0 || Number(length) > maxBytes)) { cancel(res); refuse("Azure source blob exceeds its size bound or has an invalid length."); }
++    if (!res.body) refuse("Azure source blob has no body.");
++    const reader = res.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
++    try {
++      for (;;) {
++        check(ctx.signal);
++        const { done, value } = await abortable(reader.read(), ctx.signal);
++        if (done) break;
++        size += value.byteLength;
++        if (size > maxBytes) refuse("Azure source blob exceeds its size bound.");
++        chunks.push(value);
++      }
++    } finally { void reader.cancel().catch(() => undefined); reader.releaseLock(); }
++    const archive = Buffer.concat(chunks, size);
++    if (size === 0 || (length !== null && size !== Number(length)) || sha256Hex(archive) !== hex) refuse("Azure source blob does not match the recorded digest or size.");
++    return new Uint8Array(archive.buffer, archive.byteOffset, archive.byteLength);
++  };
++  return {
++    async resolve(raw: DriverContext): Promise<Location> { const ctx = bounded(raw); return safe(ctx, () => resolve(ctx)); },
++    async upload(raw: DriverContext, location: Location, key: string, bundle: Bundle): Promise<void> {
++      const ctx = bounded(raw);
++      return safe(ctx, async () => {
++        const reference = { s3Key: key, digest: bundle.sha256, bucket: location.bucket };
++        sourceKey(ctx, reference);
++        if (!(bundle.archive instanceof Uint8Array) || bundle.bytes !== bundle.archive.byteLength || bundle.bytes === 0 || bundle.bytes > maxBytes || sha256Hex(bundle.archive) !== bundle.sha256) refuse("Azure source upload bytes do not match the recorded digest/size bounds.");
++        // Revalidate the binding rather than trusting a caller-supplied URL.
++        const verified = await resolve(ctx);
++        if (verified.bucket !== location.bucket || verified.origin !== location.origin || verified.container !== location.container) refuse("Azure source storage binding changed before upload.");
++        const md5 = createHash("md5").update(bundle.archive).digest("base64"); // REST transport integrity, not the source identity
++        const res = await request(ctx, objectUrl(verified, key), { method: "PUT", headers: { "x-ms-blob-type": "BlockBlob", "Content-Type": "application/gzip", "Content-Length": String(bundle.bytes), "Content-MD5": md5, "If-None-Match": "*" }, body: new Uint8Array(bundle.archive) });
++        cancel(res);
++        if (res.status !== 201 && res.status !== 412) refuse("Azure source upload was not confirmed.");
++        if (res.status === 201 && res.headers.get("content-md5") !== md5) refuse("Azure source upload integrity was not confirmed.");
++        // Verify bytes even on create-only conflicts; never replace an existing key.
++        const stored = await read(ctx, verified, reference);
++        if (stored.byteLength !== bundle.bytes) refuse("Azure source blob does not match the prepared size.");
++      });
++    },
++    async readSource(raw: DriverContext<AzureSession>, reference: Reference): Promise<Uint8Array> {
++      const ctx = bounded(raw);
++      return safe(ctx, async () => { sourceKey(ctx, reference); return read(ctx, await resolve(ctx), reference); });
++    },
++  };
++}
+diff --git a/tests/platform/source-bundle-azure-fixtures.ts b/tests/platform/source-bundle-azure-fixtures.ts
+new file mode 100644
+index 0000000..543cde4
+--- /dev/null
++++ b/tests/platform/source-bundle-azure-fixtures.ts
+@@ -0,0 +1,20 @@
++/** Canonical source + storage/ACR contract fixture, never live evidence. */
++import { vi } from "vitest";
++import { gzipSync } from "node:zlib";
++import type { StoredResource } from "@/lib/execution/ports";
++import { createSourceBundles } from "@/lib/platform/source-bundle";
++import { storageWorld } from "../providers/azure/source-storage-fixtures";
++import { pipeline, service, registry } from "../providers/azure/release-fixtures";
++import { writeTar } from "../_support/tar";
++
++export function azureSourceWorld() {
++  const w = storageWorld(); w.storage.blobs.clear();
++  const source = { repo: "acme/app", ref: "exact-ref", dockerfile: "Dockerfile" };
++  const buildPipeline = { ...pipeline, spec: { ...pipeline.spec, source } };
++  const rows: StoredResource[] = [service, buildPipeline].map((n) => ({ ...n, id: n.address, workspaceId: w.ctx.workspaceId, environmentId: w.ctx.environmentId, status: "active", externalId: n.externalRef }));
++  const resources = { list: vi.fn(async () => rows) };
++  const tar = writeTar([{ path: "root/Dockerfile", bytes: Buffer.from("FROM scratch\nCOPY . /app\n") }, { path: "root/binary.bin", bytes: Buffer.from([0, 255, 128]) }]);
++  const fetchImpl = vi.fn<typeof fetch>(async () => new Response(new Uint8Array(gzipSync(tar))));
++  const deps = { resources, fetchImpl, azureStorage: w.resolveStorage };
++  return { ...w, source, pipeline: buildPipeline, service, registry, rows, resources, fetchImpl, deps, bundles: createSourceBundles(deps) };
++}
+diff --git a/tests/platform/source-bundle-azure.test.ts b/tests/platform/source-bundle-azure.test.ts
+new file mode 100644
+index 0000000..31f8f9d
+--- /dev/null
++++ b/tests/platform/source-bundle-azure.test.ts
+@@ -0,0 +1,64 @@
++/** C3 -> customer Blob -> ACR contract path; all HTTP/cloud responses are mocked. */
++import { describe, expect, it, vi } from "vitest";
++import { gunzipSync } from "node:zlib";
++import { createSourceBundles } from "@/lib/platform/source-bundle";
++import { createReleasePorts } from "@/lib/platform/release";
++import { azureSourceWorld } from "./source-bundle-azure-fixtures";
++import { CONTAINER } from "../providers/azure/source-storage-fixtures";
++import { IMAGE, DIGEST } from "../providers/azure/release-fixtures";
++
++describe("provider-dispatched Azure source preparation", () => {
++  it("prepares canonical tar.gz in the bound container and passes exact bytes to ACR", async () => {
++    const w = azureSourceWorld();
++    const prepared = await w.bundles.port.prepare(w.ctx, { service: w.service, source: w.source });
++    expect(prepared).toMatchObject({ s3Key: `zenith/env-1/web/${prepared.digest}.tar.gz`, bucket: "zenithsource/source-bundles", objectKey: prepared.s3Key, uri: `https://zenithsource.blob.core.windows.net/source-bundles/${prepared.s3Key}` });
++    const stored = w.storage.blobs.get(`/${CONTAINER}/${prepared.s3Key}`)!;
++    expect(gunzipSync(stored)).toEqual(gunzipSync((await w.bundles.read(w.source)).archive));
++    const ports = createReleasePorts({ azure: { readSource: w.bundles.readAzureSource, launches: w.receipts.port, uploadFetch: w.uploadFetch } });
++    const handle = await ports.build.startBuild(w.ctx, { pipeline: w.pipeline, service: w.service, registry: w.registry, source: prepared, idempotencyKey: "c3-build" });
++    expect(w.state.schedules).toBe(1);
++    expect(w.uploadFetch).toHaveBeenCalledWith(expect.stringContaining("sig="), expect.objectContaining({ body: stored }));
++    expect(await ports.build.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
++    expect(handle.buildId).not.toContain("sig="); expect(w.ctx.log).not.toHaveBeenCalled();
++  });
++  it("rereads the stored bundle on another instance without downloading a moving GitHub ref", async () => {
++    const w = azureSourceWorld(); const prepared = await w.bundles.port.prepare(w.ctx, { service: w.service, source: w.source });
++    const reader = createSourceBundles({ ...w.deps, fetchImpl: vi.fn(async () => { throw new Error("Moving ref must not be downloaded at build start."); }) });
++    expect(await reader.readAzureSource(w.ctx, prepared)).toEqual(w.storage.blobs.get(`/${CONTAINER}/${prepared.s3Key}`));
++    expect(w.fetchImpl).toHaveBeenCalledTimes(1);
++  });
++  it.each([undefined, vi.fn(async () => null)])("clearly refuses missing storage bindings before downloading source", async (azureStorage) => {
++    const w = azureSourceWorld();
++    await expect(createSourceBundles({ ...w.deps, azureStorage }).port.prepare(w.ctx, { service: w.service, source: w.source })).rejects.toThrow("storage account/container binding");
++    expect(w.fetchImpl).not.toHaveBeenCalled(); expect(w.fetcher).not.toHaveBeenCalled();
++  });
++  it.each(["workspaceId", "environmentId"] as const)("refuses a cross-tenant %s resource lookup", async (field) => {
++    const w = azureSourceWorld(); w.rows[0][field] = "foreign";
++    await expect(w.bundles.port.prepare(w.ctx, { service: w.service, source: w.source })).rejects.toThrow("boundary");
++    expect(w.resolveStorage).not.toHaveBeenCalled(); expect(w.fetchImpl).not.toHaveBeenCalled();
++  });
++  it("refuses a different pipeline source and a mismatched provider/session before acquisition", async () => {
++    const w = azureSourceWorld();
++    await expect(w.bundles.port.prepare(w.ctx, { service: w.service, source: { ...w.source, ref: "foreign-ref" } })).rejects.toThrow("repository and ref");
++    await expect(w.bundles.port.prepare({ ...w.ctx, provider: "gcp" }, { service: w.service, source: w.source })).rejects.toThrow("matching");
++    expect(w.fetchImpl).not.toHaveBeenCalled();
++  });
++  it("refuses changed stored bytes before an ACR upload or schedule", async () => {
++    const w = azureSourceWorld(); const prepared = await w.bundles.port.prepare(w.ctx, { service: w.service, source: w.source });
++    const blob = w.storage.blobs.get(`/${CONTAINER}/${prepared.s3Key}`)!; blob[0] ^= 255;
++    const ports = createReleasePorts({ azure: { readSource: w.bundles.readAzureSource, launches: w.receipts.port, uploadFetch: w.uploadFetch } });
++    await expect(ports.build.startBuild(w.ctx, { service: w.service, pipeline: w.pipeline, registry: w.registry, source: prepared, idempotencyKey: "bad-source" })).rejects.toThrow("could not be read");
++    expect(w.uploadFetch).not.toHaveBeenCalled(); expect(w.state.schedules).toBe(0);
++  });
++  it("propagates C3's lowered compressed-size ceiling to the stored source reader", async () => {
++    const w = azureSourceWorld(); const prepared = await w.bundles.port.prepare(w.ctx, { service: w.service, source: w.source });
++    await expect(createSourceBundles({ ...w.deps, limits: { maxArchiveBytes: 4 } }).readAzureSource(w.ctx, prepared)).rejects.toThrow("size bound");
++  });
++  it("binds the private GitHub connector to the activity's tenant and environment", async () => {
++    const w = azureSourceWorld(); const connector = vi.fn();
++    const bundles = createSourceBundles({ ...w.deps, withGithubAccess: async (scope, fn) => { connector(scope); return fn("synthetic-token"); } });
++    await bundles.port.prepare(w.ctx, { service: w.service, source: w.source });
++    expect(connector).toHaveBeenCalledWith({ owner: "acme", repo: "app", workspaceId: w.ctx.workspaceId, environmentId: w.ctx.environmentId });
++    expect(w.fetcher.mock.calls.every(([, init]) => !JSON.stringify(init).includes("synthetic-token"))).toBe(true);
++  });
++});
+diff --git a/tests/platform/source-bundle-composition.test.ts b/tests/platform/source-bundle-composition.test.ts
+index c60c7a0..30d6daf 100644
+--- a/tests/platform/source-bundle-composition.test.ts
++++ b/tests/platform/source-bundle-composition.test.ts
+@@ -4,6 +4,8 @@ import type { Sql } from "@/lib/controlplane/types";
+ import type { ExecutionDeps, SourceBundlePort } from "@/lib/execution";
+ import type { DriverContext } from "@/lib/drivers/types";
+ import type { ResourceNode } from "@/lib/resources/types";
++import { azureSourceWorld } from "./source-bundle-azure-fixtures";
++import { IMAGE, DIGEST } from "../providers/azure/release-fixtures";
+ 
+ const captured = vi.hoisted(() => ({ deps: undefined as ExecutionDeps | undefined }));
+ vi.mock("@/lib/execution", async (original) => {
+@@ -39,4 +41,28 @@ describe("source-bundle execution wiring", () => {
+     await expect(captured.deps!.sourceBundle!.prepare(ctx, { service, source: { repo: "acme/app", ref: "v1" } })).rejects.toThrow("stored desired resource");
+     expect(list).toHaveBeenCalledWith("ws-bound", "env-bound");
+   });
++  it("composes Azure preparation, stored-source reading and the SQL launch journal by default", async () => {
++    const w = azureSourceWorld();
++    // Only the journal's SQL result is mocked; production selects that journal.
++    const query = vi.fn<Sql["query"]>().mockResolvedValue([{ key: "synthetic-journal-claim" }]);
++    const journalDb = { query, tx: db.tx } as unknown as Sql;
++    vi.stubGlobal("fetch", w.uploadFetch);
++    try {
++      composeExecutionActivities({ ...options, db: journalDb, sourceBundles: { fetchImpl: w.fetchImpl, azureStorage: w.resolveStorage }, ports: { resources: w.resources as unknown as ExecutionDeps["resources"] } });
++      const deps = captured.deps!;
++      const prepared = await deps.sourceBundle!.prepare(w.ctx, { service: w.service, source: w.source });
++      const handle = await deps.build!.startBuild(w.ctx, { pipeline: w.pipeline, service: w.service, registry: w.registry, source: prepared, idempotencyKey: "composed-azure-build" });
++      expect(await deps.build!.waitForBuild(w.ctx, handle, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
++      expect(w.fetchImpl).toHaveBeenCalledTimes(1); expect(w.state.schedules).toBe(1);
++      expect(query).toHaveBeenCalledTimes(2);
++      expect(query.mock.calls[0][0]).toContain("platform.idempotency_keys");
++      expect(w.ctx.log).not.toHaveBeenCalled();
++    } finally { vi.unstubAllGlobals(); }
++  });
++  it("refuses an Azure environment without a binding in the composed preparation port", async () => {
++    const w = azureSourceWorld();
++    composeExecutionActivities({ ...options, ports: { resources: w.resources as unknown as ExecutionDeps["resources"] } });
++    await expect(captured.deps!.sourceBundle!.prepare(w.ctx, { service: w.service, source: w.source })).rejects.toThrow("storage account/container binding");
++    expect(w.fetcher).not.toHaveBeenCalled(); expect(w.state.schedules).toBe(0);
++  });
+ });
+diff --git a/tests/platform/source-bundle.test.ts b/tests/platform/source-bundle.test.ts
+index c6306a5..7235d4d 100644
+--- a/tests/platform/source-bundle.test.ts
++++ b/tests/platform/source-bundle.test.ts
+@@ -331,7 +331,7 @@ describe("customer source bucket uploads", () => {
+     w.rows[1].externalId = w.pipeline.externalRef;
+     s3.on(GetBucketTaggingCommand).resolves({ TagSet: Object.entries({ ...w.tags, "zenith:workspace": "foreign" }).map(([Key, Value]) => ({ Key, Value })) });
+     await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("outside this workspace");
+-    for (const ctx of [{ ...w.ctx, provider: "azure" as const }, { ...w.ctx, region: "other" }]) await expect(w.port.prepare(ctx, { service: w.service, source })).rejects.toThrow("matching AWS or GCP");
++    for (const ctx of [{ ...w.ctx, provider: "azure" as const }, { ...w.ctx, region: "other" }]) await expect(w.port.prepare(ctx, { service: w.service, source })).rejects.toThrow("matching AWS, GCP or Azure");
+     expect(w.fetchImpl).not.toHaveBeenCalled(); expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
+   });
+   it("does not leak SDK/connector errors or claim success after an uncertain upload", async () => {
+diff --git a/tests/providers/azure/source-storage-fixtures.ts b/tests/providers/azure/source-storage-fixtures.ts
+new file mode 100644
+index 0000000..81ee08d
+--- /dev/null
++++ b/tests/providers/azure/source-storage-fixtures.ts
+@@ -0,0 +1,41 @@
++/** Mocked ARM/Blob REST contracts, extending the existing ACR fixture. */
++import { vi } from "vitest";
++import { sha256Hex } from "@/lib/controlplane/digest";
++import { world, ROOT, ENV, REGION, tagged } from "./release-fixtures";
++import type { AzureSourceStorageBinding } from "@/lib/providers/azure/release/source-storage";
++
++export const ACCOUNT = "zenithsource", CONTAINER = "source-bundles";
++export const accountId = `${ROOT}/Microsoft.Storage/storageAccounts/${ACCOUNT}`;
++export const containerId = `${accountId}/blobServices/default/containers/${CONTAINER}`;
++export const binding: AzureSourceStorageBinding = { accountResourceId: accountId, container: CONTAINER, resourceAddress: "object_store/build-source" };
++export function storageWorld() {
++  const w = world();
++  const resolveStorage = vi.fn(async () => ({ ...binding }));
++  const storage = {
++    account: { id: accountId, name: ACCOUNT, type: "Microsoft.Storage/storageAccounts", location: REGION, tags: tagged({ address: binding.resourceAddress } as Parameters<typeof tagged>[0]), properties: { provisioningState: "Succeeded", allowSharedKeyAccess: false, allowBlobPublicAccess: false, supportsHttpsTrafficOnly: true, primaryEndpoints: { blob: `https://${ACCOUNT}.blob.core.windows.net/` } } },
++    container: { id: containerId, name: CONTAINER, type: "Microsoft.Storage/storageAccounts/blobServices/containers", properties: { publicAccess: "None" } },
++    blobs: new Map<string, Uint8Array>(),
++    putStatus: undefined as number | undefined,
++    md5: undefined as string | undefined,
++    before: undefined as ((url: URL, init?: RequestInit) => Response | undefined | Promise<Response | undefined>) | undefined,
++  };
++  w.state.before = async (url, init) => {
++    const override = await storage.before?.(url, init); if (override) return override;
++    if (url.pathname === accountId) return w.json(storage.account);
++    if (url.pathname === containerId) return w.json(storage.container);
++    if (url.hostname !== `${ACCOUNT}.blob.core.windows.net`) return undefined;
++    const key = decodeURIComponent(url.pathname);
++    if (init?.method === "PUT") {
++      if (storage.putStatus && storage.putStatus !== 201 && storage.putStatus !== 412) return new Response("secret-cloud-body", { status: storage.putStatus });
++      if (storage.blobs.has(key) || storage.putStatus === 412) return new Response(null, { status: 412 });
++      storage.blobs.set(key, new Uint8Array(init.body as Uint8Array));
++      return new Response(null, { status: 201, headers: { "content-md5": storage.md5 ?? new Headers(init.headers).get("Content-MD5")! } });
++    }
++    const blob = storage.blobs.get(key);
++    return blob ? new Response(new Uint8Array(blob), { headers: { "content-length": String(blob.byteLength) } }) : new Response("secret-cloud-body", { status: 404 });
++  };
++  const archive = new Uint8Array([31, 139, 8, 0]);
++  const reference = { s3Key: `zenith/${ENV}/web/${sha256Hex(archive)}.tar.gz`, digest: sha256Hex(archive), bucket: `${ACCOUNT}/${CONTAINER}` };
++  storage.blobs.set(`/${CONTAINER}/${reference.s3Key}`, archive);
++  return { ...w, storage, resolveStorage, archive, reference };
++}
+diff --git a/tests/providers/azure/source-storage.test.ts b/tests/providers/azure/source-storage.test.ts
+new file mode 100644
+index 0000000..ca644a2
+--- /dev/null
++++ b/tests/providers/azure/source-storage.test.ts
+@@ -0,0 +1,146 @@
++/** Synthetic REST evidence only; the live broker's missing audience stays explicit. */
++import { describe, expect, it, vi } from "vitest";
++import { StepFailedError } from "@/lib/execution/errors";
++import { createAzureSourceStorage } from "@/lib/providers/azure/release/source-storage";
++import { checkAuthorizedUrl } from "@/lib/providers/azure/credentials";
++import { storageWorld, ACCOUNT, CONTAINER, binding, accountId } from "./source-storage-fixtures";
++import { SUB, WS, ENV, REGION } from "./release-fixtures";
++const SENTINEL = "private-secret-sentinel";
++
++describe("Azure stored C3 source reader", () => {
++  it("reads exact bytes through the current session after ARM ownership checks", async () => {
++    const w = storageWorld(); const reader = createAzureSourceStorage({ resolveStorage: w.resolveStorage });
++    expect(await reader.readSource(w.ctx, w.reference)).toEqual(w.archive);
++    expect(w.resolveStorage).toHaveBeenCalledWith({ workspaceId: WS, environmentId: ENV, subscriptionId: SUB, region: REGION });
++    expect(w.fetcher).toHaveBeenLastCalledWith(`https://${ACCOUNT}.blob.core.windows.net/${CONTAINER}/${w.reference.s3Key}`, expect.objectContaining({ redirect: "error", headers: { "x-ms-version": "2023-11-03", "x-ms-date": w.ctx.now().toUTCString() }, signal: expect.any(AbortSignal) }));
++    expect(w.ctx.log).not.toHaveBeenCalled();
++  });
++  it.each([undefined, vi.fn(async () => null)])("refuses missing environment bindings before any HTTP call", async (resolveStorage) => {
++    const w = storageWorld();
++    await expect(createAzureSourceStorage({ resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow("storage account/container binding");
++    expect(w.fetcher).not.toHaveBeenCalled();
++  });
++  it("refuses a foreign container or account before a blob read", async () => {
++    const w = storageWorld(); const reader = createAzureSourceStorage({ resolveStorage: w.resolveStorage });
++    for (const bucket of [`${ACCOUNT}/foreign`, `foreign/${CONTAINER}`, `${ACCOUNT}/${CONTAINER}?sig=${SENTINEL}`, undefined]) {
++      await expect(reader.readSource(w.ctx, { ...w.reference, bucket })).rejects.toThrow("foreign storage account or container");
++    }
++    expect(w.fetcher.mock.calls.every(([url]) => !url.includes("blob.core"))).toBe(true);
++  });
++  it.each(["workspace", "environment", "managed", "resource"])("refuses foreign %s tags", async (tag) => {
++    const w = storageWorld(); w.storage.account.tags[`zenith:${tag}` as keyof typeof w.storage.account.tags] = "foreign";
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow("outside");
++    expect(w.fetcher.mock.calls.every(([url]) => !url.includes("blob.core"))).toBe(true);
++  });
++  it.each([
++    { accountResourceId: accountId.replace(SUB, "99999999-2222-3333-4444-555555555555") },
++    { accountResourceId: `${accountId}?sig=${SENTINEL}` },
++    { container: "../escape" }, { container: "bad--container" }, { resourceAddress: "object_store/.." },
++  ])("refuses malformed or cross-subscription bindings %j", async (change) => {
++    const w = storageWorld();
++    await expect(createAzureSourceStorage({ resolveStorage: async () => ({ ...binding, ...change }) }).readSource(w.ctx, w.reference)).rejects.toThrow("binding");
++    expect(w.fetcher).not.toHaveBeenCalled();
++  });
++  it("refuses mismatched ARM account/container identities and public or shared-key posture", async () => {
++    for (const mutate of [
++      (w: ReturnType<typeof storageWorld>) => { w.storage.account.id += "foreign"; },
++      (w: ReturnType<typeof storageWorld>) => { w.storage.account.properties.allowSharedKeyAccess = true; },
++      (w: ReturnType<typeof storageWorld>) => { w.storage.account.properties.primaryEndpoints.blob = "https://foreign.blob.core.windows.net/"; },
++      (w: ReturnType<typeof storageWorld>) => { w.storage.container.id += "foreign"; },
++      (w: ReturnType<typeof storageWorld>) => { w.storage.container.properties.publicAccess = "Blob"; },
++    ]) {
++      const w = storageWorld(); mutate(w);
++      await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow();
++      expect(w.fetcher.mock.calls.every(([url]) => !url.includes("blob.core"))).toBe(true);
++    }
++  });
++  it.each(["../escape", "zenith/foreign/web/a.tar.gz", `https://example.com/?sig=${SENTINEL}`, "zenith/env-1/../a.tar.gz"])("refuses unsafe or out-of-scope object key %s before any HTTP", async (s3Key) => {
++    const w = storageWorld();
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, { ...w.reference, s3Key })).rejects.toThrow("object");
++    expect(w.fetcher).not.toHaveBeenCalled();
++  });
++  it("refuses changed bytes even when the size is unchanged", async () => {
++    const w = storageWorld(); w.storage.blobs.set(`/${CONTAINER}/${w.reference.s3Key}`, new Uint8Array([0, 1, 2, 3]));
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow("recorded digest");
++  });
++  it.each(["redirected", "foreign-url", "redirect-status"] as const)("refuses %s source responses", async (mode) => {
++    const w = storageWorld();
++    w.storage.before = (url) => {
++      if (!url.hostname.includes("blob.core")) return undefined;
++      const res = new Response(w.archive, { status: mode === "redirect-status" ? 302 : 200 });
++      if (mode === "redirected") Object.defineProperty(res, "redirected", { value: true });
++      if (mode === "foreign-url") Object.defineProperty(res, "url", { value: "https://foreign.blob.core.windows.net/foreign/source" });
++      return res;
++    };
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow(/redirected|bound container/);
++  });
++  it("snapshots a binding while an ARM read is pending", async () => {
++    const w = storageWorld(); const mutableBinding = { ...binding };
++    w.storage.before = (url) => { if (url.pathname === accountId) mutableBinding.container = "foreign-container"; return undefined; };
++    expect(await createAzureSourceStorage({ resolveStorage: async () => mutableBinding }).readSource(w.ctx, w.reference)).toEqual(w.archive);
++    expect(mutableBinding.container).toBe("foreign-container");
++  });
++  it.each([true, false])("caps oversized bodies with content-length present=%s and cancels them", async (header) => {
++    const w = storageWorld(); const cancel = vi.fn();
++    w.storage.before = (url) => url.hostname.includes("blob.core") ? new Response(new ReadableStream({ pull(controller) { controller.enqueue(new Uint8Array(5)); }, cancel }), { headers: header ? { "content-length": "5" } : {} }) : undefined;
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage, maxBytes: 4 }).readSource(w.ctx, w.reference)).rejects.toThrow("size bound");
++    expect(cancel).toHaveBeenCalled();
++  });
++  it.each([0, 3, 5])("refuses empty or truncated size %s", async (length) => {
++    const w = storageWorld();
++    w.storage.before = (url) => url.hostname.includes("blob.core") ? new Response(length === 0 ? new Uint8Array() : w.archive, { headers: { "content-length": String(length) } }) : undefined;
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow(/length|size/);
++  });
++  it("sanitizes transport/resolver errors, cloud bodies and abort reasons", async () => {
++    const w = storageWorld();
++    for (const error of [new Error(SENTINEL), new StepFailedError(SENTINEL)]) {
++      await expect(createAzureSourceStorage({ resolveStorage: async () => { throw error; } }).readSource(w.ctx, w.reference)).rejects.toThrow("could not be confirmed");
++    }
++    w.storage.before = (url) => url.hostname.includes("blob.core") ? new Response(SENTINEL, { status: 403 }) : undefined;
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource(w.ctx, w.reference)).rejects.toThrow("bound container");
++    const abort = new AbortController(); abort.abort(new Error(SENTINEL));
++    await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage }).readSource({ ...w.ctx, signal: abort.signal }, w.reference)).rejects.toThrow("interrupted");
++    expect(w.ctx.log).not.toHaveBeenCalled();
++  });
++  it("bounds a transport and body reader that ignore cancellation", async () => {
++    const w = storageWorld();
++    for (const mode of ["fetch", "body"] as const) {
++      w.storage.before = async (url) => {
++        if (!url.hostname.includes("blob.core")) return undefined;
++        if (mode === "fetch") return new Promise<Response>(() => undefined);
++        return new Response(new ReadableStream({ pull: () => new Promise<void>(() => undefined) }));
++      };
++      await expect(createAzureSourceStorage({ resolveStorage: w.resolveStorage, timeoutMs: 25 }).readSource(w.ctx, w.reference)).rejects.toThrow("interrupted");
++    }
++  });
++  it("keeps the production broker audience gap explicit", () => {
++    expect(() => checkAuthorizedUrl(`https://${ACCOUNT}.blob.core.windows.net/${CONTAINER}/source.tar.gz`)).toThrow("not an Azure endpoint");
++  });
++});
++
++describe("Azure create-only C3 upload", () => {
++  it("uploads gzip with integrity and verifies stored bytes without replacing an existing key", async () => {
++    const w = storageWorld(); w.storage.blobs.clear();
++    const transport = createAzureSourceStorage({ resolveStorage: w.resolveStorage }); const location = await transport.resolve(w.ctx);
++    const bundle = { archive: w.archive, sha256: w.reference.digest, bytes: w.archive.byteLength };
++    await Promise.all([transport.upload(w.ctx, location, w.reference.s3Key, bundle), transport.upload(w.ctx, location, w.reference.s3Key, bundle)]);
++    const puts = w.fetcher.mock.calls.filter(([, init]) => init?.method === "PUT");
++    expect(puts).toHaveLength(2);
++    expect(puts[0][1]).toMatchObject({ redirect: "error", headers: { "If-None-Match": "*", "x-ms-blob-type": "BlockBlob", "Content-Type": "application/gzip", "Content-Length": "4" } });
++    expect(puts[0][1]?.headers).not.toHaveProperty("Authorization");
++    expect(w.storage.blobs.size).toBe(1);
++  });
++  it("refuses corrupt existing objects, failed uploads and unconfirmed upload checksums", async () => {
++    for (const mode of ["existing", "status", "checksum"] as const) {
++      const w = storageWorld(); const transport = createAzureSourceStorage({ resolveStorage: w.resolveStorage }); const location = await transport.resolve(w.ctx);
++      if (mode === "existing") w.storage.blobs.set(`/${CONTAINER}/${w.reference.s3Key}`, new Uint8Array([0, 1, 2, 3]));
++      else { w.storage.blobs.clear(); if (mode === "status") w.storage.putStatus = 403; else w.storage.md5 = "foreign-checksum"; }
++      await expect(transport.upload(w.ctx, location, w.reference.s3Key, { archive: w.archive, sha256: w.reference.digest, bytes: 4 })).rejects.toThrow();
++    }
++  });
++  it("refuses caller-supplied foreign upload origins", async () => {
++    const w = storageWorld(); const transport = createAzureSourceStorage({ resolveStorage: w.resolveStorage }); const location = await transport.resolve(w.ctx);
++    await expect(transport.upload(w.ctx, { ...location, origin: "https://attacker.example" }, w.reference.s3Key, { archive: w.archive, sha256: w.reference.digest, bytes: 4 })).rejects.toThrow("binding changed");
++    expect(w.fetcher.mock.calls.every(([, init]) => init?.method !== "PUT")).toBe(true);
++  });
++});

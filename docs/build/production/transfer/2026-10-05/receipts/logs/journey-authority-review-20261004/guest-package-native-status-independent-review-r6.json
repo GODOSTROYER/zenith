@@ -1,0 +1,351 @@
+{
+  "disposition": "ACCEPTED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "reviewer": "Independent C; B author; root owns compiler/Linux/native execution",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE-CORRECTED.json",
+    "sha256": "8ecf6ecd4c26162739b2ae374869c42c58bf70a5f5cf9e6945893ddf43951af6"
+  },
+  "wholePatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/candidate.patch",
+    "sha256": "8c4f3060ee81c91987483919fcb3ef84485dbd5ea33b0d1baa485c8bbdce3b84",
+    "bytes": 103603
+  },
+  "incrementalPatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/native-status-grammar-correction.patch",
+    "sha256": "d38f1409368f70f9934edba0d8eba3770bb6dc747bb9037f84f89416b98b9332",
+    "bytes": 13006
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/CASE-CONTRACT-CORRECTED.json",
+    "sha256": "969d32023e3fc2e6167c06c93e26bf412c4891ab0c8ebf398b0851c4220b0885",
+    "bytes": 38269
+  },
+  "preparedTreeIndependentlyEncoded": "341a2f20b0afee584f8b1b867fbdaade4a491812",
+  "originalPreparedTreeIndependentlyEncoded": "070c16b12130d564bd2f775336c644a12b1dcd42",
+  "candidateTreeIndependentlyEncoded": "f2f8779e77ca7cb1ac3df57031503f4794d79811",
+  "binding": {
+    "owned": 7,
+    "incrementalChanged": 5,
+    "full": 3838,
+    "outside": 3831,
+    "frozenBeforeAfterLiveHashesSizesModesExact": true,
+    "completeTrackedAndNonignoredUntrackedPathsExact": true,
+    "outsideRawExact": true,
+    "wholeAndDeltaPureInMemoryForwardReverseExact": true,
+    "rawIndexBeforeAfter": "225def057c222bd33fda3f1b1eeb7a48ce696c1741992bdf1ee165a00fa2ad19",
+    "nulStageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "stagedDiffEmpty": true,
+    "headExact": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+    "noGitIndexOrObjectWrites": true
+  },
+  "sourceFindings": [],
+  "acceptedScopedObservations": [
+    {
+      "boundary": "Authentic empty multiline header",
+      "evidence": "The parser recognizes the colon without requiring a following space when its first-line value is empty. Existing nonempty colon-space values retain the same bytes. Space-led continuations retain exact bytes; orphan continuation, malformed header, NUL/CR and overlong lines refuse. This matches the actual root-captured Conffiles paragraph; generic internal database compatibility is not assumed."
+    },
+    {
+      "boundary": "Duplicate presence and recognized field spelling",
+      "evidence": "A separate seen map records lowercased ASCII field names before values, so an empty field cannot hide a duplicate. Eight recognized installed identity/readback/pending fields are mapped to the exact downstream canonical keys. Lone lowercase pending and mixed-case awaited fields therefore reach unchanged pending-state refusal, including after continuation. Unknown opaque fields retain original names."
+    },
+    {
+      "boundary": "Raw native and effect admission",
+      "evidence": "Only packageStatusControl changes in the entire production helper file; replacing that function restores the complete accepted R5 file. package_native.go and its pure parser/model tests are byte-exact. Native raw Files/Digests capture, fixed safe-I/O CmdSpec/proof/current profile/context/claim checks, POSIX lock lifetimes, registry/effect predicates, archive/native snapshot comparisons, socket/IPC/privileges/uncertainty and metadata writes are unchanged."
+    },
+    {
+      "boundary": "Native case integrity",
+      "evidence": "The entire prior Linux test file is an exact prefix, preserving all original native4 bodies, five signed children, old97 modeled leaves and assertions. Only one new Linux-only modeled parser suite is appended with24 literal rows. It preserves each input byte slice and checks existing native registrations after parsing; no genuine fixture/native status file is rewritten."
+    },
+    {
+      "boundary": "Documentation and declared evidence",
+      "evidence": "All three original documents restore by removing exact appended R6 sections. They describe syntax support, refusal boundaries, raw preservation and unexecuted service/native/default-backend limits. Actual R13 remains Linux7 pass/native4 1P3F0S, not converted into a successful receipt."
+    }
+  ],
+  "cases": {
+    "oldModeledLeaves": 97,
+    "newLiteralLeavesIndependentlyParsed": 24,
+    "totalModeledLeaves": 121,
+    "modeledEventsIncludingParents": 127,
+    "literalNewNames": [
+      "observed empty multiline first line preserves continuation bytes",
+      "existing space separated empty first line remains compatible",
+      "case insensitive recognized native identity remains canonical",
+      "duplicate empty field refuses",
+      "case variant duplicate empty field refuses",
+      "empty first value cannot hide a later duplicate",
+      "case variant duplicate nonempty field refuses",
+      "whitespace inside field name refuses",
+      "comment prefix cannot introduce a field",
+      "hyphen prefix cannot introduce a field",
+      "nonempty value without canonical space refuses",
+      "empty field name refuses",
+      "orphan continuation refuses",
+      "NUL in native field refuses",
+      "carriage return in native field refuses",
+      "overlong native line refuses",
+      "pending native status remains inadmissible",
+      "missing native status remains inadmissible",
+      "empty package identity remains inadmissible",
+      "missing native architecture remains inadmissible",
+      "pending triggers remain inadmissible",
+      "awaited triggers remain inadmissible",
+      "lone lowercase pending field cannot hide native trigger work",
+      "lone mixed case awaited field cannot hide native trigger work"
+    ],
+    "newRenderedNames": [
+      "TestPackageNativeStatusMultilineHeaders/observed_empty_multiline_first_line_preserves_continuation_bytes",
+      "TestPackageNativeStatusMultilineHeaders/existing_space_separated_empty_first_line_remains_compatible",
+      "TestPackageNativeStatusMultilineHeaders/case_insensitive_recognized_native_identity_remains_canonical",
+      "TestPackageNativeStatusMultilineHeaders/duplicate_empty_field_refuses",
+      "TestPackageNativeStatusMultilineHeaders/case_variant_duplicate_empty_field_refuses",
+      "TestPackageNativeStatusMultilineHeaders/empty_first_value_cannot_hide_a_later_duplicate",
+      "TestPackageNativeStatusMultilineHeaders/case_variant_duplicate_nonempty_field_refuses",
+      "TestPackageNativeStatusMultilineHeaders/whitespace_inside_field_name_refuses",
+      "TestPackageNativeStatusMultilineHeaders/comment_prefix_cannot_introduce_a_field",
+      "TestPackageNativeStatusMultilineHeaders/hyphen_prefix_cannot_introduce_a_field",
+      "TestPackageNativeStatusMultilineHeaders/nonempty_value_without_canonical_space_refuses",
+      "TestPackageNativeStatusMultilineHeaders/empty_field_name_refuses",
+      "TestPackageNativeStatusMultilineHeaders/orphan_continuation_refuses",
+      "TestPackageNativeStatusMultilineHeaders/NUL_in_native_field_refuses",
+      "TestPackageNativeStatusMultilineHeaders/carriage_return_in_native_field_refuses",
+      "TestPackageNativeStatusMultilineHeaders/overlong_native_line_refuses",
+      "TestPackageNativeStatusMultilineHeaders/pending_native_status_remains_inadmissible",
+      "TestPackageNativeStatusMultilineHeaders/missing_native_status_remains_inadmissible",
+      "TestPackageNativeStatusMultilineHeaders/empty_package_identity_remains_inadmissible",
+      "TestPackageNativeStatusMultilineHeaders/missing_native_architecture_remains_inadmissible",
+      "TestPackageNativeStatusMultilineHeaders/pending_triggers_remain_inadmissible",
+      "TestPackageNativeStatusMultilineHeaders/awaited_triggers_remain_inadmissible",
+      "TestPackageNativeStatusMultilineHeaders/lone_lowercase_pending_field_cannot_hide_native_trigger_work",
+      "TestPackageNativeStatusMultilineHeaders/lone_mixed_case_awaited_field_cannot_hide_native_trigger_work"
+    ],
+    "orderedNamesSha256LF": "199cd6a9a23d8b61011747ea359f6fb4509ff65c86dc8d66ea2be679c9c315dd",
+    "nativeRequiredParentNames": [
+      "TestPackageHelperNativeNoFollowAndCustody",
+      "TestPackageFrontendLockIndependentProcess",
+      "TestPackageNativeSignedFirstInstallAndNonReplay",
+      "TestPackageNativeDeclaredMountAndACLRefusals"
+    ],
+    "nativeSignedChildNames": [
+      "TestPackageNativeSignedFirstInstallAndNonReplay/foreign_audience",
+      "TestPackageNativeSignedFirstInstallAndNonReplay/foreign_operation",
+      "TestPackageNativeSignedFirstInstallAndNonReplay/foreign_workspace",
+      "TestPackageNativeSignedFirstInstallAndNonReplay/missing_resource",
+      "TestPackageNativeSignedFirstInstallAndNonReplay/unknown_constraint"
+    ],
+    "nativeBodiesWholePrefixExact": true,
+    "requiredFlag": "ZENITH_TEST_PACKAGE_INSTALL_REQUIRED=1",
+    "modelPrerequisites": "New Linux-only modeled syntax cases do not establish actual native install/service acceptance."
+  },
+  "primarySource": {
+    "url": "https://manpages.debian.org/bookworm/dpkg-dev/deb822.5.en.html",
+    "claims": "Field names are case-insensitive; duplicate fields are forbidden; multiline first-line values can be empty. Actual internal paragraph format additionally established by root native capture."
+  },
+  "metadataHistory": {
+    "correctedCountReceiptBound": true,
+    "preliminaryFreezeAndCasePreserved": {
+      "originalFreeze": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE.json",
+        "sha256": "a1b52510151aecd0c2d96ce7164875d2f34dbae2518217b9754a273773321b4d"
+      },
+      "originalCase": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/CASE-CONTRACT.json",
+        "sha256": "8feaf0ea0b98becd32050b2e39da745d6e4140ced120638ca735990e74310046"
+      },
+      "scope": "Correct stale inherited oldModelLeafCount/oldModelCases naming66 to actual retained97; original66 count/hash kept explicitly historical. Source/patch/candidate/all names unchanged.",
+      "sourceUnchanged": true
+    },
+    "nonblockingClarityNote": "The inherited top-level CASE correction string still describes R5 missing-import history. It is not treated as R6 change scope; explicit revision6/sourceContract/patch/121 identity records bind the actual parser correction."
+  },
+  "outsideFollowups": [
+    "Private and canonical source fingerprint rebinding to exact R6/273 Go inventory",
+    "Root Linux cross-compile and all121 modeled leaves, with separately exact four native parents and five signed children",
+    "Exact current-attempt report/source validation, original raw Debian metadata before/after and positively owned cleanup",
+    "Installed sole-CAP_CHOWN helper/zero-cap ordinary daemon and genuine default-backend/signed queue/restart/multi-instance evidence remain open"
+  ],
+  "execution": {
+    "projectImports": false,
+    "tests": false,
+    "compiler": false,
+    "lint": false,
+    "services": false,
+    "Docker": false,
+    "install": false,
+    "sourceEdits": false,
+    "gitWrites": false,
+    "commits": false,
+    "onlyOwnReviewReceiptWritten": true
+  },
+  "artifactsHashed": [
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-status-preparation-20261005/PREPARATION.json",
+      "sha256": "8cc510b10e0e1eb6c73a37c6ccb5724c03ff927dc14f21a3d9c486ee929dce08"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/PRE-EDIT-BASELINE.json",
+      "sha256": "59d94e92fec54917c9a25255a0d4ed535a71fd216ddd331643a528741f5a0e73"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision5/FROZEN-SOURCE.json",
+      "sha256": "25871cb3e982a08010f901b80387e1f19dcb2ede8bbbbe21450513e5c3f8d856"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/guest-package-native-status-r6-proposed-contract-20261005.json",
+      "sha256": "60de56d1cdecb4aa825a1fb9e7d1751eac6c0a38702244990b66efd95596dbce"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/candidate.patch",
+      "sha256": "8c4f3060ee81c91987483919fcb3ef84485dbd5ea33b0d1baa485c8bbdce3b84",
+      "bytes": 103603
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/native-status-grammar-correction.patch",
+      "sha256": "d38f1409368f70f9934edba0d8eba3770bb6dc747bb9037f84f89416b98b9332",
+      "bytes": 13006
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/CASE-CONTRACT-CORRECTED.json",
+      "sha256": "969d32023e3fc2e6167c06c93e26bf412c4891ab0c8ebf398b0851c4220b0885",
+      "bytes": 38269
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/FULL-AFTER-INVENTORY.json",
+      "sha256": "aafb35f1726d3db6312b25884f5387f3e7d0045a634af1fe41ff1e3adeb4914c",
+      "bytes": 733534
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/OUTSIDE-INVENTORY.json",
+      "sha256": "e762ccde37e97a9ac2200e88d538e75d921ed9abc4120b7abdc9ad81761e64ba",
+      "bytes": 732205
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/OWNED-INVENTORY.json",
+      "sha256": "630a3109fec8c8d6a0fc0a0ceb955e0bb34d3d52fd4e954a0e187607931d9c3b",
+      "bytes": 2802
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/STATIC-DELTA-CHECKS.json",
+      "sha256": "2095d79c880ab37550a358e492644c759b23291dce5a0abf2a08c98350ee274d",
+      "bytes": 1861
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/VERIFICATION-COMMANDS.json",
+      "sha256": "77ef1d14504459c2f98c51743c374028b3206d8980dc5dc95591220f90c2343e",
+      "bytes": 1051
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE.json",
+      "sha256": "a1b52510151aecd0c2d96ce7164875d2f34dbae2518217b9754a273773321b4d"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/CASE-CONTRACT.json",
+      "sha256": "8feaf0ea0b98becd32050b2e39da745d6e4140ced120638ca735990e74310046"
+    }
+  ],
+  "ownedInventory": [
+    {
+      "path": "go/internal/machine/package_helper_linux.go",
+      "before": {
+        "sha256": "7e1714c95980a4c85b8a8276d4b0dce5e928b40bbe5553d19ec9a2f712d07eb8",
+        "bytes": 37670,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "b803a6f0303aa99cea8175254c356f88312cf43b7cf0050f232feb441a5ead5f",
+        "bytes": 38789,
+        "mode": 420,
+        "type": "file"
+      }
+    },
+    {
+      "path": "go/internal/machine/package_native.go",
+      "before": {
+        "sha256": "dc8fbd4b633c9723c34df5ae3f22f468ce97f11c4562296ee5c016f1fd4a6489",
+        "bytes": 15690,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "dc8fbd4b633c9723c34df5ae3f22f468ce97f11c4562296ee5c016f1fd4a6489",
+        "bytes": 15690,
+        "mode": 420,
+        "type": "file"
+      }
+    },
+    {
+      "path": "go/internal/machine/package_native_test.go",
+      "before": {
+        "sha256": "e0aa2221ea030fba56e6625a98ad2ddc9c56c423a6dfc986b0abe6a745e1243e",
+        "bytes": 24382,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "e0aa2221ea030fba56e6625a98ad2ddc9c56c423a6dfc986b0abe6a745e1243e",
+        "bytes": 24382,
+        "mode": 420,
+        "type": "file"
+      }
+    },
+    {
+      "path": "go/internal/machine/package_helper_linux_test.go",
+      "before": {
+        "sha256": "8ba0e62c762e2bd7775013bd848e0922a74339934d53b5dee82cbf611260199b",
+        "bytes": 30285,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331",
+        "bytes": 34845,
+        "mode": 420,
+        "type": "file"
+      }
+    },
+    {
+      "path": "deploy/zenithd/INSTALL.md",
+      "before": {
+        "sha256": "3875d3db87a2c30ab7b8a9456c168d7e9a850489c1da937158e5bde525fb0644",
+        "bytes": 11715,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "ed39e8186585601379081f04eda86a04ad43b4bc8af0f76e24ccfd2c5af89682",
+        "bytes": 12347,
+        "mode": 420,
+        "type": "file"
+      }
+    },
+    {
+      "path": "docs/platform/ZENITHD.md",
+      "before": {
+        "sha256": "2878071d4cca56134f058925d4804c24b521ca4f54bfe2c02a5acd629d356800",
+        "bytes": 35994,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "a2fa5f3af18794ad690ba92523485ac1a1793ff453f6c1555cc6958120df5afc",
+        "bytes": 36606,
+        "mode": 420,
+        "type": "file"
+      }
+    },
+    {
+      "path": "docs/build/handoffs/GUEST-PACKAGE-INSTALL-20261005.md",
+      "before": {
+        "sha256": "9686987573a677ce29384e499f065942c4d1f252b3824ce2d62d9598c38f6614",
+        "bytes": 19704,
+        "mode": 420,
+        "type": "file"
+      },
+      "after": {
+        "sha256": "39efeac17bc4270fdfec2eb4cdd42226727f4639e503296ef8eab9fd8746d464",
+        "bytes": 22255,
+        "mode": 420,
+        "type": "file"
+      }
+    }
+  ]
+}

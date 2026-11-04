@@ -1,0 +1,57 @@
+{
+  "sourceCommit": "c7c3cff92fa42e811d13b9cb85d1f3a6f5fd9cd5",
+  "sourceTree": "d7d832eb606d44ab709cf4d7beff49ec76665f3c",
+  "sourceChanges": {
+    "src/lib/capabilities/broker.ts": "7129b3f39edcb0c5135fddcfa502296b0927e6a84ca931c07e022b8d48284b8b",
+    "tests/controlplane/leases.test.ts": "55628aa3ef43438d7a1711c3d3bdfb2f64025cc9dbf23b7437cba755558d2281"
+  },
+  "integratedFixes": [
+    "ded51029",
+    "56446629"
+  ],
+  "scope": "Four full broker, ownership and lease suites against fresh native PostgreSQL plus in-memory/PGlite; no restored advanced shared epoch, Supabase Auth, default stack, cloud or provider execution proof.",
+  "architecture": "native Darwin ARM64",
+  "nodeVersion": "22.23.3",
+  "postgresVersion": "16.15",
+  "platformVersion": 58,
+  "sqlFilesApplied": 26,
+  "counts": {
+    "passed": 162,
+    "failed": 0,
+    "skipped": 0,
+    "todo": 0,
+    "discovered": 162,
+    "mandatoryNativePostgresCases": 62,
+    "files": 4,
+    "excluded": 0
+  },
+  "nativePostgresByFile": {
+    "broker": 33,
+    "fieldOwnership": 5,
+    "ownershipTransfers": 11,
+    "leases": 13
+  },
+  "testExitCode": 0,
+  "receiptSha256": "96889f54b05832ac7dd6352a9bd184e0ecdf4a58b21023bf1445ee459338da98",
+  "collectionSha256": "d1b658f8522161da69ee4dbdefe93a73c004170bb9ec63994affd6fe1424ddb9",
+  "reportSha256": "6187b4fd418cb5e1a3e3c5039df16277b294da107ead4f48f700827b9ba1b691",
+  "tools": {
+    "python3.14": "2477b47fa3ae65b9574eb18a15edb364e96948eaa1875ad3f1c80d780efc9c12",
+    "node": "68f4d07ca49e0500cc135c7e0a445093e228e42e126ac22306d045f0a8c2636b",
+    "postgres": "b51b88ba51bcaefb469cbc0266098b8b8ae02470d88778a7ae2ed402427993d8",
+    "initdb": "aed3815391c8d9291129a3dcaacac4a801cb186d35e28ca8ff60ea93213db9a0",
+    "pg_ctl": "4f67b06e2275d7e22712a4ee5ed8da917f450b1c0b9ebc77d09445d33386597b",
+    "pg_isready": "fdaf8bd44ce43453c23c4fb7105597a59b9450e4cc3975610a47efb91c5599b9",
+    "psql": "b5fd0043b96b98510b6b3a6cf9f8d1f99f7fd7da3f6d65489ae400086368d1c1"
+  },
+  "cleanup": {
+    "controllerComplete": true,
+    "independentObservedGroupsAbsent": 85,
+    "ownedRuntimeAndSocketsRemoved": true,
+    "ownedListenerRefused": true,
+    "endSourceBinding": true
+  },
+  "minimumFreeBytes": 16768528384,
+  "floorBytes": 12000000000,
+  "requirementsClosed": []
+}

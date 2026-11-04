@@ -74,8 +74,8 @@
  * atomicity (see `./pg/audit.ts` and docs/ARCHITECTURE.md, ADR 1).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
-import { createAdminClient } from "@/lib/supabase/admin";
+import type { AuditEvent, DeploymentEvent, AnyManifest } from "@/lib/domain/types";
+import { createAdminClient, isDefaultAdminClientFor } from "@/lib/supabase/admin";
 import { FileStore } from "./file-store";
 import "./pg/all"; // registers every collection and delegate group, in FK order
 import { delegates } from "./pg/delegates";
@@ -120,6 +120,11 @@ export function pgClient(): SupabaseClient {
   // Built on first use, never at import: the file store is the default and must
   // keep booting on an install with no Supabase configuration at all.
   return (g.__zenithPgClient = createAdminClient() as unknown as SupabaseClient);
+}
+
+/** Read-only ownership of the actual cached default product client; no override or identity getter. */
+export function isDefaultProductClientFor(origin: string): boolean {
+  return isDefaultAdminClientFor(pgClient(), origin);
 }
 
 /** Test seam: drop the cached client so a mock can take its place. */
@@ -213,11 +218,9 @@ async function selectRows(
   table: string,
   filter?: { column: string; values: string[] }
 ): Promise<Row[]> {
+  if (filter?.values.length === 0) return [];
   let query = client.from(table).select("*");
-  if (filter) {
-    if (filter.values.length === 0) return [];
-    query = query.in(filter.column, filter.values);
-  }
+  if (filter) query = query.in(filter.column, filter.values);
   const { data, error } = await query;
   if (error) throw storeError(table, "read", error.message);
   return (data ?? []) as Row[];
@@ -483,48 +486,41 @@ async function conflict(): Promise<never> {
   });
 }
 
-async function writeRow(client: SupabaseClient, change: Change): Promise<void> {
+/** One flush entry for `zenith_product_flush` (supabase/migrations/0027): the same row the old per-row calls wrote. */
+function flushWrite(change: Change, now: string): Record<string, unknown> {
   const spec = adapterFor(change.collection);
-  const row = change.row as never;
-  const promoted = spec.promote(row);
+  const promoted = spec.promote(change.row as never);
   const data = stripPromoted(change.row, change.collection);
-  const now = new Date().toISOString();
-
-  if (!change.baseline) {
-    const { error } = await client.from(spec.table).insert({
-      id: change.row.id,
-      workspace_id: change.workspaceId,
-      ...promoted,
-      data,
-      version: 1,
-      updated_at: now,
-    });
-    if (error) throw storeError(spec.table, "insert into", error.message);
-    return;
-  }
-
-  let query = client
-    .from(spec.table)
-    .update({ ...promoted, data, version: change.baseline.version + 1, updated_at: now })
-    .eq("version", change.baseline.version);
-  for (const [column, value] of Object.entries(
-    spec.key({ id: change.row.id, workspaceId: change.workspaceId })
-  ))
-    query = query.eq(column, value);
-  const { data: updated, error } = await query.select("id");
-  if (error) throw storeError(spec.table, "update", error.message);
-  if (!updated || updated.length === 0) await conflict();
+  const key = spec.key({ id: change.row.id, workspaceId: change.workspaceId });
+  if (!change.baseline)
+    return { table: spec.table, key, baseline: null,
+      row: { id: change.row.id, workspace_id: change.workspaceId, ...promoted, data, version: 1, updated_at: now } };
+  return { table: spec.table, key, baseline: change.baseline.version,
+    row: { ...promoted, data, version: change.baseline.version + 1, updated_at: now } };
 }
 
-async function deleteRow(client: SupabaseClient, change: Change): Promise<void> {
+function flushDelete(change: Change): Record<string, unknown> {
   const spec = adapterFor(change.collection);
-  let query = client.from(spec.table).delete();
-  for (const [column, value] of Object.entries(
-    spec.key({ id: change.row.id, workspaceId: change.workspaceId })
-  ))
-    query = query.eq(column, value);
-  const { error } = await query;
-  if (error) throw storeError(spec.table, "delete from", error.message);
+  return { table: spec.table, key: spec.key({ id: change.row.id, workspaceId: change.workspaceId }), baseline: change.baseline!.version };
+}
+
+/**
+ * Every changed row of one pass in ONE transaction. Each row keeps its own
+ * guard (an update or delete matches the loaded version, an insert must be
+ * new), and a refusal anywhere rolls back the whole pass, so rows that decide
+ * a fence together (an environment's writer lease and its deployment) never
+ * land half-written.
+ */
+async function writeRows(client: SupabaseClient, writes: Change[], deletes: Change[]): Promise<void> {
+  if (writes.length === 0 && deletes.length === 0) return;
+  const now = new Date().toISOString();
+  const { error } = await client.rpc("zenith_product_flush", {
+    p_writes: writes.map((change) => flushWrite(change, now)),
+    p_deletes: deletes.map(flushDelete),
+  });
+  // moved, removed or created by another instance first: a conflict to reload, not a store failure
+  if (error?.code === "PZ409" || error?.code === "23505") await conflict();
+  if (error) throw storeError("product rows", "flush", error.message);
 }
 
 /**
@@ -559,21 +555,43 @@ function stripPromoted(row: { id: string }, collection: PgCollection): Record<st
   return out;
 }
 
+/**
+ * The install-global settings row, guarded exactly like `zenith_product_flush` guards every
+ * other collection: a row that existed at load is updated only `where version =
+ * <the version loaded>`, and matching nothing is the same 409. This used to be
+ * an unguarded upsert, so two requests that read the same version each
+ * "succeeded" and the later flush silently replaced the earlier edit.
+ *
+ * Version 0 is "no row at load" (see `loadSnapshot`), so the first write is an
+ * insert, and a unique violation — somebody inserted it first — is the same 409.
+ */
 async function writeSettings(client: SupabaseClient, snap: Snapshot): Promise<void> {
   const data = withoutInvites(snap.data.settings);
   const baseline = snap.baseline.get(bkey("settings", INSTALL_SETTINGS_ID));
   if (baseline && baseline.json === canonical(data)) return;
-  const next = (baseline?.version ?? 0) + 1;
-  const { error } = await client.from("settings").upsert(
-    {
-      workspace_id: INSTALL_SETTINGS_ID,
-      data,
-      version: next,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "workspace_id" }
-  );
-  if (error) throw storeError("settings", "write", error.message);
+  const loaded = baseline?.version ?? 0;
+  const next = loaded + 1;
+  const now = new Date().toISOString();
+
+  if (loaded === 0) {
+    const { error } = await client
+      .from("settings")
+      .insert({ workspace_id: INSTALL_SETTINGS_ID, data, version: next, updated_at: now });
+    if (error) {
+      // 23505 unique_violation: the row appeared after this snapshot loaded.
+      if (error.code === "23505") await conflict();
+      throw storeError("settings", "insert into", error.message);
+    }
+  } else {
+    const { data: updated, error } = await client
+      .from("settings")
+      .update({ data, version: next, updated_at: now })
+      .eq("workspace_id", INSTALL_SETTINGS_ID)
+      .eq("version", loaded)
+      .select("workspace_id");
+    if (error) throw storeError("settings", "update", error.message);
+    if (!updated || updated.length === 0) await conflict();
+  }
   snap.settingsVersion = next;
   snap.baseline.set(bkey("settings", INSTALL_SETTINGS_ID), { version: next, json: canonical(data) });
 }
@@ -609,17 +627,11 @@ async function flushSnapshot(snap: Snapshot): Promise<void> {
   // FK order: a workspace before its members, a project before its
   // environments — which is registration order, by the registry's contract.
   const ORDER = rowAdapters().map((a) => a.collection);
-  for (const collection of ORDER)
-    for (const change of writes.filter((c) => c.collection === collection)) {
-      await writeRow(client, change);
-      touchedWorkspaces.add(change.workspaceId);
-    }
+  const orderedWrites = ORDER.flatMap((collection) => writes.filter((c) => c.collection === collection));
   // Deletes run in reverse, for the same reason.
-  for (const collection of [...ORDER].reverse())
-    for (const change of deletes.filter((c) => c.collection === collection)) {
-      await deleteRow(client, change);
-      touchedWorkspaces.add(change.workspaceId);
-    }
+  const orderedDeletes = [...ORDER].reverse().flatMap((collection) => deletes.filter((c) => c.collection === collection));
+  await writeRows(client, orderedWrites, orderedDeletes);
+  for (const change of [...orderedWrites, ...orderedDeletes]) touchedWorkspaces.add(change.workspaceId);
 
   await writeSettings(client, snap);
   await bumpFeed(client, snap, touchedWorkspaces);
@@ -876,7 +888,7 @@ export const PostgresStore: Store & {
   readAuditPage: (filter?: AuditFilter): AuditPage => delegates.audit.readAuditPage(filter),
   readAudit: (filter?: AuditFilter): AuditEvent[] => delegates.audit.readAudit(filter),
   countAudit: (filter?: AuditFilter): AuditCountResult => delegates.audit.countAudit(filter),
-  revisionManifest: (id: string): Manifest | undefined => delegates.manifests.revisionManifest(id),
+  revisionManifest: (id: string): AnyManifest | undefined => delegates.manifests.revisionManifest(id),
 
   onChange,
   changed: (c: StoreChange, projectId: string): boolean =>

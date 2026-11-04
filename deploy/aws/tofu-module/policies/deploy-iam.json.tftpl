@@ -1,0 +1,207 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "iam:CreateRole",
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ],
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:DeleteRole",
+        "iam:PutRolePermissionsBoundary"
+      ],
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:AttachRolePolicy",
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ]
+        },
+        "ArnLike": {
+          "iam:PolicyARN": [
+            "arn:${partition}:iam::${account_id}:policy/zenith-*",
+            "arn:${partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            "arn:${partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+            "arn:${partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
+            "arn:${partition}:iam::aws:policy/AmazonEKSClusterPolicy",
+            "arn:${partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+            "arn:${partition}:iam::aws:policy/AmazonEKS_CNI_Policy",
+            "arn:${partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:${partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:TagRole",
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateAssumeRolePolicy"
+      ],
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "ecs-tasks.amazonaws.com",
+            "codebuild.amazonaws.com",
+            "lambda.amazonaws.com",
+            "eks.amazonaws.com",
+            "ec2.amazonaws.com",
+            "vpc-flow-logs.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:${partition}:iam::${account_id}:role/aws-service-role/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": [
+            "ecs.amazonaws.com",
+            "elasticloadbalancing.amazonaws.com",
+            "autoscaling.amazonaws.com",
+            "rds.amazonaws.com",
+            "elasticache.amazonaws.com",
+            "eks.amazonaws.com",
+            "eks-nodegroup.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyBootstrapChanges",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:DeleteRole",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:PutRolePermissionsBoundary",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:CreatePolicyVersion",
+        "iam:SetDefaultPolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:CreatePolicy",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
+      ],
+      "Resource": [
+        "arn:${partition}:iam::${account_id}:role/ZenithDeploy*",
+        "arn:${partition}:iam::${account_id}:role/ZenithObserve*",
+        "arn:${partition}:iam::${account_id}:role/zenith-codebuild*",
+        "arn:${partition}:iam::${account_id}:policy/Zenith*"
+      ]
+    },
+    {
+      "Sid": "DenyRemovingAnyPermissionsBoundary",
+      "Effect": "Deny",
+      "Action": [
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:PutRolePermissionsBoundary"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyPrincipalCreation",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:RemoveClientIDFromOpenIDConnectProvider",
+        "iam:CreateSAMLProvider",
+        "iam:CreateUser",
+        "iam:CreateAccessKey",
+        "iam:CreateLoginProfile",
+        "organizations:*",
+        "account:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

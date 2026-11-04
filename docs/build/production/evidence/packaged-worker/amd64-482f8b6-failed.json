@@ -1,0 +1,172 @@
+{
+  "runId": "zenith-pkg-amd64-52e051296128",
+  "platform": "linux/amd64",
+  "startedAt": "2026-10-02T20:29:48.605Z",
+  "status": "failed",
+  "checks": {
+    "missing-schema": "refused-without-secret-output"
+  },
+  "limitations": [
+    "Temporal CLI development server, not Temporal Cloud or production Temporal topology.",
+    "Product metadata uses an isolated file-store fixture; platform control store is real Postgres.",
+    "No deployed cloud resources: reconcile observes an empty environment; read operation safely refuses a missing target.",
+    "No cloud writes or browser approval are performed; plan files are retention sentinels, not executable plans.",
+    "Shutdown check drains an idle packaged worker; in-flight cloud activity drain remains outside this harness.",
+    "Source binding captures the live context before and after build; transient changes are not excluded by an immutable snapshot."
+  ],
+  "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+  "dirty": false,
+  "sourceInputSha256": "ee02415913c26f13ee5e51b9121a096918d280b8c4d4a3d55240d8ce36046222",
+  "acceptanceHarnessSha256": "44249e4e1e0a029c19af7a78b26acaa4dc63ccaa0136b49bf77dde4347972df2",
+  "lockedDependencies": {
+    "@temporalio/worker": "1.24.0",
+    "@temporalio/client": "1.24.0",
+    "postgres": "3.4.7",
+    "jose": "6.2.12"
+  },
+  "environment": {
+    "dockerServerOS": "linux",
+    "dockerServerArch": "arm64",
+    "dockerVersion": "29.1.3",
+    "emulated": true
+  },
+  "sourceBinding": {
+    "inventoryComplete": true,
+    "unchangedAcrossBuild": true,
+    "immutableBuildContext": false
+  },
+  "image": {
+    "id": "sha256:f7007ef807373e45e26da8841409ed6cb188b14b44a396603445020da5c22719",
+    "platform": "linux/amd64",
+    "user": "zenith",
+    "entrypoint": [
+      "/usr/bin/tini",
+      "--",
+      "node",
+      "dist/execution/worker.cjs"
+    ],
+    "acceptanceDerivative": true
+  },
+  "dependencies": {
+    "postgres": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+    "temporal": "temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+    "hostPortsPublished": false,
+    "networkInternal": true
+  },
+  "refusalExits": {
+    "missing-schema": {
+      "status": "exited",
+      "running": false,
+      "exitCode": 1,
+      "oomKilled": false,
+      "failureCategory": "platform-store",
+      "launchBudgetMs": 120000,
+      "exitBudgetMs": 45000
+    }
+  },
+  "failurePhase": "startup-refusals",
+  "refusalFailureCategories": {
+    "missing-schema": "platform-store",
+    "invalid-secret": "module-load"
+  },
+  "failureContainers": {
+    "postgres": {
+      "status": "running",
+      "running": true,
+      "exitCode": 0,
+      "oomKilled": false
+    },
+    "temporal": {
+      "status": "running",
+      "running": true,
+      "exitCode": 0,
+      "oomKilled": false
+    },
+    "missing-schema": {
+      "status": "exited",
+      "running": false,
+      "exitCode": 1,
+      "oomKilled": false
+    },
+    "invalid-secret": {
+      "status": "exited",
+      "running": false,
+      "exitCode": 1,
+      "oomKilled": false
+    }
+  },
+  "privateDiagnostics": {
+    "captured": true,
+    "files": 4
+  },
+  "cleanup": {
+    "privateFilesRemoved": true,
+    "allCreatedResourcesRemoved": true,
+    "resources": [
+      {
+        "kind": "container",
+        "role": "invalid-secret",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "missing-schema",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "temporal",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "postgres",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "postgres-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "temporal-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "worker-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "network",
+        "role": "isolated-network",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "image",
+        "role": "acceptance-image",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      }
+    ]
+  },
+  "finishedAt": "2026-10-02T20:32:54.802Z"
+}

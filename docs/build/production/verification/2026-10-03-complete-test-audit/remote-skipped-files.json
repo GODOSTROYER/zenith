@@ -1,0 +1,2766 @@
+{
+  "runId": 37103826519,
+  "head": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+  "skippedCases": 399,
+  "filesWithSkippedCases": 72,
+  "caseTitlesCaptured": false,
+  "rows": [
+    {
+      "file": "tests/waitlist/pg-contract.test.ts",
+      "project": "node",
+      "total": 38,
+      "passed": 0,
+      "skipped": 38,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 408,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 13,
+          "text": "const enabled = process.env.ZENITH_CONTRACT_POSTGRES === \"1\" && Boolean(process.env.SUPABASE_DB_URL);"
+        },
+        {
+          "line": 33,
+          "text": "if (!enabled) {"
+        },
+        {
+          "line": 35,
+          "text": "\"[waitlist pg-contract] skipped: set ZENITH_CONTRACT_POSTGRES=1 and SUPABASE_DB_URL. \" +"
+        },
+        {
+          "line": 208,
+          "text": "describe.skipIf(!enabled)(\"WaitlistPostgres\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "postgres:tests/waitlist/pg-contract.test.ts:3d9c4f3951d7",
+              "suite": "WaitlistPostgres",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/credentials/bootstrap-templates.test.ts",
+      "project": "node",
+      "total": 76,
+      "passed": 75,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 412,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 654,
+          "text": "it.skipIf(!process.env.ZENITH_TEST_TOFU || !tofuAvailable)(\"tofu init + validate + test (mock provider, offline after init)\", async () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/platform/deploy-e2e.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 10,
+      "skipped": 6,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 433,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 50,
+          "text": "if (timeSkipping || findTemporalCli() || process.env.ZENITH_TEST_TEMPORAL_DOWNLOAD === \"1\") {"
+        },
+        {
+          "line": 52,
+          "text": "} else skipReason = \"Temporal CLI unavailable. Set ZENITH_TEST_TEMPORAL_CLI to the installed binary; downloads require ZENITH_TEST_TEMPORAL_DOWNLOAD=1.\";"
+        },
+        {
+          "line": 143,
+          "text": "if (!server) { console.warn(skipReason); ctx.skip(); }"
+        },
+        {
+          "line": 195,
+          "text": "if (!server) { console.warn(skipReason); ctx.skip(); }"
+        },
+        {
+          "line": 225,
+          "text": "if (!server) { console.warn(skipReason); ctx.skip(); }"
+        },
+        {
+          "line": 236,
+          "text": "if (!server) { console.warn(skipReason); ctx.skip(); }"
+        },
+        {
+          "line": 245,
+          "text": "if (!server) { console.warn(skipReason); ctx.skip(); }"
+        },
+        {
+          "line": 251,
+          "text": "if (!server) { console.warn(skipReason); ctx.skip(); }"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/platform/deploy-e2e.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/platform/source-bundle.test.ts",
+      "project": "node",
+      "total": 78,
+      "passed": 77,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 478,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 411,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_SOURCE_GITHUB !== \"1\")(\"live public GitHub source (opt-in network)\", () => {"
+        },
+        {
+          "line": 413,
+          "text": "const repo = process.env.ZENITH_TEST_SOURCE_REPO; const ref = process.env.ZENITH_TEST_SOURCE_REF;"
+        },
+        {
+          "line": 414,
+          "text": "if (!repo || !ref || !/^[a-f0-9]{40}$/.test(ref)) throw new Error(\"The live source check requires ZENITH_TEST_SOURCE_REPO and a 40-hex ZENITH_TEST_SOURCE_REF.\");"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/platform/source-bundle.test.ts:382ab8a7f122",
+              "suite": "source acquisition and canonical archives",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            },
+            {
+              "id": "workflows:tests/platform/source-bundle.test.ts:fb1aa6d12b58",
+              "suite": "customer source bucket uploads",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            },
+            {
+              "id": "workflows:tests/platform/source-bundle.test.ts:53e02775a33f",
+              "suite": "GCS source upload through authorizedFetch",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            },
+            {
+              "id": "workflows:tests/platform/source-bundle.test.ts:06370cdf74cb",
+              "suite": "live public GitHub source (opt-in network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/agent-control-journal-fixes.test.ts",
+      "project": "node",
+      "total": 29,
+      "passed": 23,
+      "skipped": 6,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 497,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 209,
+          "text": "it('is available through the asynchronous interface the coordinator and the routes hold', async () => {"
+        },
+        {
+          "line": 459,
+          "text": "* (ZENITH_CONTRACT_POSTGRES=1 and SUPABASE_DB_URL); skipped, loudly, otherwise."
+        },
+        {
+          "line": 462,
+          "text": "const PG_LIVE = process.env.ZENITH_CONTRACT_POSTGRES === '1' && Boolean(process.env.SUPABASE_DB_URL);"
+        },
+        {
+          "line": 465,
+          "text": "'\\n[agent-control journal fixes] the live Postgres suite is SKIPPED: ZENITH_CONTRACT_POSTGRES=1 and SUPABASE_DB_URL are not both set.\\n' +"
+        },
+        {
+          "line": 469,
+          "text": "describe.skipIf(!PG_LIVE)('postgres agent journal: lease, un-approve and the queue (live)', () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/machines/ssm-documents.test.ts",
+      "project": "node",
+      "total": 96,
+      "passed": 82,
+      "skipped": 14,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 528,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 10,
+          "text": "*   - behavioural (when a POSIX `sh` is available; here through WSL): the"
+        },
+        {
+          "line": 326,
+          "text": "it.skipIf(!haveTofu)(\"survives OpenTofu HCL template evaluation byte for byte (real tofu, builtin provider only)\", () => {"
+        },
+        {
+          "line": 395,
+          "text": "describe.skipIf(!sh)(\"script behaviour: input validation (runs the real scripts under sh)\", () => {"
+        },
+        {
+          "line": 492,
+          "text": "describe.skipIf(!sh || process.platform === \"darwin\")(\"script behaviour: FileRead guards (real files in a private temp dir)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/deploy.test.ts",
+      "project": "node",
+      "total": 38,
+      "passed": 0,
+      "skipped": 38,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 589,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/deploy.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/agent-control-journal.test.ts",
+      "project": "node",
+      "total": 28,
+      "passed": 21,
+      "skipped": 7,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 611,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 29,
+          "text": "* So these two skip on win32 with the reason printed, rather than failing. A"
+        },
+        {
+          "line": 122,
+          "text": "it.skipIf(POSIX_JOURNAL_ONLY)('persists across restarts and never blindly replays an interrupted dispatch', () => {"
+        },
+        {
+          "line": 132,
+          "text": "it.skipIf(POSIX_JOURNAL_ONLY)('two journal connections cannot claim the same receipt twice', () => {"
+        },
+        {
+          "line": 302,
+          "text": "await expect(journal.getGrant('s', 'c', 'w')).rejects.toThrow('not available on the Postgres agent control plane');"
+        },
+        {
+          "line": 317,
+          "text": "* Both `ZENITH_CONTRACT_POSTGRES=1` and `SUPABASE_DB_URL` are required, and the"
+        },
+        {
+          "line": 323,
+          "text": "const PG_LIVE = process.env.ZENITH_CONTRACT_POSTGRES === '1' && Boolean(process.env.SUPABASE_DB_URL);"
+        },
+        {
+          "line": 326,
+          "text": "if (process.env.ZENITH_CONTRACT_POSTGRES !== '1') missing.push('ZENITH_CONTRACT_POSTGRES=1');"
+        },
+        {
+          "line": 336,
+          "text": "describe.skipIf(!PG_LIVE)('postgres agent journal (live)', () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/agent-control/pg-contract.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 0,
+      "skipped": 16,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 616,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 16,
+          "text": "* decided. The statements are CONTROL-PLANE-ON-POSTGRES.md §4, copied"
+        },
+        {
+          "line": 34,
+          "text": "* Skips loudly without `ZENITH_CONTRACT_POSTGRES=1` and `SUPABASE_DB_URL`;"
+        },
+        {
+          "line": 35,
+          "text": "* `scripts/ci/postgres-lane-report.mjs` is what makes a silent skip in the"
+        },
+        {
+          "line": 43,
+          "text": "const enabled = (): boolean =>"
+        },
+        {
+          "line": 44,
+          "text": "process.env.ZENITH_CONTRACT_POSTGRES === \"1\" && Boolean(process.env.SUPABASE_DB_URL);"
+        },
+        {
+          "line": 48,
+          "text": "if (process.env.ZENITH_CONTRACT_POSTGRES !== \"1\") missing.push(\"ZENITH_CONTRACT_POSTGRES=1\");"
+        },
+        {
+          "line": 53,
+          "text": "if (!enabled())"
+        },
+        {
+          "line": 83,
+          "text": "/** `LEASE_MS`, CONTROL-PLANE-ON-POSTGRES.md §4: longer than any one invocation. */"
+        },
+        {
+          "line": 107,
+          "text": "if (!enabled()) return;"
+        },
+        {
+          "line": 119,
+          "text": "if (!enabled() || !alpha) return;"
+        },
+        {
+          "line": 167,
+          "text": "* The claim of CONTROL-PLANE-ON-POSTGRES.md §4, as one statement, on whichever"
+        },
+        {
+          "line": 248,
+          "text": "describe.skipIf(!enabled())(\"AgentControlPostgres\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "postgres:tests/agent-control/pg-contract.test.ts:a22aa1702a27",
+              "suite": "AgentControlPostgres",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+      "project": "node",
+      "total": 15,
+      "passed": 12,
+      "skipped": 3,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 622,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 37,
+          "text": "* and only when `ZENITH_CONTRACT_POSTGRES=1` and `SUPABASE_DB_URL` are both"
+        },
+        {
+          "line": 593,
+          "text": "describe.skipIf(!postgresContractEnabled())("
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "postgres:tests/scripts/migrate-hosted-to-postgres.test.ts:2b050f3ed9be",
+              "suite": "migrate-hosted-to-postgres ;  against the real Supabase project",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/agent-link/pg-contract.test.ts",
+      "project": "node",
+      "total": 14,
+      "passed": 0,
+      "skipped": 14,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 629,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 43,
+          "text": "* `ZENITH_CONTRACT_POSTGRES=1` and `SUPABASE_DB_URL` are required ;  the flag"
+        },
+        {
+          "line": 58,
+          "text": "const enabled = (): boolean =>"
+        },
+        {
+          "line": 59,
+          "text": "process.env.ZENITH_CONTRACT_POSTGRES === \"1\" && Boolean(process.env.SUPABASE_DB_URL);"
+        },
+        {
+          "line": 63,
+          "text": "if (process.env.ZENITH_CONTRACT_POSTGRES !== \"1\") missing.push(\"ZENITH_CONTRACT_POSTGRES=1\");"
+        },
+        {
+          "line": 68,
+          "text": "if (!enabled())"
+        },
+        {
+          "line": 115,
+          "text": "if (!enabled()) return;"
+        },
+        {
+          "line": 128,
+          "text": "if (!enabled() || !sql) return;"
+        },
+        {
+          "line": 223,
+          "text": "describe.skipIf(!enabled())(\"AgentLinkPostgres\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "postgres:tests/agent-link/pg-contract.test.ts:5246000cb75e",
+              "suite": "AgentLinkPostgres",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/db/contract/workspace-sharing.test.ts",
+      "project": "node",
+      "total": 22,
+      "passed": 0,
+      "skipped": 22,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 633,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 4,
+          "text": "* explicit ZENITH_CONTRACT_POSTGRES=1 / SUPABASE_DB_URL contract-test opt-in."
+        },
+        {
+          "line": 11,
+          "text": "const enabled = process.env.ZENITH_CONTRACT_POSTGRES === \"1\" && Boolean(process.env.SUPABASE_DB_URL);"
+        },
+        {
+          "line": 16,
+          "text": "if (!enabled) {"
+        },
+        {
+          "line": 18,
+          "text": "\"[workspace-sharing pg-contract] skipped: set ZENITH_CONTRACT_POSTGRES=1 and SUPABASE_DB_URL. \" +"
+        },
+        {
+          "line": 159,
+          "text": "describe.skipIf(!enabled)(\"WorkspaceSharingPostgres\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "postgres:tests/db/contract/workspace-sharing.test.ts:420737db2f8f",
+              "suite": "WorkspaceSharingPostgres",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/security/tofu-workspace-injection.test.ts",
+      "project": "node",
+      "total": 34,
+      "passed": 30,
+      "skipped": 4,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 666,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 285,
+          "text": "describe.skipIf(!hasTofu)(\"what the assembler ACCEPTS, real OpenTofu must not turn into a file read or a path leak (SEC-F5)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/security/tofu-workspace-injection.test.ts:b211f462ae66",
+              "suite": "what the assembler ACCEPTS, real OpenTofu must not turn into a file read or a path leak (SEC-F5)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/execution/destroy-review.test.ts",
+      "project": "node",
+      "total": 19,
+      "passed": 18,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 676,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 13,
+          "text": "import { closeSharedPgliteAfterAll, integrationOf, makeHarness, sessionFor, user, PG_URL } from \"../capabilities/support\";"
+        },
+        {
+          "line": 261,
+          "text": "describe.skipIf(!PG_URL)(\"real Postgres destroy-review lane\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/secrets/rewrap.test.ts",
+      "project": "node",
+      "total": 57,
+      "passed": 56,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 681,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 220,
+          "text": "it(\"does not skip an invalid empty reference at the start of SQL keyset paging\", async () => {"
+        },
+        {
+          "line": 362,
+          "text": "describe.skipIf(!process.env.ZENITH_TEST_PLATFORM_PG_URL)(\"real Postgres vault re-wrap\", () => {"
+        },
+        {
+          "line": 364,
+          "text": "const db = await openPlatformDb({ kind: \"postgres\", url: process.env.ZENITH_TEST_PLATFORM_PG_URL, migrate: false, max: 1 });"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 13,
+      "skipped": 3,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 719,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 23,
+          "text": "import { PG_URL, withScratchDatabase } from \"./_support/harness\";"
+        },
+        {
+          "line": 67,
+          "text": "...(PG_URL"
+        },
+        {
+          "line": 338,
+          "text": "describe.skipIf(!PG_URL)(\"migrator [postgres] concurrency and fail-closed open\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "platform-postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "platform-postgres:tests/controlplane/migrations.test.ts:29219ff1efa5",
+              "suite": "migrator [postgres]",
+              "ancestorSuite": null,
+              "postgres": true,
+              "backend": null
+            },
+            {
+              "id": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+              "suite": "migrator [postgres] concurrency and fail-closed open",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/runner.test.ts",
+      "project": "node",
+      "total": 19,
+      "passed": 3,
+      "skipped": 16,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 733,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 42,
+          "text": "describe.skipIf(!hasTofu)(\"tofu lifecycle on terraform_data (real tofu 1.12.5, local backend)\", () => {"
+        },
+        {
+          "line": 252,
+          "text": "describe.skipIf(!hasTofu)(\"tofu environment isolation (real tofu)\", () => {"
+        },
+        {
+          "line": 260,
+          "text": "process.env.ZENITH_TEST_CANARY = \"control-plane-canary-9931\";"
+        },
+        {
+          "line": 278,
+          "text": "for (const canary of [\"control-plane-canary-9931\", \"db-canary-pw-77\", \"signing-key-canary-55\", \"ZENITH_TEST_CANARY\", \"ZENITH_CONTROL_SIGNING_JWK\", \"DATABASE_URL\"]) {"
+        },
+        {
+          "line": 285,
+          "text": "delete process.env.ZENITH_TEST_CANARY;"
+        },
+        {
+          "line": 307,
+          "text": "describe.skipIf(!hasTofu)(\"tofu process limits (real tofu)\", () => {"
+        },
+        {
+          "line": 381,
+          "text": "it.skipIf(!hasTofu)(\"refuses a binary whose version is not the pin\", async () => {"
+        },
+        {
+          "line": 404,
+          "text": "it.skipIf(!hasTofu)(\"honors ZENITH_TOFU_BIN and ZENITH_TOFU_PLUGIN_CACHE from the host environment\", async () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/tofu/runner.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/execution/journey.test.ts",
+      "project": "node",
+      "total": 3,
+      "passed": 0,
+      "skipped": 3,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 760,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 19,
+          "text": "* Skipped, with a reason, when no `tofu` binary is available."
+        },
+        {
+          "line": 64,
+          "text": "describe.skipIf(!hasTofu)(\"deploy journey on the real OpenTofu engine, platform store and product store\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/execution/journey.test.ts:7995f890caa9",
+              "suite": "deploy journey on the real OpenTofu engine, platform store and product store",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/hosted/data/pg-contract.live.test.ts",
+      "project": "node",
+      "total": 11,
+      "passed": 0,
+      "skipped": 11,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 845,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 7,
+          "text": "*   ZENITH_CONTRACT_POSTGRES=1"
+        },
+        {
+          "line": 42,
+          "text": "const enabled ="
+        },
+        {
+          "line": 43,
+          "text": "process.env.ZENITH_CONTRACT_POSTGRES === \"1\" &&"
+        },
+        {
+          "line": 85,
+          "text": "const atomicReady = enabled ? await atomicFunctionsApplied() : false;"
+        },
+        {
+          "line": 87,
+          "text": "if (enabled && !atomicReady) {"
+        },
+        {
+          "line": 119,
+          "text": "if (!enabled) return;"
+        },
+        {
+          "line": 139,
+          "text": "describe.skipIf(!enabled || !atomicReady)(\"the tracker contract against real Postgres tables\", () => {"
+        },
+        {
+          "line": 339,
+          "text": "describe.skipIf(!enabled)(\"the whole-app operations against real Postgres tables\", () => {"
+        },
+        {
+          "line": 373,
+          "text": "expect(again.skipped.map((skip) => skip.id).sort()).toEqual(records.map((r) => r.id).sort());"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/hosted/artifacts/storage-store.test.ts",
+      "project": "node",
+      "total": 12,
+      "passed": 10,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 853,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 17,
+          "text": "*  - the live suite, which runs only under `ZENITH_CONTRACT_POSTGRES=1` with"
+        },
+        {
+          "line": 339,
+          "text": "* project exists, and `ZENITH_CONTRACT_POSTGRES=1` says you meant it ;  because"
+        },
+        {
+          "line": 344,
+          "text": "process.env.ZENITH_CONTRACT_POSTGRES === \"1\" &&"
+        },
+        {
+          "line": 351,
+          "text": "describe.skipIf(!live)(\"StorageArtifactStore (live bucket)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/security/tofu-secrets.test.ts",
+      "project": "node",
+      "total": 14,
+      "passed": 13,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 857,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 236,
+          "text": "describe.skipIf(!hasTofu)(\"part 3: real OpenTofu 1.12.5, plan -> approve -> apply, scanning every surface\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/security/tofu-secrets.test.ts:90e06e5ae146",
+              "suite": "part 3: real OpenTofu 1.12.5, plan -> approve -> apply, scanning every surface",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/aws/drivers/network/compile-graph.test.ts",
+      "project": "node",
+      "total": 27,
+      "passed": 21,
+      "skipped": 6,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 863,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 7,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/aws/drivers/network/compile-graph.test.ts"
+        },
+        {
+          "line": 277,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 287,
+          "text": "describe.skipIf(!enabled)(\"tofu validate over the real aws 6.66.0 provider schema (gated: ZENITH_TEST_TOFU_NETWORK=1)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/aws/drivers/network/compile-graph.test.ts:e68c9c1b341d",
+              "suite": "tofu validate over the real aws 6.66.0 provider schema (gated: ZENITH_TEST_TOFU_NETWORK=1)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/client.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 4,
+      "skipped": 12,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 892,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 251,
+          "text": "expect(answer.available).toBe(false);"
+        },
+        {
+          "line": 252,
+          "text": "if (answer.available) return;"
+        },
+        {
+          "line": 270,
+          "text": "expect(answer.available).toBe(false);"
+        },
+        {
+          "line": 278,
+          "text": "it(\"reports available for the suite's own server, and a missing namespace as namespace_not_found\", async (ctx) => {"
+        },
+        {
+          "line": 283,
+          "text": "return ctx.skip((err as Error).message);"
+        },
+        {
+          "line": 286,
+          "text": "expect(good).toMatchObject({ available: true, address, namespace: \"default\" });"
+        },
+        {
+          "line": 287,
+          "text": "if (good.available) expect(good.latencyMs).toBeLessThan(5000);"
+        },
+        {
+          "line": 290,
+          "text": "expect(missing).toMatchObject({ available: false, reason: \"namespace_not_found\" });"
+        },
+        {
+          "line": 300,
+          "text": "expect(fresh.available).toBe(first.available);"
+        },
+        {
+          "line": 308,
+          "text": "return ctx.skip((err as Error).message);"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/client.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/db/contract/history.test.ts",
+      "project": "node",
+      "total": 14,
+      "passed": 7,
+      "skipped": 7,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 917,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 11,
+          "text": "* database, so it runs only when `ZENITH_CONTRACT_POSTGRES=1` names a real"
+        },
+        {
+          "line": 17,
+          "text": "*   ZENITH_CONTRACT_POSTGRES=1 npx vitest run tests/db/contract/history.test.ts"
+        },
+        {
+          "line": 245,
+          "text": "describe.skipIf(!postgresContractEnabled())(\"history contract ;  Postgres only\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/db/contract/alerts.test.ts",
+      "project": "node",
+      "total": 7,
+      "passed": 0,
+      "skipped": 7,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 940,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 12,
+          "text": "* It therefore runs only under `ZENITH_CONTRACT_POSTGRES=1` with the Supabase"
+        },
+        {
+          "line": 72,
+          "text": "enabled: true,"
+        },
+        {
+          "line": 106,
+          "text": "describe.skipIf(!live)(\"alerts on Postgres\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/operations.test.ts",
+      "project": "node",
+      "total": 28,
+      "passed": 0,
+      "skipped": 28,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 953,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/operations.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/controlplane/executor.test.ts",
+      "project": "node",
+      "total": 20,
+      "passed": 19,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 961,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 9,
+          "text": "import { LANES, PG_URL, expectCode, openLane, uid } from \"./_support/harness\";"
+        },
+        {
+          "line": 277,
+          "text": "describe.skipIf(!PG_URL)(\"cross-engine shape identity\", () => {"
+        },
+        {
+          "line": 280,
+          "text": "const pg: PlatformDbHandle = await openPlatformDb({ kind: \"postgres\", url: PG_URL as string, migrate: false, max: 1 });"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "platform-postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "platform-postgres:tests/controlplane/executor.test.ts:4888cff6ca72",
+              "suite": "executor [postgres]",
+              "ancestorSuite": null,
+              "postgres": true,
+              "backend": null
+            },
+            {
+              "id": "platform-postgres:tests/controlplane/executor.test.ts:d69df0758896",
+              "suite": "cross-engine shape identity",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/security/tofu-runner-env.test.ts",
+      "project": "node",
+      "total": 7,
+      "passed": 4,
+      "skipped": 3,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1110,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 85,
+          "text": "describe.skipIf(!hasTofu)(\"part 1: a provisioner inside real tofu inherits nothing of the control plane's environment\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/security/tofu-runner-env.test.ts:f625b401642a",
+              "suite": "part 1: a provisioner inside real tofu inherits nothing of the control plane's environment",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/backends.test.ts",
+      "project": "node",
+      "total": 23,
+      "passed": 19,
+      "skipped": 4,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1116,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 126,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\" || !tofuOnPath())(\"real backend block validation (network gate, no cloud calls)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/tofu/backends.test.ts:0f743fbef9ad",
+              "suite": "real backend block validation (network gate, no cloud calls)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/db/contract/audit.test.ts",
+      "project": "node",
+      "total": 8,
+      "passed": 7,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1231,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 11,
+          "text": "* The Postgres row only appears with `ZENITH_CONTRACT_POSTGRES=1` plus real"
+        },
+        {
+          "line": 212,
+          "text": "it.runIf(!step.only || step.only === name)(step.name, async () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/execution/compile-refs-providers.test.ts",
+      "project": "node",
+      "total": 18,
+      "passed": 16,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1243,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 180,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\")(\"real AWS schema validation through the execution compiler (opt-in)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/execution/compile-refs-providers.test.ts:4c730c7a915a",
+              "suite": "real AWS schema validation through the execution compiler (opt-in)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "project": "node",
+      "total": 14,
+      "passed": 7,
+      "skipped": 7,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1251,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 178,
+          "text": "describe.skipIf(!HAVE_TOFU)(\"alb.tf names, as OpenTofu evaluates them\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/controlplane/open.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 14,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1253,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 11,
+          "text": "import { PG_URL, uid, withScratchDatabase } from \"./_support/harness\";"
+        },
+        {
+          "line": 61,
+          "text": "expect(platformDbConfigFromEnv({ ZENITH_PLATFORM_DB: \"POSTGRES\", ZENITH_PLATFORM_DB_URL: \"postgres://a/b\" })).toMatchObject({ kind: \"postgres\", source: \"explicit\" });"
+        },
+        {
+          "line": 202,
+          "text": "describe.skipIf(!PG_URL)(\"platformDb() against PostgreSQL\", () => {"
+        },
+        {
+          "line": 205,
+          "text": "process.env.ZENITH_PLATFORM_DB_URL = PG_URL;"
+        },
+        {
+          "line": 207,
+          "text": "await (await openPlatformDb({ kind: \"postgres\", url: PG_URL as string, migrate: true, max: 1 })).close(); // make sure it is migrated"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "platform-postgres",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "platform-postgres:tests/controlplane/open.test.ts:0c007f0b8d15",
+              "suite": "platformDb() against PostgreSQL",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": "postgres"
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/oci/mysql.test.ts",
+      "project": "node",
+      "total": 9,
+      "passed": 4,
+      "skipped": 5,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1268,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 54,
+          "text": "it(\"keeps creation disabled and read capabilities available under oracle/oci 9.7.1\", () => {"
+        },
+        {
+          "line": 107,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\" || !tofuOnPath())(\"OCI MySQL real pinned tofu schema and persistence controls (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/oci/mysql.test.ts:fda1806f81af",
+              "suite": "OCI MySQL real pinned tofu schema and persistence controls (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/gcp/bootstrap.test.ts",
+      "project": "node",
+      "total": 14,
+      "passed": 12,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1317,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 3,
+          "text": "* `tofu fmt -check`, and ;  gated behind ZENITH_TEST_TOFU_NETWORK=1 ;  a real"
+        },
+        {
+          "line": 31,
+          "text": "const networkEnabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && bin !== undefined;"
+        },
+        {
+          "line": 111,
+          "text": "for (const line of ['uniform_bucket_level_access = true', 'public_access_prevention    = \"enforced\"', \"force_destroy = false\", \"enabled = true\"]) expect(block).toContain(line);"
+        },
+        {
+          "line": 144,
+          "text": "describe.skipIf(bin === undefined)(\"formatting\", () => {"
+        },
+        {
+          "line": 152,
+          "text": "describe.skipIf(!networkEnabled)(\"tofu validate (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/gcp/bootstrap.test.ts:34b8ce9b36d5",
+              "suite": "tofu validate (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/gcp/tofu-validate.test.ts",
+      "project": "node",
+      "total": 6,
+      "passed": 0,
+      "skipped": 6,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1398,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 3,
+          "text": "* hashicorp/google 8.5.0 schema. Gated behind ZENITH_TEST_TOFU_NETWORK=1 (and"
+        },
+        {
+          "line": 18,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run --maxWorkers=1 tests/providers/gcp/tofu-validate.test.ts"
+        },
+        {
+          "line": 40,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 64,
+          "text": "describe.skipIf(!enabled)(\"tofu validate against hashicorp/google 8.5.0 (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/gcp/tofu-validate.test.ts:cb09ecb33176",
+              "suite": "tofu validate against hashicorp/google 8.5.0 (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/azure/mysql.test.ts",
+      "project": "node",
+      "total": 23,
+      "passed": 21,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1426,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 132,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\" || !tofuOnPath())(\"Azure MySQL real pinned tofu validate (network, no Azure account)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/azure/mysql.test.ts:41217ec8ff09",
+              "suite": "Azure MySQL real pinned tofu validate (network, no Azure account)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/azure/deploy.test.ts",
+      "project": "node",
+      "total": 9,
+      "passed": 8,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1427,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 4,
+          "text": "* (ZENITH_TEST_TOFU_NETWORK=1). Nothing here applies anything to Azure."
+        },
+        {
+          "line": 105,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && (() => { try { resolveTofuBinary(); return true; } catch { return false; } })();"
+        },
+        {
+          "line": 107,
+          "text": "describe.skipIf(!enabled)(\"deploy/azure validates against the real azurerm 5.7.0 schema (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/azure/deploy.test.ts:29283123dd58",
+              "suite": "deploy/azure validates against the real azurerm 5.7.0 schema (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/oci/validate.test.ts",
+      "project": "node",
+      "total": 6,
+      "passed": 1,
+      "skipped": 5,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1447,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 4,
+          "text": "* Gated behind ZENITH_TEST_TOFU_NETWORK=1 (it installs the provider from"
+        },
+        {
+          "line": 10,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/oci/validate.test.ts"
+        },
+        {
+          "line": 23,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 50,
+          "text": "describe.skipIf(!enabled)(\"tofu validate against oracle/oci 9.7.1 (network)\", () => {"
+        },
+        {
+          "line": 149,
+          "text": "describe.skipIf(!enabled)(\"the customer bootstrap module (deploy/oci) validates against the locked provider (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/oci/validate.test.ts:fc9542558d40",
+              "suite": "tofu validate against oracle/oci 9.7.1 (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            },
+            {
+              "id": "tofu:tests/providers/oci/validate.test.ts:7d3754548d21",
+              "suite": "the customer bootstrap module (deploy/oci) validates against the locked provider (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/kubernetes/kind.test.ts",
+      "project": "node",
+      "total": 6,
+      "passed": 0,
+      "skipped": 6,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1453,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 3,
+          "text": "*   ZENITH_TEST_KIND=1   and   KUBECONFIG points at a disposable cluster"
+        },
+        {
+          "line": 34,
+          "text": "const enabled = process.env.ZENITH_TEST_KIND === \"1\" && !!process.env.KUBECONFIG;"
+        },
+        {
+          "line": 36,
+          "text": "describe.skipIf(!enabled)(\"kubernetes provider against a real cluster (kind)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/aws/drivers/messaging/assemble.test.ts",
+      "project": "node",
+      "total": 9,
+      "passed": 8,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1459,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 3,
+          "text": "* Provider-schema validation stays gated behind ZENITH_TEST_TOFU_NETWORK=1;"
+        },
+        {
+          "line": 116,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\")(\"OpenTofu AWS 6.66.0 schema validation (requires binary/network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/aws/drivers/messaging/assemble.test.ts:4b4c8fd91ca4",
+              "suite": "OpenTofu AWS 6.66.0 schema validation (requires binary/network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/worker.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 15,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1461,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/worker.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/ephemeral-network.test.ts",
+      "project": "node",
+      "total": 5,
+      "passed": 0,
+      "skipped": 5,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1473,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 56,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\" || !tofuOnPath())(\"real ephemeral resources (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/tofu/ephemeral-network.test.ts:437ae1ea73bb",
+              "suite": "real ephemeral resources (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/ecs-replica-repair.test.ts",
+      "project": "node",
+      "total": 11,
+      "passed": 0,
+      "skipped": 11,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1537,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/ecs-replica-repair.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/reconcile.test.ts",
+      "project": "node",
+      "total": 2,
+      "passed": 0,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1556,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/reconcile.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/network.test.ts",
+      "project": "node",
+      "total": 4,
+      "passed": 0,
+      "skipped": 4,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1563,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 3,
+          "text": "* ZENITH_TEST_TOFU_NETWORK=1 (and a tofu binary): they need internet access"
+        },
+        {
+          "line": 8,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/tofu/network.test.ts"
+        },
+        {
+          "line": 23,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 35,
+          "text": "describe.skipIf(!enabled)(\"real provider install through the committed lockfile (network)\", () => {"
+        },
+        {
+          "line": 120,
+          "text": "describe.skipIf(!enabled)(\"AWS provider blocks validate against the real provider schema (network, ~160 MB first run)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/tofu/network.test.ts:744a088ae671",
+              "suite": "real provider install through the committed lockfile (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            },
+            {
+              "id": "tofu:tests/tofu/network.test.ts:0f78af001951",
+              "suite": "AWS provider blocks validate against the real provider schema (network, ~160 MB first run)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/aws/identity/trust.test.ts",
+      "project": "node",
+      "total": 14,
+      "passed": 13,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1571,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 95,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\")(\"IRSA pinned provider schema\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/aws/identity/trust.test.ts:73f0f76f8f9b",
+              "suite": "IRSA pinned provider schema",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/execution/destroy-review-temporal.test.ts",
+      "project": "node",
+      "total": 1,
+      "passed": 0,
+      "skipped": 1,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1603,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 20,
+          "text": "const enabled = !!process.env.ZENITH_TEST_TEMPORAL_SERVER || process.env.ZENITH_TEST_TEMPORAL_DOWNLOAD === \"1\";"
+        },
+        {
+          "line": 26,
+          "text": "if (!enabled) return;"
+        },
+        {
+          "line": 60,
+          "text": "describe.skipIf(!enabled)(\"Temporal read-only teardown review workflow\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/replay.test.ts",
+      "project": "node",
+      "total": 7,
+      "passed": 0,
+      "skipped": 7,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1631,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/replay.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/aws/drivers/compute/assemble.test.ts",
+      "project": "node",
+      "total": 7,
+      "passed": 4,
+      "skipped": 3,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1638,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 4,
+          "text": "* certificate) and, when `ZENITH_TEST_TOFU_NETWORK=1`, checked by a real"
+        },
+        {
+          "line": 7,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/aws/drivers/compute/assemble.test.ts"
+        },
+        {
+          "line": 81,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 83,
+          "text": "describe.skipIf(!enabled)(\"real `tofu validate` against hashicorp/aws 6.66.0 (network, plugin cache)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/aws/drivers/compute/assemble.test.ts:80c709c27b1b",
+              "suite": "real `tofu validate` against hashicorp/aws 6.66.0 (network, plugin cache)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/aws/drivers/e2e-compile.test.ts",
+      "project": "node",
+      "total": 8,
+      "passed": 6,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1649,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 111,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\")(\"real OpenTofu AWS 6.66.0 schema validation (opt-in)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/aws/drivers/e2e-compile.test.ts:ffc38cdfe7a6",
+              "suite": "real OpenTofu AWS 6.66.0 schema validation (opt-in)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/azure/validate.test.ts",
+      "project": "node",
+      "total": 6,
+      "passed": 1,
+      "skipped": 5,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1653,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 7,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/azure/validate.test.ts"
+        },
+        {
+          "line": 24,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && (() => { try { resolveTofuBinary(); return true; } catch { return false; } })();"
+        },
+        {
+          "line": 48,
+          "text": "describe.skipIf(!enabled)(\"compiled Azure OpenTofu validates against the real azurerm 5.7.0 schema (network)\", () => {"
+        },
+        {
+          "line": 122,
+          "text": "it(\"is skipped unless ZENITH_TEST_TOFU_NETWORK=1 and a tofu binary exists (documented in the file header)\", () => {"
+        },
+        {
+          "line": 123,
+          "text": "expect(typeof enabled).toBe(\"boolean\");"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/azure/validate.test.ts:fd17a919fe48",
+              "suite": "compiled Azure OpenTofu validates against the real azurerm 5.7.0 schema (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/cli/config.test.ts",
+      "project": "node",
+      "total": 16,
+      "passed": 15,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1658,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 34,
+          "text": "it.skipIf(process.platform === \"win32\")(\"POSIX config file is 0600 and directory is 0700 (mode check skipped on Windows)\", async () => {"
+        },
+        {
+          "line": 40,
+          "text": "it.runIf(process.platform === \"win32\")(\"Windows refuses inherited ACLs that grant other identities access\", async () => {"
+        },
+        {
+          "line": 86,
+          "text": "it.skipIf(process.platform === \"win32\")(\"refuses shared POSIX files and symlinked config paths\", async () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/aws/drivers/data/assemble.test.ts",
+      "project": "node",
+      "total": 5,
+      "passed": 4,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1746,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 9,
+          "text": "* Gated (`ZENITH_TEST_TOFU_NETWORK=1`, needs the `tofu` binary and, the first"
+        },
+        {
+          "line": 15,
+          "text": "*   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/aws/drivers/data/assemble.test.ts"
+        },
+        {
+          "line": 94,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 96,
+          "text": "describe.skipIf(!enabled)(\"compiled data fragments validate against the real hashicorp/aws provider (network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/aws/drivers/data/assemble.test.ts:aeb78afc816b",
+              "suite": "compiled data fragments validate against the real hashicorp/aws provider (network)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/sources/github-store.test.ts",
+      "project": "node",
+      "total": 20,
+      "passed": 10,
+      "skipped": 10,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1778,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 11,
+          "text": "db = await openPlatformDb({ kind, url: kind === \"postgres\" ? process.env.ZENITH_TEST_PLATFORM_PG_URL : undefined, migrate: true });"
+        },
+        {
+          "line": 52,
+          "text": "it(\"stores hashed state/proof and never lets an install callback skip OAuth\", async () => {"
+        },
+        {
+          "line": 72,
+          "text": "describe.skipIf(!process.env.ZENITH_TEST_PLATFORM_PG_URL)(\"GitHub source Postgres store (opt-in)\", () => contracts(\"postgres\"));"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/gcp/identity/trust.test.ts",
+      "project": "node",
+      "total": 10,
+      "passed": 9,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1800,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 56,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\")(\"GKE trust pinned provider schema\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/gcp/identity/trust.test.ts:517e35ec3712",
+              "suite": "GKE trust pinned provider schema",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/security/workflow-history.test.ts",
+      "project": "node",
+      "total": 10,
+      "passed": 8,
+      "skipped": 2,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1812,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 53,
+          "text": "describe.skipIf(process.env.ZENITH_SEC_TEMPORAL !== \"1\")(\"real Temporal history (opt-in; fake activities)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/security/workflow-history.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/azure/identity/trust.test.ts",
+      "project": "node",
+      "total": 5,
+      "passed": 4,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1820,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 48,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_TOFU_NETWORK !== \"1\")(\"AKS trust pinned provider schema\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/providers/azure/identity/trust.test.ts:23bfb0e3d5eb",
+              "suite": "AKS trust pinned provider schema",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/providers/kubernetes/release-kind.test.ts",
+      "project": "node",
+      "total": 1,
+      "passed": 0,
+      "skipped": 1,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1840,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 4,
+          "text": "* Requires ZENITH_TEST_KIND=1, KUBECONFIG and a"
+        },
+        {
+          "line": 5,
+          "text": "* ZENITH_TEST_KIND_RELEASE_IMAGE digest for a non-root image with /bin/sh."
+        },
+        {
+          "line": 18,
+          "text": "const image = process.env.ZENITH_TEST_KIND_RELEASE_IMAGE;"
+        },
+        {
+          "line": 19,
+          "text": "const enabled = process.env.ZENITH_TEST_KIND === \"1\" && !!process.env.KUBECONFIG && !!image;"
+        },
+        {
+          "line": 20,
+          "text": "describe.skipIf(!enabled)(\"Kubernetes release ports against a disposable kind cluster\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/codec-replay.test.ts",
+      "project": "node",
+      "total": 2,
+      "passed": 0,
+      "skipped": 2,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1858,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 15,
+          "text": "const enabled = process.env.ZENITH_TEST_TEMPORAL === \"1\";"
+        },
+        {
+          "line": 19,
+          "text": "if (!enabled) return;"
+        },
+        {
+          "line": 27,
+          "text": "describe.skipIf(!enabled)(\"codec histories on local Temporal (ZENITH_TEST_TEMPORAL=1)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/codec-replay.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/approval-time.test.ts",
+      "project": "node",
+      "total": 3,
+      "passed": 0,
+      "skipped": 3,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1868,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/approval-time.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/acceptance/sample-app.test.ts",
+      "project": "node",
+      "total": 5,
+      "passed": 4,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1872,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 26,
+          "text": "it.skipIf(process.env.ZENITH_TEST_NETWORK !== \"1\")(\"real non-routable TCP: /db times out and /health remains 200 (network opt-in required)\", async () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/destroy-replay.test.ts",
+      "project": "node",
+      "total": 6,
+      "passed": 0,
+      "skipped": 6,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1907,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 12,
+          "text": "const enabled = process.env.ZENITH_TEST_TEMPORAL === \"1\";"
+        },
+        {
+          "line": 14,
+          "text": "if (!enabled) return;"
+        },
+        {
+          "line": 22,
+          "text": "describe.skipIf(!enabled)(\"real destroy workflow histories (ZENITH_TEST_TEMPORAL=1)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "workflows",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "workflows:tests/workflows/destroy-replay.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/execution/deletion-guards-real.test.ts",
+      "project": "node",
+      "total": 1,
+      "passed": 0,
+      "skipped": 1,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1921,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 4,
+          "text": "* Run with ZENITH_TEST_DELETION_GUARDS_TOFU=1 when tofu can execute."
+        },
+        {
+          "line": 16,
+          "text": "const enabled = process.env.ZENITH_TEST_DELETION_GUARDS_TOFU === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 20,
+          "text": "describe.skipIf(!enabled)(\"real tofu deploy removal (ZENITH_TEST_DELETION_GUARDS_TOFU=1)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/acceptance/tofu-destroy.test.ts",
+      "project": "node",
+      "total": 9,
+      "passed": 8,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1923,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 29,
+          "text": "describe.skipIf(!tofuOnPath())(\"real tofu 1.12.5: builtin provider, local backend\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/policy/parity.test.ts",
+      "project": "node",
+      "total": 1,
+      "passed": 0,
+      "skipped": 1,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1933,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 38,
+          "text": "describe.skipIf(!opaAvailable)(\"the wasm agrees with the OPA interpreter\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "policy",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "policy:tests/policy/parity.test.ts:4ee93ed6c454",
+              "suite": null,
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/hcl-template-real.test.ts",
+      "project": "node",
+      "total": 2,
+      "passed": 0,
+      "skipped": 2,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1949,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 14,
+          "text": "describe.skipIf(!tofuOnPath())(\"HCL scanner versus real OpenTofu 1.12.5 (no network)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [],
+          "scope": "command inclusion only; no per-file required-group assertion"
+        }
+      ],
+      "classification": "lane-command-only",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/destroy-real.test.ts",
+      "project": "node",
+      "total": 2,
+      "passed": 0,
+      "skipped": 2,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1985,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 11,
+          "text": "const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === \"1\" && tofuOnPath();"
+        },
+        {
+          "line": 13,
+          "text": "describe.skipIf(!enabled)(\"real tofu destroy (ZENITH_TEST_TOFU_NETWORK=1)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [
+            {
+              "id": "tofu:tests/tofu/destroy-real.test.ts:ceb4c16e2744",
+              "suite": "real tofu destroy (ZENITH_TEST_TOFU_NETWORK=1)",
+              "ancestorSuite": null,
+              "postgres": false,
+              "backend": null
+            }
+          ],
+          "scope": "source-selected required groups; case identity not replayable"
+        }
+      ],
+      "classification": "required-group-covered",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/workflows/mtls-live.test.ts",
+      "project": "node",
+      "total": 2,
+      "passed": 0,
+      "skipped": 2,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1994,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 7,
+          "text": "const enabled = process.env.ZENITH_TEST_TEMPORAL_MTLS === \"1\";"
+        },
+        {
+          "line": 9,
+          "text": "describe.skipIf(!enabled)(\"external Temporal mTLS (ZENITH_TEST_TEMPORAL_MTLS=1)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/bridge/steps.test.ts",
+      "project": "node",
+      "total": 3,
+      "passed": 2,
+      "skipped": 1,
+      "reporterSymbol": "✓",
+      "logFile": "job-111148396918.log",
+      "line": 1995,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 20,
+          "text": "describe.skipIf(!existsSync(port))(\"worker projection compatibility\", () => {"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/sources/github-live.test.ts",
+      "project": "node",
+      "total": 1,
+      "passed": 0,
+      "skipped": 1,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 1997,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 7,
+          "text": "describe.skipIf(process.env.ZENITH_TEST_SOURCE_GITHUB_APP !== \"1\")(\"private GitHub App source (opt-in network)\", () => {"
+        },
+        {
+          "line": 9,
+          "text": "const config = githubAppConfig(); const ref = process.env.ZENITH_TEST_SOURCE_REF;"
+        },
+        {
+          "line": 11,
+          "text": "try { raw = JSON.parse(process.env.ZENITH_TEST_SOURCE_GITHUB_BINDING ?? \"{}\"); }"
+        }
+      ],
+      "canonicalCoverage": [],
+      "classification": "outside-five-canonical-lanes",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    },
+    {
+      "file": "tests/tofu/plan-lock.test.ts",
+      "project": "node",
+      "total": 1,
+      "passed": 0,
+      "skipped": 1,
+      "reporterSymbol": "↓",
+      "logFile": "job-111148396918.log",
+      "line": 2013,
+      "capturedSkippedCaseTitles": null,
+      "sourceOnlyGuardCandidates": [
+        {
+          "line": 18,
+          "text": "describe.skipIf(!tofuOnPath())(\"plan state lock option (real tofu)\", () => {"
+        }
+      ],
+      "canonicalCoverage": [
+        {
+          "lane": "tofu",
+          "includedByLaneCommand": true,
+          "requiredGroups": [],
+          "scope": "command inclusion only; no per-file required-group assertion"
+        }
+      ],
+      "classification": "lane-command-only",
+      "inferenceLimit": "Source guard candidates and suite declarations are not captured skipped-case identities or a one-to-one attribution of this file count."
+    }
+  ]
+}

@@ -1,0 +1,640 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "5f4b0516471614bb78a4cbaa526e36306abbd7c1",
+  "capturedAt": "2026-10-08T02:55:49.230436+00:00",
+  "runs": [
+    {
+      "id": 37716368194,
+      "conclusion": "failure"
+    },
+    {
+      "id": 37716368215,
+      "conclusion": "success"
+    },
+    {
+      "id": 37716368418,
+      "conclusion": "success"
+    }
+  ],
+  "terminalJobs": 20,
+  "successfulJobs": 19,
+  "failedJobs": 1,
+  "pendingJobs": 0,
+  "jobs": [
+    {
+      "runId": 37716368194,
+      "job": "docker",
+      "jobId": 113113624368,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624368",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "postgres",
+      "jobId": 113113624537,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624537",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 379,
+        "passed": 379,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 93,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368194,
+      "job": "hosted",
+      "jobId": 113113624548,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624548",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "policy",
+      "jobId": 113113624604,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624604",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 242,
+        "passed": 242,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 8,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368194,
+      "job": "build",
+      "jobId": 113113624612,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624612",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "go",
+      "jobId": 113113624619,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624619",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "agent",
+      "jobId": 113113624628,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624628",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "platform-postgres",
+      "jobId": 113113624645,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624645",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 3777,
+        "passed": 3762,
+        "failed": 0,
+        "skipped": 15,
+        "unknown": 0
+      },
+      "requiredPassed": 1146,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368194,
+      "job": "ledger",
+      "jobId": 113113624649,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624649",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "tofu",
+      "jobId": 113113624659,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624659",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 4339,
+        "passed": 4320,
+        "failed": 0,
+        "skipped": 19,
+        "unknown": 0
+      },
+      "requiredPassed": 27,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368194,
+      "job": "generated",
+      "jobId": 113113624691,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624691",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "operation-gates (workflow-intents)",
+      "jobId": 113113624726,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624726",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 141,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368194,
+      "job": "verify",
+      "jobId": 113113624890,
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624890",
+      "countsScope": "full Node and DOM unit cases",
+      "counts": {
+        "passed": 21825,
+        "failed": 1,
+        "skipped": 1637,
+        "total": 23463
+      },
+      "fileCounts": {
+        "passed": 988,
+        "failed": 1,
+        "skipped": 57,
+        "total": 1046
+      },
+      "durationSeconds": 2340.83,
+      "failedCase": {
+        "file": "tests/ci/gate-manifest.test.ts",
+        "line": 1736,
+        "suite": "mandatory original-plan product and linked native authority gates",
+        "title": "refuses every missing or nonpassing product case and PGlite, foreign, malformed or substituted evidence",
+        "reason": "Test timed out in 20000ms",
+        "rawLogLines": "3408-3425"
+      },
+      "downstreamStepSkips": [
+        "Smoke",
+        "Verify Gimbal assets"
+      ]
+    },
+    {
+      "runId": 37716368194,
+      "job": "supply-chain",
+      "jobId": 113113624911,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113624911",
+      "countsScope": "not extracted"
+    },
+    {
+      "runId": 37716368194,
+      "job": "workflows",
+      "jobId": 113113625007,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113625007",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 1378,
+        "passed": 1378,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 105,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368194,
+      "job": "operation-gates (reconciliation)",
+      "jobId": 113113625046,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368194/job/113113625046",
+      "countsScope": "Vitest cases; overlaps other lanes",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredPassed": 26,
+      "actualChildExit": 0,
+      "canonicalBinding": "matched",
+      "canonicalVerdict": "passed",
+      "sourceClean": true,
+      "gateSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368215,
+      "job": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "jobId": 113113624524,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368215/job/113113624524",
+      "countsScope": "native acceptance checks, separate architecture evidence",
+      "checksPassed": 22,
+      "checksFailed": 0,
+      "checksSkipped": 0,
+      "platform": "linux/arm64",
+      "emulated": false,
+      "actualChildExit": 0,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "architecture": {
+        "processArch": "arm64",
+        "dockerArch": "arm64"
+      },
+      "threeSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368215,
+      "job": "packaged-worker (amd64, ubuntu-24.04)",
+      "jobId": 113113624785,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368215/job/113113624785",
+      "countsScope": "native acceptance checks, separate architecture evidence",
+      "checksPassed": 22,
+      "checksFailed": 0,
+      "checksSkipped": 0,
+      "platform": "linux/amd64",
+      "emulated": false,
+      "actualChildExit": 0,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "architecture": {
+        "processArch": "x64",
+        "dockerArch": "amd64"
+      },
+      "threeSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368418,
+      "job": "linux-systemd",
+      "jobId": 113113624710,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368418/job/113113624710",
+      "countsScope": "one native leaf; no broad installed-agent claim",
+      "leaf": {
+        "name": "TestRealSystemctlAndJournalctl",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblingCount": 0
+      },
+      "cleanup": "complete",
+      "threeSourceHashesIndependentlyMatched": true
+    },
+    {
+      "runId": 37716368418,
+      "job": "windows-acl",
+      "jobId": 113113624837,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37716368418/job/113113624837",
+      "countsScope": "one native leaf; no broad installed-agent claim",
+      "leaf": {
+        "name": "private login config Windows refuses inherited ACLs that grant other identities access",
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "excludedSiblingCount": 15
+      },
+      "cleanup": "complete",
+      "threeSourceHashesIndependentlyMatched": true
+    }
+  ],
+  "tofuSkipMapping": {
+    "skippedTotal": 19,
+    "nativeHandoff": {
+      "skippedInTofu": 18,
+      "mandatoryEquivalentLane": "platform-postgres",
+      "all18ExactRequiredIdsPassedAtThisCommit": true,
+      "requirements": [
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:866597c43f5e",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:37b02f85810a",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:afbbc9e1f26a",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:30c54b0570ef",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:9f54454f6925",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:640649532efe",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:6490ca54e048",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:784d800ec8a0",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:644f6f12ffdc",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:3b8932d25748",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:22a11f2d9fce",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:7fe0588809db",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:21f5aae37a94",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:e15201768bc0",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:0e2e099b356a",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:e72e1c6bf6e4",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:8989dadf9ee4",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        },
+        {
+          "id": "platform-postgres:tests/tofu/plan-artifact-handoff.test.ts:fdf28b7e6f5e",
+          "file": "tests/tofu/plan-artifact-handoff.test.ts",
+          "backend": "postgres",
+          "counts": {
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+            "unknown": 0
+          },
+          "status": "passed"
+        }
+      ]
+    },
+    "azureLive": {
+      "skippedInTofu": 1,
+      "status": "unverified",
+      "requiredPrerequisites": [
+        "ZENITH_LIVE_AZURE exactly1",
+        "authorized public Azure credential file at ZENITH_LIVE_AZURE_CRED_FILE"
+      ],
+      "optionalBuildRequiresSeparateOptIn": true,
+      "fakeHarnessTestsAreNotEquivalent": true
+    }
+  },
+  "limitations": [
+    "Counts overlap and must not be summed across lanes.",
+    "Skips and filtered sibling cases never count as passed.",
+    "Smoke/Gimbal downstream step skips are separate from unit test skips.",
+    "Only this exact 5f4b source is covered; later 12547335 title-check optimization is absent.",
+    "Main remains failed; no final-green or whole-goal acceptance.",
+    "External Temporal mTLS and genuine live Azure remain separate unverified scopes.",
+    "Private raw logs and original receipts retained separately; no restart or cancellation performed."
+  ]
+}

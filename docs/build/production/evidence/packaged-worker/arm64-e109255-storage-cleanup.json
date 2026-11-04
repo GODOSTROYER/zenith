@@ -1,0 +1,80 @@
+{
+  "builder": "zenith-owned-bcbfe6777302",
+  "builderImage": "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+  "platform": "linux/arm64",
+  "minimumFreeGiBBeforeLaunch": 12,
+  "warningFreeGiB": 8,
+  "samples": [
+    {
+      "at": "2026-10-02T23:59:05Z",
+      "freeGiB": 32.44
+    },
+    {
+      "at": "2026-10-02T23:59:36Z",
+      "freeGiB": 31.97
+    },
+    {
+      "at": "2026-10-03T00:00:06Z",
+      "freeGiB": 30.15
+    },
+    {
+      "at": "2026-10-03T00:00:36Z",
+      "freeGiB": 27.54
+    },
+    {
+      "at": "2026-10-03T00:01:06Z",
+      "freeGiB": 27.18
+    },
+    {
+      "at": "2026-10-03T00:01:36Z",
+      "freeGiB": 25.67
+    },
+    {
+      "at": "2026-10-03T00:02:06Z",
+      "freeGiB": 24.6
+    },
+    {
+      "at": "2026-10-03T00:02:36Z",
+      "freeGiB": 24.34
+    },
+    {
+      "at": "2026-10-03T00:02:57Z",
+      "freeGiB": 26.21
+    }
+  ],
+  "cleanup": [
+    {
+      "reference": "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      "imageId": "sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+      "exitCode": 0,
+      "removed": true
+    },
+    {
+      "reference": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "exitCode": 0,
+      "removed": true
+    },
+    {
+      "reference": "temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+      "imageId": "sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+      "exitCode": 0,
+      "removed": true
+    }
+  ],
+  "baselineImageIds": [],
+  "acceptanceExitCode": 0,
+  "builderCleanup": {
+    "exitCode": 0,
+    "builderAbsent": true,
+    "containerAbsent": true,
+    "cacheVolumeAbsent": true
+  },
+  "dockerUsageAfter": "TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE\nImages          0         0         0B        0B\nContainers      0         0         0B        0B\nLocal Volumes   0         0         0B        0B\nBuild Cache     0         0         0B        0B\n",
+  "sourceCommit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+  "scope": "Root-owned disposable builder/cache and newly pulled known dependency images. Unrelated resources preserved.",
+  "references": [
+    "https://docs.docker.com/build/builders/manage/",
+    "https://docs.docker.com/build/builders/drivers/"
+  ]
+}

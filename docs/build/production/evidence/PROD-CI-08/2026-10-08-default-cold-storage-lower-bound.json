@@ -1,0 +1,20 @@
+{
+  "sourceMetadataSha256": "25eff5f628d82ce7b83aebb81718dd1e208baaace9404c4fef321188fcb4c383",
+  "uniqueLayers": 47,
+  "observed": 47,
+  "payloadBytesRead": 376,
+  "compressedUniqueBytes": 753049784,
+  "gzipFooterExpandedLowerBoundBytes": 2549886464,
+  "expandedUpperBoundBytes": null,
+  "freeBytesAtObservation": 27293196288,
+  "floorBytes": 23622320128,
+  "headroomBytes": 3670876160,
+  "coldContentPlusExpandedLowerBoundBytes": 3302936248,
+  "limits": "Public digest-addressed blob-tail observations only, not full layer checksum or pulled-image/snapshot proof. Gzip ISIZE is modulo2^32 and last-member only, so a lower bound, never a safe expanded upper bound. No images or services downloaded/started.",
+  "metadataReceiptSha256": "08fdc8cf6cc9a03bf86cc997318dd08235986983e6bcbe1d88ccf0db50681c5a",
+  "sourceCommit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+  "verdict": "safe_cold_start_admission_unproved",
+  "imagesPulled": 0,
+  "servicesStarted": 0,
+  "testsExecuted": 0
+}

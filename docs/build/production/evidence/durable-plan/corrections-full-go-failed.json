@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T04:54:19.853125+00:00",
+  "sourceCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+  "status": "failed_go_race_not_integrated",
+  "checks": [
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "seconds": 39.54
+    },
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "seconds": 23.13
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.04
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 1.35
+    },
+    {
+      "name": "go-race",
+      "exitCode": 1,
+      "seconds": 26.17
+    }
+  ],
+  "goRace": {
+    "topLevelPassed": 225,
+    "subtestsPassed": 539,
+    "failed": 1,
+    "linuxOnlyMacSkipped": 3,
+    "passedPackages": 10,
+    "failedPackages": 1
+  },
+  "failedTest": {
+    "package": "go/internal/agent",
+    "test": "TestNextKeysArePinnedAndPersisted",
+    "reason": "New key trust becomes visible before identity persistence; persistence failure also skips same-key retry."
+  },
+  "privateResultsSha256": "d0db8825b6dc5265a836a997f8f169ce2fab632d08d985004f18adffe55d719e",
+  "privateGoLogSha256": "163e64d3265da60b26c3b3433d4d49e01f880126f7ba0abcbf53410ff3811071",
+  "notExecuted": [
+    "generated policy",
+    "emitted SQL",
+    "capability matrix",
+    "AWS templates",
+    "production ledger check",
+    "full unit",
+    "mandatory security audit in this attempt",
+    "canonical workflows",
+    "canonical policy",
+    "canonical OpenTofu",
+    "packaged worker startup",
+    "local default API/browser",
+    "live cloud acceptance"
+  ],
+  "limits": [
+    "Earlier corrected32-path actual PostgreSQL/Supabase/kind evidence remains valid for those bytes and is separate from full-gate status.",
+    "One failure retained; source-only key-rotation correction active, no full green claim.",
+    "No source main integration or push inferred from local staging merge."
+  ]
+}

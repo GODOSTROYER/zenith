@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "component": "@open-policy-agent/opa-wasm",
+  "upstreamVersion": "1.10.0",
+  "localModification": "numeric-precision-validation-1",
+  "upstreams": [
+    {
+      "name": "@open-policy-agent/opa-wasm",
+      "version": "1.10.0",
+      "gitHead": "596f8e94d786cddb3374d064f5d3040c0e437167",
+      "repo": "open-policy-agent/npm-opa-wasm",
+      "integrity": "sha512-ymR/nFS3nO9o24j9xowGGQaf+Gmb813QcxUpVZkfRlJkawKWqSIllnEH15agyWjijmOIyhA+OBErenx6N3jphw==",
+      "archiveSha256": "8b0efaed83a47e3a73c8afc23630d26d17cd9aea6f90d533aa0dd0babdb9939f",
+      "archiveBytes": 248482,
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 11357,
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/builtins/index.js",
+          "bytes": 207,
+          "sha256": "966ca3e984f86fb057d40982e4cdbddc23b6e599a8bcda74f9c5a709bb2fba15",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/builtins/json.js",
+          "bytes": 281,
+          "sha256": "23312c75897dea6e270a1f05593d4eb6a00266be729d287923cb621f85f99c46",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/opa.js",
+          "bytes": 16640,
+          "sha256": "aea2b32cd95512c70300bf8fb6e56008751eed1f77e160b90fb2de66879fc214",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/builtins/regex.js",
+          "bytes": 110,
+          "sha256": "f33d0938a3ce676450c20f2a46bfedafe97c0fd6a946744c00ca4b68dd9adba5",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/builtins/strings.js",
+          "bytes": 133,
+          "sha256": "f89e11fec00ad40b5da752a26197445d1781c1c1485ec418e684c33156b87381",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/builtins/yaml.js",
+          "bytes": 1077,
+          "sha256": "51926336ba1d407af01153cb088c8d7e5c4c210a12e35bdcc753c3f64f0a55cd",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/index.mjs",
+          "bytes": 124,
+          "sha256": "db7b1eaf9bd4828d0c50f43440c525110b47310b9aa4e39606c5450c474286e2",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "dist/types/opa.d.mts",
+          "bytes": 3879,
+          "sha256": "1ea7fabfeceef257f905a03866d332da9bc42174ba86163f359b3b8c5510c68a",
+          "sameImmutableUpstream": "HTTPError"
+        }
+      ]
+    },
+    {
+      "name": "sprintf-js",
+      "version": "1.1.3",
+      "gitHead": "3a0d8c26d291b5bd9f1974877ecc50739921d6f5",
+      "repo": "alexei/sprintf.js",
+      "integrity": "sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==",
+      "archiveSha256": "9a8537928cdd2e987055f5cf38ae19db4a2d4b71c46648a51f15698a48deaeb6",
+      "archiveBytes": 10968,
+      "files": [
+        {
+          "path": "LICENSE",
+          "bytes": 1513,
+          "sha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef",
+          "sameImmutableUpstream": true
+        },
+        {
+          "path": "src/sprintf.js",
+          "bytes": 9250,
+          "sha256": "95add43f116385be221745307fae02d06751b01d4f939df1debb17dbe2ebf4eb",
+          "sameImmutableUpstream": true
+        }
+      ]
+    }
+  ],
+  "yaml": {
+    "name": "yaml",
+    "version": "1.10.3",
+    "gitHead": "cfe8f0437054ff5fbfe6499894f55b3316a54959",
+    "repository": {
+      "url": "git+https://github.com/eemeli/yaml.git",
+      "type": "git"
+    },
+    "integrity": "sha512-vIYeF1u3CjlhAFekPPAk2h/Kv4T3mAkMox5OymRiJQB0spDP10LHvt+K7G9Ny6NuuMAb25/6n1qyUjAcGNf/AA==",
+    "sha256": "535b1631378a24208a53f3c1992c3b3f86e063d3abc8cb13c9a4af9db1dd45e2",
+    "bytes": 80665,
+    "url": "https://registry.npmjs.org/yaml/-/yaml-1.10.3.tgz"
+  },
+  "sources": [
+    {
+      "file": "index.mjs",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/index.mjs",
+      "originalSha256": "db7b1eaf9bd4828d0c50f43440c525110b47310b9aa4e39606c5450c474286e2",
+      "sha256": "db7b1eaf9bd4828d0c50f43440c525110b47310b9aa4e39606c5450c474286e2",
+      "bytes": 124
+    },
+    {
+      "file": "opa.js",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/opa.js",
+      "originalSha256": "aea2b32cd95512c70300bf8fb6e56008751eed1f77e160b90fb2de66879fc214",
+      "sha256": "18a4b7e888b356d937a8423859a3bc3f2fae2ac664b81d860dfa5771d3228a5e",
+      "bytes": 16754
+    },
+    {
+      "file": "builtins/index.js",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/builtins/index.js",
+      "originalSha256": "966ca3e984f86fb057d40982e4cdbddc23b6e599a8bcda74f9c5a709bb2fba15",
+      "sha256": "68309c2a9e6a93a6cebc156f5febbe534365f42272670b8dc93cb4afb795a3f0",
+      "bytes": 663
+    },
+    {
+      "file": "builtins/json.js",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/builtins/json.js",
+      "originalSha256": "23312c75897dea6e270a1f05593d4eb6a00266be729d287923cb621f85f99c46",
+      "sha256": "23312c75897dea6e270a1f05593d4eb6a00266be729d287923cb621f85f99c46",
+      "bytes": 281
+    },
+    {
+      "file": "builtins/regex.js",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/builtins/regex.js",
+      "originalSha256": "f33d0938a3ce676450c20f2a46bfedafe97c0fd6a946744c00ca4b68dd9adba5",
+      "sha256": "f33d0938a3ce676450c20f2a46bfedafe97c0fd6a946744c00ca4b68dd9adba5",
+      "bytes": 110
+    },
+    {
+      "file": "builtins/strings.js",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/builtins/strings.js",
+      "originalSha256": "f89e11fec00ad40b5da752a26197445d1781c1c1485ec418e684c33156b87381",
+      "sha256": "6390fc0618ae1f3fc0e8cc3d2a35c8ba38a2d890435aaa3a113af563973606ed",
+      "bytes": 246
+    },
+    {
+      "file": "builtins/yaml.js",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/src/builtins/yaml.js",
+      "originalSha256": "51926336ba1d407af01153cb088c8d7e5c4c210a12e35bdcc753c3f64f0a55cd",
+      "sha256": "469c2c58b2d14ac932509a66cba0bb7f2ec44fbce61da828bd4a26bfa66f84d7",
+      "bytes": 1200
+    },
+    {
+      "file": "opa.d.ts",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/dist/types/opa.d.mts",
+      "originalSha256": "1ea7fabfeceef257f905a03866d332da9bc42174ba86163f359b3b8c5510c68a",
+      "sha256": "254d8538f955f1e34341eb76b64d71f2fa0137add7f96fa046cbc76e6f89ab7d",
+      "bytes": 4807
+    },
+    {
+      "file": "LICENSE-OPA",
+      "upstream": "@open-policy-agent/opa-wasm@1.10.0/LICENSE",
+      "originalSha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "bytes": 11357
+    },
+    {
+      "file": "builtins/sprintf.js",
+      "upstream": "sprintf-js@1.1.3/src/sprintf.js",
+      "originalSha256": "95add43f116385be221745307fae02d06751b01d4f939df1debb17dbe2ebf4eb",
+      "sha256": "3a3dcc5199af5b2f762a016991a7f335108d1d6f8c8980fe454ee228a3e36b78",
+      "bytes": 9831
+    },
+    {
+      "file": "LICENSE-SPRINTF",
+      "upstream": "sprintf-js@1.1.3/LICENSE",
+      "originalSha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef",
+      "sha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef",
+      "bytes": 1513
+    },
+    {
+      "file": "index.d.mts",
+      "upstream": "Local typed entry forwarding published OPA1.10.0 declaration",
+      "originalSha256": "7dfa87edb2b08a15879377c26aea551c24ab9f2314bc833b5a82df3cd53c5a91",
+      "sha256": "7dfa87edb2b08a15879377c26aea551c24ab9f2314bc833b5a82df3cd53c5a91",
+      "bytes": 293
+    }
+  ],
+  "changes": [
+    "OPA strings requires the licensed local sprintf source; all exception propagation is preserved",
+    "OPA yaml requires an honest registry alias of the exact previously locked YAML1.10.3",
+    "sprintf parse validates e/f0..100 and g1..100 before native conversion and raises fixed value-free RangeError; no clamping/undefined conversion",
+    "The local typed entry forwards the published loader declaration",
+    "Exact line-scoped ESLint annotations preserve licensed upstream CommonJS and declaration ABI; removing the annotations reconstructs the pre-annotation bytes"
+  ],
+  "advisory": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+  "scope": "Only invalid numeric precision is repaired; this is not a claim that arbitrary formatter input is generally bounded",
+  "verification": "Tests and final runtime review are separate; provenance does not claim npm package publication or maintainer approval"
+}

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T06:33:01.957109+00:00",
+  "baseCommit": "1ce61919b2dd6fed04b00dd82e2de3ce229b8752",
+  "sourceSha256": {
+    "deploy/zenithd/config.example.yaml": "4f656699ac433a47ee479098b5deebc57960e649e17aed029bdaa53006c025e6",
+    "deploy/zenithd/zenithd-file-write.conf.example": "173f90378e3a8070fba0d8370dd99ed4163f868b7e742785d611bddf3f04b16b",
+    "docs/platform/ZENITHD.md": "a5a78fde822e855c084b639ce96d34bb30e5e82dbd0d8eed08a07504e94b4a5c",
+    "go/internal/machine/cli.go": "1f893524b1ec2f52b7739b9903c2c45d2bc519cb20def37ca35dc76adf4452a8",
+    "go/internal/machine/config.go": "ea72f3160763760d056f53ae55ada118d0a435e19eea1d76046b482e660330d0",
+    "go/internal/machine/config_test.go": "d29386ca182ad18b3081b0615a0f732368b99fe3a4661cfb126bff6be35bc56f",
+    "go/internal/machine/e2e_test.go": "de2e6ee39a5acb116801ec62b966eec8f6b85da01ffa7039c9f3e1f79895550e",
+    "go/internal/machine/executor.go": "6423f4b36e1547a3f575c84145d4ed3869d91f97d7dc6d7bd48a2daf3b421026",
+    "go/internal/machine/executor_test.go": "015b3d46a5fe784af29c8b8e98879c2cf2f6e26bdfedbbbd8816831fe5555e03",
+    "go/internal/machine/ops/filewrite.go": "594c6c4b39a283b72286147052aecaf6708ce6e7741ca93f4ec741ae1ceebacc",
+    "go/internal/machine/ops/filewrite_linux.go": "35b34a91585acf2efc8d70e4ae87d24b0de1f61e66abfcc0f39a4b97c10514b6",
+    "go/internal/machine/ops/filewrite_linux_test.go": "e2d7783301f64b70224155a66a628d1559d5a039817b72d0a12d94a63d7da508",
+    "go/internal/machine/ops/filewrite_other.go": "2b808b57b50de90b09c7ad58648bb2a6bcd8be5cb6a62a02fef7beeba76e2a5a",
+    "go/internal/machine/ops/filewrite_other_test.go": "bd7f6b75864280aad47773872ac7cc30c7b57fd54222db5852523ef3c1a669dc",
+    "go/internal/machine/ops/filewrite_test.go": "af09dd206ab04ad5855f9e7410430a9e9d5bc9c470f5325471c7e12916163a0b",
+    "go/internal/machine/ops/ops.go": "78c503149ef46555177281a79cc6866bc7c284a3b34f52239d0d87fe37c6d9a8",
+    "go/internal/machine/ops/ops_test.go": "2221b48cf7cfc8d6996329dfe2bd03b50793a92a50cfe99452e20e8b687379c7",
+    "go/internal/machine/ops/results_golden_test.go": "e143fb1bf52d91259448efa6d32c5f39f94876d77082a80fbe5a8683e78f68f5",
+    "src/lib/machines/args.ts": "300cb60a9facb6ae1c45bdf43e9fa225a6b2184fc45000158f3d8ab318204cdb",
+    "src/lib/machines/evidence.ts": "67db91652a6483d1bb9acd66c4d2652fee82e0e6f378bfe5f11a4e553c5f2868",
+    "src/lib/machines/guards.ts": "db6e5300e2d51fff11b2ea8e321cce1b61d814a8393c1c7bf1bf011be4d88b25",
+    "src/lib/machines/results.ts": "3754e42bbe7e7288eb411fa6b30dab05c574a5e0e08f6a19bca976de46c72477",
+    "src/lib/machines/service.ts": "c6f31e28e194532b90684d5ab848199de43dd5f14f8487d70a3c08732055347f",
+    "src/lib/machines/transports/aws-ssm.ts": "e20f4b44ab6d1eee226e9be7aac70f75ca8c40fafc2de6067f57554b68bfa0d3",
+    "src/lib/machines/transports/kubernetes.ts": "de1136c4d27ce00e78c12d60525ef838727ad14c77e5d5f94061d22ce108bc78",
+    "src/lib/machines/transports/simulated.ts": "2f37a4a13e0e896721121467f62e813bcb426d16ce3d7e85e8f1ac454dfde36e",
+    "src/lib/machines/transports/zenithd.ts": "f71af10c6fe2c1007025872e9d07e02cb758e87b83848cf41dfc5bb212aedfff",
+    "src/lib/runners/payloads.ts": "ba69093f0d84392cc15d9e296b199068405f59d6596e0e74eab0bbd429983c7a",
+    "tests/execution/machine-file-write-uncertainty.test.ts": "dc2025b5f8e290cb94738c0e7a457dd5b10bb39982b24dde00f42d2f22c3aee3",
+    "tests/machines/args.test.ts": "0140965ab451ff384b4903347773097cd08122e04c49ccc1ef951783aecb7f47",
+    "tests/machines/dispatcher.test.ts": "7a0c4c7cb56b09cd87e06cc3edfcb0afc2706498ed0cc6a53c461fdfc66065b0",
+    "tests/machines/file-write.test.ts": "1f633767f4933ca60218e5bea9cdb93cefff1e22ebe0bb5cd3ff5ff5e144bca9",
+    "tests/machines/service.test.ts": "1ff21e8250abce8e1d9e22dcb3ac2a7d68c5787411dd60f9b81e907ddaae6c33",
+    "tests/machines/zenithd.test.ts": "ecd39154503c83ef9e6df9a9ff08883c0d0afe3a45bf82c3170b801848500f6a",
+    "tests/runners/dispatch.test.ts": "9afa4c00d36ce1e527221139ffc539efbfcbb949a2961bd0b3eb7716c2279406"
+  },
+  "steps": [
+    {
+      "name": "arm64-vet",
+      "exitCode": 0,
+      "seconds": 8.82,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "arm64-zenithd-build",
+      "exitCode": 0,
+      "seconds": 0.45,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "arm64-ops-test-compile",
+      "exitCode": 0,
+      "seconds": 1.84,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "amd64-vet",
+      "exitCode": 0,
+      "seconds": 7.77,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "amd64-zenithd-build",
+      "exitCode": 0,
+      "seconds": 0.38,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "amd64-ops-test-compile",
+      "exitCode": 0,
+      "seconds": 1.74,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "scope": "Linux-target Go vet/build/test compilation only, not runtime execution",
+  "goVersion": "1.27.1",
+  "GOTOOLCHAIN": "local",
+  "CGO_ENABLED": "0",
+  "nativeLinuxTestsExecuted": false,
+  "status": "passed_linux_target_compilation_not_runtime",
+  "privateReceiptSha256": "153a9423a62dc3c9a0a71e7de493c11c47dab4876e7d5bbfee7529d365bf6928"
+}

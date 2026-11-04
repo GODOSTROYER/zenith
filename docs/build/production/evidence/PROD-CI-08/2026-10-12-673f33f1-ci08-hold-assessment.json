@@ -1,0 +1,140 @@
+{
+  "acceptance": [
+    "Clean installation, migrations, typecheck/lint/generated artifacts, real OpenTofu, OPA, Go race/interoperability, PostgreSQL, Temporal and real browser gates run with exact counts."
+  ],
+  "currentState": "in_progress",
+  "decision": "HOLD",
+  "decisiveUnmetCriterion": {
+    "criterion": "real browser gates",
+    "evidence": {
+      "executionOccurred": false,
+      "holds": [
+        "fresh post-rotation witness build summary and receipt",
+        "final R19 binding manifest and bound J/K/U paths and SHA-256 values",
+        "successful J prepare/default-stack receipt with j1Ready=true, j4Complete=true, j2Ready=false",
+        "user-operated exact generated-CA SSL-only login-keychain trust and AirPlay testing-window transition",
+        "root-issued exclusive J2-only UX window bound to the fresh joined.json and final J SHA"
+      ],
+      "path": "/tmp/zenith-673f33f1-j2-browser-launch-delta-r1/launch-delta.json",
+      "sha256": "bc7f5d77393554b4ae73c33987fec2f5d67454b15a2c31e769791b66de6b38aa",
+      "status": "prepared-held"
+    },
+    "status": "not executed; acceptance criterion unmet"
+  },
+  "dependencies": [
+    {
+      "id": "PROD-CI-02",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-03",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-04",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-05",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-06",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-07",
+      "state": "in_progress"
+    }
+  ],
+  "dependenciesAfterProposedCi07Verification": [
+    {
+      "id": "PROD-CI-02",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-03",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-04",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-05",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-06",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-07",
+      "state": "verified"
+    }
+  ],
+  "dependenciesAsObserved": [
+    {
+      "id": "PROD-CI-02",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-03",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-04",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-05",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-06",
+      "state": "verified"
+    },
+    {
+      "id": "PROD-CI-07",
+      "state": "in_progress"
+    }
+  ],
+  "dependencyClosureEffect": "CI02 through CI06 are verified; with proposed CI07 verification dependencies would be satisfied, but CI08 itself remains in_progress.",
+  "kind": "673f33f1-prod-ci08-closure-assessment",
+  "levels": {
+    "contract": {
+      "limitation": "contract coverage does not establish all execution lanes",
+      "present": true
+    },
+    "local_engine": {
+      "limitation": "1943 skips; no coherent full acceptance across all listed gate families",
+      "pins": [
+        "current673f full-core Node/DOM:24624P/0F/1943S",
+        "separate focused current/source-scoped runs retained"
+      ],
+      "present": true
+    },
+    "remote_ci": {
+      "limitation": "job summary only; eight jobs skipped; does not supply exact gate-specific counts for all criteria",
+      "pins": [
+        "673f exact CI:24 success/8 skipped/0 failed jobs"
+      ],
+      "present": true
+    }
+  },
+  "milestonePromotion": false,
+  "otherLimitations": [
+    "Clean install current full source not demonstrated by the 94d dependency-only receipt; that receipt is joined only for CI07 security inputs.",
+    "Full-core test skips remain skips and do not become passes.",
+    "Remote CI job-green status does not prove test-level counts for every named lane."
+  ],
+  "releaseFlagsChanged": false,
+  "requiredEvidenceLevels": [
+    "contract",
+    "local_engine",
+    "remote_ci"
+  ],
+  "requiredNextEvidence": "Run the exact-source coherent full verification after J2 browser/default-stack prerequisites are satisfied; capture exact gate counts and cleanup/source custody for all required lanes.",
+  "requirement": "PROD-CI-08",
+  "schemaVersion": 1
+}

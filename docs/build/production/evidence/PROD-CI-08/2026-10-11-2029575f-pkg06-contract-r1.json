@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "kind": "pkg06_source_bound_contract_evidence",
+  "requirementId": "PROD-PKG-06",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "sourceFreezeSha256": "ee06fae2373fbdd44fee144964dd9a261e87fb53ac937d8c5166263f899467a0",
+  "sourceEntries": 5926,
+  "sourceStable": true,
+  "coreSummarySha256": "76ee81cf757774f17e42fae69cc30db94d7896e15b19fde05c008bae85a147a9",
+  "identityReportSha256": "fb7ec6431368bcdac5bb53dc32691aac0fd6a58b182f3506eb72d01179d91a85",
+  "executionReceiptSha256": "81f3aaef3dc788d2e32a278fbad9c5bc74a340d4de042138843f23f0d14d19ed",
+  "contractEvidence": {
+    "tests/acceptance/maintenance-preconditions.test.ts": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 9
+    },
+    "tests/deploy/default-stack.test.ts": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 18
+    },
+    "tests/deploy/installation.test.ts": {
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 59
+    },
+    "tests/e2e/default/receipt.test.ts": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 18
+    },
+    "total": {
+      "passed": 104,
+      "failed": 0,
+      "skipped": 0,
+      "identities": 104
+    }
+  },
+  "gatedLocalEngineCases": {
+    "expected": 70,
+    "observedAsSkippedInSameR16Collection": 70
+  },
+  "evidenceLevel": "contract",
+  "localEngineRequirementSatisfied": false,
+  "requirementRemainsInProgress": true,
+  "promotionSupported": false,
+  "scopeLimit": "Source-bound contract identities from full-core R16 only. The distinct local_engine requirement remains unmet; no local database, hosted TLS/pooler, authorization, concurrency, restore, or production acceptance is claimed.",
+  "closureAuditSha256": "cfe69156c3ef0fb80ab91136a08370e7d5abccd7970fc2a8e6f95d1edebaab46",
+  "independentReviewSha256": "ddec8bb0d460d2f7808574b917a890947ffbc34e2012301cc2bca02b0f6ea551"
+}

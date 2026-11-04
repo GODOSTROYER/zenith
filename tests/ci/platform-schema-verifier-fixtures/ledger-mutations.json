@@ -1,0 +1,10 @@
+[
+  { "label": "an absent ledger", "action": "drop-ledger", "error": "schema_behind" },
+  { "label": "an empty ledger", "action": "empty-ledger", "error": "schema_behind" },
+  { "label": "a missing latest known version", "action": "delete-latest", "error": "schema_behind" },
+  { "label": "a known version moved to a future version", "action": "move-version", "error": "schema_behind" },
+  { "label": "a valid-shaped but incorrect checksum", "action": "change-checksum", "error": "schema_tampered" },
+  { "label": "a renamed known migration with its checksum unchanged", "action": "change-name", "error": "schema_tampered" },
+  { "label": "an additive future row hiding a missing known version", "action": "future-with-gap", "error": "schema_behind" },
+  { "label": "an additive future row hiding a tampered known checksum", "action": "future-with-tamper", "error": "schema_tampered" }
+]

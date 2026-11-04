@@ -1,0 +1,44 @@
+{
+  "sourceRootIntegratedCommit": "125473355a55d696666cfaaada635d8cfec0280e",
+  "reviewedWorkerCommit": "1573e34e7a169d5293c6f07c519b0b7cea0016a0",
+  "reviewedFile": "scripts/ci/gate-manifest.mjs",
+  "reviewedSha256": "66859918884e8e741d779f0fb0e2f29f00f5e0a464ba11b5a9bc3c1bd6898f95",
+  "scope": "Root executed full metadata suites on the sole-file reviewed working-tree packet before commit; reviewed commit and root cherry-pick preserve exact tested bytes. No timeout, assertion, ID or mandatory requirement changed.",
+  "runtime": "Node22.23.3 nativeDarwinARM64",
+  "compilerExit": 0,
+  "compilerHeapMiB": 4096,
+  "eslintExit": 0,
+  "compilerLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "freeAfterBytes": 27017707520,
+  "diskFloorBytes": 23622320128,
+  "reports": {
+    "baseline": {
+      "sha256": "3e6ad658a0e2bbb550b24da345f63841491350655022708215e4cf76f9ae5b80",
+      "passed": 1,
+      "failed": 0,
+      "skippedOrFiltered": 292,
+      "total": 293,
+      "exhaustiveControlDurationMs": [
+        12078.706250000001
+      ]
+    },
+    "successor": {
+      "sha256": "7c1b2a7a3d01dabb0879ea4e97290eeab50b126d6eb2662664dbe9d60eb747f6",
+      "passed": 293,
+      "failed": 0,
+      "skippedOrFiltered": 0,
+      "total": 293,
+      "exhaustiveControlDurationMs": [
+        2860.2749169999997
+      ]
+    },
+    "report-regressions": {
+      "sha256": "925b8a5f81c59261bff736341ba80cb7e96028baff571999628093c631e256f4",
+      "passed": 160,
+      "failed": 0,
+      "skippedOrFiltered": 0,
+      "total": 160,
+      "exhaustiveControlDurationMs": []
+    }
+  }
+}

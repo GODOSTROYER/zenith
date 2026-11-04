@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "sourceHead": "6aed3a99734ac53c1a62286da13c777ee890603b",
+  "kind": "verifier-staged-parent-commit-order-regressions",
+  "acceptedRunReceipt": false,
+  "syntheticOnly": true,
+  "engineStarted": false,
+  "milestonePromotion": false,
+  "candidateHashes": {
+    "boundI": "85b7238d10523af8a6b55f45d66002aa3c0ba513321493389d22046452f0e958",
+    "unboundI": "5bca818102a4657c166bf6c4d6dfa4f02a3c2c506a6f95148d30df4d70e2b085",
+    "standaloneCore": "01ba75db989cf880abaf66b922b329a2e3dc530700fa96758ab48c1bcb394cb2"
+  },
+  "runs": [
+    {
+      "methods": 7,
+      "subcases": 21,
+      "failed": 0,
+      "skipped": 0,
+      "receiptSha256": "5bcf0a9ba1acd600e537d17bef40251edad6c47e41adcc76e4176d9526fe1cfa"
+    },
+    {
+      "methods": 47,
+      "declaredCaseIdentities": 61,
+      "failed": 0,
+      "skipped": 0,
+      "receiptSha256": "a3f41d2b0031a0ccf0108faf62e90bb0b8f456b2a9db95135dcac88064ec9314"
+    },
+    {
+      "methods": 6,
+      "subcases": 33,
+      "failed": 0,
+      "skipped": 0,
+      "receiptSha256": "9c1bebe3f63a91b0142091676bd4c71e4eaac07b2b77b7cb4c8cbb6961005427"
+    }
+  ],
+  "independentTerminalReviews": [
+    {
+      "scope": "focused7",
+      "path": "/tmp/zenith-6aed3a99-parent-order-terminal-review-r1/review.json",
+      "sha256": "246532bc7e1c22362b02086b914ddd6b2dbec824e32b2455b3b3fd55247d27a6",
+      "terminalReview": "pass"
+    },
+    {
+      "scope": "regression47",
+      "path": "/tmp/zenith-6aed3a99-regression47-terminal-review-r1/review.json",
+      "sha256": "b8e25bfa6e986370ed27d320139128b29e932d9f61e34d66afc53824403a0ad1",
+      "terminalReview": "pass"
+    },
+    {
+      "scope": "extra6",
+      "path": "/tmp/zenith-6aed3a99-parent-extra-terminal-review-r1/review.json",
+      "sha256": "5e953e684c441984a34dfc80f48d1bd5b9f9a0dfe9291d7125c0132a5d8da815",
+      "terminalReview": "pass"
+    }
+  ],
+  "scopeLimitations": [
+    "Separate overlapping modeled suites; do not sum into production test counts.",
+    "Original full-core refusal remains refused; fresh full I/O acceptance is required.",
+    "Three synchronous positive-proof writes occur before exposing a newly admitted parent; all existing admission and signaling gates remain strict."
+  ]
+}

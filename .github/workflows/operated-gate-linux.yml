@@ -1,0 +1,438 @@
+name: Operated gate (hosted Linux)
+
+# Runs an operated DRV-2 gate from ci.yml on a fresh GitHub-hosted runner instead of the
+# self-hosted Mac. It provisions the inputs the Mac job receives from repository variables:
+# a fresh lean J1 stack, a prepared owned J2 kind target and private journey configuration,
+# and the private run root. The same run-gate.mjs commands then run and validate the gate.
+# Dispatch only: it pulls and builds several GiB of images and starts a real kind cluster.
+on:
+  workflow_dispatch:
+    inputs:
+      gate:
+        description: Operated gate to run on this hosted Linux runner
+        type: choice
+        options:
+          - drv2-drift-repair
+          - drv2-crash-partition
+          - drivers-d4-two-tenants
+          - j15-operated-upgrade
+          - j15-operated-restore
+          - drivers-d4-export
+          - drivers-d4-adopt
+          - drv1-update-rollback
+          - drv1-private-source
+        default: drv2-drift-repair
+      arch:
+        description: Runner architecture (drv1-* gates always run on arm64)
+        type: choice
+        options:
+          - amd64
+          - arm64
+        default: amd64
+
+permissions:
+  contents: read
+
+concurrency:
+  group: operated-gate-linux-${{ github.ref }}-${{ inputs.gate }}-${{ inputs.arch }}
+  cancel-in-progress: false
+
+jobs:
+  operated-gate:
+    # DRV-1 runs on native arm64 with AppArmor (owner decision 2026-10-22, verify/DRV-1-DECLARATIONS.md); any other
+    # gate may be run on native arm64 too (for example D-4 export's MinIO and MySQL on Linux/ARM64, PROD-LIFE-11).
+    runs-on: ${{ (startsWith(inputs.gate, 'drv1-') || inputs.arch == 'arm64') && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 150
+    env:
+      GATE: ${{ inputs.gate }}
+      ARCH: ${{ (startsWith(inputs.gate, 'drv1-') || inputs.arch == 'arm64') && 'arm64' || 'amd64' }}
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-operated-gate-linux
+      ZENITH_TEST_DRV2_OPERATED: "1"
+      ZENITH_LOCAL_DRIVER_D4: "1"
+      ZENITH_LOCAL_OPERATED: "1"
+      ZENITH_LOCAL_TARGETS: "1"
+      ZENITH_LOCAL_JOINED_DRIVERS: "1"
+      ZENITH_ACCEPTANCE_DEFAULT_STACK: "1"
+      ZENITH_DEFAULT_JOURNEY: "1"
+      KIND_NODE_IMAGE: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+      GO_BUILDER_IMAGE: golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414
+      DISTROLESS_IMAGE: gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+      REGISTRY_IMAGE: registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Anonymous public.ecr.aws pulls hit 'toomanyrequests: Data limit exceeded'
+      # on shared runners. Same Supabase images from Docker Hub.
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Install the pinned Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Free runner disk for stack images
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          df -h /
+
+      - name: Install the pinned Supabase CLI
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 120 --output supabase.tar.gz "https://github.com/supabase/cli/releases/download/v2.75.0/supabase_linux_${ARCH}.tar.gz"
+          # Official supabase_2.75.0_checksums.txt.
+          sum=$([ "$ARCH" = arm64 ] && echo b551c2f8e03715be428d2592765200a9e371168fc36ec2646a84ecc530d3120e || echo e5597462f865d5ac72af0453358e37ecb0d85962ad6914a114a53de847303bde)
+          printf '%s  %s\n' "$sum" 'supabase.tar.gz' | sha256sum --check --strict
+          tar -xzf supabase.tar.gz -C "$RUNNER_TEMP/bin" supabase
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Install the pinned kind
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cd "$RUNNER_TEMP"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 120 --output kind "https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-${ARCH}"
+          # Official kind-linux-<arch>.sha256sum.
+          sum=$([ "$ARCH" = arm64 ] && echo 20022bee6cfcd5086cb7234d218e3454e6090022f2a8f55d1fa7fcf42c3867a2 || echo aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d)
+          printf '%s  %s\n' "$sum" 'kind' | sha256sum --check --strict
+          install -m 0755 kind "$RUNNER_TEMP/bin/kind"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Record the clean host
+        run: |
+          set -euo pipefail
+          uname -a
+          docker version --format '{{.Server.Version}}'
+          supabase --version; kind version; kubectl version --client
+          test "$(docker ps -aq | wc -l)" -eq 0
+          test -z "$(kind get clusters 2>/dev/null)"
+          ! ss -ltn | grep -E ':(5000|8025|36400|36401|54321|54322|54323|54324|54327)\b'
+
+      - name: Log command names, exit codes and container events
+        # Exit codes, durations and plain-word subcommands; for failed calls, up to
+        # 20 error lines that name no credential. Container names and actions only.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/shim"
+          for tool in docker supabase kind kubectl; do
+            real=$(command -v "$tool")
+            cat > "$RUNNER_TEMP/shim/$tool" <<EOF
+          #!/bin/bash
+          start=\$(date +%s); err=\$(mktemp); "$real" "\$@" 2>"\$err"; rc=\$?; cat "\$err" >&2
+          words=\$(printf '%s\n' "\$@" | grep -E '^[a-z][a-z-]{1,30}$' | head -6 | tr '\n' ' ')
+          echo "\$(date -u +%T) rc=\$rc \$(( \$(date +%s) - start ))s $tool \$words" >> "$RUNNER_TEMP/commands.log"
+          [ \$rc -eq 0 ] || grep -iE 'error|unhealthy|failed|timed out' "\$err" | grep -viE 'key|token|password|secret|jwt|eyJ' | head -20 | sed 's/^/    /' >> "$RUNNER_TEMP/commands.log"
+          rm -f "\$err"; exit \$rc
+          EOF
+            chmod +x "$RUNNER_TEMP/shim/$tool"
+          done
+          echo "$RUNNER_TEMP/shim" >> "$GITHUB_PATH"
+          nohup docker events --filter type=container --format '{{.TimeNano}} {{.Action}} {{.Actor.Attributes.name}}' > "$RUNNER_TEMP/events.log" 2>&1 &
+
+      - name: Provision the owned run identity and private roots
+        # ZENITH_LOCAL_RUN_ID is 4 to 20 lowercase letters, digits or dashes, and the
+        # root basename must start with zenith-j15-<run id>-. Both are set here, not in
+        # job env, because runner.temp is unavailable at job scope.
+        run: |
+          set -euo pipefail
+          umask 077
+          run_id="r${GITHUB_RUN_ID}a${GITHUB_RUN_ATTEMPT}"
+          root="$RUNNER_TEMP/zenith-j15-${run_id}-root"
+          mkdir -m 700 "$root" "$RUNNER_TEMP/zenith" "$RUNNER_TEMP/zenith/tmp"
+          {
+            echo "ZENITH_LOCAL_RUN_ID=${run_id}"
+            echo "ZENITH_LOCAL_ROOT=${root}"
+            echo "ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR=$RUNNER_TEMP/zenith/stack"
+            echo "ZENITH_LOCAL_JOURNEY_CONFIG_FILE=$RUNNER_TEMP/zenith/j2/journey.json"
+            # D-4 two tenants reads the same private journey configuration (as in ci.yml).
+            echo "ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE=$RUNNER_TEMP/zenith/j2/journey.json"
+            # D-4 adopt (LIFE-11 adoption journey) uses the same private journey configuration.
+            echo "ZENITH_LOCAL_ADOPT_CONFIG_FILE=$RUNNER_TEMP/zenith/j2/journey.json"
+            echo "ZENITH_LOCAL_UPGRADE_IMAGES_FILE=${root}/upgrade-images.json"
+          } >> "$GITHUB_ENV"
+          # DRV-1 private-source: owner-approved inputs (verify/DRV-1-DECLARATIONS.md), private files outside the checkout.
+          if [ "$GATE" = "drv1-private-source" ]; then
+            mkdir -m 700 "$RUNNER_TEMP/zenith/drv1"
+            {
+              echo "DRV1_PRIVATE=$RUNNER_TEMP/zenith/drv1"
+              echo "DRV1_TARGETS_DIR=$RUNNER_TEMP/zenith/j2"
+              echo "ZENITH_LOCAL_SOURCE_BINARY_FILE=$RUNNER_TEMP/zenith/drv1/app"
+              echo "ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE=$RUNNER_TEMP/zenith/drv1/build-declaration.json"
+              echo "ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE=$REGISTRY_IMAGE"
+              # Owner-approved 2026-10-23: runc build runtime for disposable verification on this ephemeral
+              # single-tenant runner (gVisor cannot join the hostUsers:false pod user namespace, run 39885437619).
+              echo "DRV1_RUNTIME=runc"
+              echo "DRV1_CALICO_MANIFEST=$RUNNER_TEMP/zenith/drv1/calico.yaml"
+              # The 16 GB runner gives the isolated build node room for J6's 4 GiB build limit (prepare.mjs default 640m).
+              echo "ZENITH_J2_BUILD_WORKER_MEMORY=3g"
+            } >> "$GITHUB_ENV"
+          fi
+          # D-4 export only (d4.operated.test.ts holds both D-4 cases): explicit data rehearsal with native
+          # fixture engines pinned by digest. MinIO's own images are no longer publicly pullable; Chainguard
+          # publishes upstream MinIO (same server command and health endpoint).
+          if [ "$GATE" = "drivers-d4-export" ]; then
+            {
+              echo "ZENITH_LOCAL_EXPORT_DATA=1"
+              echo "ZENITH_LOCAL_EXPORT_CONFIG_FILE=$RUNNER_TEMP/zenith/j2/journey.json"
+              echo "ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE=postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24"
+              echo "ZENITH_LOCAL_EXPORT_MYSQL_IMAGE=mysql:8.4@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364"
+              echo "ZENITH_LOCAL_EXPORT_MINIO_IMAGE=cgr.dev/chainguard/minio@sha256:ad134b2dd572ae0d989d6807c3e45516cc75a34883a8021db2ff04be5d1d496a"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Pull the pinned export fixture engines (drivers-d4-export only)
+        if: inputs.gate == 'drivers-d4-export'
+        # The driver inspects these digest-pinned images and never pulls them itself (DRV-4.md).
+        run: |
+          set -euo pipefail
+          # The portable-apply leg targets LocalStack pinned in the local-targets composition (single source of the pin).
+          localstack="$(sed -n 's/^ *image: \(localstack\/localstack:[^ ]*@sha256:[a-f0-9]\{64\}\).*/\1/p' deploy/acceptance/local-targets/compose.yml)"
+          test -n "$localstack"
+          for image in "$ZENITH_LOCAL_EXPORT_POSTGRES_IMAGE" "$ZENITH_LOCAL_EXPORT_MYSQL_IMAGE" "$ZENITH_LOCAL_EXPORT_MINIO_IMAGE" "$localstack"; do
+            docker pull -q "$image"
+          done
+
+      - name: Lean default stack (1 API + 1 worker, no port offset)
+        run: |
+          set -euo pipefail
+          umask 077
+          TMPDIR="$RUNNER_TEMP/zenith/tmp" ZENITH_ACCEPTANCE_DEFAULT_STACK=1 \
+            ZENITH_DEFAULT_STACK_REGISTRY_IMAGE="$REGISTRY_IMAGE" \
+            node scripts/acceptance/default-stack/up.mjs --profile lean --directory "$RUNNER_TEMP/zenith/stack"
+
+      - name: Build and push the zenithd witness image
+        run: |
+          set -euo pipefail
+          tag="localhost:5000/zenith-j2-witness:${GITHUB_SHA}"
+          DOCKER_BUILDKIT=1 docker build -q --platform "linux/${ARCH}" -f tests/e2e/default/zenithd.Dockerfile \
+            --build-arg GO_BUILDER_IMAGE="$GO_BUILDER_IMAGE" --build-arg DISTROLESS_IMAGE="$DISTROLESS_IMAGE" \
+            --label org.zenith.acceptance.owner=PKG-04-J2 --label "org.zenith.acceptance.source-head=${GITHUB_SHA}" -t "$tag" .
+          docker push -q "$tag"
+          echo "WITNESS_IMAGE=$(docker image inspect "$tag" --format '{{index .RepoDigests 0}}')" >> "$GITHUB_ENV"
+
+      - name: DRV-1 isolated build inputs (drv1-private-source only)
+        if: inputs.gate == 'drv1-private-source'
+        # Owner-approved 2026-10-22 (verify/DRV-1-DECLARATIONS.md). Pins only; no credential is created here.
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$DRV1_PRIVATE"
+          # drv1-isolation.ts refuses any manifest other than the reviewed upstream bytes.
+          curl --fail --silent --show-error --location --retry 3 --max-time 120 --output calico.yaml \
+            https://raw.githubusercontent.com/projectcalico/calico/v3.33.0/manifests/calico.yaml
+          cd "$GITHUB_WORKSPACE"
+          # Kernel-global AppArmor profile; kind nodes share this kernel.
+          sudo apparmor_parser -r -W deploy/zenith-managed/build/profiles/zenith-build.apparmor
+          sudo grep -q '^zenith-build ' /sys/kernel/security/apparmor/profiles
+          # Static ARM64 fixture with the approved compiler, no network (DRV-1.md compile step).
+          compiler='rust:1.99.0-alpine3.22@sha256:ba511babd167c72f478edbfa2461f5499a7e9639e9793705e8b8090382731198'
+          docker pull -q "$compiler" >/dev/null
+          id="drv1-${GITHUB_RUN_ID}"
+          docker build -q --network=none --pull=false --platform linux/arm64 --label "io.zenith.drv1.compiler=$id" \
+            --build-arg COMPILER_IMAGE="$compiler" --target compile -f deploy/zenith-managed/build/Dockerfile.fixture -t "zenith-drv1-compiler:$id" . >/dev/null
+          docker create --name "zenith-drv1-extract-$id" --network none "zenith-drv1-compiler:$id" >/dev/null
+          docker cp "zenith-drv1-extract-$id:/app" "$ZENITH_LOCAL_SOURCE_BINARY_FILE"
+          docker rm "zenith-drv1-extract-$id" >/dev/null && docker image rm "zenith-drv1-compiler:$id" >/dev/null
+          chmod 600 "$ZENITH_LOCAL_SOURCE_BINARY_FILE"
+          # Builder and proxy from the approved pinned inputs, published to J1's local registry for digest references.
+          docker build -q --platform linux/arm64 -f deploy/zenith-managed/build/Dockerfile.builder \
+            --build-arg GO_IMAGE=golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 \
+            --build-arg BUILDKIT_IMAGE=moby/buildkit:v0.34.0-rootless@sha256:a9c380801728257d27bada887d70b1237622398f0fe2c24f4aa5ffdd36188613 \
+            -t "localhost:5000/zenith-drv1-builder:${GITHUB_SHA}" . >/dev/null
+          docker build -q --platform linux/arm64 -f deploy/zenith-managed/build/Dockerfile.proxy \
+            --build-arg PYTHON_IMAGE=python:3.13-alpine3.22@sha256:a9b1e8cb5d25a3c62c0a248913331c9031fc0a45d97975aafe459d41bdfef36d \
+            -t "localhost:5000/zenith-drv1-proxy:${GITHUB_SHA}" . >/dev/null
+          docker push -q "localhost:5000/zenith-drv1-builder:${GITHUB_SHA}" >/dev/null
+          docker push -q "localhost:5000/zenith-drv1-proxy:${GITHUB_SHA}" >/dev/null
+          builder=$(docker image inspect "localhost:5000/zenith-drv1-builder:${GITHUB_SHA}" --format '{{index .RepoDigests 0}}')
+          proxy=$(docker image inspect "localhost:5000/zenith-drv1-proxy:${GITHUB_SHA}" --format '{{index .RepoDigests 0}}')
+          BUILDER="$builder" PROXY="$proxy" node -e '
+            const fs = require("fs");
+            const declaration = { registryRepositoryRoot: "localhost:5000/zenith-drv1-build", config: {
+              namespace: "zb-replaced-by-driver", builderImage: process.env.BUILDER, runtimeClass: "zenith-build-runc",
+              seccompProfile: "zenith-build.json", appArmorProfile: "zenith-build",
+              nodeIsolation: { tenant: "replaced-by-driver", profileDigest: "559c41027d4793561f860cc1ab5aaebd8dab04a2766a26961973ba1f1151de47", systemDaemonSets: ["kube-proxy", "calico-node"] },
+              proxy: { namespace: "zp-replaced-by-driver", ip: "10.96.200.10", port: 3128, image: process.env.PROXY,
+                destinations: [{ host: "replaced-by-driver", ip: "172.18.0.250", port: 5000, tls: false }] },
+              timeoutSec: 1800 } };
+            fs.writeFileSync(process.env.ZENITH_LOCAL_SOURCE_BUILD_DECLARATION_FILE, JSON.stringify(declaration), { mode: 0o600, flag: "wx" });'
+          printf 'kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnetworking:\n  apiServerAddress: 127.0.0.1\n  disableDefaultCNI: true\n  podSubnet: 10.244.0.0/16\nnodes:\n- role: control-plane\n- role: worker\n' > "$DRV1_PRIVATE/isolated-kind.yaml"
+
+      - name: Restore tools (j15-operated-restore only)
+        if: inputs.gate == 'j15-operated-restore'
+        # pg_dump/pg_restore must match the stack's PostgreSQL 17; the Temporal CLI is the pin ci.yml uses.
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          cd "$RUNNER_TEMP"
+          mkdir -p temporal-cli
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output temporal_cli.tar.gz https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz
+          printf '%s  %s\n' '09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5' 'temporal_cli.tar.gz' | sha256sum --check --strict
+          tar -xzf temporal_cli.tar.gz -C temporal-cli temporal
+          {
+            echo "ZENITH_TEST_PG_DUMP_BIN=/usr/lib/postgresql/17/bin/pg_dump"
+            echo "ZENITH_TEST_PG_RESTORE_BIN=/usr/lib/postgresql/17/bin/pg_restore"
+            echo "ZENITH_TEST_TEMPORAL_BIN=$RUNNER_TEMP/temporal-cli/temporal"
+          } >> "$GITHUB_ENV"
+
+      - name: Upgrade candidate images (j15-operated-upgrade only)
+        if: inputs.gate == 'j15-operated-upgrade'
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/acceptance/default-stack/upgrade-candidates.mjs
+
+      - name: Owned kind target and private journey configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          stack="$RUNNER_TEMP/zenith/stack"
+          mail=$(node -p "require('$stack/state.json').mailpitUrl")
+          env TMPDIR="$RUNNER_TEMP/zenith/tmp" ZENITH_ACCEPTANCE_DEFAULT_STACK=1 ZENITH_DEFAULT_JOURNEY=1 \
+            NODE_EXTRA_CA_CERTS="$stack/tls/ca.crt" \
+            node tests/e2e/default/prepare.mjs --directory "$RUNNER_TEMP/zenith/j2" --stack "$stack" \
+              --node-image "$KIND_NODE_IMAGE" --witness-image "$WITNESS_IMAGE" --mailpit-url "$mail" \
+              ${DRV1_PRIVATE:+--isolated-kind-config "$DRV1_PRIVATE/isolated-kind.yaml"}
+
+      - name: DRV-1 cluster isolation (drv1-private-source only)
+        if: inputs.gate == 'drv1-private-source'
+        run: npx tsx scripts/release/drivers/drv1-isolation.ts
+
+      - name: Trust the disposable J1 CA in Chromium's NSS database
+        # drv2 launches Chromium with no certificate bypass (operated.ts). On Linux that
+        # trust lives in the user's NSS database, not in the system store.
+        run: |
+          set -euo pipefail
+          command -v certutil >/dev/null || sudo apt-get install -y --no-install-recommends libnss3-tools
+          nssdb="$HOME/.pki/nssdb"
+          mkdir -p "$nssdb"
+          [ -f "$nssdb/cert9.db" ] || certutil -N -d "sql:$nssdb" --empty-password
+          certutil -A -d "sql:$nssdb" -t "C,," -n zenith-j1-disposable-ca -i "$RUNNER_TEMP/zenith/stack/tls/ca.crt"
+
+      - name: Load the owned J1 host environment without printing credentials
+        run: |
+          set -euo pipefail
+          umask 077
+          ZENITH_ACCEPTANCE_DEFAULT_STACK=1 node scripts/acceptance/default-stack/env.mjs "$ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR" "$ZENITH_LOCAL_ROOT/ci-host.env"
+          trap 'rm -f -- "$ZENITH_LOCAL_ROOT/ci-host.env"' EXIT
+          # Public repository: mask every value before later steps can echo their env.
+          while IFS='=' read -r key value; do
+            if [ "${#value}" -ge 8 ]; then echo "::add-mask::$value"; fi
+            printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
+          done < "$ZENITH_LOCAL_ROOT/ci-host.env"
+
+      - name: Capture application container logs in the background
+        # The driver's own cleanup removes the lean stack, so logs are streamed to private files first.
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/applogs"
+          # Follow every api/worker container by ID, including ones a driver recreates later (e.g. DRV-1's source overlay).
+          # shellcheck disable=SC2016 # the loop is expanded by the child bash, not here
+          nohup bash -c 'while true; do
+            for row in $(docker ps --format "{{.ID}}:{{.Names}}" | grep -E -- "-(api|execution-worker)-[0-9]+$" || true); do
+              id=${row%%:*}; name=${row#*:}; file="$RUNNER_TEMP/applogs/$name-$id.log"
+              [ -e "$file" ] || { : > "$file"; nohup docker logs -f "$id" >> "$file" 2>&1 & }
+            done
+            sleep 10
+          done' > /dev/null 2>&1 &
+          sleep 2; ls "$RUNNER_TEMP/applogs"
+
+      - name: Run the operated gate
+        env:
+          # Prints only fixed-vocabulary failure codes of failed steps (scripts/release/drivers/operated.ts).
+          ZENITH_OPERATED_DIAGNOSTICS: "1"
+        run: node scripts/ci/run-gate.mjs "$GATE" --run
+
+      - name: Operated receipt checks (ids and statuses only)
+        if: always()
+        run: |
+          # File names only (run-scoped, no values), so a missing receipt is visible.
+          find "$ZENITH_LOCAL_ROOT" -maxdepth 1 -type f -printf '%f %s bytes\n' 2>/dev/null | sort || true
+          for file in "$ZENITH_LOCAL_ROOT"/*.json; do
+            [ -f "$file" ] || continue
+            node -e 'const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); for (const c of r.checks ?? []) console.log(c.id, c.status);' "$file" || echo "unreadable receipt: $(basename "$file")"
+          done
+
+      - name: Require the exact operated case and current-source execution
+        if: always()
+        env:
+          # The receipt binds the run step's effective environment; validate under the identical one.
+          ZENITH_OPERATED_DIAGNOSTICS: "1"
+        run: node scripts/ci/run-gate.mjs "$GATE" --validate ".data-ci-lane/${GATE}.json" --require-execution
+
+      - name: Preserve sanitized gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: operated-gate-linux-${{ inputs.gate }}-evidence-${{ github.sha }}
+          path: .data-ci-lane/${{ inputs.gate }}-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Application warnings and errors (message key, error name and code only)
+        if: always()
+        run: |
+          for file in "$RUNNER_TEMP"/applogs/*.log; do
+            [ -f "$file" ] || continue
+            echo "== $(basename "$file" .log)"
+            node -e '
+              const lines = require("fs").readFileSync(process.argv[1], "utf8").split("\n");
+              const seen = new Map();
+              for (const line of lines) {
+                let e; try { e = JSON.parse(line); } catch { continue; }
+                if (!["warn", "error", "fatal"].includes(e.level)) continue;
+                // A worker startup failure carries its category and a fixed product sentence (elided).
+                const startup = e.msg === "execution worker failed" && typeof e.error === "string"
+                  ? [e.failureCategory, e.error.replace(/[a-z]+:\/\/\S+/gi, "<url>").replace(/[A-Za-z0-9_+/=-]{24,}/g, "…").slice(0, 200)] : [];
+                // An unhandled request error: its logger-redacted message and first stack frame, elided.
+                const unhandled = e.msg === "unhandled error in request" && typeof e.error?.message === "string"
+                  ? [e.error.message.replace(/[a-z]+:\/\/\S+/gi, "<url>").replace(/[A-Za-z0-9_+/=-]{24,}/g, "…").slice(0, 200),
+                     String(e.error.stack ?? "").split("\n").find(l => /^\s+at /.test(l))?.trim().replace(/\(?\/[^)]*\/([^/]+:\d+:\d+)\)?/, (_whole, frame) => frame).slice(0, 160)] : [];
+                const key = [e.level, e.msg, e.error?.name, e.error?.code ?? e.code, ...startup, ...unhandled].filter(Boolean).join(" | ");
+                seen.set(key, (seen.get(key) ?? 0) + 1);
+              }
+              for (const [key, count] of seen) console.log(count + "x " + key);
+              // Where a worker was last: its final message keys (level and msg only).
+              const tail = lines.map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(e => e && e.msg).slice(-12);
+              if (process.argv[1].includes("execution-worker")) for (const e of tail) console.log("  last: " + [e.level, e.msg].join(" | "));' "$file" || true
+          done
+
+      - name: Stack and runner diagnostics
+        if: always()
+        run: |
+          df -h /; free -m
+          grep -v ' rc=0 ' "$RUNNER_TEMP/commands.log" || true
+          grep -E ' (die|oom|kill|health_status: unhealthy) ' "$RUNNER_TEMP/events.log" | awk '{ printf "%s %s\n", strftime("%T", $1/1e9), substr($0, index($0,$2)) }' || true
+
+      - name: Remove owned kind cluster, stack and private material
+        # Only what this run created: the zenith-j2 cluster, this run's stack directory
+        # (found by its state file) and this run's root. Nothing else on the runner.
+        if: always()
+        run: |
+          set -uo pipefail
+          if command -v kind >/dev/null && kind get clusters 2>/dev/null | grep -qx zenith-j2; then
+            kind delete cluster --name zenith-j2
+          fi
+          stack="$RUNNER_TEMP/zenith/stack"
+          if [ -f "$stack/state.json" ]; then
+            ZENITH_ACCEPTANCE_DEFAULT_STACK=1 TMPDIR="$RUNNER_TEMP/zenith/tmp" node scripts/acceptance/default-stack/down.mjs "$stack"
+          fi
+          if certutil -L -d "sql:$HOME/.pki/nssdb" -n zenith-j1-disposable-ca >/dev/null 2>&1; then
+            certutil -D -d "sql:$HOME/.pki/nssdb" -n zenith-j1-disposable-ca
+          fi
+          case "${ZENITH_LOCAL_ROOT:-}" in
+            "$RUNNER_TEMP"/zenith-j15-*-root) rm -rf -- "$ZENITH_LOCAL_ROOT" ;;
+          esac
+          rm -rf -- "$RUNNER_TEMP/zenith"
+          docker ps -a --format '{{.Names}} {{.Status}}'

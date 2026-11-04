@@ -1,0 +1,14 @@
+{
+  "name": "zenith-acceptance-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dependency-free sample web app used by Zenith's live acceptance runs (Demos A and B).",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

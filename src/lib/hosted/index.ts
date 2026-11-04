@@ -30,13 +30,12 @@ import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { isServerless } from "@/lib/serverless";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { nodeIsSupported, SUPPORTED_NODE_RANGE } from "@/lib/node-runtime";
 
-/** `node:sqlite` gained `backup()` and `busy_timeout` handling in 22.16. */
-export const MIN_NODE = { major: 22, minor: 16 } as const;
+export { MIN_NODE } from "@/lib/node-runtime";
 
 export function nodeMeetsFloor(version: string = process.versions.node): boolean {
-  const [major = 0, minor = 0] = version.split(".").map((n) => Number.parseInt(n, 10));
-  return major > MIN_NODE.major || (major === MIN_NODE.major && minor >= MIN_NODE.minor);
+  return nodeIsSupported(version);
 }
 
 /**
@@ -61,8 +60,8 @@ export function assertHostedPreconditions(): void {
     );
   if (!nodeMeetsFloor())
     throw new Error(
-      `ZENITH_HOSTED_MODE=1 needs Node ${MIN_NODE.major}.${MIN_NODE.minor} or newer for the SQLite backup API; this process is Node ${process.versions.node}. ` +
-        "Fix: upgrade Node (the Docker image and CI already use Node 22)."
+      `ZENITH_HOSTED_MODE=1 requires Node ${SUPPORTED_NODE_RANGE} for the locked toolchain and SQLite backup API; this process is Node ${process.versions.node}. ` +
+        "Fix: install supported Node 22 (CI uses 22.23.3)."
     );
 }
 
@@ -124,4 +123,3 @@ export function ensureHosted(): void {
   }, 0);
   (replay as { unref?: () => void }).unref?.();
 }
-

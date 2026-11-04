@@ -1,0 +1,91 @@
+{
+  "sourceCommit": "cd71457de4503d69e0828eaba611833ad743b852",
+  "diagnosticCodeCommit": "1aeed6e61f3792ec1b39b3ddcb7030b8fb3db953",
+  "recordedAtUtc": "2026-10-05T22:26:31.698460+00:00",
+  "main": {
+    "runId": 37380124397,
+    "status": "in_progress",
+    "observedJobs": {
+      "success": 14,
+      "failure": 1,
+      "pending": 1
+    },
+    "failedJob": {
+      "name": "go",
+      "jobId": 111999654301,
+      "originalNativeRequirementsPassed": 152,
+      "authenticGoldens": "passed",
+      "systemdSetup": "refused_exit1",
+      "systemd15": "not_executed",
+      "systemdCleanup": "refused_exit1",
+      "canonicalRootCleanup": "not_executed",
+      "cause": "unknown; fixed-phase diagnostic successor requires actual hosted execution"
+    },
+    "pendingJob": "verify"
+  },
+  "nativeWorkers": {
+    "runId": 37380124506,
+    "conclusion": "success",
+    "architectures": [
+      {
+        "architecture": "linux/arm64",
+        "execution": "native",
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "positiveOwnedCleanupFlags": 6
+      },
+      {
+        "architecture": "linux/amd64",
+        "execution": "native",
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "positiveOwnedCleanupFlags": 6
+      }
+    ]
+  },
+  "currentExecutedLanes": {
+    "platformPostgres": {
+      "passed": 3016,
+      "failed": 0,
+      "skipped": 8,
+      "requiredPassed": 1124,
+      "requiredPostgresLabeled": 1107,
+      "requiredSdkNoNetwork": 17
+    },
+    "workflows": {
+      "passed": 1273,
+      "failed": 0,
+      "skipped": 0,
+      "requiredPassed": 60
+    },
+    "realOpenTofu": {
+      "passed": 3916,
+      "failed": 0,
+      "skipped": 18,
+      "requiredPassed": 27
+    }
+  },
+  "diagnosticRootChecks": {
+    "passed": 174,
+    "failed": 0,
+    "skipped": 0,
+    "eslintExit": 0,
+    "safeMacRefusalProbes": 2,
+    "originalHelperSemanticsByteRestoration": true,
+    "failedPredecessorModels": {
+      "passed": 173,
+      "failed": 1,
+      "skipped": 0,
+      "cause": "Exact helper digest pin named predecessor bytes; one expected literal refreshed, assertion retained"
+    },
+    "independentReviewSha256": "39e2f9871c37b67e5d060829f131b39d69c7823b35a64c736bb029d0039b0d90"
+  },
+  "limits": [
+    "Current main remains incomplete and contains a failed job. Historical8b green cannot verify new bytes.",
+    "Diagnostic source checks do not prove any systemd15 case, setup cure or cleanup.",
+    "Reports overlap and are not summed. All78 acceptance criteria/states and four release flags preserved.",
+    "Raw logs not retained in repository. No live-cloud, native installed runner or default API/server acceptance claim."
+  ]
+}

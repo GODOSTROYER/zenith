@@ -1,0 +1,156 @@
+{
+  "sourceCommit": "adb6fb422b337bb6b981e99039ad5ce0a6aa45ed",
+  "snapshotAt": "2026-10-06T17:52:06.294191+00:00",
+  "scope": "Group1\u20132 report checkpoint CI snapshot; not final repaired-source acceptance",
+  "runs": [
+    {
+      "workflow": "CI",
+      "runId": 37505657907,
+      "status": "in_progress",
+      "conclusion": "",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37505657907",
+      "jobs": [
+        {
+          "name": "agent",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547214
+        },
+        {
+          "name": "hosted",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547492
+        },
+        {
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547518
+        },
+        {
+          "name": "workflows",
+          "status": "in_progress",
+          "conclusion": "",
+          "jobId": 112413547584
+        },
+        {
+          "name": "docker",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547588
+        },
+        {
+          "name": "supply-chain",
+          "status": "completed",
+          "conclusion": "failure",
+          "jobId": 112413547642
+        },
+        {
+          "name": "verify",
+          "status": "in_progress",
+          "conclusion": "",
+          "jobId": 112413547646
+        },
+        {
+          "name": "operation-gates (reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547684
+        },
+        {
+          "name": "tofu",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547727
+        },
+        {
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547751
+        },
+        {
+          "name": "ledger",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547755
+        },
+        {
+          "name": "platform-postgres",
+          "status": "in_progress",
+          "conclusion": "",
+          "jobId": 112413547756
+        },
+        {
+          "name": "policy",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547761
+        },
+        {
+          "name": "go",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547801
+        },
+        {
+          "name": "generated",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547882
+        },
+        {
+          "name": "operation-gates (workflow-intents)",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413547905
+        }
+      ]
+    },
+    {
+      "workflow": "Native packaged workers",
+      "runId": 37505657899,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37505657899",
+      "jobs": [
+        {
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413546277
+        },
+        {
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413546532
+        }
+      ]
+    },
+    {
+      "workflow": "Native skipped platforms",
+      "runId": 37505657829,
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37505657829",
+      "jobs": [
+        {
+          "name": "linux-systemd",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413545713
+        },
+        {
+          "name": "windows-acl",
+          "status": "completed",
+          "conclusion": "success",
+          "jobId": 112413546059
+        }
+      ]
+    }
+  ],
+  "allTerminal": false,
+  "finalSecurityReportCheckpoint": "Not pushed at capture; its exact-SHA CI remains unobserved/pending. No final green claim."
+}

@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "status": "passed_local_packaged_worker",
+  "platform": "linux/arm64",
+  "architectureEvidence": "native ARM64 on Apple Silicon Docker Desktop",
+  "seconds": 216.02,
+  "sourceInputSha256": "b779b0c54b7866b83169416fb327255f7e8e011ca8f7ee63239a93854a678663",
+  "acceptanceHarnessSha256": "50b6fe3abf10e57b3f20341eabc7094bf0d621d4b0a45490b73d6c05f21001cc",
+  "checks": {
+    "missing-schema": "refused-without-secret-output",
+    "invalid-secret": "refused-without-secret-output",
+    "invalid-signer": "refused-without-secret-output",
+    "readiness": {
+      "ready": true,
+      "checks": {
+        "temporal": "ok",
+        "store": "ok",
+        "policy": "ok",
+        "drivers": "ok"
+      }
+    },
+    "liveness": {
+      "alive": true
+    },
+    "store-readiness-outage": {
+      "readyStatus": 503,
+      "liveStatus": 200
+    },
+    "temporal-readiness-outage": {
+      "readyStatus": 503,
+      "liveStatus": 200
+    },
+    "shutdown": {
+      "signal": "SIGTERM",
+      "exitCode": 0,
+      "drained": true,
+      "inFlightActivity": false
+    }
+  },
+  "assets": {
+    "uid": 10001,
+    "arch": "arm64",
+    "node": "v22.23.3",
+    "tofu": [
+      "OpenTofu v1.12.5",
+      "on linux_arm64"
+    ],
+    "policySha256": "a1712c084ff7e492f187044cec5cb7ba86da32b76259f5d62e92df9e4cff0d57",
+    "ssmDocuments": {
+      "count": 12,
+      "sha256": "d56fb9b56120f76c723150d576e34f1d35adf84b5dc10424fae617c8e218e8dd"
+    },
+    "dependencies": {
+      "@temporalio/worker": "1.24.0",
+      "@temporalio/client": "1.24.0",
+      "postgres": "3.4.7",
+      "jose": "6.2.12"
+    },
+    "plans": {
+      "logicallyExpired": true,
+      "ciphertextRetained": true,
+      "terminalRetained": true,
+      "activeRetained": true,
+      "unownedRetained": true,
+      "sentinelFiles": true,
+      "encryptedLifecycleFixture": true
+    }
+  },
+  "operations": {
+    "reconcile": {
+      "status": "observed",
+      "drift": 0,
+      "unknown": 0,
+      "scope": "no deployed resources"
+    },
+    "operation": {
+      "workflowStatus": "failed",
+      "ledgerStatus": "failed",
+      "outcome": "expected no-target refusal",
+      "policyDecisions": 2,
+      "activityTypes": [
+        "markOperation",
+        "recordStep",
+        "acquireLease",
+        "renewLease",
+        "evaluatePolicy",
+        "executeCapability",
+        "releaseLease"
+      ],
+      "signedReadGrantVerified": true
+    },
+    "cloudWritesProven": false,
+    "browserApprovalPerformed": false
+  },
+  "limitations": [
+    "Temporal CLI development server, not Temporal Cloud or production Temporal topology.",
+    "Product metadata uses an isolated file-store fixture; platform control store is real Postgres.",
+    "No deployed cloud resources: reconcile observes an empty environment; read operation safely refuses a missing target.",
+    "No cloud writes or browser approval are performed; plan files are retention sentinels, not executable plans.",
+    "Shutdown check drains an idle packaged worker; in-flight cloud activity drain remains outside this harness.",
+    "Source binding captures the live context before and after build; transient changes are not excluded by an immutable snapshot."
+  ],
+  "cleanup": {
+    "privateFilesRemoved": true,
+    "allCreatedResourcesRemoved": true,
+    "resources": [
+      {
+        "kind": "container",
+        "role": "acceptance-client",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "acceptance-client",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "worker",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "acceptance-client",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "invalid-signer",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "invalid-secret",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "missing-schema",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "temporal",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "container",
+        "role": "postgres",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "postgres-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "temporal-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "volume",
+        "role": "worker-data",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "network",
+        "role": "isolated-network",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      },
+      {
+        "kind": "image",
+        "role": "acceptance-image",
+        "removed": true,
+        "outcome": "removed",
+        "attempts": 1
+      }
+    ]
+  },
+  "storage": {
+    "minimumFreeGiBBeforeLaunch": 12,
+    "warningFreeGiB": 8,
+    "samples": [
+      {
+        "at": "2026-10-03T06:03:18Z",
+        "freeGiB": 25.2
+      },
+      {
+        "at": "2026-10-03T06:03:48Z",
+        "freeGiB": 24.75
+      },
+      {
+        "at": "2026-10-03T06:04:18Z",
+        "freeGiB": 22.17
+      },
+      {
+        "at": "2026-10-03T06:04:48Z",
+        "freeGiB": 19.68
+      },
+      {
+        "at": "2026-10-03T06:05:18Z",
+        "freeGiB": 18.24
+      },
+      {
+        "at": "2026-10-03T06:05:48Z",
+        "freeGiB": 16.69
+      },
+      {
+        "at": "2026-10-03T06:06:18Z",
+        "freeGiB": 15.71
+      },
+      {
+        "at": "2026-10-03T06:06:48Z",
+        "freeGiB": 15.7
+      },
+      {
+        "at": "2026-10-03T06:06:59Z",
+        "freeGiB": 17.59
+      }
+    ],
+    "builderCleanup": {
+      "exitCode": 0,
+      "builderAbsent": true,
+      "containerAbsent": true,
+      "cacheVolumeAbsent": true
+    },
+    "cleanup": [
+      {
+        "reference": "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+        "imageId": "sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
+        "exitCode": 0,
+        "removed": true
+      },
+      {
+        "reference": "postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+        "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+        "exitCode": 0,
+        "removed": true
+      },
+      {
+        "reference": "temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+        "imageId": "sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e",
+        "exitCode": 0,
+        "removed": true
+      }
+    ]
+  },
+  "privateEvidenceSha256": "0ef546a3b679f5044d1e2929d93fb8eed78bbe66178e96018f9aa80f2ba67c8f",
+  "privateLogSha256": "265f9d0c66855aab4f5b379e72f161ecf24704b34663d9f195d3ccbbbbfcdf12"
+}

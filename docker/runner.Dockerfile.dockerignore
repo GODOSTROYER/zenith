@@ -1,0 +1,4 @@
+# Only the Go module is needed to build the runner image.
+*
+!go/
+go/dist/

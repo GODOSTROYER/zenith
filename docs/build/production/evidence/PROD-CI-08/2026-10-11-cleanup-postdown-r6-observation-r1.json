@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "kind": "local_cleanup_only_outer_execution_observation",
+  "attempt": "R6",
+  "execution": {
+    "exitCode": 0,
+    "accepted": false,
+    "candidateSha256": "0f68b166803399ef2a28f0d0353b0079f3afd28ae05f3d77705499ba196dbfb7",
+    "executionReceiptSha256": "c326f68e17ffbb2256549e5e48365a131c05fe32eb2d23b289f52353b3eaae5f",
+    "terminalSealSha256": "bf9f3b47f295d561050a39f94dcd4febca80c13eb13eb5c0e448fb89a9ced80c"
+  },
+  "independentReview": {
+    "status": "PASS current owned settlement only",
+    "reviewSha256": "4cc5bbeddf59d88ae84c9ef26f8f14950e62a1b8296ba81815c22d58c3e738ed",
+    "scope": "terminal review of exact owned settlement; marker completion remains separate and pending",
+    "runtimeTerminalReviewComplete": true,
+    "markerCompletion": false,
+    "markerRetained": true
+  },
+  "runtimeLimits": {
+    "strictHeldCloseoutPending": false,
+    "currentProcessAndOwnedResourceAbsencePending": false,
+    "continuousFloorsPending": false,
+    "localStackAcceptance": false,
+    "browserAcceptance": false,
+    "acceptedRunReceipt": false,
+    "milestonePromoted": false,
+    "ownedProcessAndResourceAbsence": "reviewed for this exact owned settlement and observation window",
+    "continuousFloors": "reviewed pass for this exact observation window",
+    "markerCompletionPending": true
+  },
+  "terminalReview": {
+    "verdict": "PASS current owned settlement only",
+    "reviewJsonSha256": "4cc5bbeddf59d88ae84c9ef26f8f14950e62a1b8296ba81815c22d58c3e738ed",
+    "reviewMarkdownSha256": "3124ff7dc70f566fc144ac8b86a1a721a20d6f0d8fc0f69d820e6ff8437d878a",
+    "executionReceiptSha256": "c326f68e17ffbb2256549e5e48365a131c05fe32eb2d23b289f52353b3eaae5f",
+    "terminalSealSha256": "bf9f3b47f295d561050a39f94dcd4febca80c13eb13eb5c0e448fb89a9ced80c",
+    "currentOwnedSettlement": "reviewed_pass",
+    "historicalMarker": "retained; marker completion remains pending",
+    "acceptanceOrPromotion": false,
+    "localStackOrBrowserAcceptance": false,
+    "currentProcessAndOwnedResourceAbsence": "reviewed_pass_for_exact_owned_scope",
+    "continuousFloors": "reviewed_pass_for_exact_observation_window",
+    "markerCompletion": "pending; marker retained"
+  },
+  "priorSourceReview": {
+    "status": "PASS source composition only",
+    "reviewSha256": "1dcbe4ff8ef91ad8fe8f17ab7121751ae271812017cd96e94f5fcb79d9210bae",
+    "scope": "historical source-composition-only review, superseded for current settlement status"
+  },
+  "sourceCommit": "cf299647df8551f246e04021a8784a7742b06749"
+}

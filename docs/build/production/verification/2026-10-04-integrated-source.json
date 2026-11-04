@@ -1,0 +1,271 @@
+{
+  "recordedAtUtc": "2026-10-04T10:34:21.741829+00:00",
+  "integratedCommit": "c32d116745c75048a21b6e42a09ee313ce8230e6",
+  "branch": "codex/production-packets-2026-10-04",
+  "published": false,
+  "source": {
+    "baseCommit": "d4655266366e1974c654283fb448f396a6f4532f",
+    "observedStagedTree": "6c0c9616542d939f474254d2ab93ea1f0e59509b",
+    "finalCommittedTree": "6c0c9616542d939f474254d2ab93ea1f0e59509b",
+    "exact47ReviewedPaths": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/packaged-workers.yml",
+      "docs/build/handoffs/AWS-PREFLIGHT-SESSION-20261004.md",
+      "docs/build/handoffs/G2-NATIVE-GATES-20261004.md",
+      "docs/build/handoffs/MCP-ADMISSION-FIXTURES-20261004.md",
+      "docs/build/handoffs/MCP-DURABLE-ADMISSION-20261004.md",
+      "docs/build/handoffs/NON-AWS-DNS-TEARDOWN-20261004.md",
+      "docs/build/handoffs/PACKAGED-WORKER-NATIVE-CI-20261004.md",
+      "scripts/ci/gate-manifest.mjs",
+      "scripts/ci/packaged-worker-native.mjs",
+      "src/lib/agent-access/v3/adapters.ts",
+      "src/lib/agent-access/v3/deploy-admission.ts",
+      "src/lib/agent-access/v3/ports.ts",
+      "src/lib/agent-access/v3/tools/execute.ts",
+      "src/lib/agent-access/v3/tools/operations.ts",
+      "src/lib/agent-access/v3/tools/propose.ts",
+      "src/lib/capabilities/current-integration-grants.ts",
+      "src/lib/capabilities/current-product-roles.ts",
+      "src/lib/controlplane/db/index.ts",
+      "src/lib/controlplane/db/open.ts",
+      "src/lib/controlplane/db/repos/workflow-start-deploy-authority.ts",
+      "src/lib/controlplane/db/repos/workflow-start-intents.ts",
+      "src/lib/db/postgres-store.ts",
+      "src/lib/execution/aws-bootstrap-preflight.ts",
+      "src/lib/execution/destroy.ts",
+      "src/lib/platform/credentials.ts",
+      "src/lib/platform/execution.ts",
+      "src/lib/supabase/admin.ts",
+      "tests/agent-v3/adapters.test.ts",
+      "tests/agent-v3/execute.test.ts",
+      "tests/agent-v3/propose.test.ts",
+      "tests/agent-v3/support.ts",
+      "tests/capabilities/current-integration-grants.test.ts",
+      "tests/capabilities/current-product-roles.test.ts",
+      "tests/capabilities/default-current-membership.test.ts",
+      "tests/ci/gate-manifest.test.ts",
+      "tests/ci/packaged-workers.test.ts",
+      "tests/ci/platform-coverage.test.ts",
+      "tests/ci/release-gates.test.ts",
+      "tests/controlplane/mcp-deploy-admission.test.ts",
+      "tests/controlplane/mcp-start-source-authority.test.ts",
+      "tests/controlplane/opened-handle-ownership.test.ts",
+      "tests/execution/aws-bootstrap-preflight.test.ts",
+      "tests/execution/destroy-dns-ownership.test.ts",
+      "tests/execution/destroy.test.ts",
+      "tests/execution/session.test.ts",
+      "tests/platform/aws-bootstrap-preflight-admission.test.ts"
+    ],
+    "organizedCommits": [
+      {
+        "commit": "45a73762db8f3793a0ab485db491f44417b0b509",
+        "subject": "Bind AWS readiness to native execution sessions",
+        "ownedPathCount": 10,
+        "identity": "Saivedant Hava <saivedant169@gmail.com>|Saivedant Hava <saivedant169@gmail.com>"
+      },
+      {
+        "commit": "a793068f684edef65963acc26c836470ea853422",
+        "subject": "Persist and revalidate MCP deployment dispatch",
+        "ownedPathCount": 23,
+        "identity": "Saivedant Hava <saivedant169@gmail.com>|Saivedant Hava <saivedant169@gmail.com>"
+      },
+      {
+        "commit": "04dbeb0a943d1ffd3bfee298f0c121c32bcbe790",
+        "subject": "Require native deployment and packaged worker evidence",
+        "ownedPathCount": 10,
+        "identity": "Saivedant Hava <saivedant169@gmail.com>|Saivedant Hava <saivedant169@gmail.com>"
+      },
+      {
+        "commit": "c32d116745c75048a21b6e42a09ee313ce8230e6",
+        "subject": "Check provider DNS ownership before teardown",
+        "ownedPathCount": 4,
+        "identity": "Saivedant Hava <saivedant169@gmail.com>|Saivedant Hava <saivedant169@gmail.com>"
+      }
+    ],
+    "rawReceiptSourceState": "Observed staged source before commits; final committed tree independently matched. Historical receipts retain original source."
+  },
+  "environment": {
+    "host": "Darwin arm64; Saivedant machine",
+    "node": "22.23.3",
+    "postgresServerAndClient": "16.15; disposable Linux ARM64 PostgreSQL",
+    "openTofu": "1.12.5",
+    "opa": "1.19.1",
+    "go": "1.27.1; GOTOOLCHAIN=local"
+  },
+  "executed": {
+    "compiler": {
+      "exitCode": 0
+    },
+    "ownedLint": {
+      "exitCode": 0
+    },
+    "affectedFixtures": {
+      "passed": 130,
+      "failed": 0,
+      "skipped": 0,
+      "nativePostgres": 82,
+      "modeled": 48
+    },
+    "canonicalPlatformPostgres": {
+      "passed": 2354,
+      "failed": 0,
+      "skipped": 8,
+      "total": 2362,
+      "mandatoryNamedCases": 624,
+      "commandExitCode": 0,
+      "strictExecutionRevalidationExitCode": 0
+    },
+    "focusedMcpCi": {
+      "passed": 513,
+      "failed": 0,
+      "skipped": 16,
+      "total": 529,
+      "skippedActualPostgresCounterpartsPassed": 10,
+      "skippedActualLinuxUnchangedLeafCounterpartsPassed": 6
+    },
+    "dnsFocused": {
+      "passed": 198,
+      "failed": 0,
+      "skipped": 0,
+      "newModeledCases": 68,
+      "actualLocalOpenTofuCases": 6,
+      "scope": "prior4f021 staged tree; DNS production/test leaves unchanged; no live cloud deletion/quiescence"
+    },
+    "nativeLinuxSupervisor": {
+      "passed": 112,
+      "failed": 0,
+      "skipped": 0,
+      "actualLinuxNodeProcessGroupCases": 6,
+      "scope": "prior41path staged composition; both owned source leaves unchanged; no packaged/nativeAMD64 claim"
+    }
+  },
+  "declaredCanonicalSkips": "Six memory variants lack native rollback/trigger/locking and two PGlite variants lack independent PostgreSQL writer locks; all eight same-name PostgreSQL equivalents executed/passed. Strict canonical manifest retains exact exclusions.",
+  "countsOverlapAndMustNotBeSummed": true,
+  "historicalLocalKind": {
+    "commit": "8590c7199b03b04d8fda01a8fa0cae4025cf67f5",
+    "provider": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "release": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "guest": {
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0
+    },
+    "scope": "8 real API/RBAC cases and40 parser/model controls; local kind only; shared changed candidate needs fresh combined acceptance"
+  },
+  "historicalPublishedCi": {
+    "commit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
+    "runId": 37128274569,
+    "jobsPassed": 14,
+    "jobsFailed": 0,
+    "terminalRechecked": true,
+    "scope": "published baseline only; no later local implementation coverage"
+  },
+  "retainedFailures": {
+    "lastWholeUnit": {
+      "commit": "d5b6810",
+      "passed": 17927,
+      "failed": 1,
+      "skipped": 559,
+      "scope": "tenant SQL correction targeted native31+static5 passed at d465; complete successor still required"
+    },
+    "previousCanonicalPostgres": {
+      "passed": 2330,
+      "failed": 24,
+      "skipped": 8,
+      "supersededForSameLaneBy": "2354P0F8S exact624 mandatory execution, current record"
+    },
+    "previousAffectedFixtures": {
+      "passed": 128,
+      "failed": 2,
+      "skipped": 0,
+      "supersededForSameLaneBy": "130P0F0S current record"
+    },
+    "packagedArm64R6": "Failed in-flight schema shutdown waiter before SIGTERM;20 checks reached; no in-flight drain proof",
+    "packagedArm64R7": "Failed fresh image build at sampled7.92GiB storage floor; zero runtime checks"
+  },
+  "remainingPackets": {
+    "apply11": "Frozen original-byte/current-product/default-origin authority; read-only viewer publication correction required; unimported",
+    "nativeIntegration8": "Source draft restores genuine linked credential dispatch and corrects internally derived read publication; independent review/root native execution pending",
+    "nativeOAuth8": "Source draft restores absent native grant persistence with migration15/canonical verifier; independent review/root native execution pending",
+    "canonicalAuthorityGate": "Pending accepted corrected source contract; no skip waiver"
+  },
+  "permissions": {
+    "approved": "Disposable PostgreSQL/Temporal/kind/execution-worker/Linux tests and required images; normal same-branch push",
+    "pending": "Default API/server startup; live private GitHub/Supabase/AWS account/region/budget/configuration; destructive retention/business/production signoff"
+  },
+  "cleanup": "All owned databases/new images/private configs removed; unrelated Docker image and unowned cache preserved; no global prune",
+  "requirementsClosed": [],
+  "releaseStates": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  },
+  "privateArtifacts": [
+    {
+      "relativeToPrivateLogs": "operations-admission-fixtures-native-root-r2-20261004-source.json",
+      "sha256": "8bb61b65c2745f3aaafdde686d319f57de796a523d1a14b492cc09da48d5c5cd",
+      "bytes": 722
+    },
+    {
+      "relativeToPrivateLogs": "operations-packets-canonical-pg-root-r3-20261004-source.json",
+      "sha256": "3210d645be531ab3f03e0d9bb30af44726208f2321ea6cdbe17fbab96e8018b8",
+      "bytes": 1046
+    },
+    {
+      "relativeToPrivateLogs": "operations-packets-canonical-pg-root-r3-20261004-evidence.json",
+      "sha256": "a7af99ab923c1efe8390553664938c904225a3476f5f54c108fb3190826f297a",
+      "bytes": 230909
+    },
+    {
+      "relativeToPrivateLogs": "operations-packets-focused-root-r2-20261004-source.json",
+      "sha256": "78f2358207e161a92e8d62a3802388c1166e7d19105ffe36dcedbd32bb85de8c",
+      "bytes": 827
+    },
+    {
+      "relativeToPrivateLogs": "operations-packets-skip-accounting-root-r2-20261004.json",
+      "sha256": "ef52d8a3846759e67d48bc7010e9ada2e15a89d59b39d6f1b9d5bdfefb23235e",
+      "bytes": 11231
+    },
+    {
+      "relativeToPrivateLogs": "operations-packets-root-integration-commits-r1-20261004.json",
+      "sha256": "4fb21482ea4a53e63923f980d4d7bb96689740bace5d231038b862ff88517141",
+      "bytes": 1762
+    },
+    {
+      "relativeToPrivateLogs": "operations-non-aws-dns-focused-root-r1-20261004/receipt.json",
+      "sha256": "69646a5b2230231eb42359399fae7e4597fc69de86ac491a9be35c5592f5ecec",
+      "bytes": 1848
+    },
+    {
+      "relativeToPrivateLogs": "operations-non-aws-dns-focused-root-r1-20261004/source-binding.json",
+      "sha256": "07b3fafc12eec9c0887c21aea9430b5c601551db3d8e1f4fac5df36b7acea39a",
+      "bytes": 1051
+    },
+    {
+      "relativeToPrivateLogs": "operations-native-supervisor-linux-root-r1-20261004/receipt.json",
+      "sha256": "1b5a54089c66b33c4074f0a0730410cf358a1ae655d2705eaa95d53d3604e5d6",
+      "bytes": 2094
+    },
+    {
+      "relativeToPrivateLogs": "operations-corrections-kind-r1-20261004-evidence.json",
+      "sha256": "0eb94762705387c32a0738ff1d2efaced6da0b4b4012400aa9e5dd72a389787f",
+      "bytes": 3289
+    },
+    {
+      "relativeToPrivateLogs": "ci-37128274569-terminal-recheck-20261004.json",
+      "sha256": "da6004f64d83db5633722875bc5855350169c61fa132bdd3652393e09f0743fc",
+      "bytes": 3473
+    }
+  ],
+  "rawPrivateLogsPortableWithGit": false,
+  "next": "Complete corrected authority packets and root native checks; whole combined gates/package/kind/fresh install; same published branch normal push and terminal CI; continue operated journey/G3/G4."
+}

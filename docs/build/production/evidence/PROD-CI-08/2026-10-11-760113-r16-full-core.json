@@ -1,0 +1,25 @@
+{
+  "cases": {
+    "failed": 0,
+    "passed": 24552,
+    "skipped": 1939,
+    "total": 26491
+  },
+  "disk_floor_bytes": 23622320128,
+  "evidence_type": "full-core-r16-execution",
+  "execution_receipt_sha256": "2a3690466d290d16b5650eeef75eeac512a3bd65db6445403b683ccc5c043825",
+  "identity_and_case_counters_matched": true,
+  "minimum_free_bytes": 336276959232,
+  "outcome": "passed",
+  "owned_temporary_data_cleanup": "completed",
+  "projects": {
+    "dom": 1065,
+    "node": 25426
+  },
+  "scope": "Full core only. Skipped cases remain skipped; this does not establish broader operated or release acceptance.",
+  "source_freeze_sha256": "f6a65a481df07826f409970a41f79aee9e04d95538b7e7769fb04256a0032650",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "source_stable": true,
+  "summary_sha256": "9b0bf1b0de8b5277c67a88d4689c18407cf74de29236e6928c068fbfaf3c6d18",
+  "wrapper_exit_code": 0
+}

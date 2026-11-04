@@ -1,0 +1,44 @@
+{
+  "codebuild_kms": [
+    {
+      "Sid": "DecryptArtifacts",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+      ],
+      "Resource": "${kms_key_arn}"
+    }
+  ],
+  "observe_kms": [
+    {
+      "Sid": "ReadStateKmsKey",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+      ],
+      "Resource": "${kms_key_arn}"
+    }
+  ],
+  "state_kms": [
+    {
+      "Sid": "StateKmsKey",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "${kms_key_arn}"
+    }
+  ],
+  "route53": [
+    {
+      "Sid": "Route53ChangeRecordsInListedZones",
+      "Effect": "Allow",
+      "Action": "route53:ChangeResourceRecordSets",
+      "Resource": ${jsonencode(route53_hosted_zone_arns)}
+    }
+  ]
+}

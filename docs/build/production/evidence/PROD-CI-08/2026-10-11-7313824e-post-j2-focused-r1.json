@@ -1,0 +1,42 @@
+{
+  "schema": "zenith.post-j2-focused-diagnostic.v1",
+  "source_commit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+  "tracked_source_count": 5918,
+  "tracked_source_stable": true,
+  "overlay_files": [
+    "scripts/acceptance/default-stack/j4-fixture-target.mjs",
+    "scripts/acceptance/default-stack/j4-fixture-held.mjs"
+  ],
+  "checks": [
+    {
+      "kind": "node_syntax_check",
+      "count": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    {
+      "kind": "eslint",
+      "passed": true,
+      "exit_code": 0
+    }
+  ],
+  "held_commands": {
+    "total": 19,
+    "strict_closeout_passed": 19,
+    "failed": 0,
+    "all_joined": true,
+    "no_survivors": true
+  },
+  "source_freeze_mode": "captured-at-launch",
+  "floor_watcher_joined": true,
+  "minimum_free_bytes": 327148679168,
+  "wrapper_exit_code": 0,
+  "status": "passed-diagnostic-only",
+  "accepted_run_receipt": false,
+  "acceptance_claim": false,
+  "private_receipt_sha256": "c834b34dcee50e9d852110896852669b9568b76cafe3487ad5e78c676de3a0c9",
+  "launch_script_sha256": "97a02d45b038a7de6972ee51a774789689df7429f7e45a2d325ed90333503d1b",
+  "scope_note": "Focused syntax and lint diagnostics for the two-file repair only. No fixture runtime, full acceptance, fresh committed-source R16, exact-source CI, or native build is established."
+}

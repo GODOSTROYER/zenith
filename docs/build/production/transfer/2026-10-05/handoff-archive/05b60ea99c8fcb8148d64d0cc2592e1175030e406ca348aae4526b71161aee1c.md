@@ -1,0 +1,26 @@
+# Kubernetes guest session default wiring, 2026-10-03
+
+Source base: `098867e3fbe7350376e709c47b416574650e7faa`.
+Source branch: `ws/prod-kubernetes-guest-session-20261003`.
+This packet is source preparation for PROD-MACH-02. The production ledger and all 78 acceptance criteria are unchanged. No test, compiler, cluster, cloud or API run was performed in the author lane. Independent review and root execution remain required.
+
+The default machine-session provider requests the current canonical credential broker's callback for a Kubernetes connection, with the original verified grant and the catalog's observe/deploy purpose. It does not resolve vault references, load a worker kubeconfig, accept an admin identity or run an exec plugin. The existing platform broker resolves the owning workspace's vault reference and uses the provider credential builder, which refuses executable authentication plugins and local credential file paths. The machine adapter checks target/grant binding and accepts only an explicit, valid namespace array from the returned current session. Its frozen copy cannot gain namespaces from the old captured connection. An empty list permits no namespace through the existing machine driver.
+
+The machine handle expires at the earlier of broker session expiry and signed grant expiry. Accessors refuse before callback entry if cancelled/expired and after callback settlement, expiry or abort. Broker refusal before callback entry is mapped to fixed errors without provider/vault exception text. Callback failures retain their existing semantics. The optional legacy Kubernetes resolver is a captured test adapter: creation and every invocation require `NODE_ENV=test`. Production has no resolver fallback. This preserves the isolated existing execution fixture without granting it production authority.
+
+A separate broker correction rereads the connection through the owning workspace's scoped SQL repository after Kubernetes credential construction and the awaited credential audit, immediately before callback admission. Status must remain unchanged and not revoked, and the complete captured configuration must match canonically, including namespaces, credential reference, provider, server, CA and token-minter selectors. The connection schema has no configuration-version column; this comparison fences actual full configuration plus status rather than inventing a version. Rebinding, reduction or revocation during a vault/audit wait refuses the old session. SQL read failure is sanitized. Pending/failed onboarding preserves its original status requirement; AWS, GCP, Azure and OCI behavior is unchanged.
+
+Prepared tests use real scoped PGlite repositories, the encrypted file vault and the Kubernetes credential builder. New default-path controls use signed/verified fixture grants, with issuance represented by explicit fixture claims rather than a live role/browser/policy decision. They cover matching current identity, purpose, short lifetime, namespace reduction and immutable scope, empty allowlists with real machine-driver refusal before client creation, missing/foreign/revoked/wrong-provider captures, stale SQL revocation, foreign-only vault values, grant mismatch, expiry, abort, late answers and callback closure. Explicit malformed broker models test unscoped/wrong-provider/invalid lifetime/endpoint refusal; they are not production override evidence. The existing credential-verification suite adds delayed real vault/audit controls for unchanged authority, revoke, namespace/credential/provider rebinding, and sanitized SQL failure. Controlled asynchronous delays are models around genuine repository operations; no live provider call is substituted for claimed acceptance.
+
+The owned paths are:
+
+- `src/lib/machines/sessions.ts`
+- `src/lib/platform/credentials.ts`
+- `tests/machines/sessions.test.ts`
+- `tests/machines/default-kubernetes-session.test.ts`
+- `tests/platform/credentials-verification.test.ts`
+- this handoff
+
+Root should run the three affected Vitest files with one worker on pinned Node 22.23.3, then the existing execution machine and Kubernetes credential/provider suites, full compiler and lint, and fresh actual kind acceptance. Required environment is owned test storage with no ambient cloud keys. The frozen inventory records exact source inputs and future runtime arguments without copying credential values into evidence.
+
+Remaining boundaries: the immediate SQL reread establishes current state at admission, not an atomic distributed lock across later remote API calls. Revocation/configuration changes after that read and credentials or clients already obtained during an active callback are not physically erased or independently cancelled by this adapter. Abort prevents late callback entry and accessor use; the existing vault request has no cancellation input, so it can finish privately before its broker closes the handle. Real Kubernetes RBAC, network/API authentication, namespace permissions, credential rotation, retained client behavior and in-flight mutation outcomes require separate cluster/runtime proof. Historical revoked zenithd binding refusal, machine execution/grant verification, provider namespace/network semantics, the ledger and gate requirements were not edited. There is no PROD-MACH-02 completion or live acceptance claim in this packet.

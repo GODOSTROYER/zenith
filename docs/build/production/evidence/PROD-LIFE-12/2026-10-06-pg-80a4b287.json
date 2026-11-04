@@ -1,0 +1,101 @@
+{
+  "sourceCommit": "80a4b287ff7cfef462c935b44e0c99955434d04d",
+  "status": "passed_executed_gates_only",
+  "integratedCommit": "228573330c718464b181eb5f3abc6a90c3f4ed50",
+  "receiptSha256": "1252ca2335e47598c1b0315d53db20d1a5389fbde07ada4da81671bd9a47c709",
+  "native100": {
+    "passed": 100,
+    "failed": 0,
+    "skipped": 0,
+    "required": 100,
+    "strictExit": 0
+  },
+  "lanes": {
+    "platform-postgres": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "total": 3042
+      },
+      "requiredCount": 1124,
+      "requiredIdsSha256": "80ecb42920413fac09c6c6b1abb2f211d8332f467dbe4ff9acde6e398c9afb1b",
+      "reportSha256": "c69ee08c6d918a79cf47f822e28e5d2c9c44b1d850a09711bfe85eb35bf798e3"
+    },
+    "postgres": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "total": 322
+      },
+      "requiredCount": 80,
+      "requiredIdsSha256": "bcf0f03d13d9da5af22a00fbf3cadd8b972ddd2df0538d5166b7ab60b2a2a920",
+      "reportSha256": "069ba11a2ac91c7d5e2dc57385e56701300cf665499cc3f905f278711a002f18"
+    },
+    "workflows": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "total": 1273
+      },
+      "requiredCount": 60,
+      "requiredIdsSha256": "0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b",
+      "reportSha256": "f50aa9d0ce440c8c628d8f7f7997e5f101d07117d54b0da6e41ec4459f63ef36"
+    },
+    "reconciliation": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "total": 38
+      },
+      "requiredCount": 26,
+      "requiredIdsSha256": "3238a001d119fd1c975d22ff1632ee9ca8ad68b142cd52999c1ffd0e80c83114",
+      "reportSha256": "e1cce7612b7dbdadae690db64c9a8ff2476e37f465c67adabacdba2363609849"
+    },
+    "workflow-intents": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "total": 156
+      },
+      "requiredCount": 141,
+      "requiredIdsSha256": "a4819888f0501d42d67a69491a99bdf10f02ee409191d2c3f0ddbbd54b0827b2",
+      "reportSha256": "bcff9f3350584a06ba16f665413f39d12e833988f28c01c254163c8c52285106"
+    }
+  },
+  "migrationChecks": "Fresh/reapplication for platform and agent stores, published27-to29 upgrade, emitted snapshot reapply, Supabase fresh/reapply all exit0",
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "postgres": "16.15 native Linux ARM64 disposable Docker",
+    "temporalCli": "1.9.1",
+    "tofu": "1.12.5",
+    "host": "Darwin ARM64"
+  },
+  "cleanup": {
+    "ownedContainerAbsent": true,
+    "ownedVolumesAbsent": true,
+    "baselineImagesPreserved": true,
+    "newImageAbsent": true
+  },
+  "limits": [
+    "Reports overlap; never sum lane counts.",
+    "Actual execution source80a4; integrated228 authority paths unchanged, whole-commit CI remains pending.",
+    "No provider writes or default browser/server/live-cloud proof; no requirement/release promotion.",
+    "Raw logs not retained in repository."
+  ]
+}

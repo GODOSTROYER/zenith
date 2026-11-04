@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import type { RecipeSpec } from "./types";
+import { SUPPORTED_NODE_RANGE } from "../../node-runtime";
 
 export const SOURCE_CONTRACT_VERSION = 1 as const;
 
@@ -19,7 +20,7 @@ export const RECIPE_V1: RecipeSpec = {
   vite: "7.3.6",
   pluginReact: "5.1.4",
   react: "19.1.0",
-  node: ">=22.16",
+  node: SUPPORTED_NODE_RANGE,
 };
 
 /** `zenith.app.json` at the source root. Required. */
@@ -29,7 +30,7 @@ export const SourceManifest = z
     name: z.string().trim().min(1).max(60),
     schema: z.literal(1),
     /** entry HTML, relative; only the default is supported in v1 */
-    entry: z.literal("index.html").default("index.html"),
+    entry: z.literal("index.html").prefault("index.html"),
   })
   .strict();
 export type SourceManifest = z.infer<typeof SourceManifest>;
@@ -47,7 +48,7 @@ export const SourcePackageJson = z
     version: z.string().optional(),
     private: z.boolean().optional(),
     type: z.literal("module").optional(),
-    dependencies: z.record(z.string()).optional(),
+    dependencies: z.record(z.string(), z.string()).optional(),
   })
   .strict();
 
@@ -114,4 +115,3 @@ export interface ValidatedSource {
   digest: string;
   totalBytes: number;
 }
-

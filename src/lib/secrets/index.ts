@@ -25,6 +25,8 @@
  */
 import crypto from "node:crypto";
 import { decodeSecretKey, env, SECRET_KEY_FIX } from "@/lib/env";
+import { KeyCustodyError } from "@/lib/keycustody/purposes";
+import { KeyRing } from "@/lib/keycustody/registry";
 import { asyncSecretsBackend, KEY_VERSION, secretsBackend, type SecretRecord } from "./backend";
 
 /* ---------------------------------- shape --------------------------------- */
@@ -155,8 +157,12 @@ export type Sealed = Pick<SecretRecord, "iv" | "authTag" | "ciphertext">;
  * Throws when there is no usable key. It never degrades to writing plaintext.
  */
 export function seal(workspaceId: string, ref: string, value: string): Sealed {
+  return sealWithKey(requireKey(), workspaceId, ref, value);
+}
+
+function sealWithKey(key: Buffer, workspaceId: string, ref: string, value: string): Sealed {
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv("aes-256-gcm", requireKey(), iv);
+  const c = crypto.createCipheriv("aes-256-gcm", key, iv);
   c.setAAD(aad(workspaceId, ref));
   const ct = Buffer.concat([c.update(value, "utf8"), c.final()]);
   return {
@@ -195,6 +201,66 @@ export function unseal(workspaceId: string, ref: string, sealed: Sealed): string
   }
 }
 
+/** A private rotation snapshot. Previous keys are used only by `open`. */
+export interface VaultCipher {
+  seal(workspaceId: string, ref: string, value: string): Sealed;
+  open(workspaceId: string, ref: string, sealed: Sealed): { value: string; current: boolean };
+}
+
+/**
+ * Capture the key ring for a vault-format purpose once per re-wrap run, or once per vault read.
+ * The key registry (`@/lib/keycustody`) resolves the keys: it refuses a purpose that is not a
+ * vault-format purpose and never hands out a decrypt-only key for sealing. Read the variables there
+ * because env.ts is outside the rotation workstream. No key ids are persisted: successful GCM
+ * authentication identifies the writer. Malformed configuration and authentication errors never echo
+ * input or refs.
+ *
+ * `options.purpose` defaults to the vault. Plan custody keeps its own variables; it may pass
+ * `enc:plan-artifacts` to have the registry read them; plan custody (`planArtifactCipherFromEnv`) does since the wave-4 assembly.
+ */
+export function vaultCipherFromEnv(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+  options: { purpose?: "enc:vault" | "enc:plan-artifacts" } = {}
+): VaultCipher {
+  const purpose = options.purpose ?? "enc:vault";
+  const variable = purpose === "enc:vault" ? "ZENITH_SECRET_KEY" : "ZENITH_PLAN_ARTIFACT_KEY";
+  let keys: { key: Buffer }[];
+  let current: Buffer;
+  try {
+    const ring = KeyRing.fromEnv(source, { purposes: [purpose] });
+    current = ring.materialFor(purpose, "encrypt")[0].key;
+    keys = ring.materialFor(purpose, "decrypt");
+  } catch (error) {
+    if (error instanceof KeyCustodyError) throw new Error(error.code === "key_unavailable" ? `${variable} must contain 32-byte hex or base64 keys.` : error.message);
+    throw error;
+  }
+  return {
+    seal(workspaceId, ref, value) {
+      return sealWithKey(current, workspaceId, ref, value);
+    },
+    open(workspaceId, ref, sealed) {
+      for (const [index, { key }] of keys.entries()) {
+        try {
+          const iv = Buffer.from(sealed.iv, "base64");
+          const tag = Buffer.from(sealed.authTag, "base64");
+          if (iv.length !== 12 || tag.length !== 16) break;
+          const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+          decipher.setAAD(aad(workspaceId, ref));
+          decipher.setAuthTag(tag);
+          const value = Buffer.concat([decipher.update(Buffer.from(sealed.ciphertext, "base64")), decipher.final()]).toString("utf8");
+          return { value, current: index === 0 };
+        } catch { /* Authentication must succeed before any plaintext is returned. */ }
+      }
+      throw new Error("A stored vault value cannot be opened with the configured keys. Restore the required key or an intact backup.");
+    },
+  };
+}
+
+/** Vault-only read overlap. Generic `unseal` retains its current-key contract. */
+export function unsealVault(workspaceId: string, ref: string, sealed: Sealed): string {
+  return vaultCipherFromEnv().open(workspaceId, ref, sealed).value;
+}
+
 /* ---------------------------------- reads --------------------------------- */
 
 /** Metadata for one reference. Never the value. */
@@ -220,7 +286,7 @@ export function listSecrets(workspaceId: string): SecretMeta[] {
  */
 export function readSecretValue(workspaceId: string, ref: string): string | undefined {
   const record = secretsBackend().get(workspaceId, ref);
-  return record && unseal(workspaceId, ref, record);
+  return record && unsealVault(workspaceId, ref, record);
 }
 
 /** Non-blocking metadata read for request/provider paths. */
@@ -243,7 +309,7 @@ export async function readSecretValueAsync(
   ref: string
 ): Promise<string | undefined> {
   const record = await asyncSecretsBackend().get(workspaceId, ref);
-  return record && unseal(workspaceId, ref, record);
+  return record && unsealVault(workspaceId, ref, record);
 }
 
 /* --------------------------------- writes --------------------------------- */

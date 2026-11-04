@@ -1,0 +1,21 @@
+# GatewayClass: PLACEHOLDER. Install Gateway API v1 CRDs and a controller first.
+# Replace controllerName; the class must equal ZENITH_MANAGED_GATEWAY_CLASS.
+#
+# Environment apply creates one Gateway and wildcard Certificate in
+# ZENITH_MANAGED_GATEWAY_NAMESPACE (default zenith-gateway). Each HTTPS listener
+# selects exactly its tenant namespace; HTTPRoutes explicitly name that listener.
+# No shared/example Gateway or cert-manager gateway-shim is needed.
+#
+# Configure the controller's data-plane pods to run in zenith-gateway, as required
+# by the tenancy NetworkPolicy. Multiple Gateways sharing an address/data plane
+# is controller-specific: verify it, or provision DNS for each environment zone
+# to its own Gateway address. No load-balancer sharing is promised by Gateway v1.
+# See ../../docs/platform/MANAGED-PLATFORM.md, "Hostnames and TLS".
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: zenith
+  annotations:
+    zenith.dev/placeholder: "true"
+spec:
+  controllerName: example.net/REPLACE-gateway-controller

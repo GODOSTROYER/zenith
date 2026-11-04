@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { defineAction, type ActionContext } from "@/lib/actions/core";
+import { v1View } from "@/lib/resources/upgrade";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import {
@@ -76,6 +77,48 @@ const IN_FLIGHT: Deployment["status"][] = [
  */
 export function inFlight(environmentId: string): Deployment | undefined {
   return q.deploymentsOf(environmentId).find((d) => IN_FLIGHT.includes(d.status));
+}
+
+/**
+ * The dispatch/concurrency decision for an environment (PROD-DUR-02). For real
+ * (workflow-executed) deployments it reads the platform authority record, never
+ * the product Deployment projection. Only simulator deployments, which have no
+ * platform operation, are decided from the product store. Without an open
+ * platform store (local memory mode) the product record is all there is.
+ */
+export async function environmentBusy(ctx: { workspaceId: string }, environmentId: string): Promise<{ status: string; source: "authority" | "product" } | undefined> {
+  const product = inFlight(environmentId);
+  const simulated = product && product.executor !== "workflow" ? product : undefined;
+  try {
+    const { isMemoryStoreEnabled } = await import("@/lib/capabilities/platform");
+    if (isMemoryStoreEnabled()) return product ? { status: product.status, source: "product" } : undefined;
+    const [{ platformDb }, { environmentActivity }] = await Promise.all([import("@/lib/controlplane/db"), import("@/lib/controlplane/authority")]);
+    const active = await environmentActivity(await platformDb(), ctx.workspaceId, environmentId);
+    if (active[0]) return { status: active[0].status, source: "authority" };
+    return simulated ? { status: simulated.status, source: "product" } : undefined;
+  } catch {
+    // A missing or terminal projection cannot prove authoritative work is idle.
+    return { status: "authority_unavailable", source: "authority" };
+  }
+}
+
+export const activityUnavailableMessage = "Zenith cannot check current deployment activity. Try again when the deployment service is available.";
+export const teardownSettlingMessage = "Earlier deploy activity has not settled yet. Teardown can start once every earlier deploy credential and workflow has provably stopped: about 80 minutes after an AWS deploy's last credential expires. Activity through static credentials, runners or other providers does not settle on its own.";
+export const teardownUntrackedMessage = "This environment has deploy history from before Zenith tracked deploy writers, so Zenith cannot tear it down. Remove its resources with provider tooling; Zenith then verifies absence.";
+
+/** The cleanup barrier's earlier-delivery inventory, read up front so a teardown is refused before approval instead of after. */
+export async function teardownSettling(ctx: { workspaceId: string }, env: { id: string; projectId: string }): Promise<string | undefined> {
+  try {
+    const { isMemoryStoreEnabled } = await import("@/lib/capabilities/platform");
+    if (isMemoryStoreEnabled()) return undefined;
+    const [{ platformDb }, { cleanupWriterBarriers }] = await Promise.all([import("@/lib/controlplane/db"), import("@/lib/controlplane/db/repos")]);
+    const inventory = await cleanupWriterBarriers.preview(await platformDb(), ctx.workspaceId, env.projectId, env.id);
+    if (inventory.unknownHistory) return teardownUntrackedMessage;
+    return inventory.grants || inventory.handoffs || inventory.reservations ? teardownSettlingMessage : undefined;
+  } catch {
+    // The worker barrier stays the authority; an unreadable inventory cannot be shown as drained.
+    return activityUnavailableMessage;
+  }
 }
 
 /** "revision 4" when an environment is running one, else undefined. */
@@ -160,7 +203,7 @@ export function envPlanDetails(project: Project, env: Environment, conn: CloudCo
     env.policies.budgetUsdMonthly
       ? `Budget ${fmtUsd(env.policies.budgetUsdMonthly)}/month; plans that exceed it are flagged before you deploy.`
       : "No budget set. Set one with env.setBudget to get warned before a plan gets expensive.",
-    `Creating an environment costs nothing on its own — the current system would cost ${fmtUsd(monthlyCostUsd(project.workingManifest))}/month once deployed (estimate).`,
+    `Creating an environment costs nothing on its own — the current system would cost ${fmtUsd(monthlyCostUsd(v1View(project.workingManifest)))}/month once deployed (estimate).`,
   ];
 }
 
@@ -298,7 +341,7 @@ defineAction<SetBudget>({
   plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
     const project = requireProject(ctx, env.projectId);
-    const { details, warnings } = budgetDetails(env, monthlyCostUsd(project.workingManifest), input.budgetUsdMonthly);
+    const { details, warnings } = budgetDetails(env, monthlyCostUsd(v1View(project.workingManifest)), input.budgetUsdMonthly);
     return {
       summary: input.budgetUsdMonthly === null ? `Remove the budget on "${env.name}".` : `Set a ${fmtUsd(input.budgetUsdMonthly)}/month budget on "${env.name}".`,
       details,
@@ -336,7 +379,7 @@ type UpdateEnv = z.infer<typeof UpdateEnv>;
  * One reading of a rename/region change, shared by plan and execute so the
  * refusal a plan shows is character-for-character the one execute would give.
  */
-function envUpdate(ctx: ActionContext, input: UpdateEnv) {
+async function envUpdate(ctx: ActionContext, input: UpdateEnv) {
   const env = requireEnvironment(ctx, input.environmentId);
   const project = requireProject(ctx, env.projectId);
   const name = input.name?.trim();
@@ -347,9 +390,11 @@ function envUpdate(ctx: ActionContext, input: UpdateEnv) {
   const warnings: string[] = [];
   let blocked: string | undefined;
 
-  const busy = inFlight(env.id);
+  const busy = await environmentBusy(ctx, env.id);
   if (busy)
-    blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then try again.`;
+    blocked = busy.status === "authority_unavailable"
+      ? activityUnavailableMessage
+      : `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then try again.`;
 
   if (name && name !== env.name) {
     if (!blocked && q.environmentsOf(project.id).some((e) => e.id !== env.id && e.name === name))
@@ -397,8 +442,8 @@ defineAction<UpdateEnv>({
   requiredRole: "admin",
   mutates: true,
   input: UpdateEnv,
-  plan(ctx, input) {
-    const { env, details, warnings, blocked } = envUpdate(ctx, input);
+  async plan(ctx, input) {
+    const { env, details, warnings, blocked } = await envUpdate(ctx, input);
     return {
       summary: `Update the "${env.name}" environment.`,
       details,
@@ -409,8 +454,8 @@ defineAction<UpdateEnv>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { env, project, name, region, blocked } = envUpdate(ctx, input);
+  async execute(ctx, input) {
+    const { env, project, name, region, blocked } = await envUpdate(ctx, input);
     if (blocked) return { ok: false, summary: `"${env.name}" was not changed.`, error: blocked };
     const was = env.name;
     if (name && name !== env.name) {
@@ -514,18 +559,20 @@ const SetConnection = z.object({
 });
 type SetConnection = z.infer<typeof SetConnection>;
 
-function envSetConnection(ctx: ActionContext, input: SetConnection) {
+async function envSetConnection(ctx: ActionContext, input: SetConnection) {
   const env = requireEnvironment(ctx, input.environmentId);
   const current = q.connection(env.connectionId);
   const next = q.connection(input.connectionId);
-  const busy = inFlight(env.id);
+  const busy = await environmentBusy(ctx, env.id);
 
   let blocked: string | undefined;
   if (!next || next.workspaceId !== ctx.workspaceId)
     blocked = `Connection "${input.connectionId}" is not in this workspace. Pick one from Settings → Connections, or connect a cloud first.`;
   else if (next.id === env.connectionId) blocked = `${env.name} already deploys through ${next.label}.`;
   else if (busy)
-    blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then move the environment.`;
+    blocked = busy.status === "authority_unavailable"
+      ? activityUnavailableMessage
+      : `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then move the environment.`;
 
   const details: string[] = [];
   const warnings: string[] = [];
@@ -562,8 +609,8 @@ defineAction<SetConnection>({
   requiredRole: "admin",
   mutates: true,
   input: SetConnection,
-  plan(ctx, input) {
-    const { env, next, details, warnings, blocked } = envSetConnection(ctx, input);
+  async plan(ctx, input) {
+    const { env, next, details, warnings, blocked } = await envSetConnection(ctx, input);
     return {
       summary: next
         ? `Point "${env.name}" at ${next.label}.`
@@ -576,8 +623,8 @@ defineAction<SetConnection>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { env, next, blocked } = envSetConnection(ctx, input);
+  async execute(ctx, input) {
+    const { env, next, blocked } = await envSetConnection(ctx, input);
     if (blocked || !next) return { ok: false, summary: `"${env.name}" was not moved.`, error: blocked };
     env.connectionId = next.id;
     save();
@@ -594,17 +641,19 @@ defineAction<SetConnection>({
 const DeleteEnv = z.object({ environmentId: z.string().optional() });
 type DeleteEnv = z.infer<typeof DeleteEnv>;
 
-function envDelete(ctx: ActionContext, input: DeleteEnv) {
+async function envDelete(ctx: ActionContext, input: DeleteEnv) {
   const env = requireEnvironment(ctx, input.environmentId);
   const project = requireProject(ctx, env.projectId);
   const siblings = q.environmentsOf(project.id).filter((e) => e.id !== env.id);
   const deployments = q.deploymentsOf(env.id);
   const live = liveRevision(env);
-  const busy = inFlight(env.id);
+  const busy = await environmentBusy(ctx, env.id);
 
   let blocked: string | undefined;
   if (busy)
-    blocked = `A deployment is ${busy.status} on ${env.name}. Wait for it to finish, or cancel it on the Deploys page, then delete the environment.`;
+    blocked = busy.status === "authority_unavailable"
+      ? activityUnavailableMessage
+      : `A deployment is ${busy.status} on ${env.name}. Wait for it to finish, or cancel it on the Deploys page, then delete the environment.`;
   else if (siblings.length === 0)
     blocked = `${env.name} is the only environment in ${project.name}, and every project screen needs one. Create another environment first, or delete the whole project in Settings → Danger zone.`;
 
@@ -634,8 +683,8 @@ defineAction<DeleteEnv>({
   requiredRole: "admin",
   mutates: true,
   input: DeleteEnv,
-  plan(ctx, input) {
-    const { env, live, details, warnings, blocked } = envDelete(ctx, input);
+  async plan(ctx, input) {
+    const { env, live, details, warnings, blocked } = await envDelete(ctx, input);
     return {
       summary: `Delete the "${env.name}" environment.`,
       details,
@@ -646,8 +695,8 @@ defineAction<DeleteEnv>({
       blocked,
     };
   },
-  execute(ctx, input) {
-    const { env, project, deployments, blocked } = envDelete(ctx, input);
+  async execute(ctx, input) {
+    const { env, project, deployments, blocked } = await envDelete(ctx, input);
     if (blocked) return { ok: false, summary: `"${env.name}" was not deleted.`, error: blocked };
     const d = db();
     d.environments = d.environments.filter((e) => e.id !== env.id);

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "contract",
+  "kind": "sys1-apt-tail-r3-focused-vitest-only",
+  "primarySourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "candidateExpectedHead": "9040312191c32a8c5c8d6f09e62b5cb678bf32c0",
+  "receiptSha256": "f20413a34315bc75084f5a3c25a43123466f81d96cdea51aebd66bffd67cf6fc",
+  "patchSha256": "3ffc296ce4497f452b9e47deca8b63ef3e8b58a3ce906bd26e2430db06454e22",
+  "counts": {
+    "filesPassed": 1,
+    "passed": 193,
+    "failed": 0,
+    "skipped": 0
+  },
+  "validation": {
+    "strictCommandReceipts": 13,
+    "allCommandsExit0": true,
+    "sourceStable": true,
+    "strictHeldCommandCloseout": true,
+    "lintPassed": true,
+    "minimumFreeBytes": 378506174464,
+    "diskFloorBytes": 23622320128,
+    "timeoutSeconds": 180
+  },
+  "priorAttempt": {
+    "receiptSha256": "825515b4f7f509573cbc9cf2ac167b5093e9f45d6a91ed42adf5ce72ddc2cffa",
+    "disposition": "refused-no-verdict",
+    "reason": "Unrelated PID session change; no owned children were present."
+  },
+  "historicalR2Failure": {
+    "passed": 192,
+    "failed": 1,
+    "skipped": 0,
+    "cause": "Required original-stage predicate was missing; lint also found an unused enum. Preserved as a failure."
+  },
+  "integratedCandidateCommit": "fbe2591c (isolated; not pushed)",
+  "acceptedRunReceipt": false,
+  "acceptanceMeaning": "focused-unit-tests-only",
+  "limitation": "The quiet R3 retry passed its focused validation only. It does not establish exact-source CI, complete systemd acceptance, full-suite acceptance, or release approval; the earlier no-verdict refusal remains unchanged."
+}

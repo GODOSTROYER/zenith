@@ -1,0 +1,89 @@
+{
+  "acceptance": {
+    "defaultStackAccepted": false,
+    "j1AuthRestartAccepted": false,
+    "j1DefaultStackAccepted": false,
+    "j2Accepted": false,
+    "productionReady": false
+  },
+  "acceptanceMeaning": "Focused syntax, fake-Docker restart ordering/guard tests, pure stack configuration contracts and lint only.",
+  "acceptedRunReceipt": false,
+  "candidatePatchSha256": {
+    "d4NewTest": "9aae9e00a79f2d7e390883fdf39cddd7b831db9df90dd275a27e5e578677377d",
+    "d4OperatedDriver": "0b1894f91a29a473efae197c5191d233aabdd1180a60da6ccb8bd3e0b24b6d58",
+    "j1AuthRestartR2": "641b580af6d2c589e7d259fc62080be18ea4a7d7d92dbf51565f5d6700f6a763",
+    "j2CombinedR4": "0294701507348f87aeb1c5dcc815ff5c86af2caeab4de2088ad59bae04103b82"
+  },
+  "candidatePinsAfterSha256": "6cc771d27301254087bf81ab71e700237b0cbce60271bc29b3cc43344c7338d9",
+  "candidatePinsBeforeSha256": "32e9fec1797f923d3625e972aca162079354a7b6a2f078d9db9fa7dcca1e7e3e",
+  "candidatePostimageSha256": {
+    "scripts/acceptance/default-stack/start-cli-services.mjs": "26b59c963ce91fa207fa7bce4e5c18a9bb4bc95f41210d772cedb0282e152992",
+    "scripts/acceptance/default-stack/up.mjs": "42f570b6de83542124ed2906dc1910d391189ebc418c21824b20680a5dedabf0",
+    "scripts/release/drivers/operated.ts": "da9f4562a2f0c3ad146a143f81c22e2af08283a8b60a04d1ac2ffa9d9aa2f33b",
+    "tests/deploy/default-stack-start-cli-services.test.ts": "dc95ce2f203f0d741a9c0e05e4f336f4e7bf014650131fe071b4fbadfa8c04f9",
+    "tests/e2e/default/journey.spec.mjs": "be6685eedfa6e2f0cc2e8b0eca35922b888e0547cb1102ab135b6e3fd591c655",
+    "tests/release/drivers/operated-tenants.test.ts": "fd2ef0d15f03ffdfce0d9602148154c041e6cc3023fd82aa34d77ab75071987a"
+  },
+  "candidatePushed": false,
+  "evidenceLevel": "contract",
+  "heldReceiptSha256": "6eee5b62fa1ae44c0f019da06be4c0f56e49e98fb429506083d0294ffe2fcaeb",
+  "kind": "j1-auth-restart-r2-focused-source-validation",
+  "limitation": "No live Supabase/Auth or real default-stack acceptance was performed. This focused candidate proof does not establish J1, J2, default-stack, or release acceptance.",
+  "primarySourceFreezeSha256After": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+  "primarySourceFreezeSha256Before": "c627bba9e2e36f98e9c628f95787868cad1da83c8c7c31f5ff60de627dad0852",
+  "primarySourceHead": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "requirement": "PROD-CI-08",
+  "schemaVersion": 1,
+  "validation": {
+    "allCommandsExit0": true,
+    "candidateIgnoredCacheOnlyDelta": {
+      "cacheDirectoryIdentitiesStable": true,
+      "resultsJsonBytesAfter": 600,
+      "resultsJsonBytesBefore": 484
+    },
+    "candidateSourceStable": true,
+    "diskFloorBytes": 23622320128,
+    "eslint": {
+      "files": 3,
+      "returnCode": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "floorWatcherFailure": null,
+    "floorWatcherJoined": true,
+    "heldCommandReceipts": 28,
+    "minimumFreeBytes": 343128018944,
+    "nodeSyntax": {
+      "files": 2,
+      "returnCodes": [
+        0,
+        0
+      ],
+      "targets": [
+        "scripts/acceptance/default-stack/up.mjs",
+        "scripts/acceptance/default-stack/start-cli-services.mjs"
+      ]
+    },
+    "outcome": "passed-focused-unit-proof-only",
+    "primarySourceStable": true,
+    "processCustodyDroppedEvents": 0,
+    "processCustodyEventsTruncated": false,
+    "processCustodyTelemetryComplete": true,
+    "strictHeldCommandCloseout": true,
+    "timeoutSeconds": 180,
+    "vitest": {
+      "authRestartCases": 6,
+      "custodyEventsSha256": "7aff585dd33f7259e33fa1c2a7b8bc71e09c45c2ae625231f9e30b64a20a7498",
+      "existingDefaultStackConfigCases": 18,
+      "failed": 0,
+      "filesPassed": 2,
+      "passed": 24,
+      "skipped": 0,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdoutSha256": "8f4f96525423f91028b6ce9a769bea9d96000c42334bc141366e4b9be178bb0c"
+    }
+  },
+  "candidateBaseCommit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "testedCandidateCommit": null,
+  "candidateRevisionMeaning": "Uncommitted patch overlay on candidateBaseCommit; candidatePatchSha256 and candidate postimage/source-pin hashes identify the tested candidate. No tested commit exists."
+}

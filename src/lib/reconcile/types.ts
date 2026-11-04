@@ -1,0 +1,467 @@
+/**
+ * Reconciliation controller contracts: the ports it is coded against, the
+ * options that bound it, and the results it reports.
+ *
+ * The controller is the classic loop — desired, observe, diff, policy, repair —
+ * with one deliberate restriction: it NEVER repairs anything itself. A repair
+ * is a `drift.repair` capability request handed to the capability broker
+ * (origin `reconciler`); the broker and policy decide allow / approval / deny,
+ * and an allowed operation is handed to `startRepair` so the durable day-two
+ * workflow executes it under the `env:<id>` lease with its own credentials.
+ *
+ * Everything the controller touches from outside is a PORT defined here, so the
+ * core is deterministic and testable without a database, a cloud or a clock:
+ *
+ *   store               persisted observations, runtime, drift reports, events
+ *   withObserveSession  ONE read-only credential session (the credential broker
+ *                       behind a `infrastructure.observe` grant, wired by the
+ *                       orchestrator); the session object never leaves the
+ *                       callback and is never stored
+ *   broker              the capability broker's `propose`
+ *   startRepair         hands an ALLOWED repair operation to Temporal
+ *   state / guard /     scheduling, mutual exclusion and deploy/incident
+ *   signals             signals, used by `reconcilePass` only
+ *
+ * Invariants: no secret value in any port payload; an attribute that was not
+ * read is `unknown`, never "matches"; referenced and external resources are
+ * reported, never proposed for repair; every persisted row and every query is
+ * scoped by `workspaceId`.
+ */
+import type { CapabilityRequest } from "@/lib/capabilities/catalog";
+import type { OperationStatus, PlatformEventType, Principal } from "@/lib/controlplane/types";
+import type { ProviderConnection } from "@/lib/credentials/types";
+import type { DriverContext, DriverLog, ResourceDriver } from "@/lib/drivers/types";
+import type { AutonomyLevel, EnvironmentClass } from "@/lib/policy/types";
+import type { DriftClass, DriftReport, Observation, ProviderKey, ResourceNode, ResourceOwnership, RuntimeState } from "@/lib/resources/types";
+
+/* ------------------------------- environments ------------------------------ */
+
+/** What the controller needs to know about one environment. Resolved by the caller, never inferred. */
+export interface ReconcileEnvironment {
+  workspaceId: string;
+  projectId?: string;
+  environmentId: string;
+  class: EnvironmentClass;
+  /** the environment's primary provider (individual nodes may override it) */
+  provider: ProviderKey;
+  region: string;
+  /** the provider connection reads go through; absent or unverified means the environment is not reconcilable */
+  connection?: { id: string; status: ProviderConnection["status"] };
+  /** 0 observe … 5 broad (ADR-0007). 0 means observe only: the controller proposes nothing. */
+  autonomyLevel?: AutonomyLevel;
+}
+
+/** An environment as the scheduler sees it: the above plus the signals that set its priority. */
+export interface SchedulableEnvironment extends ReconcileEnvironment {
+  /** when the most recent deploy/apply of this environment finished */
+  lastDeployAt?: string;
+  /** open incidents on this environment */
+  openIncidents?: number;
+}
+
+/* --------------------------------- resources ------------------------------- */
+
+/** Lifecycle status of a stored resource row (mirrors `platform.resources.status`). */
+export type StoredResourceStatus = "planned" | "provisioning" | "active" | "updating" | "deleting" | "deleted" | "failed" | "unknown";
+
+/** One stored resource row, as much as the controller needs. */
+export interface StoredResourceRef {
+  id: string;
+  address: string;
+  ownership: ResourceOwnership;
+  status: StoredResourceStatus;
+  externalId?: string;
+}
+
+/* ---------------------------------- events --------------------------------- */
+
+export type ReconcileEventType = Extract<PlatformEventType, "drift.detected" | "drift.cleared" | "remediation.proposed">;
+
+/** An append-only platform event the controller produced. `data` carries no attribute values and no secrets. */
+export interface ReconcileEvent {
+  /** deterministic, so re-appending after a retry is idempotent */
+  id: string;
+  type: ReconcileEventType;
+  workspaceId: string;
+  projectId?: string;
+  environmentId: string;
+  resourceId?: string;
+  operationId?: string;
+  correlationId: string;
+  actor: Principal;
+  data: Record<string, unknown>;
+}
+
+/* ---------------------------------- store ---------------------------------- */
+
+export interface PreviousReconcile {
+  report: DriftReport;
+  /**
+   * First-seen instant of every finding that was open at the previous report,
+   * keyed by `findingKey`. Drives stable correlation ids across detect/clear.
+   * Empty when unknown (a lost map degrades correlation, never correctness).
+   */
+  findingSince: Record<string, string>;
+}
+
+/** The fenced lease a reconciliation runs under: the commit asserts it is still the live fence before writing. */
+export interface FenceRef {
+  scope: string;
+  token: number;
+}
+
+/** Everything one reconciliation persists. The adapter writes it in ONE transaction. */
+export interface ReconcileCommit {
+  environment: ReconcileEnvironment;
+  /** when present, the adapter asserts this fence first in the same transaction (lease loss throws; nothing is written) */
+  fence?: FenceRef;
+  observations: { resourceId: string; observation: Observation }[];
+  runtime: { resourceId: string; runtime: RuntimeState }[];
+  report: DriftReport;
+  events: ReconcileEvent[];
+  /** replaces the stored map: only findings open in `report` */
+  findingSince: Record<string, string>;
+}
+
+/**
+ * A `drift.repair` operation in the operations ledger, as the controller needs
+ * it to avoid duplicates and to rate-limit. The adapter returns every such
+ * operation of the environment that is open, unresolved uncertain, or was
+ * created at or after `sinceIso`. Other unresolved mutations may block the
+ * environment. An incomplete inventory must throw, never silently truncate.
+ */
+export interface RepairOperationRef {
+  operationId: string;
+  /** the resource the operation is scoped to (drift.repair is a resource-level capability) */
+  resourceId?: string;
+  status: OperationStatus;
+  createdAt: string;
+  /** proposed by this controller (principal `reconciler`), as opposed to a person or an agent */
+  byReconciler: boolean;
+  /** Unresolved mutations outside drift.repair conservatively block the entire environment. */
+  blocksEnvironment?: boolean;
+}
+
+export interface ReconcileStore {
+  /** Stored resource rows of the environment, tenant-scoped. */
+  listResources(environment: ReconcileEnvironment): Promise<StoredResourceRef[]>;
+  /** Latest persisted report + first-seen map, or null on the first pass. */
+  loadPrevious(environment: ReconcileEnvironment): Promise<PreviousReconcile | null>;
+  /** Persist observations, runtime, report, events and the first-seen map atomically. */
+  commit(commit: ReconcileCommit): Promise<void>;
+  /** Append events outside the commit (repair proposals happen after it). Idempotent on `event.id`. */
+  appendEvents(environment: ReconcileEnvironment, events: ReconcileEvent[]): Promise<void>;
+  listRepairOperations(environment: ReconcileEnvironment, sinceIso: string): Promise<RepairOperationRef[]>;
+}
+
+/* -------------------------------- observation ------------------------------ */
+
+export interface ObserveSessionRequest {
+  workspaceId: string;
+  projectId?: string;
+  environmentId: string;
+  /** one session per provider present in the graph */
+  provider: ProviderKey;
+  region: string;
+  connectionId?: string;
+  correlationId: string;
+  /** aborts when the environment's observation deadline passes; the session must stop handing out clients */
+  signal: AbortSignal;
+}
+
+/* ---------------------------------- broker --------------------------------- */
+
+/** The controller's identity on every proposal and event. A system principal, never a person. */
+export const RECONCILER_PRINCIPAL: Principal = { kind: "system", id: "reconciler", name: "Zenith reconciliation controller" };
+
+export interface RepairProposal {
+  /** `drift.repair`, scoped to the resource, with the reason and an idempotency key */
+  request: CapabilityRequest;
+  /** the policy input's `context.origin` */
+  origin: "reconciler";
+  principal: Principal;
+  /** the drift finding's lifecycle id: detection, this proposal and the clear share it */
+  correlationId: string;
+}
+
+export type RepairProposalResult =
+  /** policy allowed it without approval: `operationId` is ready to start */
+  | { outcome: "allow"; operationId: string }
+  /** a person must approve first; the approval flow starts it */
+  | { outcome: "require_approval"; operationId: string }
+  | { outcome: "deny"; operationId?: string; reason?: string };
+
+export interface RepairBroker {
+  propose(proposal: RepairProposal): Promise<RepairProposalResult>;
+}
+
+export interface StartRepairRequest {
+  operationId: string;
+  workspaceId: string;
+  projectId?: string;
+  environmentId: string;
+  correlationId: string;
+  /** The already held reconcile fence, never an execution grant. */
+  fence?: FenceRef;
+  signal?: AbortSignal;
+}
+
+/* ---------------------------------- ports ---------------------------------- */
+
+/** One node's verdict for this pass, fed to the incident stability store. */
+export interface StabilityFindingObservation {
+  address: string;
+  /** the drift class when `bad`; otherwise absent */
+  class?: DriftClass;
+  severity?: "low" | "medium" | "high";
+  /** `unknown`: the node could not be read, so nothing is proven either way */
+  observation: "bad" | "good" | "unknown";
+}
+
+export interface StabilityIncidentRef {
+  incidentId: string;
+}
+
+export interface StabilityAdmission {
+  allowed: boolean;
+  attemptId?: string;
+  /** stable gate codes when refused */
+  codes: string[];
+}
+
+/** One settled repair awaiting re-observation, as the stability store reports it. Opaque to the controller. */
+export interface RepairAwaitingVerification {
+  attemptId: string;
+  incidentId: string;
+  address: string;
+  operationId: string;
+  attemptStatus: "succeeded" | "failed";
+  fingerprint: string;
+}
+
+/**
+ * What the post-remediation re-observation found for one settled repair.
+ *   cleared        the node was read and no longer shows the drift (the incident closes by hysteresis)
+ *   still_present  the node was read and the same drift persists
+ *   unverifiable   the node could not be read (unknown/inaccessible/skipped): nothing is claimed
+ */
+export type RepairVerificationOutcome = "cleared" | "still_present" | "unverifiable";
+
+export interface RepairVerification {
+  incidentId: string;
+  attemptId: string;
+  operationId: string;
+  address: string;
+  attemptStatus: "succeeded" | "failed";
+  outcome: RepairVerificationOutcome;
+  /** cleared only: the incident is now resolved (`closed`) or still collecting clean observations (`closing`) */
+  incident?: "closed" | "closing";
+  /** the incident is escalated to a person as a result of (or alongside) this verification */
+  escalated: boolean;
+  escalationReasons: string[];
+}
+
+/**
+ * Durable incident stability for the controller (PROD-OBS-03): hysteresis and
+ * fingerprint dedup of drift, and the fail-closed reservation every repair
+ * proposal must obtain first. The platform adapter always wires it.
+ */
+export interface ReconcileStability {
+  /** Record this pass's verdicts. Keyed `<address>|<class>` for each finding that now has a confirmed (hysteresis-passed) incident. */
+  observe(environment: ReconcileEnvironment, items: readonly StabilityFindingObservation[], now: Date): Promise<ReadonlyMap<string, StabilityIncidentRef>>;
+  /** Reserve one repair attempt; refuses on any cap, window, cooldown or store failure. */
+  admit(environment: ReconcileEnvironment, input: { incidentId: string; request: CapabilityRequest; address: string }, now: Date): Promise<StabilityAdmission>;
+  /** Bind an admitted attempt to the operation the broker created. */
+  attach(environment: ReconcileEnvironment, attemptId: string, operationId: string): Promise<void>;
+  /** The proposal never became an operation: free the attempt. */
+  release(environment: ReconcileEnvironment, attemptId: string, now: Date): Promise<void>;
+  /**
+   * Settled repairs of open incidents that still need a re-observation. Called
+   * BEFORE the environment is read so the read provably postdates the operation.
+   */
+  awaitingVerification?(environment: ReconcileEnvironment, now: Date): Promise<readonly RepairAwaitingVerification[]>;
+  /**
+   * Close or escalate each awaiting repair from this pass's verdicts (the same
+   * `StabilityFindingObservation`s fed to `observe`, which has already run).
+   * `simulated` observations verify nothing.
+   */
+  verifyRepairs?(environment: ReconcileEnvironment, awaiting: readonly RepairAwaitingVerification[], items: readonly StabilityFindingObservation[], now: Date, opts: { simulated: boolean }): Promise<readonly RepairVerification[]>;
+}
+
+/** Ports `reconcileEnvironment` needs. */
+export interface ReconcilePorts {
+  now(): Date;
+  store: ReconcileStore;
+  /** Assert the caller's held lease before persistence and every proposal/dispatch. */
+  assertFence?(fence: FenceRef): Promise<void>;
+  broker: RepairBroker;
+  /** Incident stability; when present every repair proposal is admitted through it, fail closed. */
+  stability?: ReconcileStability;
+  /**
+   * Run `fn` inside ONE read-only credential session for the environment's
+   * provider (the `infrastructure.observe` grant behind the credential broker's
+   * `observe` purpose). The session is handed straight to drivers as
+   * `DriverContext.session`; it is never stored or returned.
+   */
+  withObserveSession<T>(request: ObserveSessionRequest, fn: (session: unknown) => Promise<T>): Promise<T>;
+  /**
+   * Resolve non-secret AWS naming context from this request's saved connection,
+   * inside its authorized session. Production adapters always wire this port;
+   * direct scripted/memory ports may omit it. Never infer it from graph input.
+   */
+  resolveAwsBootstrap?(request: ObserveSessionRequest, session: unknown): Promise<NonNullable<DriverContext["awsBootstrap"]>>;
+  /**
+   * Hand an ALLOWED repair operation to the durable workflow. MUST be
+   * idempotent (the workflow id is `op-<operationId>`, so a second start is
+   * refused by Temporal; treat "already started" as success).
+   */
+  startRepair(request: StartRepairRequest): Promise<void>;
+  /** The driver for a node. Defaults to the global registry (`findDriver`). */
+  driverFor?(node: ResourceNode): ResourceDriver | undefined;
+  /** Receives driver log lines; default discards them. Never persisted by the controller. */
+  log?: DriverLog;
+  /**
+   * Optional: told which runtime health this pass observed, after the pass committed. The production adapter uses it
+   * to sample managed-runtime availability for the SLO report (src/lib/slo/recorder.ts). A failure here is swallowed:
+   * a metrics write must never fail an observation.
+   */
+  onRuntimeObserved?(environment: ReconcileEnvironment, observed: readonly ObservedRuntimeHealth[]): Promise<void> | void;
+}
+
+/** What a pass learned about one node's runtime: provider, native type and the normalised health with replica counts. */
+export interface ObservedRuntimeHealth {
+  provider: string;
+  nativeType: string;
+  health: "healthy" | "degraded" | "unhealthy" | "unknown";
+  counts: Readonly<Record<string, number>>;
+}
+
+/* --------------------------------- options --------------------------------- */
+
+export interface ReconcileOptions {
+  /** nodes observed at once (default 4) */
+  nodeConcurrency?: number;
+  /** one driver call (observe, then runtime) may take this long (default 15 000 ms) */
+  nodeTimeoutMs?: number;
+  /** the whole environment's observation may take this long (default 30 000 ms) */
+  environmentTimeoutMs?: number;
+  /** absolute wall-clock deadline (epoch ms) imposed by a pass budget; wins when earlier */
+  deadlineAt?: number;
+  /** also read runtime state (default true) */
+  observeRuntime?: boolean;
+  /** false: observe and report only, never propose a repair (default true) */
+  autoRepair?: boolean;
+  /** repair proposals per environment per window (default 3) */
+  maxRepairProposals?: number;
+  /** the rate-limit window (default 1 hour) */
+  repairWindowMs?: number;
+  /** a finding is not re-proposed for this long after any proposal for it (default 1 hour) */
+  repairCooldownMs?: number;
+  /** …and this long after a proposal was rejected or denied (default 24 hours) */
+  rejectedCooldownMs?: number;
+  /** a finding must be present in this many consecutive reports before it is proposed (default 1) */
+  minConfirmations?: number;
+}
+
+export interface ResolvedReconcileOptions {
+  nodeConcurrency: number;
+  nodeTimeoutMs: number;
+  environmentTimeoutMs: number;
+  deadlineAt: number | undefined;
+  observeRuntime: boolean;
+  autoRepair: boolean;
+  maxRepairProposals: number;
+  repairWindowMs: number;
+  repairCooldownMs: number;
+  rejectedCooldownMs: number;
+  minConfirmations: number;
+}
+
+export const DEFAULT_RECONCILE_OPTIONS: ResolvedReconcileOptions = {
+  nodeConcurrency: 4,
+  nodeTimeoutMs: 15_000,
+  environmentTimeoutMs: 30_000,
+  deadlineAt: undefined,
+  observeRuntime: true,
+  autoRepair: true,
+  maxRepairProposals: 3,
+  repairWindowMs: 60 * 60_000,
+  repairCooldownMs: 60 * 60_000,
+  rejectedCooldownMs: 24 * 60 * 60_000,
+  minConfirmations: 1,
+};
+
+/* --------------------------------- results --------------------------------- */
+
+export type RepairSkipReason =
+  | "auto_repair_disabled"
+  | "autonomy_observe_only"
+  | "simulated_observation"
+  /** unknown, inaccessible, extra, or a finding with no repair path */
+  | "not_repairable"
+  /** referenced or external: Zenith never repairs what it does not own */
+  | "not_managed"
+  | "ownership_mismatch"
+  | "no_resource_row"
+  | "stateful_missing"
+  | "stateful"
+  | "identity"
+  | "firewall_opened"
+  | "high_severity"
+  | "not_auto_eligible"
+  | "repair_not_supported"
+  | "awaiting_confirmation"
+  | "repair_open"
+  | "repair_uncertain"
+  | "cooldown"
+  | "rate_limited"
+  /** drift is not yet a confirmed incident (hysteresis) */
+  | "stability_unconfirmed"
+  /** a stability limit (cooldown, attempts, blast radius, window) holds the repair */
+  | "stability_blocked"
+  /** the stability store could not be consulted, so no repair is proposed */
+  | "stability_unavailable";
+
+export interface RepairDecision {
+  address: string;
+  class: DriftClass;
+  status: "proposed" | "skipped" | "failed";
+  /** for `proposed`: what the broker said */
+  outcome?: RepairProposalResult["outcome"];
+  operationId?: string;
+  /** an allowed operation was handed to the workflow */
+  started?: boolean;
+  reason?: RepairSkipReason | "broker_error" | "start_failed";
+  /** scrubbed, for `failed` */
+  error?: string;
+}
+
+export interface SkippedNode {
+  address: string;
+  reason: "not_applied" | "being_deleted" | "no_resource_row" | "external";
+}
+
+export interface ReconcileResult {
+  workspaceId: string;
+  environmentId: string;
+  /** `nothing_to_reconcile`: no node was in an observable state, so no report was produced */
+  status: "reconciled" | "nothing_to_reconcile";
+  report?: DriftReport;
+  /** nodes whose observation was read without error */
+  observed: number;
+  /** nodes that have no observation because something failed or no driver exists */
+  unread: number;
+  skippedNodes: SkippedNode[];
+  counts: Record<DriftClass, number>;
+  /** new findings and findings whose risk signature changed */
+  detected: number;
+  cleared: number;
+  /** anything moved since the previous report: findings, or the desired graph */
+  changed: boolean;
+  openFindings: number;
+  repairs: RepairDecision[];
+  /** post-remediation verification of earlier repairs, from this pass's re-observation */
+  verifications: RepairVerification[];
+  startedAt: string;
+  finishedAt: string;
+}

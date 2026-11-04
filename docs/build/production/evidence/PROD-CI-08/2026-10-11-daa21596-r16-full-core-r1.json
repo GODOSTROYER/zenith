@@ -1,0 +1,34 @@
+{
+  "schema": "zenith.r16-full-core-evidence.v1",
+  "source_commit": "daa21596ee546cd5498afb8fcd29f94e1fb20b2a",
+  "source_freeze_sha256": "35ec00fa5eef253e86efdf15705fc96b504bc7d9a4b7d9680ff9fc6c2769b454",
+  "source_freeze_after_sha256": "35ec00fa5eef253e86efdf15705fc96b504bc7d9a4b7d9680ff9fc6c2769b454",
+  "source_count": 5922,
+  "result": {
+    "passed": 24566,
+    "failed": 0,
+    "skipped": 1943,
+    "collected_identities": 26509,
+    "completed_identities": 26509,
+    "reported_identities": 26509,
+    "suites": 4886,
+    "duration_seconds": 477.253,
+    "wrapper_exit_code": 0
+  },
+  "project_counts": {
+    "node_passed": 23501,
+    "node_skipped": 1943,
+    "node_total": 25444,
+    "dom_passed": 1065
+  },
+  "identity_sets_unique_and_equal": true,
+  "source_stable": true,
+  "minimum_free_bytes": 326374715392,
+  "disk_floor_bytes": 23622320128,
+  "cleanup": "removed only this run owned ignored data after child exit",
+  "scope": "Full-core execution only; broader acceptance remains open.",
+  "acceptance_claim": false,
+  "summary_sha256": "559784ad21a434f51938ee94a1b85751e7ceebd8f71acd278a021841f5cf80c8",
+  "execution_receipt_sha256": "90a584e4514ad940a4cda81203e3621e44ba2f8645c787b6c2befe9aed1411c5",
+  "independent_review_json_sha256": "37f1a0d4ad3750443b84c0bb89fba866b4ffd79f740de136c5fc9dbf9bc23681"
+}

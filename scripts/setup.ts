@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { isSupabaseConfigured } from "../src/lib/supabase/env";
+import { nodeIsSupported, SUPPORTED_NODE_RANGE } from "../src/lib/node-runtime";
 
 const root = process.cwd();
 const ENV_FILE = path.join(root, ".env.local");
@@ -26,11 +27,10 @@ const problem = (msg: string, fix: string) => console.log(`✗ ${msg}\n  Fix: ${
 /* ------------------------------- environment ------------------------------- */
 
 function checkNode(): void {
-  const major = Number(process.versions.node.split(".")[0]);
-  if (major >= 20) return ok(`Node v${process.versions.node}`);
+  if (nodeIsSupported(process.versions.node)) return ok(`Node v${process.versions.node}`);
   problem(
-    `Node v${process.versions.node} is too old — Zenith needs 20 or newer.`,
-    "Install Node 20+ from https://nodejs.org (or `nvm install 22`), then run `npm install && npm run setup` again."
+    `Node v${process.versions.node} is unsupported — Zenith requires ${SUPPORTED_NODE_RANGE} for the locked toolchain.`,
+    "Install supported Node 22 from https://nodejs.org (or `nvm install 22.23.3`), then run `npm install && npm run setup` again."
   );
 }
 

@@ -1,0 +1,119 @@
+/**
+ * Environment for the execution worker process. Connection settings
+ * (ZENITH_TEMPORAL_*) are parsed by `src/lib/workflows/config.ts`; this file
+ * owns the worker-specific knobs.
+ *
+ *   ZENITH_WORKER_TASK_QUEUE                     task queue to poll            (default zenith-execution)
+ *   ZENITH_WORKER_MAX_CONCURRENT_ACTIVITIES      parallel activity executions  (default 8, 1..1000)
+ *   ZENITH_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS  parallel workflow tasks       (default 40, 1..1000)
+ *   ZENITH_WORKER_SHUTDOWN_GRACE_MS              how long running activities may finish after
+ *                                                SIGTERM before they are cancelled (default 600000)
+ *   ZENITH_WORKER_HEARTBEAT_THROTTLE_MS          longest gap between an activity's heartbeats reaching the
+ *                                                server, which is also how long a cancel request can take
+ *                                                to reach a running activity   (default 10000, 100..60000)
+ *   ZENITH_WORKER_WORKFLOW_BUNDLE                path to a prebuilt workflow bundle (production);
+ *                                                unset -> bundle the TypeScript definitions at start-up
+ *   ZENITH_WORKER_LOG_LEVEL                      TRACE|DEBUG|INFO|WARN|ERROR   (default INFO)
+ *   ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS         periodic health line; 0 disables (default 60000)
+ *   ZENITH_WORKER_IDENTITY                       worker identity in Temporal   (default zenith-exec-<host>-<pid>, sanitised)
+ *   ZENITH_WORKER_VERSIONING / _DEPLOYMENT_NAME / _BUILD_ID
+ *                                                Temporal worker deployment version routing for rolling
+ *                                                upgrades (default off); see src/lib/workflows/versioning.ts
+ */
+
+import { hostname } from "node:os";
+import { TASK_QUEUE } from "@/lib/workflows/types";
+import { temporalConfigFromEnv, type TemporalConnectionConfig } from "@/lib/workflows/config";
+import type { ReconcileSweepInput } from "@/lib/workflows/definitions/reconcileSweep";
+import { workerVersioningFromEnv, WorkerVersioningError, type WorkerVersioningConfig } from "@/lib/workflows/versioning";
+
+export interface ReconcileWorkerConfig {
+  /** Observe never creates or updates a schedule. Provision is an explicit operator permission. */
+  mode: "observe" | "provision";
+  input: ReconcileSweepInput;
+}
+
+export interface ExecutionWorkerConfig {
+  temporal: TemporalConnectionConfig;
+  taskQueue: string;
+  maxConcurrentActivities: number;
+  maxConcurrentWorkflowTasks: number;
+  shutdownGraceMs: number;
+  heartbeatThrottleMs: number;
+  workflowBundlePath?: string;
+  logLevel: "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR";
+  healthLogIntervalMs: number;
+  identity: string;
+  /** Older pure worker-option callers need not configure durable scheduling. */
+  reconcile?: ReconcileWorkerConfig;
+  /** Present only when deployment-version routing is on (PROD-OPS-03). */
+  versioning?: WorkerVersioningConfig;
+}
+
+export class WorkerConfigError extends Error {
+  readonly code = "worker_config_invalid";
+}
+
+type Env = Readonly<Record<string, string | undefined>>;
+
+function intFrom(env: Env, name: string, fallback: number, min: number, max: number): number {
+  const raw = env[name]?.trim();
+  if (raw === undefined || raw === "") return fallback;
+  if (!/^\d+$/.test(raw)) throw new WorkerConfigError(`${name} must be a whole number`);
+  const value = Number(raw);
+  if (value < min || value > max) throw new WorkerConfigError(`${name} must be between ${min} and ${max}`);
+  return value;
+}
+
+const LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const;
+
+/**
+ * The identity is part of every lease holder, so it must satisfy the execution
+ * runtime's rule (1-64 of letters, digits, '.', '_' or '-'). An explicit value
+ * that does not is refused at startup; the default is sanitised and bounded.
+ */
+const WORKER_IDENTITY = /^[A-Za-z0-9._-]{1,64}$/;
+function workerIdentity(explicit: string | undefined): string {
+  const value = explicit?.trim();
+  if (value) {
+    if (!WORKER_IDENTITY.test(value)) throw new WorkerConfigError("ZENITH_WORKER_IDENTITY must be 1-64 letters, digits, '.', '_' or '-' (it is part of every lease holder)");
+    return value;
+  }
+  const host = hostname().replace(/[^A-Za-z0-9._-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "host";
+  const suffix = `-${process.pid}`;
+  return `zenith-exec-${host}`.slice(0, 64 - suffix.length) + suffix;
+}
+
+export function executionWorkerConfigFromEnv(env: Env = process.env): ExecutionWorkerConfig {
+  const level = (env.ZENITH_WORKER_LOG_LEVEL?.trim().toUpperCase() || "INFO") as (typeof LEVELS)[number];
+  if (!LEVELS.includes(level)) throw new WorkerConfigError(`ZENITH_WORKER_LOG_LEVEL must be one of ${LEVELS.join(", ")}`);
+  const taskQueue = env.ZENITH_WORKER_TASK_QUEUE?.trim() || TASK_QUEUE;
+  if (!/^[A-Za-z0-9._:-]{1,200}$/.test(taskQueue)) throw new WorkerConfigError("ZENITH_WORKER_TASK_QUEUE contains characters Temporal does not allow");
+  let versioning: WorkerVersioningConfig | undefined;
+  try { versioning = workerVersioningFromEnv(env); }
+  catch (error) { throw new WorkerConfigError(error instanceof WorkerVersioningError ? error.message : "worker versioning configuration is invalid"); }
+  return {
+    temporal: temporalConfigFromEnv(env),
+    taskQueue,
+    maxConcurrentActivities: intFrom(env, "ZENITH_WORKER_MAX_CONCURRENT_ACTIVITIES", 8, 1, 1000),
+    maxConcurrentWorkflowTasks: intFrom(env, "ZENITH_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS", 40, 1, 1000),
+    shutdownGraceMs: intFrom(env, "ZENITH_WORKER_SHUTDOWN_GRACE_MS", 600_000, 0, 24 * 3600_000),
+    heartbeatThrottleMs: intFrom(env, "ZENITH_WORKER_HEARTBEAT_THROTTLE_MS", 10_000, 100, 60_000),
+    workflowBundlePath: env.ZENITH_WORKER_WORKFLOW_BUNDLE?.trim() || undefined,
+    logLevel: level,
+    healthLogIntervalMs: intFrom(env, "ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS", 60_000, 0, 24 * 3600_000),
+    identity: workerIdentity(env.ZENITH_WORKER_IDENTITY),
+    reconcile: reconcileWorkerConfigFromEnv(env),
+    ...(versioning ? { versioning } : {}),
+  };
+}
+
+export function reconcileWorkerConfigFromEnv(env: Env = process.env): ReconcileWorkerConfig {
+  const mode = env.ZENITH_WORKER_RECONCILE_SCHEDULE_MODE?.trim() || "observe";
+  if (mode !== "observe" && mode !== "provision") throw new WorkerConfigError("ZENITH_WORKER_RECONCILE_SCHEDULE_MODE must be observe or provision.");
+  // Pure configuration must not initialize product/platform stores. The runtime
+  // boundary independently validates this exact typed contract before use.
+  return Object.freeze({ mode, input: Object.freeze({ contract: "zenith.reconcile-sweep.v1" as const,
+    maxEnvironments: intFrom(env, "ZENITH_WORKER_RECONCILE_MAX_ENVIRONMENTS", 25, 1, 25),
+    environmentConcurrency: intFrom(env, "ZENITH_WORKER_RECONCILE_CONCURRENCY", 3, 1, 3) }) });
+}

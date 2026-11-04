@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T04:27:30.299340+00:00",
+  "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "sourceFreezeSha256": "562b1340fc4ae9fa5b2c4b3c734737b42e89a90273562e56eb8e1e899e391c7b",
+  "status": "failed_not_integrated",
+  "counts": {
+    "passed": 1527,
+    "failed": 5,
+    "skipped": 0,
+    "total": 1532
+  },
+  "failedCases": [
+    {
+      "file": "tests/execution/apply.test.ts",
+      "name": "dispatch current authority [postgres] refuses expired approval after fresh replan and before durable dispatch",
+      "reason": "Explicit fixture environment omits pinned OpenTofu lookup fields; production captured-environment behavior retained."
+    },
+    {
+      "file": "tests/execution/apply.test.ts",
+      "name": "dispatch current authority [postgres] refuses revoked approver role after fresh replan and before durable dispatch",
+      "reason": "Explicit fixture environment omits pinned OpenTofu lookup fields; production captured-environment behavior retained."
+    },
+    {
+      "file": "tests/execution/apply.test.ts",
+      "name": "dispatch current authority [postgres] refuses new policy denial after fresh replan and before durable dispatch",
+      "reason": "Explicit fixture environment omits pinned OpenTofu lookup fields; production captured-environment behavior retained."
+    },
+    {
+      "file": "tests/execution/apply.test.ts",
+      "name": "dispatch current authority [postgres] refuses expiry after authority check after fresh replan and before durable dispatch",
+      "reason": "Explicit fixture environment omits pinned OpenTofu lookup fields; production captured-environment behavior retained."
+    },
+    {
+      "file": "tests/execution/apply.test.ts",
+      "name": "dispatch current authority [postgres] refuses expiry during role lookup after fresh replan and before durable dispatch",
+      "reason": "Explicit fixture environment omits pinned OpenTofu lookup fields; production captured-environment behavior retained."
+    }
+  ],
+  "privateReportSha256": "80fd8e1462ae635e7b2b23be72f4d6a662fc28b64a527dbaac8c96c6b0ff76e6",
+  "privateResultsSha256": "deef9c95c36fda6e60f9186ad64345ad9405c63683a5dbff6ed5dbdbdcb9dafa",
+  "cleanup": {
+    "container": "zenith-prod-pg-a7c1cdaa",
+    "ownershipVerified": true,
+    "removed": true,
+    "absenceVerified": true,
+    "newImageRemoved": true,
+    "baselineImagesPreserved": true,
+    "hostFreeGiB": 26.66
+  },
+  "executionRevalidation": "not_run_after_gate_failure",
+  "limitations": [
+    "No merge or current-byte PostgreSQL acceptance claim.",
+    "Earlier1079P0F20S affected diagnostic and original1532P0F0S evidence retained separately.",
+    "Fixture correction delegated within existing owned path; no guard or gate weakening."
+  ]
+}

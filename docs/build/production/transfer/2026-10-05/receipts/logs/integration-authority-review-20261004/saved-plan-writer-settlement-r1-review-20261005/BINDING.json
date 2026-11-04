@@ -1,0 +1,24 @@
+{
+  "status": "INDEPENDENT_SOURCE_BINDING_COMPLETE_NO_EXECUTION",
+  "freezeSha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85",
+  "patchSha256": "abdcd294212a3b399db9679cb5a34d9d3342749cda3fa8de976aa7c670954b91",
+  "caseContractSha256": "c861acd36702b25758be61b53e629c725c5d4c1cfd74a63df79b284fff94f68a",
+  "owned17": true,
+  "full3835": true,
+  "outside3818": true,
+  "preimagesPostimagesFrozenLiveCandidateExact": true,
+  "treeEncoding": {
+    "before": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+    "after": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+    "independentInMemory": true
+  },
+  "forwardReverseHunksExact": true,
+  "index": {
+    "sha256": "d204f6d8fdc25a60c69e4802687e5a6bb841b931246fec437c5d2758129b06e3",
+    "entriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "unchangedDuringReview": true
+  },
+  "projectExecution": "NONE",
+  "sourceEdits": "NONE",
+  "realOrPrivateIndexWrites": "NONE"
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45c9591_incremental_cleanup_and_successor_readiness",
+  "sourceCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "sourceFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+  "sourceCount": 5960,
+  "cleanupR4": {
+    "sourceSha256": "dc4c0e8333ce2c6e17b5a70aa3211413af35a92f2d2078d7178a79e36f600e5c",
+    "actualOutcome": "preflight_refusal_before_lock_work_or_engine",
+    "reason": "R15 capture sidecar is a JSON list; R4 parser expected a dictionary",
+    "originalResources": "untouched",
+    "historicalFailureAccepted": false
+  },
+  "cleanupGuards": {
+    "adapterTestsPassed": 9,
+    "sourceFreezeTestsPassed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "heldCommands": 12,
+    "allCustodySettled": true,
+    "sourceUnchanged": true,
+    "reviewVerdict": "PASS",
+    "decision": "synthetic guards passed; actual cleanup still requires fresh internal gates",
+    "reviewSha256": "006b7089ce7bba06af3d7a66007ea9c9b2ce82c37836d6a9f0777ce07590603d"
+  },
+  "cleanupR5": {
+    "sourceSha256": "62939fa8963be02580a9310bb81d5f4e99a67d9872c5c928667befddd1a8fa0a",
+    "changes": "strict list JSON parsing and owned sticky heavy-lock recovery",
+    "originalMarkerPreserved": true,
+    "markerSha256": "49975ec59d11c085be88e941541658b597a0e0d5edc2bba64131bcfb28ae7c9a",
+    "architectureVerdict": "PASS_CONDITIONAL",
+    "concreteExecutionVerdict": "HOLD_PENDING_IMMUTABLE_R5_AND_FOCUSED_TESTS",
+    "sourceReview": "in progress; focused lock/parser tests pending",
+    "architectureReviewSha256": "3ea0ea533d69eb968a90100b3a504b5cc217eade802cb1dd3780befde3138a8c"
+  },
+  "successorBindings": {
+    "reviewDisposition": "source_binding_review_pass_terminal_review_pending",
+    "currentPhaseSourceSha256": "92acf918c0a4af6b07e3cba0f152b43134808c90b2440e39be6c9a2bfe5cac2c",
+    "transportSha256": "15519afa86915e24b0fb669f2a9e5585a081b070355f709b9ebe9b67abb16ee1",
+    "sourceBindingChecksPass": true,
+    "actualFutureInvocation": "pending",
+    "historicalR16": "unchanged",
+    "reviewSha256": "2352f0fd8ca065f586cd27b82c2d54d0c4d3ccef7ea00100aec9625c569e2554"
+  },
+  "J6": {
+    "readiness": "HOLD",
+    "hardPrerequisite": "no owner-authorized generated PostgreSQL credential/connection readback for local observer",
+    "producerImplementedOrAccepted": false,
+    "freshEndpointOrForwardAcceptance": false,
+    "readinessReviewSha256": "586b87960bb0e2521aa090929d5d49ee22516df9a80e7d07087d60d22f069e44"
+  },
+  "releaseState": {
+    "ledger": "10 verified / 66 in progress / 2 planned",
+    "milestonePromotion": false,
+    "releaseFlagsChanged": false,
+    "productionAcceptanceClaim": false
+  }
+}

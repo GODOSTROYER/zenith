@@ -1,0 +1,730 @@
+/**
+ * `Mix03Product` for the PROD-MIX-03 live scenario: the browser half of the product path, on the Zenith stack the workflow
+ * started on this runner (ZENITH_DEFAULT_STACK_DIRECTORY and ZENITH_DEFAULT_MAILPIT_URL, exported by default-stack/env.mjs).
+ *
+ * It drives the product the way scripts/release/drivers/operated.ts does: the owner and a CI-created approver sign in for
+ * real, enrol a TOTP authenticator, step up with it when a privileged route answers `mfa_required`, and the approver approves
+ * in the browser. Every product call is a route or action the web app uses. The only non-product call is the test user
+ * provisioning that operated.ts also does (the stack's Auth admin API creates two disposable users).
+ *
+ * proposeMixed drives the real planner: a sandbox parent environment holds the producer and consumer manifest (its simulated
+ * deploy is the only parent revision the planner reads, and it creates no cloud resource), the producer and consumer are AWS
+ * children on the run's connection, and each child gets its own deploy operation. issueOutputPreauthorization reads the plan's
+ * digests and issues one precise use for the consumer; preauthorizationUses reads the parent's grants back. The one use is
+ * reserved by the parent workflow itself (consumeOutputs) when the producer's output materializes for the consumer.
+ * Evidence names the approver as the automated test approver; no credential, token or recovery link is returned.
+ *
+ * Seams: `request` (same-origin fetch in the page), `approve`, `stepUp`, `session` and `sleep`. Unit tests inject all of them.
+ */
+import { createHash, X509Certificate } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import type { Browser, Page } from "@playwright/test";
+import type { EnvLike } from "../../config";
+import { PlanRefusal, refuse, Refusal, sanitizedError, type Mix03Artifact, type Mix03Child, type Mix03Product, type Mix03RunChild, type Mix03Tenant, type Mix03TeardownStep, type MixedReadback, type MixedReceipt } from "./mix-03";
+import { readState } from "../../default-stack/runtime.mjs";
+import { browserRequest, ensure, localUrl, nonce, ok, operator, privateFile, until, action } from "../../../../tests/e2e/default/support.mjs";
+import { enrollOperator, totp } from "../../../../tests/e2e/default/mfa.mjs";
+import { approveOperation, authenticateBeforeWorkspace, requireTwoPersonProduction } from "../../../release/drivers/operated";
+
+export interface RunnerStack { apiUrl: string; supabaseUrl: string; adminKey: string; mailpitUrl: string }
+/** One tenant's signed-in pages and the TOTP keys enrolled for them. Held in memory only; never returned or logged. */
+export interface TenantSession {
+  stack: RunnerStack; owner: Page; approver: Page; workspaceId: string; ownerId: string; approverId: string;
+  ownerSecret: string; approverSecret: string; projectId: string;
+}
+export type ProductRequest = (page: Page, endpoint: string, body?: unknown, method?: string, workspaceId?: string) => Promise<{ status: number; data: unknown }>;
+export interface Mix03DriverSeams {
+  request?: ProductRequest;
+  approve?: (session: TenantSession, operationId: string) => Promise<void>;
+  stepUp?: (page: Page, stack: RunnerStack, secret: string) => Promise<void>;
+  /** A signed-in tenant and how to release it. Default: a headless browser run of the real sign-in and enrolment flow. */
+  session?: () => Promise<{ tenant: TenantSession; close: () => Promise<void> }>;
+  /** Waits between readbacks of a deployment. Default: a real timer. */
+  sleep?: (ms: number) => Promise<void>;
+  /** The teardown review's Temporal workflow state, for a review that never proposed (default: the stack's own Temporal). */
+  reviewWorkflow?: (reviewOperationId: string) => Promise<string>;
+}
+
+/** The runner's stack, from the variables the workflow exported. Refuses unless the lean profile is the one running. */
+export function runnerStack(env: EnvLike): RunnerStack {
+  const directory = env.ZENITH_DEFAULT_STACK_DIRECTORY?.trim(), mailpit = env.ZENITH_DEFAULT_MAILPIT_URL?.trim();
+  if (!directory || !mailpit) refuse("the runner stack is not exported (ZENITH_DEFAULT_STACK_DIRECTORY and ZENITH_DEFAULT_MAILPIT_URL are required)");
+  if ((readState(directory) as { profile?: unknown }).profile !== "lean") refuse("the runner stack is not the lean profile");
+  const input = JSON.parse(privateFile(path.join(directory, "input.json"))) as { environment?: Record<string, string> };
+  const environment = input.environment ?? {};
+  if (typeof environment.SUPABASE_SERVICE_ROLE_KEY !== "string") refuse("the runner stack has no Auth admin key for test user provisioning");
+  return {
+    apiUrl: localUrl(environment.NEXT_PUBLIC_SITE_URL ?? ""), supabaseUrl: localUrl(environment.SUPABASE_URL ?? "", true),
+    adminKey: environment.SUPABASE_SERVICE_ROLE_KEY, mailpitUrl: localUrl(mailpit),
+  };
+}
+
+/** Real sign-in, workspace, two-person policy, approver invitation and TOTP enrolment for both people, as operated.ts does. */
+export async function openRealSession(env: EnvLike): Promise<{ tenant: TenantSession; close: () => Promise<void> }> {
+  const stack = runnerStack(env);
+  const { chromium } = await import("@playwright/test");
+  // The browser accepts exactly this stack's edge keys (base64 SHA-256 of each SPKI, as runbook-fixture.mjs computes it; not imported: its top-level await breaks the CJS live CLI), so no keychain trust is needed.
+  const tls = path.join(env.ZENITH_DEFAULT_STACK_DIRECTORY!.trim(), "tls");
+  const pins = ["edge.crt", "api-edge.crt"].map(name => path.join(tls, name)).filter(file => existsSync(file)).map(file => createHash("sha256").update(new X509Certificate(readFileSync(file)).publicKey.export({ type: "spki", format: "der" })).digest("base64"));
+  const browser: Browser = await chromium.launch({ headless: true, args: pins.length ? [`--ignore-certificate-errors-spki-list=${pins.join(",")}`] : [] });
+  const close = async () => { await browser.close(); };
+  try {
+    const users: string[] = [];
+    const owner = await (await browser.newContext()).newPage(), approver = await (await browser.newContext()).newPage();
+    const a = await operator(stack, stack.mailpitUrl, "mix03-owner", users);
+    const b = await operator(stack, stack.mailpitUrl, "mix03-approver", users);
+    await authenticateBeforeWorkspace(owner, stack, a);
+    const name = `PROD-MIX-03 ${nonce().slice(0, 8)}`;
+    const workspace = ok(await browserRequest(owner, "/api/workspace", { name })).workspace;
+    ok(await browserRequest(owner, "/api/bootstrap"));
+    const ownerSecret = await enrollOperator(owner, stack);
+    await requireTwoPersonProduction(owner, workspace.id);
+    const invite = ok(await browserRequest(owner, "/api/workspace/invites", { workspaceId: workspace.id, email: b.email, role: "admin" })).invite;
+    await authenticateBeforeWorkspace(approver, stack, b);
+    const approverSecret = await enrollOperator(approver, stack);
+    const accepted = ok(await browserRequest(approver, "/api/workspace/invites/" + invite.id + "/accept", {}));
+    ok(await browserRequest(approver, "/api/bootstrap"));
+    ensure(accepted.member?.id === b.id && accepted.member?.role === "admin", "approver-member");
+    const created = await action(owner, "project.create", { name, withEnvironment: false });
+    return {
+      tenant: { stack, owner, approver, workspaceId: workspace.id, ownerId: a.id, approverId: b.id, ownerSecret, approverSecret, projectId: created.projectId },
+      close,
+    };
+  } catch (error) {
+    await close().catch(() => undefined);
+    throw error;
+  }
+}
+
+/** Fills the authenticator code on the product's challenge page and waits for the server-side proof, as operated.ts does for enrolment. */
+export async function stepUpWithAuthenticator(page: Page, stack: RunnerStack, secret: string): Promise<void> {
+  await page.goto(stack.apiUrl + "/account/mfa/challenge?next=/overview");
+  const code = page.getByLabel("Six-digit authenticator code", { exact: true });
+  await code.waitFor();
+  // Avoid submitting a code at the end of its period, without changing Auth's clock.
+  if (Date.now() % 30000 > 27000) await page.waitForTimeout(3100);
+  await code.fill(totp(secret));
+  await page.getByRole("button", { name: "Verify authenticator", exact: true }).click();
+  await until(() => page.evaluate(async () => {
+    const response = await fetch("/api/auth/mfa/verify", { credentials: "same-origin" });
+    return response.ok && (await response.json()).verified === true;
+  }), (verified: unknown) => verified === true, 30_000);
+}
+
+const codeOf = (data: unknown): string | undefined => {
+  const value = data as { code?: unknown; error?: { code?: unknown } } | undefined;
+  const code = value?.error?.code ?? value?.code;
+  return typeof code === "string" ? code : undefined;
+};
+const CHILD_STATUS: Record<string, string> = { pending: "pending", adopted: "pending", started: "running", succeeded: "succeeded", failed: "failed", uncertain: "uncertain", cancelled: "cancelled", blocked: "blocked" };
+/**
+ * Fixed categories of a child operation's halt message (src/lib/workflows/definitions/deploy.ts, capability.ts, failures.ts,
+ * runtime.ts; src/lib/execution/apply.ts; src/lib/platform/app.ts). "$1"/"$2" are the step, OpenTofu command, failure code or
+ * error class the message names; anything else in the message never leaves the driver.
+ */
+const HALTS: [RegExp, string][] = [
+  // The mixed parent's own stops (src/lib/workflows/definitions/mixedParent.ts).
+  [/^Child (\d+) ended ([a-z]+)/, "child$1_ended_$2"], [/^Child (\d+) was not started: ([a-z_]+)/, "child$1_not_started_$2"],
+  [/^Child (\d+) was still running after the wait limit/, "child$1_wait_limit"], [/^Child (\d+) never became startable/, "child$1_never_startable"],
+  [/^The environment lease was lost while OpenTofu was applying/, "lease_lost_tofu_apply"],
+  [/^OpenTofu ([a-z]+) did not finish \(([a-z_]+)\)/, "tofu_$1_$2"],
+  // An OpenTofu failure behind the plan dispatch wrapper (src/lib/platform/plan-artifacts.ts): its code and fixed cause (src/lib/tofu/failure-code.ts).
+  [/; cause TofuCommandError\/tofu_([a-z_]+)(?:\/([a-z-]+):([A-Za-z0-9_]+))?/, "tofu_$1_$2_$3"],
+  [/^The apply ended with an unclassified error \(([A-Za-z0-9_]+)[:)].*; cause ([A-Za-z0-9_]+)(?:\/([a-z_]+))?/, "unclassified_$1_$2_$3"],
+  [/^The apply ended with an unclassified error \(([A-Za-z0-9_]+)[:)]/, "unclassified_$1"],
+  [/^An owning runner or machine job expired/, "job_expired"],
+  [/^Infrastructure verification was inconclusive/, "verify_infrastructure_inconclusive"], [/^Infrastructure verification failed/, "verify_infrastructure_failed"],
+  [/verification was inconclusive/, "verify_inconclusive"], [/verification failed/, "verify_failed"], [/did not succeed/, "apply_failed"],
+  [/^apply failed/, "apply_failed"], [/^Unexpected error outside a step/, "outside_step"], [/^Cancellation stopped/, "cancel_unconfirmed"],
+  [/lease was lost during ([a-z_]+)/, "lease_lost_$1"], [/^([a-z_]+) did not complete cleanly/, "$1_unclean"], [/^([a-z_]+) failed/, "$1_failed"],
+];
+const haltOf = (error: string): string => {
+  for (const [pattern, code] of HALTS) {
+    const match = pattern.exec(error);
+    if (!match) continue;
+    const named = code.replace(/\$(\d)/g, (_, i: string) => match[Number(i)] ?? "").toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+$/, "");
+    return HALT_CODE.test(named) ? named : "other";
+  }
+  return "other";
+};
+const HALT_CODE = /^[a-z0-9_]{1,80}$/;
+const SAFE_CODE = /^[a-z_]{1,40}$/, ID = /^[A-Za-z0-9_.:-]{1,128}$/, HEX64 = /^[a-f0-9]{64}$/;
+/** Readback shapes: ids and partition ids ("partition/<digest>"), and addresses, which are compared and never printed. */
+const REF = /^[A-Za-z0-9_.:\/-]{1,200}$/, ADDRESS = /^[\x21-\x7e]{1,300}$/, ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
+
+/** PROD-MIX-02: the stored plan as read back, keeping only digests, ids, addresses and fixed words; anything else refuses. */
+export function mixedReadbackOf(raw: unknown): MixedReadback {
+  const bad = (what: string): never => refuse(`the stored plan readback has an unexpected ${what}`);
+  const get = (value: unknown, key: string): unknown => value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
+  const str = (value: unknown, shape: RegExp, what: string): string => typeof value === "string" && shape.test(value) ? value : bad(what);
+  const list = (value: unknown, what: string): unknown[] => Array.isArray(value) ? value : bad(what);
+  const nullable = (value: unknown, shape: RegExp, what: string): string | null => value === null || value === undefined ? null : str(value, shape, what);
+  const receiptOf = (value: unknown): MixedReceipt | null => {
+    if (value === null || value === undefined) return null;
+    const optional = (key: string) => get(value, key) === undefined ? {} : { [key]: str(get(value, key), HEX64, `receipt ${key}`) };
+    const ordinal = get(value, "ordinal");
+    return {
+      format: str(get(value, "format"), REF, "receipt format"), receiptId: str(get(value, "receiptId"), REF, "receipt id"), workspaceId: str(get(value, "workspaceId"), REF, "receipt workspace"),
+      parentPlanId: str(get(value, "parentPlanId"), REF, "receipt plan"), partitionId: str(get(value, "partitionId"), REF, "receipt partition"),
+      ordinal: typeof ordinal === "number" && Number.isInteger(ordinal) && ordinal >= 0 ? ordinal : bad("receipt ordinal"),
+      childOperationId: str(get(value, "childOperationId"), REF, "receipt operation"), outcome: str(get(value, "outcome"), SAFE_CODE, "receipt outcome"),
+      childStatus: str(get(value, "childStatus"), SAFE_CODE, "receipt status"), ...optional("executableSemanticsDigest"), ...optional("planDigest"), ...optional("outputsDigest"),
+      receiptDigest: str(get(value, "receiptDigest"), HEX64, "receipt digest"), recordedAt: str(get(value, "recordedAt"), ISO, "receipt time"),
+    };
+  };
+  return {
+    status: str(get(raw, "status"), SAFE_CODE, "status"), parentOperationId: nullable(get(raw, "parentOperationId"), REF, "parent operation"),
+    parentDigest: str(get(raw, "parentDigest"), HEX64, "parent digest"), desiredDigest: str(get(raw, "desiredDigest"), HEX64, "desired digest"),
+    childSetDigest: str(get(raw, "childSetDigest"), HEX64, "child-set digest"), executionOrder: list(get(raw, "executionOrder"), "execution order").map(id => str(id, REF, "execution order")),
+    children: list(get(raw, "children"), "children").map(child => ({
+      partitionId: str(get(child, "partitionId"), REF, "partition"), dependsOn: list(get(child, "dependsOn"), "dependency").map(id => str(id, REF, "dependency")),
+      subplanDigest: str(get(child, "subplanDigest"), HEX64, "subplan digest"), semanticsDigest: str(get(child, "semanticsDigest"), HEX64, "semantics digest"),
+      effectDigest: str(get(child, "effectDigest"), HEX64, "effect digest"),
+      nodes: list(get(child, "nodes"), "nodes").map(node => ({ stableAddress: str(get(node, "stableAddress"), ADDRESS, "stable address"), address: str(get(node, "address"), ADDRESS, "address"), specDigest: str(get(node, "specDigest"), HEX64, "spec digest") })),
+      state: str(get(child, "state"), SAFE_CODE, "child state"), childOperationId: nullable(get(child, "childOperationId"), REF, "child operation"),
+      executableSemanticsDigest: nullable(get(child, "executableSemanticsDigest"), HEX64, "executable semantics digest"), receipt: receiptOf(get(child, "receipt")),
+    })),
+  };
+}
+/** A partition id is "partition/<digest>"; this is the adoption route's own body shape. */
+const PARTITION = /^[A-Za-z0-9_.:/-]{1,200}$/;
+/** Below deployment.deploy's catalog defaultAutonomy (4), so the mixed parent operation needs a person's approval. */
+export const PARENT_AUTONOMY = 3;
+/** Deployment readback bound: 60 polls, 5 seconds apart. */
+const DEPLOY_POLLS = { attempts: 60, intervalMs: 5_000 };
+/** One use, fifteen minutes: enough for one consumer materialization and short enough to lapse on its own. */
+const PREAUTH_LIFETIME_MS = 15 * 60_000;
+const PREAUTH_REASON = "PROD-MIX-03 one-use output preauthorization";
+const STANDINGS: ReadonlySet<string> = new Set(["active", "spent", "expired", "revoked", "creator_not_admin"]);
+
+/** Destroy readback bound: 240 polls, 10 seconds apart (the teardown review alone may take 35 minutes). */
+const DESTROY_POLLS = { attempts: 240, intervalMs: 10_000 };
+const TERMINAL = ["succeeded", "failed", "uncertain", "denied", "expired", "cancelled", "rejected"];
+
+/** PROD-MIX-04: the run's teardown steps as stored, ids and fixed words only; anything else refuses. */
+export function teardownStepsOf(raw: unknown): Mix03TeardownStep[] {
+  const steps = (raw as { steps?: unknown } | undefined)?.steps;
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(steps)) refuse("the run's teardown has no steps");
+  return (steps as Record<string, unknown>[]).map(step => {
+    const childId = step.childId, status = step.status, after = step.after, addresses = step.addresses, destroyOperationId = step.destroyOperationId;
+    if (typeof childId !== "string" || !REF.test(childId) || typeof status !== "string" || !SAFE_CODE.test(status)) refuse("a teardown step has an unexpected shape");
+    if (!Array.isArray(after) || after.some(id => typeof id !== "string" || !REF.test(id)) || !Array.isArray(addresses)) refuse("a teardown step has an unexpected shape");
+    if (destroyOperationId !== undefined && (typeof destroyOperationId !== "string" || !ID.test(destroyOperationId))) refuse("a teardown step names an unexpected destroy operation");
+    return { childId: childId as string, status: status as string, after: after as string[], addresses: (addresses as unknown[]).length, ...(destroyOperationId ? { destroyOperationId: destroyOperationId as string } : {}) };
+  });
+}
+
+/** The reference the run declares: the producer bucket's ARN output feeds the consumer function's bucket_arn input. */
+export const MIX03_REFERENCE = {
+  id: "bucket-arn",
+  producer: { address: "object_store/bucket", output: "arn", type: "resource_id" },
+  consumer: { address: "function/consumer", input: "bucket_arn", type: "resource_id" },
+} as const;
+
+/**
+ * The producer, the consumer and the one graph they form. The parent's revision is the graph (`graph`); each child's revision is
+ * its own part, and the planner's pins bind every node of the graph to exactly one of those two children.
+ */
+/**
+ * PROD-MIX-01: two independent children, one S3 bucket each, so each partition binds only its own connection and backend. No
+ * reference joins them: a dependency between partitions on different connections needs declared protected connectivity
+ * (PROD-MIX-05), which this account-local proof does not exercise.
+ */
+export function mix01Manifests(region: string) {
+  const nodePlacement = { first: { provider: "aws", region }, second: { provider: "aws", region } };
+  const producer = { version: 2, resources: [{ id: "first", name: "first", kind: "object_store" }], nodePlacement: { first: nodePlacement.first } };
+  const consumer = { version: 2, resources: [{ id: "second", name: "second", kind: "object_store" }], nodePlacement: { second: nodePlacement.second } };
+  return { producer, consumer, graph: { version: 2, resources: [...producer.resources, ...consumer.resources], nodePlacement } };
+}
+
+export function mix03Manifests(region: string, artifact: Mix03Artifact) {
+  // A resource has no provider of its own: without the override the sandbox parent would place the bucket on sandbox, which
+  // cannot take part in a mixed plan (unbound_partition).
+  const nodePlacement = { bucket: { provider: "aws", region } };
+  const producer = { version: 2, resources: [{ id: "bucket", name: "bucket", kind: "object_store" }], nodePlacement };
+  const functions = [{
+    id: "consumer", name: "consumer", kind: "function", provider: "aws", region, runtime: "nodejs22.x", handler: "index.handler",
+    source: { type: "s3", bucket: artifact.bucket, key: artifact.key, version: artifact.versionId, sha256: artifact.sha256, sourceDigest: artifact.sourceDigest },
+    env: [{ key: "PRODUCER_BUCKET_ARN", value: "{{zenith.input.bucket_arn}}" }],
+    // The planner needs the consumer to depend on the producer; the consumer child's own manifest drops it (no bucket there).
+    dependsOn: ["bucket"],
+  }];
+  const consumer = { version: 2, functions };
+  return { producer, consumer, graph: { version: 2, resources: producer.resources, nodePlacement, functions } };
+}
+
+/** Readback ids and digests are checked before they are sent back to the product; a malformed one refuses with its own name. */
+const idOf =(value: unknown, what: string): string => typeof value === "string" && ID.test(value) ? value : refuse(`${what} was not returned by the product`);
+const hexOf = (value: unknown, what: string): string => typeof value === "string" && HEX64.test(value) ? value : refuse(`${what} is not a digest in the plan readback`);
+/** The error code, the service's own reason code (details.reason) and the sanitized message. */
+const reasonCode = (data: unknown): string => {
+  const code = codeOf(data), error = (data as { error?: { message?: unknown; details?: { reason?: unknown } } } | undefined)?.error;
+  const reason = error?.details?.reason, message = sanitizedError(error?.message);
+  return [code && SAFE_CODE.test(code) ? code.replace(/_/g, " ") : "no code", typeof reason === "string" && SAFE_CODE.test(reason) ? reason : undefined].filter(Boolean).join(", ") + (message ? `: ${message}` : "");
+};
+
+/** The service's own reason code (details.reason), else the error code: fixed words only. */
+const reasonOf = (data: unknown): string => {
+  const reason = (data as { error?: { details?: { reason?: unknown } } } | undefined)?.error?.details?.reason, code = codeOf(data);
+  return typeof reason === "string" && SAFE_CODE.test(reason) ? reason : code && SAFE_CODE.test(code) ? code : "unknown";
+};
+const idList = (value: unknown, what: string): string[] => Array.isArray(value) && value.every(id => typeof id === "string" && REF.test(id)) ? value as string[] : refuse(`the run ${what} has an unexpected shape`);
+const word = (value: unknown, what: string): string => typeof value === "string" && SAFE_CODE.test(value) ? value : refuse(`the run ${what} has an unexpected shape`);
+/** The run state's children in run order: fixed words and whether each started; nothing else leaves the driver. */
+const runChildrenOf = (state: unknown): Mix03RunChild[] => {
+  const order = (state as { order?: unknown } | undefined)?.order, children = (state as { children?: Record<string, unknown> } | undefined)?.children;
+  if (order === undefined && children === undefined) return [];
+  return idList(order, "order").map(id => {
+    const child = children?.[id] as { status?: unknown; effects?: unknown; startedAt?: unknown; reason?: unknown } | undefined;
+    const reason = child?.reason;
+    return { childId: id, status: word(child?.status, "child status"), effects: word(child?.effects, "child effects"), started: typeof child?.startedAt === "string",
+      ...(typeof reason === "string" && HALT_CODE.test(reason) ? { reason } : {}) };
+  });
+};
+
+/** The product's PROD-MIX-03 driver. Create it once per run; `close()` releases the browser after teardown. */
+export function browserMix03Product(env: EnvLike = process.env, seams: Mix03DriverSeams = {}): Mix03Product & { close(): Promise<void> } {
+  const request: ProductRequest = seams.request ?? browserRequest;
+  const stepUp = seams.stepUp ?? stepUpWithAuthenticator;
+  const approve = seams.approve ?? ((session: TenantSession, operationId: string) => approveOperation({ stack: session.stack }, session, operationId, { separationOfDuties: false }));
+  const openSession = seams.session ?? (() => openRealSession(env));
+  const sleep = seams.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
+  // Diagnostics never hold the refusal: an unreachable Temporal answers "unreadable" within 30 seconds. Lazy import: deploy-01-driver imports this module.
+  const reviewWorkflow = seams.reviewWorkflow ?? (async (id: string) => Promise.race([(await import("./deploy-01-driver")).reviewWorkflowState(id),
+    new Promise<string>(resolve => setTimeout(() => resolve("workflow unreadable (timeout)"), 30_000).unref())]));
+  const sessions = new Map<string, TenantSession>();
+  /** The two child operations per mixed plan, adopted in order by startMixed: { partitionId, operationId }. */
+  const adoptions = new Map<string, { partitionId: string; operationId: string }[]>();
+  /** The consumer child's environment per mixed plan: it names the roles when neither child depends on the other (PROD-MIX-01). */
+  const consumers = new Map<string, string>();
+  const closers: (() => Promise<void>)[] = [];
+
+  const sessionOf = (tenant: Mix03Tenant): TenantSession => sessions.get(tenant.workspaceId) ?? refuse("no signed-in session exists for this tenant");
+  /** One request. A privileged route that answers `mfa_required` gets one TOTP step-up with that person's enrolled key, then one retry. */
+  const send = async (session: TenantSession, page: Page, endpoint: string, body?: unknown, method?: string) => {
+    const call = () => request(page, endpoint, body, method, session.workspaceId);
+    const first = await call();
+    if (!(first.status === 403 && codeOf(first.data) === "mfa_required")) return first;
+    await stepUp(page, session.stack, page === session.approver ? session.approverSecret : session.ownerSecret);
+    return call();
+  };
+  /** A product action: `{ ok, data }` from the action's own result. A refused action is `ok: false`, never a thrown error. */
+  const runAction = async (session: TenantSession, id: string, input: Record<string, unknown>, scope: Record<string, unknown> = {}): Promise<{ ok: boolean; data?: unknown; error?: unknown }> => {
+    const response = await send(session, session.owner, `/api/actions/${id}`, { mode: "execute", input, scope, idempotencyKey: nonce() });
+    ensure(response.status >= 200 && response.status < 300, "http-refused");
+    const body = response.data as { result?: { ok?: unknown; data?: unknown; error?: unknown } } | undefined;
+    return { ok: body?.result?.ok === true, data: body?.result?.data, error: body?.result?.error };
+  };
+  /** A product action that must succeed; the action id is ours and fixed, the product's sentence passes only sanitized. */
+  const must = async (session: TenantSession, id: string, input: Record<string, unknown>, scope: Record<string, unknown> = {}): Promise<Record<string, unknown>> => {
+    const result = await runAction(session, id, input, scope);
+    if (!result.ok) { const why = sanitizedError(result.error); refuse(`${id} was refused by the product${why ? ` (${why})` : ""}`); }
+    return (result.data ?? {}) as Record<string, unknown>;
+  };
+  /** Deploys one environment from its own working copy and waits until the simulated parent deployment succeeds. */
+  const deployAndWait = async (session: TenantSession, projectId: string, environmentId: string): Promise<void> => {
+    await must(session, "deploy.apply", { projectId, environmentId }, { projectId, environmentId });
+    for (let poll = 1; ; poll++) {
+      const latest = ok(await send(session, session.owner, `/api/environments/${environmentId}/deployments?limit=1`, undefined, "GET")) as { deployments?: { status?: unknown }[] };
+      const status = latest.deployments?.[0]?.status;
+      if (status === "succeeded") return;
+      if (status === "failed" || status === "rolled_back" || status === "cancelled") refuse("the parent environment's deployment did not succeed");
+      if (poll >= DEPLOY_POLLS.attempts) refuse("the parent environment's deployment did not finish within the bound");
+      await sleep(DEPLOY_POLLS.intervalMs);
+    }
+  };
+  const runPath = (parentOperationId: string) => `/api/platform/v1/operations/${encodeURIComponent(idOf(parentOperationId, "the parent operation"))}/mixed-run`;
+  /** An operation's status, whether its workflow claimed it, and its error text (kept in the driver; only a category of it leaves). */
+  const operationOf = async (session: TenantSession, operationId: string): Promise<{ status: string; started: boolean; error?: string }> => {
+    const op = (ok(await send(session, session.owner, `/api/platform/v1/operations/${encodeURIComponent(operationId)}`, undefined, "GET")) as { operation?: { status?: unknown; startedAt?: unknown; error?: unknown } }).operation;
+    const status = typeof op?.status === "string" && SAFE_CODE.test(op.status) ? op.status : refuse("the operation readback has no status");
+    return { status, started: typeof op?.startedAt === "string", ...(typeof op?.error === "string" ? { error: op.error } : {}) };
+  };
+  /** Polls until `read` answers, within DESTROY_POLLS; the bound names what it waited for. */
+  const poll = async <T>(what: string, read: () => Promise<T | undefined>): Promise<T> => {
+    for (let attempt = 1; ; attempt++) {
+      const value = await read();
+      if (value !== undefined) return value;
+      if (attempt >= DESTROY_POLLS.attempts) refuse(`${what} did not finish within the bound`);
+      await sleep(DESTROY_POLLS.intervalMs);
+    }
+  };
+  /** Maps any failure to a fixed, short reason. Product messages and data are withheld; only the product's own journey codes pass through. */
+  const step = async <T>(name: string, work: () => Promise<T>): Promise<T> => {
+    try { return await work(); }
+    catch (error) {
+      if (error instanceof Refusal) throw error;
+      const code = error instanceof Error && /^journey:[a-z0-9-]{1,60}$/.test(error.message) ? error.message.slice("journey:".length) : "unexpected";
+      return refuse(`${name} refused by the product path (${code})`);
+    }
+  };
+
+  return {
+    async createTenant() {
+      return step("tenant setup", async () => {
+        const opened = await openSession();
+        closers.push(opened.close);
+        sessions.set(opened.tenant.workspaceId, opened.tenant);
+        return { workspaceId: opened.tenant.workspaceId, approverId: opened.tenant.approverId };
+      });
+    },
+
+    async createAwsConnection(tenant, input) {
+      return step("connection", async () => {
+        const session = sessionOf(tenant);
+        const result = await runAction(session, "connection.createAws", {
+          // One label per connection stack, so a tenant holding both (PROD-MIX-01) can tell them apart.
+          label: `PROD-MIX live${input.bootstrapNameSuffix}`, region: input.region, accountId: input.accountId, stateBucket: input.stateBucket, bootstrapNameSuffix: input.bootstrapNameSuffix,
+          observeRoleArn: input.observeRoleArn, deployRoleArn: input.deployRoleArn, mode: "aws_assume_role",
+        });
+        const data = (result.data ?? {}) as { connectionId?: unknown; externalId?: unknown };
+        if (!result.ok || typeof data.connectionId !== "string" || typeof data.externalId !== "string") refuse("connection.createAws was refused by the product");
+        return { connectionId: data.connectionId as string, externalId: data.externalId as string };
+      });
+    },
+
+    async verifyAws(tenant, connectionId) {
+      return step("connection verification", async () => {
+        const result = await runAction(sessionOf(tenant), "connection.verifyAws", { connectionId });
+        return result.ok ? { ok: true, reason: "" } : { ok: false, reason: "connection.verifyAws did not pass" };
+      });
+    },
+
+    async proposeMixed(tenant, input) {
+      return step("mixed proposal", async () => {
+        const session = sessionOf(tenant);
+        const projectId = session.projectId, scope = { projectId };
+        const { producer, consumer, graph } = input.independent ? mix01Manifests(input.region)
+          : mix03Manifests(input.region, input.artifact ?? refuse("the consumer's package was not given"));
+        // The parent's revision is the whole graph. A sandbox environment deploys it through the simulated provider, so no cloud resource exists.
+        await must(session, "project.updateManifest", { projectId, manifest: graph }, scope);
+        const parent = idOf((await must(session, "env.create", { projectId, name: "parent", class: "sandbox", approvalRequired: false }, scope)).environmentId, "the parent environment");
+        await deployAndWait(session, projectId, parent);
+        // A sandbox environment's default autonomy (4) lets policy run deployment.deploy unattended. Below it, the parent
+        // operation waits for a person, which PROD-MIX-03 requires. The admin sets it through the product's own route.
+        ok(await send(session, session.owner, `/api/platform/v1/environments/${parent}/autonomy`, { level: PARENT_AUTONOMY }, "PUT"));
+        // PROD-MIX-01 binds the consumer child to a second connection; otherwise both children share one.
+        const create = async (name: string, connectionId: string) => idOf((await must(session, "env.create", {
+          projectId, name, class: "sandbox", connectionId, region: input.region, approvalRequired: true,
+        }, scope)).environmentId, `the ${name} environment`);
+        const producerEnv = await create("producer", input.connectionId), consumerEnv = await create("consumer", input.consumerConnectionId ?? input.connectionId);
+
+        const planned = await send(session, session.owner, "/api/platform/v1/mixed/plans", {
+          parentEnvironmentId: parent, childEnvironmentIds: [producerEnv, consumerEnv],
+          pins: input.independent
+            ? [{ address: "object_store/first", childEnvironmentId: producerEnv }, { address: "object_store/second", childEnvironmentId: consumerEnv }]
+            : [{ address: "object_store/bucket", childEnvironmentId: producerEnv }, { address: "function/consumer", childEnvironmentId: consumerEnv }],
+          references: input.independent ? [] : [MIX03_REFERENCE],
+        });
+        if (planned.status < 200 || planned.status >= 300) throw new PlanRefusal(`the product refused the mixed plan (${reasonCode(planned.data)})`, reasonOf(planned.data));
+        const proposed = planned.data as { plan?: { parentPlanId?: unknown }; operationId?: unknown };
+        const planId = idOf(proposed.plan?.parentPlanId, "the mixed plan id");
+        const parentOperationId = idOf(proposed.operationId, "the parent operation");
+
+        // Each child is deployed from its own part of the graph, so its revision expands to exactly its approved subplan.
+        const deployChild = async (environmentId: string, manifest: unknown): Promise<string> => {
+          await must(session, "project.updateManifest", { projectId, manifest }, scope);
+          return idOf((await must(session, "deploy.apply", { projectId, environmentId }, { projectId, environmentId })).operationId, "the child deploy operation");
+        };
+        const producerOperationId = await deployChild(producerEnv, producer);
+        const consumerOperationId = await deployChild(consumerEnv, consumer);
+
+        const readback = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: { partitionId?: unknown; childEnvironmentId?: unknown }[] };
+        const partitionOf = (environmentId: string): string => {
+          const partitionId = readback.children?.find(child => child.childEnvironmentId === environmentId)?.partitionId;
+          return typeof partitionId === "string" && PARTITION.test(partitionId) ? partitionId : refuse("the child partition was not returned by the product");
+        };
+        consumers.set(planId, consumerEnv);
+        adoptions.set(planId, [
+          { partitionId: partitionOf(producerEnv), operationId: producerOperationId },
+          { partitionId: partitionOf(consumerEnv), operationId: consumerOperationId },
+        ]);
+        return { environmentIds: [producerEnv, consumerEnv], planId, parentOperationId };
+      });
+    },
+
+    async approve(tenant, operationId) {
+      return step("browser approval", async () => { await approve(sessionOf(tenant), operationId); });
+    },
+
+    async startMixed(tenant, planId) {
+      return step("mixed start", async () => {
+        const session = sessionOf(tenant);
+        for (const adoption of adoptions.get(planId) ?? refuse("no child operations were recorded for this plan")) {
+          const adopted = await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}/children`, adoption, "POST");
+          if (adopted.status < 200 || adopted.status >= 300) return { started: false as const, reason: `the product refused a child adoption (${reasonCode(adopted.data)})` };
+        }
+        const response = await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}/start`, {}, "POST");
+        if (response.status >= 200 && response.status < 300) return { started: true as const };
+        return { started: false as const, reason: `the product refused the start (${reasonCode(response.data)})` };
+      });
+    },
+
+    async planReadback(tenant, planId) {
+      return step("plan readback", async () => {
+        const session = sessionOf(tenant);
+        return mixedReadbackOf(ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")));
+      });
+    },
+    async operationHalt(tenant, operationId) {
+      return step("operation readback", async () => {
+        const session = sessionOf(tenant);
+        const detail = ok(await send(session, session.owner, `/api/platform/v1/operations/${operationId}`, undefined, "GET")) as { operation?: { status?: unknown; error?: unknown } };
+        const status = typeof detail.operation?.status === "string" && SAFE_CODE.test(detail.operation.status) ? detail.operation.status : "unknown";
+        const error = typeof detail.operation?.error === "string" ? detail.operation.error : undefined;
+        // An unrecognized stop also carries the product's sentence, elided (sanitizedError), so a new case can be named.
+        const halt = error ? haltOf(error) : undefined, why = error && halt === "other" ? sanitizedError(error) : undefined;
+        return { status, ...(halt ? { halt } : {}), ...(why ? { detail: why } : {}) };
+      });
+    },
+    async children(tenant, planId) {
+      return step("children readback", async () => {
+        const session = sessionOf(tenant);
+        const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: unknown; parentOperationId?: unknown };
+        const rows = (Array.isArray(plan.children) ? plan.children : []) as {
+          dependsOn?: unknown[]; childEnvironmentId?: unknown; state?: string; childOperationId?: string | null; receipt?: { childOperationId?: string; childStatus?: unknown } | null;
+        }[];
+        const children: Mix03Child[] = [];
+        for (const row of rows) {
+          // The producer is the child nothing depends on; the consumer depends on it.
+          const consumerEnv = consumers.get(planId);
+          const role = row.dependsOn?.length || (consumerEnv !== undefined && row.childEnvironmentId === consumerEnv) ? "consumer" : "producer";
+          let awaitingOperationId: string | undefined, operationStatus: string | undefined, halt: string | undefined;
+          let deployStep: string | undefined;
+          const receiptStatus = row.receipt?.childStatus;
+          if (typeof receiptStatus === "string" && SAFE_CODE.test(receiptStatus)) operationStatus = receiptStatus;
+          if (row.childOperationId && row.state !== "pending" && row.state !== "succeeded") {
+            const detail = ok(await send(session, session.owner, `/api/platform/v1/operations/${row.childOperationId}`, undefined, "GET")) as { operation?: { status?: string; error?: unknown } };
+            if (detail.operation?.status === "awaiting_approval") awaitingOperationId = row.childOperationId;
+            if (!operationStatus && typeof detail.operation?.status === "string" && SAFE_CODE.test(detail.operation.status)) operationStatus = detail.operation.status;
+            // The error is free text: only a fixed category of it leaves the driver.
+            const error = detail.operation?.error;
+            if (typeof error === "string") halt = haltOf(error);
+            // While it runs: the deploy step its environment's latest deployment is in (the rehearsal stops the worker during the apply).
+            if (detail.operation?.status === "running" && typeof row.childEnvironmentId === "string" && ID.test(row.childEnvironmentId)) {
+              const latest = ok(await send(session, session.owner, `/api/environments/${encodeURIComponent(row.childEnvironmentId)}/deployments?limit=1`, undefined, "GET")) as { deployments?: { steps?: { id?: unknown; status?: unknown }[] }[] };
+              const running = latest.deployments?.[0]?.steps?.find(item => item.status === "running")?.id;
+              if (typeof running === "string" && /^step-[a-z_]{1,40}$/.test(running)) deployStep = running.slice("step-".length);
+            }
+          }
+          children.push({
+            role, status: CHILD_STATUS[row.state ?? ""] ?? "unknown",
+            ...(row.childOperationId ? { childOperationId: row.childOperationId } : {}),
+            ...(row.receipt?.childOperationId ? { receiptOperationId: row.receipt.childOperationId } : {}),
+            ...(awaitingOperationId ? { awaitingOperationId } : {}),
+            ...(operationStatus ? { operationStatus } : {}),
+            ...(halt ? { halt } : {}),
+            ...(deployStep ? { step: deployStep } : {}),
+          });
+        }
+        // The producer's real outputs change the consumer's input, so the parent workflow opens a review operation of the new
+        // parent digest (mixed-activities.ts createParentReviewOpener). The consumer waits until a person approves it.
+        const producer = children.find(child => child.role === "producer"), consumer = children.find(child => child.role === "consumer");
+        if (producer?.status === "succeeded" && consumer?.status === "pending" && !consumer.awaitingOperationId && typeof plan.parentOperationId === "string") {
+          const listed = ok(await send(session, session.owner, "/api/platform/v1/operations?status=awaiting_approval&capability=deployment.deploy&limit=200", undefined, "GET")) as { operations?: unknown };
+          const review = (Array.isArray(listed.operations) ? listed.operations : [] as unknown[])
+            .find(op => (op as { proposal?: { input?: { mixedParentReviewOf?: unknown } } }).proposal?.input?.mixedParentReviewOf === plan.parentOperationId) as
+            { id?: unknown; proposal?: { input?: { previousParentDigest?: unknown; requiredParentDigest?: unknown; consumers?: unknown } } } | undefined;
+          if (review) {
+            consumer.awaitingOperationId = idOf(review.id, "the parent review operation");
+            const input = review.proposal?.input ?? {};
+            const consumers = (Array.isArray(input.consumers) ? input.consumers : []) as { previousEffectDigest?: unknown; newEffectDigest?: unknown }[];
+            consumer.review = {
+              previousParentDigest: hexOf(input.previousParentDigest, "the review's previous parent digest"),
+              requiredParentDigest: hexOf(input.requiredParentDigest, "the review's required parent digest"),
+              consumers: consumers.length,
+              effectChanged: consumers.length > 0 && consumers.every(c => HEX64.test(String(c.previousEffectDigest)) && HEX64.test(String(c.newEffectDigest)) && c.previousEffectDigest !== c.newEffectDigest),
+            };
+          }
+        }
+        return children;
+      });
+    },
+
+    async issueOutputPreauthorization(tenant, planId) {
+      return step("output preauthorization", async () => {
+        const session = sessionOf(tenant);
+        const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as {
+          parentOperationId?: unknown; parentEnvironmentId?: unknown; desiredDigest?: unknown; references?: unknown;
+        };
+        const references = Array.isArray(plan.references) ? plan.references as Record<string, unknown>[] : [];
+        if (references.length !== 1) refuse("the plan does not have exactly one reference");
+        const [reference] = references as [Record<string, unknown>];
+        if (typeof reference.valueType !== "string") refuse("the reference has no value type in the plan readback");
+        const issued = await send(session, session.owner, "/api/platform/v1/mixed-output-preauthorizations", {
+          parentOperationId: idOf(plan.parentOperationId, "the parent operation"),
+          // The product matches a grant against the parent plan's environment, not the consumer child's.
+          environmentId: idOf(plan.parentEnvironmentId, "the parent environment"),
+          desiredDigest: hexOf(plan.desiredDigest, "the desired digest"),
+          referenceId: idOf(reference.referenceId, "the reference id"),
+          contractDigest: hexOf(reference.contractDigest, "the reference contract digest"),
+          consumerSubplanDigest: hexOf(reference.consumerSubplanDigest, "the consumer subplan digest"),
+          producerSubplanDigest: hexOf(reference.producerSubplanDigest, "the producer subplan digest"),
+          valueType: reference.valueType,
+          maxUses: 1,
+          lifetimeMs: PREAUTH_LIFETIME_MS,
+          reason: PREAUTH_REASON,
+        });
+        if (issued.status < 200 || issued.status >= 300) refuse(`the product refused the output preauthorization (${reasonCode(issued.data)})`);
+      });
+    },
+
+    async preauthorizationUses(tenant, parentOperationId) {
+      return step("preauthorization readback", async () => {
+        const session = sessionOf(tenant);
+        const list = async (activeOnly: boolean) => {
+          const data = ok(await send(session, session.owner, `/api/platform/v1/mixed-output-preauthorizations?parentOperationId=${encodeURIComponent(idOf(parentOperationId, "the parent operation"))}${activeOnly ? "&activeOnly=true" : ""}`, undefined, "GET")) as { preauthorizations?: unknown };
+          return (Array.isArray(data.preauthorizations) ? data.preauthorizations : []) as { uses?: unknown; maxUses?: unknown }[];
+        };
+        const all = await list(false), active = await list(true);
+        const count = (key: "uses" | "maxUses") => all.reduce((sum, grant) => sum + (Number.isInteger(grant[key]) ? grant[key] as number : 0), 0);
+        return { total: all.length, uses: count("uses"), maxUses: count("maxUses"), active: active.length };
+      });
+    },
+
+    async preauthorizationStanding(tenant, parentOperationId) {
+      return step("preauthorization standing", async () => {
+        const session = sessionOf(tenant);
+        const data = ok(await send(session, session.owner, `/api/platform/v1/mixed-output-preauthorizations?parentOperationId=${encodeURIComponent(idOf(parentOperationId, "the parent operation"))}`, undefined, "GET")) as { preauthorizations?: unknown };
+        const rows = (Array.isArray(data.preauthorizations) ? data.preauthorizations : []) as { standing?: unknown }[];
+        return rows.map((row) => (typeof row.standing === "string" && STANDINGS.has(row.standing) ? row.standing : "unknown")).sort();
+      });
+    },
+
+    async mixedRun(tenant, parentOperationId) {
+      return step("run readback", async () => {
+        const session = sessionOf(tenant);
+        const data = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { summary?: Record<string, unknown>; run?: { teardown?: unknown } };
+        const summary = data.summary ?? {}, outcome = summary.outcome, nextSteps = summary.nextSteps;
+        if (typeof outcome !== "string" || !SAFE_CODE.test(outcome) || !Array.isArray(nextSteps) || nextSteps.some(word => typeof word !== "string" || !SAFE_CODE.test(word))) refuse("the run summary has an unexpected shape");
+        if (typeof summary.cancelled !== "boolean") refuse("the run summary has an unexpected shape");
+        return {
+          outcome: outcome as string, nextSteps: nextSteps as string[], steps: teardownStepsOf(data.run?.teardown),
+          atomicity: word(summary.atomicity, "atomicity"), automaticCompensation: word(summary.automaticCompensation, "compensation"), cancelled: summary.cancelled as boolean,
+          appliedWithoutRunCompletion: idList(summary.appliedWithoutRunCompletion, "applied children"), indeterminate: idList(summary.indeterminate, "indeterminate children"),
+          children: runChildrenOf(data.run),
+        };
+      });
+    },
+
+    async proposeTeardown(tenant, parentOperationId) {
+      return step("teardown proposal", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/teardown`, { action: "propose" }, "POST");
+        if (response.status < 200 || response.status >= 300) refuse(`the product refused the teardown proposal (${reasonCode(response.data)})`);
+        const data = response.data as { teardown?: unknown; retained?: unknown; nothingToDestroy?: unknown };
+        const nothing = Array.isArray(data.nothingToDestroy) ? data.nothingToDestroy : refuse("the teardown proposal has an unexpected shape");
+        if (!Array.isArray(data.retained) || nothing.some(id => typeof id !== "string" || !REF.test(id))) refuse("the teardown proposal has an unexpected shape");
+        return { steps: teardownStepsOf(data.teardown ?? refuse("the teardown proposal has no steps")), retained: (data.retained as unknown[]).length, nothingToDestroy: nothing as string[] };
+      });
+    },
+
+    async openChildDestroy(tenant, planId, childId) {
+      return step("child destroy", async () => {
+        const session = sessionOf(tenant);
+        // The child's own environment holds its state: it comes from the stored plan, never from the caller.
+        const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: { partitionId?: unknown; childEnvironmentId?: unknown }[] };
+        const environmentId = idOf(plan.children?.find(child => child.partitionId === childId)?.childEnvironmentId, "the child environment");
+        const scope = { projectId: session.projectId, environmentId };
+        const reviewId = idOf((await must(session, "env.reviewTeardown", { environmentId, idempotencyKey: nonce() }, scope)).reviewOperationId, "the teardown review");
+        const reviewPath = `/api/platform/v1/environments/${encodeURIComponent(environmentId)}/teardown-review?reviewId=${encodeURIComponent(reviewId)}`;
+        const destroyOperationId = await poll("the teardown review", async () => {
+          const review = (ok(await send(session, session.owner, reviewPath, undefined, "GET")) as { review?: { operationId?: unknown; status?: unknown } | null }).review;
+          if (typeof review?.operationId === "string") return idOf(review.operationId, "the destroy operation");
+          if (typeof review?.status === "string" && TERMINAL.includes(review.status)) {
+            // The review route returns only the status; the review operation carries the product's reason.
+            const why = sanitizedError((await operationOf(session, reviewId).catch(() => undefined))?.error);
+            refuse(`the teardown review ended ${review.status} without a destroy proposal${why ? ` (product: ${why})` : ""} [${await reviewWorkflow(reviewId)}]`);
+          }
+          return undefined;
+        });
+        // The proposal round: a person approves the reviewed destroy proposal; its workflow then claims it and plans.
+        let view = await poll("the destroy proposal", async () => { const op = await operationOf(session, destroyOperationId); return op.status === "awaiting_approval" || TERMINAL.includes(op.status) ? op : undefined; });
+        if (TERMINAL.includes(view.status)) return { destroyOperationId, status: view.status };
+        await approve(session, destroyOperationId);
+        // The plan round: awaiting approval again once the workflow claimed it (startedAt) and recorded the reviewed list.
+        view = await poll("the destroy plan", async () => { const op = await operationOf(session, destroyOperationId); return (op.status === "awaiting_approval" && op.started) || TERMINAL.includes(op.status) ? op : undefined; });
+        return { destroyOperationId, status: view.status };
+      });
+    },
+
+    async releaseTeardown(tenant, parentOperationId, childId, destroyOperationId) {
+      return step("teardown release", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/teardown`, { action: "release", childId, destroyOperationId: idOf(destroyOperationId, "the destroy operation") }, "POST");
+        return response.status >= 200 && response.status < 300 ? { released: true as const } : { released: false as const, reason: `the product refused the release (${reasonCode(response.data)})` };
+      });
+    },
+
+    async finishChildDestroy(tenant, destroyOperationId) {
+      return step("child destroy", async () => {
+        const session = sessionOf(tenant);
+        let approvals = 0;
+        const view = await poll("the destroy", async () => {
+          const op = await operationOf(session, destroyOperationId);
+          if (TERMINAL.includes(op.status)) return op;
+          // Every round the destroy still asks for is a person's approval, as the web app does; bounded so nothing loops.
+          if (op.status === "awaiting_approval" && approvals < 3) { approvals++; await approve(session, destroyOperationId); }
+          return undefined;
+        });
+        return { status: view.status, ...(view.error ? { halt: haltOf(view.error) } : {}) };
+      });
+    },
+
+    async syncTeardown(tenant, parentOperationId, childId) {
+      return step("teardown sync", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/teardown`, { action: "sync", childId }, "POST");
+        if (response.status < 200 || response.status >= 300) refuse(`the product refused the teardown sync (${reasonCode(response.data)})`);
+        const run = ok(await send(session, session.owner, runPath(parentOperationId), undefined, "GET")) as { run?: { teardown?: unknown } };
+        return teardownStepsOf(run.run?.teardown).find(item => item.childId === childId) ?? refuse("the synced step is not in the run's teardown");
+      });
+    },
+
+    async teardownBlocked(tenant, planId, childId) {
+      return step("teardown readiness", async () => {
+        const session = sessionOf(tenant);
+        const plan = ok(await send(session, session.owner, `/api/platform/v1/mixed/plans/${planId}`, undefined, "GET")) as { children?: { partitionId?: unknown; childEnvironmentId?: unknown }[] };
+        const environmentId = idOf(plan.children?.find(child => child.partitionId === childId)?.childEnvironmentId, "the child environment");
+        const response = await send(session, session.owner, "/api/actions/env.reviewTeardown",
+          { mode: "plan", input: { environmentId, idempotencyKey: nonce() }, scope: { projectId: session.projectId, environmentId } });
+        if (response.status < 200 || response.status >= 300) refuse(`env.reviewTeardown plan was refused by the product (HTTP ${response.status})`);
+        const reviewed = (response.data as { plan?: unknown } | undefined)?.plan;
+        if (!reviewed || typeof reviewed !== "object") refuse("env.reviewTeardown plan returned no plan");
+        const blocked = (reviewed as { blocked?: unknown }).blocked;
+        if (blocked !== undefined && typeof blocked !== "string") refuse("env.reviewTeardown plan returned an unreadable refusal");
+        return sanitizedError(blocked) ?? (blocked === undefined ? undefined : "refused");
+      });
+    },
+
+    async cancelMixed(tenant, parentOperationId) {
+      return step("run cancel", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/cancel`, {}, "POST");
+        if (response.status < 200 || response.status >= 300) refuse(`the product refused the run cancel (${reasonCode(response.data)})`);
+      });
+    },
+
+    async reconcileChild(tenant, parentOperationId, childId, outcome, evidenceDigest) {
+      return step("run reconcile", async () => {
+        const session = sessionOf(tenant);
+        if (!HEX64.test(evidenceDigest) || !REF.test(childId)) refuse("the reconciliation evidence has an unexpected shape");
+        const response = await send(session, session.owner, `${runPath(parentOperationId)}/reconcile`, { childId, outcome, evidenceDigest }, "POST");
+        return response.status >= 200 && response.status < 300 ? { recorded: true as const } : { recorded: false as const, reason: `the product refused the reconciliation (${reasonCode(response.data)})` };
+      });
+    },
+
+    async revokeConnection(tenant, connectionId) {
+      return step("connection revoke", async () => {
+        const data = await must(sessionOf(tenant), "connection.revoke", { connectionId: idOf(connectionId, "the connection"), reason: "PROD-MIX operational rehearsal: revoke one partition connection" });
+        return { status: typeof data.status === "string" && SAFE_CODE.test(data.status) ? data.status : "unknown" };
+      });
+    },
+
+    async close() {
+      for (const release of closers.splice(0)) await release();
+    },
+  };
+}

@@ -1,0 +1,105 @@
+{
+  "kind": "scoped verification snapshot",
+  "source": {
+    "head": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+    "entries": 5985,
+    "contentSha256": "d7e59d7f3664d7f6b801e85a437cf0f36259ad479f99cf556841baad4633c0a1",
+    "freezeSha256": "5bb9cffc31c8dbde43f42a76df1321339064e2da0acc7f36198299113868782e"
+  },
+  "core": {
+    "passed": 24590,
+    "skipped": 1943,
+    "failed": 0,
+    "identities": 26533,
+    "summarySha256": "895736020dc6cf20585af23d2b272bff762c8516f7acb242f7e379a5fd24c317",
+    "terminalReviewSha256": "3b88a542a93bb13c353ae64f87d5e84ad80fc45ac9834b9dfb04a9a6cc110af2"
+  },
+  "ci": {
+    "workflows": 3,
+    "jobs": 32,
+    "passed": 24,
+    "conditionalSkips": 8,
+    "failed": 0,
+    "indexSha256": "1244274451649e8f6fa07b3bde96806b137b3cde594a90fb96b85b884261fc99",
+    "verify": {
+      "jobId": 114641494664,
+      "passed": 24608,
+      "skipped": 1925,
+      "failed": 0,
+      "identities": 26533,
+      "rawLogSha256": "b4c32dbf4b73ed3bf290ddcd4af1b631d50edf401ab7910e99ae1b6cdd50b50f",
+      "summaryJsonSha256": "c95f33550579ee854f903bcb8c90d3b5e06e360ad8169b52489d8afab1236163"
+    },
+    "workflow": {
+      "passed": 1559,
+      "files": 75,
+      "requiredGroups": 113,
+      "rawLogSha256": "f8fe238ef420210c89401ea48bcbe32749f18460036eb6148ecf4993fb976b18",
+      "detailSlice": {
+        "files": 28,
+        "cases": 547,
+        "complete": false
+      }
+    },
+    "historicalDependency": "PROD-CI-07 historical advisory reconciliation remains open; current685 CI terminal."
+  },
+  "focusedCandidates": {
+    "j4Diagnostic": {
+      "passed": 10,
+      "failed": 0,
+      "proofSha256": "0761651eff4c35adc2c9fa93c96b3a79212571337c9517d48d8968512065ff32",
+      "terminalReviewSha256": "54220bf378998a7361c47e2a7cd6cc2d789f44440270e066f95b9eea30f29915",
+      "acceptedRunReceipt": false
+    },
+    "static": {
+      "passed": 2,
+      "failed": 0,
+      "proofSha256": "3bf75a4531be300146d81e2db8651d3660d4bcd23636bc6979f17bcc4aabb062",
+      "terminalReviewSha256": "2d636c48a2a073c03f73608df5971c22523644170d2187f1dccfbf0f499230d6",
+      "acceptedRunReceipt": false
+    }
+  },
+  "j4Cleanup": {
+    "r3": "refused before deletion on empty guard log/alias mismatch",
+    "r4": {
+      "removed": 19,
+      "ownedRemaining": 0,
+      "forcedStops": 2,
+      "receiptSha256": "defd71a5f5f21bb935bcef5c2a90d366cf445162ee01ea189acf31e0a4782a0b",
+      "acceptedRunReceipt": false,
+      "independentTerminalReview": "PASS",
+      "terminalReviewSha256": "a65dbf65c748e78ae2d0f17a061a1599a5b0c27f7c08e4aeb1c121df6bfcf75e"
+    }
+  },
+  "nativeRoles": {
+    "r4": {
+      "passed": 0,
+      "pending": 100,
+      "failedSuites": 2,
+      "seedRolesWithoutNoInheritInvalid": true,
+      "innerInitializerExceptionEstablished": false
+    },
+    "recoveryCloseoutReceiptSha256": "b0f7f7374e05b3998bcf9cf7ed4a7f8cb9d97446527a9ccf3c1334d4a02dfe52",
+    "recoveryReview": "PASS",
+    "r5CanonicalRoleExecuted": false
+  },
+  "witness": {
+    "scope": "ARM64 nonroot image build only",
+    "summarySha256": "85ada12ac496aaecc33f6bb3e9c4c339231196322fdc34204292303a592b01ca",
+    "reviewSha256": "a43195483f10ff79099a986e4cab4ae4abdb0bd5ca7e0bd65ffd45c49281508f",
+    "invoked": false
+  },
+  "sanitization": {
+    "privatePathsOmitted": true,
+    "rawLogsOmitted": true,
+    "credentialsOmitted": true
+  },
+  "schemaVersion": 1,
+  "acceptedProductionRun": false,
+  "limitations": [
+    "Core and CI counts describe exact 685fb836 only; the subsequently integrated diagnostic source requires fresh coherent verification.",
+    "J4 cleanup had two forced stops; owned cleanup success does not establish graceful shutdown or product acceptance.",
+    "Native100 failed before execution; reviewed R5 canonical-role fixture has not run.",
+    "Local and CI pass/skip partitions differ; totals are not summed or treated as identity-equivalent."
+  ]
+}

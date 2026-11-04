@@ -1,0 +1,46 @@
+{
+  "evidenceId": "PROD-CI-08-native100-focused-068391c2-r1",
+  "laterIntegratedCommit": "27c0126888a3f5cbafabb6ca8e3033eeaa96aed3",
+  "laterIntegrationStatus": "source fixes integrated; these terminal runs were performed against 068391c2, not 27c01268",
+  "limitations": [
+    "Focused lane evidence only; not release acceptance or promotion.",
+    "Terminal run source is 068391c2; integration at 27c01268 has not been re-run by this evidence.",
+    "An earlier refused manifest/run is retained as distinct history; this record does not replace or upgrade it."
+  ],
+  "pins": {
+    "manifestSha256": "dbe3be2eb127d864c05c93242c4620eb5d1a93b54e0a0481b7113e0da65934f1",
+    "privateResultSha256": "be5b66289334145e934e6ca5c6374d99da819ca26f9bd4c6429d38d95901eb47",
+    "review": {
+      "path": "/tmp/zenith-068391c2-native100-focused-terminal-review-r1/review.json",
+      "sha256": "39bd41bf49123e37fdf9bf0d966b41ad2937f501fc623e809e4092c44d8d515a"
+    },
+    "sourceFreezeSha256": "453ea3c1f96965d98a3e2d99fbf9fbaeb2427d6f34465d9742421432dc110b35",
+    "vitestReportSha256": "5d5d61dc7c5449291881c5febabcbbf8b9057cfb409ef55f0374cbb04a3baca4"
+  },
+  "result": {
+    "acceptedRunReceipt": false,
+    "activeLeaders": 0,
+    "allTerminalAbsenceProven": true,
+    "cleanupCompleted": true,
+    "custodyLedgers": 60,
+    "droppedEvents": 0,
+    "failed": 0,
+    "lockClear": true,
+    "overflow": false,
+    "ownedContainerAbsenceProven": true,
+    "passed": 100,
+    "pending": 0,
+    "pendingLive": 0,
+    "quarantine": 0,
+    "secretFilesAbsent": true,
+    "status": "pass-focused-only",
+    "suites": 2,
+    "telemetryComplete": true,
+    "truncation": false,
+    "vmMinimumFreeBytes": 409104216064
+  },
+  "schema": "zenith.scoped-test-evidence.v1",
+  "scope": "strict native PostgreSQL 16 focused 100-test lane only",
+  "testedSourceCommit": "068391c2bd8eae625f159855c55ce913146ba792",
+  "testedSourceFreezeSha256": "453ea3c1f96965d98a3e2d99fbf9fbaeb2427d6f34465d9742421432dc110b35"
+}

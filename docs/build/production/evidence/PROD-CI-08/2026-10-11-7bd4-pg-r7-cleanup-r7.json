@@ -1,0 +1,36 @@
+{
+  "absence": {
+    "containers_by_id_and_name": true,
+    "credentials_removed_after_absence_proof": true,
+    "networks_by_id_and_name": true,
+    "volume_name_and_reference_census": true
+  },
+  "acceptance": "Cleanup only. Does not adopt or change the failed R6 test result; no milestone promotion.",
+  "actual_return_code": 0,
+  "checks": {
+    "floor_watcher_joined": true,
+    "host_and_vm_floors_passed": true,
+    "source_stable": true,
+    "strict_custody": true,
+    "vm_observer_joined": true
+  },
+  "cleanup_complete": true,
+  "cleanup_only": true,
+  "counts": {
+    "host_held_commands": 72,
+    "vm_held_commands": 4
+  },
+  "evidence_type": "owned-pg-stack-cleanup-only",
+  "floor_bytes": 23622320128,
+  "helper_sha256": "a65f68be5b518cd3ece1249f35760cff167fbfcb38bae95cde46c34d087a8562",
+  "interrupted_cleanup_receipt_sha256": "5bf8a75b56fe65111bfb4e9bb8f4de4dd12f18a55654a151cde2477e528c1391",
+  "minimum_free_bytes": {
+    "host": 338719879168,
+    "vm": 424570126336
+  },
+  "receipt_sha256": "252800f2bd004a3a52a0190a9d971950d278bec585fcd4356935112d5c706af7",
+  "retained_failed_run_receipt_sha256": "ed8f45ea11abb3cec780781c89035cabeb107c3dc85f02d0b6561ce66ed9f8f8",
+  "run": "R7 cleanup-only follow-up to failed R6",
+  "source_freeze_sha256": "9038f2e3c8e52c231fba4809132e3ecd951331553c583c33b206f6cad6c44ecb",
+  "source_sha": "7bd4b85d39a73002906173942c622fdbb377ae20"
+}

@@ -1,0 +1,125 @@
+{
+  "commands": {
+    "allCommandsCompleteFinishedAndClosed": true,
+    "allReturnCodesZero": true,
+    "auditCacheStartedEmpty": true,
+    "completeAudit": {
+      "auditScriptSha256": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941",
+      "command": "node scripts/ci/security-audit.mjs",
+      "exceptionRegistrySha256": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4",
+      "expectedExceptionCount": 0,
+      "requiredFindingCount": 0,
+      "returnCode": 0,
+      "stderrEmpty": true,
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdoutSha256": "dad5ff63a0e8e4c84e5dfbcbe56268054b7de50ef68fe181629a3f07b3e93a42",
+      "findingCount": 0
+    },
+    "custodyUncertainCount": 0,
+    "heldReceiptCount": 18,
+    "install": "node <pinned npm CLI> ci --ignore-scripts --cache=<fresh private cache> --userconfig=<empty private user config> --globalconfig=<empty private global config> --registry=https://registry.npmjs.org",
+    "installReturnCode": 0,
+    "installScriptsIgnored": true,
+    "lockIntegrity": {
+      "afterReturnCode": 0,
+      "beforeReturnCode": 0,
+      "command": "node scripts/ci/lockfile-integrity.mjs",
+      "lockUnchanged": true,
+      "packageLockSha256After": "2b52b2cbac18db7d858567378856427e4ae8bf27ee819d203aa1f528745325c6",
+      "packageLockSha256Before": "2b52b2cbac18db7d858567378856427e4ae8bf27ee819d203aa1f528745325c6"
+    },
+    "monitorFailureCount": 0,
+    "npmCacheStartedEmpty": true,
+    "privateUserAndGlobalNpmConfigs": {
+      "bothRegularSingleLinkMode0600ZeroByte": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "receiptLabelCounts": {
+      "archive-exact-clean-head": 1,
+      "canonical-security-audit": 1,
+      "lock-integrity-after-install": 1,
+      "lock-integrity-before-install": 1,
+      "node-platform-arch": 1,
+      "node-version": 1,
+      "npm-ci-ignore-scripts": 1,
+      "npm-version": 1,
+      "primary-source-git": 10
+    },
+    "registryProvenAbsentReceiptCount": 18,
+    "resourceBreachCount": 0
+  },
+  "custodyAndResources": {
+    "allFloorsMet": true,
+    "artifactsRetained": true,
+    "cleanupPerformed": false,
+    "deadlineExceededAtFinalization": false,
+    "deadlineSeconds": 600.0,
+    "finalizationFailure": null,
+    "floorWatcherFailure": null,
+    "floorWatcherJoinedAndClear": true,
+    "minimumFreeBytesObserved": {
+      "repositoryCheckout": 343156846592,
+      "privateRuntimeRoot": 343156846592
+    },
+    "minimumRequiredBytes": 23622320128,
+    "signalObserved": null
+  },
+  "heldRunReceipt": {
+    "acceptanceMeaning": "bounded-local-dependency-gate-only",
+    "acceptedRunReceipt": false,
+    "closureEligibleForReview": true,
+    "ledgerPromotion": false,
+    "outcome": "verified-local-ci07-dependency-gate",
+    "sha256": "b64d6c5fde2b01ee0ef7ada5ef3e63c42f1a93edbf6a1ddde3333fa584c195b0"
+  },
+  "interpretation": {
+    "openHistoricalReconciliation": "The ledger historical eight-versus-seven advisory discrepancy remains unresolved because original raw audit reports are unavailable. This run does not supply those missing historical inputs or close the existing operator blocker.",
+    "result": "Fresh local dependency gate passed for the exact source and toolchain recorded above; observation is time-bound.",
+    "scopeLimit": "This is one local macOS arm64 dependency-gate observation. It does not establish a complete remote/native CI matrix or guarantee future vulnerability status."
+  },
+  "kind": "PROD-CI-07 local clean-install and complete dependency-audit evidence",
+  "observedDate": "2026-10-11",
+  "schemaVersion": 1,
+  "source": {
+    "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+    "copiedSourceFilesComparedByteForByteWithGitHead": {
+      "package-lock.json": {
+        "bytes": 479466,
+        "sha256": "2b52b2cbac18db7d858567378856427e4ae8bf27ee819d203aa1f528745325c6"
+      },
+      "package.json": {
+        "bytes": 7490,
+        "sha256": "aa3a63d1f9638254c5755019e791567344fbfea58d8770a51534b2cb8beee783"
+      },
+      "scripts/ci/lockfile-integrity.mjs": {
+        "bytes": 4775,
+        "sha256": "7407fdea352749e1c6473b121eed1f75f5379f7ef168cffb4db1016c982a72df"
+      },
+      "scripts/ci/security-audit.mjs": {
+        "bytes": 7548,
+        "sha256": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941"
+      },
+      "scripts/ci/security-exceptions.json": {
+        "bytes": 45,
+        "sha256": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4"
+      }
+    },
+    "primarySourceFreezeEqual": true,
+    "primarySourceFreezeSha256After": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "primarySourceFreezeSha256Before": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "privateArchiveSha256": "891c05d8840272af5a9d540e6b850181112a08dfa08b8d76999f2958c3072702",
+    "privateSourceMapSha256After": "2f7793b9fda6081d930678f098a25cf157c7213f28236f17c4a7ba9a264b675a",
+    "privateSourceMapSha256Before": "2f7793b9fda6081d930678f098a25cf157c7213f28236f17c4a7ba9a264b675a",
+    "privateSourceMapUnchanged": true
+  },
+  "toolchain": {
+    "liveCloudCalls": false,
+    "node": "v22.23.3",
+    "nodeSha256": "68f4d07ca49e0500cc135c7e0a445093e228e42e126ac22306d045f0a8c2636b",
+    "npm": "10.9.9",
+    "npmCliSha256": "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7",
+    "npmPackageSha256": "7c04bf69824d17a1db64defd3a9a86d538781bf2d6ca2764e3f1143fa5b71166",
+    "platformArch": "darwin/arm64",
+    "registry": "https://registry.npmjs.org"
+  }
+}

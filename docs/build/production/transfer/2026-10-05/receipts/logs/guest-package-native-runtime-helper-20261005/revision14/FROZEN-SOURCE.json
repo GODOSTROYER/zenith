@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "revision": 14,
+  "status": "FROZEN_SOURCE_ONLY_INDEPENDENT_REVIEW_PENDING",
+  "createdAtUtc": "2026-10-05T04:22:58.617354+00:00",
+  "helper": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/helpers/run_guest_package_native_linux_r14.py",
+    "sha256": "e6b0a8cf308a53ac4c27df1a5ac4c49a4ade1c23577c6ef9d806f8ada9a806da",
+    "bytes": 43845
+  },
+  "previousHelper": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/helpers/run_guest_package_native_linux_r13.py",
+    "sha256": "dc4a788a13169c57ddf34f1a1b4574dac64ac781b9f263fc30bfa3470429a0bb"
+  },
+  "sourceContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-runtime-helper-20261005/revision14/EXECUTION-SOURCE-CONTRACT.json",
+    "sha256": "1cff638baeacbee93e1db8b499fb6c23055f5344690aad45b6e68a85dc5fa372",
+    "goPaths": 273
+  },
+  "packageFreeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE-CORRECTED.json",
+    "sha256": "8ecf6ecd4c26162739b2ae374869c42c58bf70a5f5cf9e6945893ddf43951af6"
+  },
+  "packageIndependentReview": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/guest-package-native-status-independent-review-r6.json",
+    "sha256": "539d25d754013ea73871320865c7e6c76122a64591967fd56a2720ec7b45be83"
+  },
+  "delta": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-runtime-helper-20261005/revision14/helper-source-rebind.patch",
+    "sha256": "2f75c4298c8c836559b4dd051206415724ac91c515de1b73610639e89bd83fb5",
+    "bytes": 6197
+  },
+  "scope": "Only exact accepted R6 source/CASE rebind and additive24 strict Linux parser identities. OriginalLinux7/native4/signed5, all transport/caps/limits/native metadata preservation and cleanup unchanged from R13.",
+  "runtimeExecuted": false,
+  "sourceCandidateTree": "f2f8779e77ca7cb1ac3df57031503f4794d79811",
+  "additionalLinuxModeledLeaves": 31,
+  "nativeParentCases": 4,
+  "signedRequiredChildren": 5
+}

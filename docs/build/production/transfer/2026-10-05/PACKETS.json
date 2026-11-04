@@ -1,0 +1,347 @@
+{
+  "baseCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+  "baseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "packets": [
+    {
+      "id": "manifest-digest-r3",
+      "baseCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+      "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "candidateTree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+      "freeze": "pending/manifest-digest-r3/FROZEN-SOURCE.json",
+      "freezeSha256": "60c09316eeefc67c011a1fe29c09b19061640697fd26ce8968be8f8016fbf256",
+      "patch": "pending/manifest-digest-r3/manifest-digest-correction.patch",
+      "patchSha256": "b086e37d202591929e938ca2c86764285d3c09a2b61de33e69750c173536208e",
+      "status": "independently accepted source only; runtime unexecuted",
+      "integrated": false
+    },
+    {
+      "id": "settlement-gates-partial",
+      "baseCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+      "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "candidateTree": "a6788b60ede249b8d97e03a7c2696bd2d4b51664",
+      "freeze": "pending/settlement-gates-partial/FROZEN-SOURCE-PARTIAL.json",
+      "freezeSha256": "3b8192e8a3092fdd546c6e9b637c0ee59dfdf8323d5662e8da7d07dc95be0a06",
+      "patch": "pending/settlement-gates-partial/candidate.patch",
+      "patchSha256": "f1b8b33260db27cad96e11ac259443f20068777a7f28c274ad7fd3901415ee5d",
+      "status": "partial authoring; independent final review and execution incomplete",
+      "integrated": false
+    }
+  ],
+  "receiptIndex": [
+    {
+      "originalRelativePath": "logs/settlement-package-root-compose-r1-20261005/SOURCE.json",
+      "included": "receipts/logs/settlement-package-root-compose-r1-20261005/SOURCE.json",
+      "sha256": "4e01034dfdf37a81d27bec2ed67dd6011afd2239b720f06c2cdc0282ae049ee3"
+    },
+    {
+      "originalRelativePath": "logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE-CORRECTED.json",
+      "included": "receipts/logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE-CORRECTED.json",
+      "sha256": "70e773273973550173e287ccc7d761610ef682db3b56e5495ea50af18ebeb2db"
+    },
+    {
+      "originalRelativePath": "logs/saved-plan-writer-settlement-20261005/revision2/CASE-CONTRACT.json",
+      "included": "receipts/logs/saved-plan-writer-settlement-20261005/revision2/CASE-CONTRACT.json",
+      "sha256": "f54f4b81ff2a2e67ebe4c061db1136823a9bd2e9d792323c6abcf9b8b4249e9d"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-writer-settlement-r2-review-20261005/REVIEW.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r2-review-20261005/REVIEW.json",
+      "sha256": "85f82c753e6d95ab3a6363308d3b1756f7d1f1b633ad7431e75c880763f712ad"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/saved-plan-writer-settlement-r2-review-20261005/REVIEW.json",
+      "included": "receipts/logs/journey-authority-review-20261004/saved-plan-writer-settlement-r2-review-20261005/REVIEW.json",
+      "sha256": "53a0951dec73bc69a1f2fd45aca1ef44181b137f6544609cb7f83ebfffee2eb8"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-settlement-native-failure-source-diagnosis-20261005/REVIEW.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-settlement-native-failure-source-diagnosis-20261005/REVIEW.json",
+      "sha256": "39712cdbbeebf21a21944f6ee70e7bb95733cf2ee7398c119396156e98ac3b7c"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/saved-plan-manifest-digest-independent-review-r3.json",
+      "included": "receipts/logs/journey-authority-review-20261004/saved-plan-manifest-digest-independent-review-r3.json",
+      "sha256": "ed832800d325ce574b0a4e06666805f3725169b042511e90751140af1de96bbb"
+    },
+    {
+      "originalRelativePath": "logs/saved-plan-settlement-native-root-r2-20261005/failure-interpretation.json",
+      "included": "receipts/logs/saved-plan-settlement-native-root-r2-20261005/failure-interpretation.json",
+      "sha256": "f930902a5f7a992458caa9b0c8018510d310727a1bc3f9414337b329ba626024"
+    },
+    {
+      "originalRelativePath": "logs/saved-plan-settlement-native-root-r1-20261005/PREEXECUTION-FAILURE.json",
+      "included": "receipts/logs/saved-plan-settlement-native-root-r1-20261005/PREEXECUTION-FAILURE.json",
+      "sha256": "6e304bcb123dd2a00dc8111aad566e2f64ce6671bcbbf8ad7bc8bddf3affe6cb"
+    },
+    {
+      "originalRelativePath": "logs/zenith-package-native-r14-8e91f39e222f40cd2b28451a2e129b64/root-independent-result-validation.json",
+      "included": "receipts/logs/zenith-package-native-r14-8e91f39e222f40cd2b28451a2e129b64/root-independent-result-validation.json",
+      "sha256": "faf71f67f82d5f2fcf21e2563e9f9cd2752ccd5a17691c3b2fa6979b753983bf"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/guest-package-native-status-independent-review-r6.json",
+      "included": "receipts/logs/journey-authority-review-20261004/guest-package-native-status-independent-review-r6.json",
+      "sha256": "539d25d754013ea73871320865c7e6c76122a64591967fd56a2720ec7b45be83"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/guest-package-native-runtime-helper-independent-review-r14.json",
+      "included": "receipts/logs/journey-authority-review-20261004/guest-package-native-runtime-helper-independent-review-r14.json",
+      "sha256": "439e1690d001781180f1da0346b818b9467b76fa3c7e41e8f355998ba73cf369"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/guest-package-ops-test-f699-preservation-20261005.json",
+      "included": "receipts/logs/integration-authority-review-20261004/guest-package-ops-test-f699-preservation-20261005.json",
+      "sha256": "7088551eca2043fa729d934035ca8a1ce39b622bf94326bf6a4e038efd5c0131"
+    },
+    {
+      "originalRelativePath": "logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE-CORRECTED.json",
+      "included": "receipts/logs/guest-package-native-compatibility-20261005/revision6/FROZEN-SOURCE-CORRECTED.json",
+      "sha256": "8ecf6ecd4c26162739b2ae374869c42c58bf70a5f5cf9e6945893ddf43951af6"
+    },
+    {
+      "originalRelativePath": "logs/guest-package-native-runtime-helper-20261005/revision14/FROZEN-SOURCE.json",
+      "included": "receipts/logs/guest-package-native-runtime-helper-20261005/revision14/FROZEN-SOURCE.json",
+      "sha256": "2cd5f237ea9463fa55c9a528492a9aee5f10d345f7ee6a314ff6a41f3b1d0640"
+    },
+    {
+      "originalRelativePath": "logs/guest-package-canonical-gates-20261005/revision5/FROZEN-SOURCE.json",
+      "included": "receipts/logs/guest-package-canonical-gates-20261005/revision5/FROZEN-SOURCE.json",
+      "sha256": "ff3c20ac781d4d61d1518f1a9e0ec63017f951aa9aaa5a72265941e6f43cfea1"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-settlement-draft-ancestry-findings-r1-20261005.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-settlement-draft-ancestry-findings-r1-20261005.json",
+      "sha256": "275a3f23fe5d570d707cf5a61f0704bfc56bcb0e72e8a230536db6d21d3990c1"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-settlement-draft-prototype-origin-findings-r1-20261005.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-settlement-draft-prototype-origin-findings-r1-20261005.json",
+      "sha256": "794be46d3053d58469382b6aa7e7a7c5ced077ad0039e6893cb4ba34080975e5"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/BINDING.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/BINDING.json",
+      "sha256": "44b198ab7f7aa8f80bcc24ce4faa9e7d1cc58476cb649349b470c8e52327041e"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/CASES.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/CASES.json",
+      "sha256": "26acb2a66218479a99e476c51d65fb2822496559dfd37171bf26e94f9625d1ee"
+    },
+    {
+      "originalRelativePath": "logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/REVIEW.json",
+      "included": "receipts/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/REVIEW.json",
+      "sha256": "b73b49fea0ad93e2aad92de469181606b8fa7108633b0a59bad2f7195ec89800"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/saved-plan-settlement-crypto-cas-draft-review-r1-20261005.json",
+      "included": "receipts/logs/journey-authority-review-20261004/saved-plan-settlement-crypto-cas-draft-review-r1-20261005.json",
+      "sha256": "efe6edb2131b922a7435d3c2515232302210c226ee335a83a460537f4548a41d"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/saved-plan-writer-settlement-independent-review-r1.json",
+      "included": "receipts/logs/journey-authority-review-20261004/saved-plan-writer-settlement-independent-review-r1.json",
+      "sha256": "133132a6798d33d5a70c3c34016bcdae691b3d0dd9d2162dea1eb20f848fc376"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/saved-plan-writer-settlement-mechanical-binding-r1.json",
+      "included": "receipts/logs/journey-authority-review-20261004/saved-plan-writer-settlement-mechanical-binding-r1.json",
+      "sha256": "ff1a654bb2295a7006a8933f6fc5ed543229ff69b4a25040f7b0fad401a4fbb6"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/AUDIT-CORRECTED.json",
+      "included": "receipts/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/AUDIT-CORRECTED.json",
+      "sha256": "ca7ed84462e4512147f4d5dbcc5ccb53b75291efdb56ba1af51a0cc93e32925c"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/AUDIT.json",
+      "included": "receipts/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/AUDIT.json",
+      "sha256": "e556a09718e92de3646239fdecc57858d7991e577526ebbe5199d57b9efc03a6"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/HANDOFF-INVENTORY.json",
+      "included": "receipts/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/HANDOFF-INVENTORY.json",
+      "sha256": "1609ece150af24028720031b5897cc9c01f8c12a4000c15f4c4882fdb3a1b459"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/HANDOFF.md",
+      "included": "receipts/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/HANDOFF.md",
+      "sha256": "3b3fc4f3f561474f214f544be837d15896782bde05b3df0255019eab309f7a5b"
+    },
+    {
+      "originalRelativePath": "logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/PARTIAL-BINDING.json",
+      "included": "receipts/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/PARTIAL-BINDING.json",
+      "sha256": "8bf9f26d05ccfda5ec6a7bbbfa06521023b151d7425c8a95450a6acbf3c2e3a3"
+    }
+  ],
+  "missingOptionalHistoricalReceipts": [],
+  "historicalHelpers": [
+    {
+      "path": "historical-helpers/check_saved_plan_settlement_native_r2.py",
+      "sha256": "c7b3f878c73d00d20dc427a71a6e781230a699727f8300bdd81d63885276ef7a",
+      "execution": "DO NOT RUN UNCHANGED: original-machine absolute paths, old trees and exact receipt pins require explicit rebinding and review."
+    },
+    {
+      "path": "historical-helpers/run_guest_package_native_linux_r14.py",
+      "sha256": "e6b0a8cf308a53ac4c27df1a5ac4c49a4ade1c23577c6ef9d806f8ada9a806da",
+      "execution": "DO NOT RUN UNCHANGED: original-machine absolute paths, old trees and exact receipt pins require explicit rebinding and review."
+    },
+    {
+      "path": "historical-helpers/check_cleanup_corrections_native_r1.py",
+      "sha256": "5f3385e57cf559c0b3edd02ac0fdc0304ce8fed1501035a351b49923ff0d5eb8",
+      "execution": "DO NOT RUN UNCHANGED: original-machine absolute paths, old trees and exact receipt pins require explicit rebinding and review."
+    },
+    {
+      "path": "historical-helpers/check_production_combined_full_r2.py",
+      "sha256": "877345dfb7cb641093c27771b84fbd463c7e89378653f5ef4b4812bf143cd60d",
+      "execution": "DO NOT RUN UNCHANGED: original-machine absolute paths, old trees and exact receipt pins require explicit rebinding and review."
+    },
+    {
+      "path": "historical-helpers/check_production_next_full_r1.py",
+      "sha256": "844ec740168d38b6a457a094e89fbafe76c409627f14c2d25f2be36ca8d55237",
+      "execution": "DO NOT RUN UNCHANGED: original-machine absolute paths, old trees and exact receipt pins require explicit rebinding and review."
+    },
+    {
+      "path": "historical-helpers/check_package_linux_compile_r2.py",
+      "sha256": "a19f018913fddccebbb8a0168badcc63db9a70bde5aad5deb6622242eb89dd8a",
+      "execution": "DO NOT RUN UNCHANGED: original-machine absolute paths, old trees and exact receipt pins require explicit rebinding and review."
+    }
+  ],
+  "staticSourceCopies": [
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/tests/security/controlplane-sql-scoping.test.ts",
+      "included": "pending/settlement-gates-partial/before/tests/security/controlplane-sql-scoping.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/tests/ci/platform-coverage.test.ts",
+      "included": "pending/settlement-gates-partial/before/tests/ci/platform-coverage.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/tests/ci/guest-file-write-gate.test.ts",
+      "included": "pending/settlement-gates-partial/before/tests/ci/guest-file-write-gate.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/tests/ci/gate-manifest.test.ts",
+      "included": "pending/settlement-gates-partial/before/tests/ci/gate-manifest.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/tests/controlplane/migrations.test.ts",
+      "included": "pending/settlement-gates-partial/before/tests/controlplane/migrations.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/tests/controlplane/tenancy.test.ts",
+      "included": "pending/settlement-gates-partial/before/tests/controlplane/tenancy.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/docs/platform/operations/DEPLOYING.md",
+      "included": "pending/settlement-gates-partial/before/docs/platform/operations/DEPLOYING.md.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/scripts/ci/gate-manifest.mjs",
+      "included": "pending/settlement-gates-partial/before/scripts/ci/gate-manifest.mjs.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/scripts/ci/apply-supabase-migrations.sh",
+      "included": "pending/settlement-gates-partial/before/scripts/ci/apply-supabase-migrations.sh.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/before/.github/workflows/ci.yml",
+      "included": "pending/settlement-gates-partial/before/.github/workflows/ci.yml.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/tests/security/controlplane-sql-scoping.test.ts",
+      "included": "pending/settlement-gates-partial/after/tests/security/controlplane-sql-scoping.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/tests/ci/platform-coverage.test.ts",
+      "included": "pending/settlement-gates-partial/after/tests/ci/platform-coverage.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/tests/ci/guest-file-write-gate.test.ts",
+      "included": "pending/settlement-gates-partial/after/tests/ci/guest-file-write-gate.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/tests/ci/gate-manifest.test.ts",
+      "included": "pending/settlement-gates-partial/after/tests/ci/gate-manifest.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/tests/controlplane/migrations.test.ts",
+      "included": "pending/settlement-gates-partial/after/tests/controlplane/migrations.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/tests/controlplane/tenancy.test.ts",
+      "included": "pending/settlement-gates-partial/after/tests/controlplane/tenancy.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/docs/platform/operations/DEPLOYING.md",
+      "included": "pending/settlement-gates-partial/after/docs/platform/operations/DEPLOYING.md.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md",
+      "included": "pending/settlement-gates-partial/after/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/scripts/ci/gate-manifest.mjs",
+      "included": "pending/settlement-gates-partial/after/scripts/ci/gate-manifest.mjs.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/scripts/ci/apply-supabase-migrations.sh",
+      "included": "pending/settlement-gates-partial/after/scripts/ci/apply-supabase-migrations.sh.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/settlement-gates-partial/after/.github/workflows/ci.yml",
+      "included": "pending/settlement-gates-partial/after/.github/workflows/ci.yml.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/manifest-digest-r3/before/tests/controlplane/cleanup-writer-barriers.test.ts",
+      "included": "pending/manifest-digest-r3/before/tests/controlplane/cleanup-writer-barriers.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/manifest-digest-r3/before/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "included": "pending/manifest-digest-r3/before/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/manifest-digest-r3/before/src/lib/tofu/engine.ts",
+      "included": "pending/manifest-digest-r3/before/src/lib/tofu/engine.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/manifest-digest-r3/after/tests/controlplane/cleanup-writer-barriers.test.ts",
+      "included": "pending/manifest-digest-r3/after/tests/controlplane/cleanup-writer-barriers.test.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/manifest-digest-r3/after/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "included": "pending/manifest-digest-r3/after/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    },
+    {
+      "originalIncludedPath": "pending/manifest-digest-r3/after/src/lib/tofu/engine.ts",
+      "included": "pending/manifest-digest-r3/after/src/lib/tofu/engine.ts.snapshot",
+      "purpose": "Static byte-exact source copy. .snapshot prevents archival copies entering compiler/test discovery."
+    }
+  ]
+}

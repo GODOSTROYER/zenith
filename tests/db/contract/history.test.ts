@@ -399,6 +399,120 @@ describe.skipIf(!postgresContractEnabled())("history contract — Postgres only"
     expect(((data ?? [])[0] as { status: string }).status).toBe("verifying");
   });
 
+  it("refuses a delete against a row another instance already moved", async () => {
+    const { loadSnapshot, pgClient } = await import("@/lib/db/postgres-store");
+    const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
+    const store = pgStore();
+    const a = await loadSnapshot(pgClient(), user);
+    const b = await loadSnapshot(pgClient(), user);
+
+    await runWithSnapshot(a, async () => {
+      a.data.deployments.find((x) => x.id === DEP2)!.status = "succeeded";
+      store.save(PROJ2);
+      await settle(store);
+    });
+
+    // b still holds the older version; its delete must not erase a's update
+    await expect(
+      runWithSnapshot(b, async () => {
+        b.data.deployments = b.data.deployments.filter((x) => x.id !== DEP2);
+        store.save(PROJ2);
+        await settle(store);
+      })
+    ).rejects.toMatchObject({ status: 409 });
+
+    const { data } = await pgClient().from("deployments").select("status").eq("id", DEP2);
+    expect(((data ?? [])[0] as { status: string }).status).toBe("succeeded");
+  });
+
+  it("a stale start-projection repair is refused, and a fresh retry converges without undoing the worker's status", async () => {
+    // projectAcknowledgedStart (src/lib/bridge/projection.ts) sets workflowStartedAt and saves through this same snapshot path
+    const { loadSnapshot, pgClient } = await import("@/lib/db/postgres-store");
+    const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
+    const store = pgStore();
+    const repair = await loadSnapshot(pgClient(), user);
+    const worker = await loadSnapshot(pgClient(), user);
+    const startedAt = "2026-10-21T00:00:00.000Z";
+
+    await runWithSnapshot(worker, async () => {
+      worker.data.deployments.find((x) => x.id === DEP2)!.status = "applying";
+      store.save(PROJ2);
+      await settle(store);
+    });
+    await expect(
+      runWithSnapshot(repair, async () => {
+        repair.data.deployments.find((x) => x.id === DEP2)!.workflowStartedAt = startedAt;
+        store.save(PROJ2);
+        await settle(store);
+      })
+    ).rejects.toMatchObject({ status: 409 });
+
+    const retry = await loadSnapshot(pgClient(), user);
+    await runWithSnapshot(retry, async () => {
+      const d = retry.data.deployments.find((x) => x.id === DEP2)!;
+      expect(d.workflowStartedAt).toBeUndefined();
+      d.workflowStartedAt = startedAt;
+      store.save(PROJ2);
+      await settle(store);
+    });
+    const { data } = await pgClient().from("deployments").select("status, data").eq("id", DEP2);
+    const row = (data ?? [])[0] as { status: string; data: { workflowStartedAt?: string } };
+    expect(row.status).toBe("applying");
+    expect(row.data.workflowStartedAt).toBe(startedAt);
+  });
+
+  it("never lands an environment lease change without its deployment row: a flush is one transaction", async () => {
+    const { loadSnapshot, pgClient } = await import("@/lib/db/postgres-store");
+    const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
+    const store = pgStore();
+    const stale = await loadSnapshot(pgClient(), user);
+    const worker = await loadSnapshot(pgClient(), user);
+    const before = (await pgClient().from("environments").select("active_deployment_id, version").eq("id", ENV2)).data?.[0] as { active_deployment_id: string | null; version: number };
+
+    await runWithSnapshot(worker, async () => {
+      worker.data.deployments.find((x) => x.id === DEP2)!.status = "verifying";
+      store.save(PROJ2);
+      await settle(store);
+    });
+    // environments are written before deployments; the deployment row is the stale one
+    await expect(
+      runWithSnapshot(stale, async () => {
+        stale.data.environments.find((x) => x.id === ENV2)!.activeDeploymentId = DEP2;
+        stale.data.deployments.find((x) => x.id === DEP2)!.status = "succeeded";
+        store.save(PROJ2);
+        await settle(store);
+      })
+    ).rejects.toMatchObject({ status: 409 });
+
+    const after = (await pgClient().from("environments").select("active_deployment_id, version").eq("id", ENV2)).data?.[0];
+    expect(after).toEqual(before);
+    const { data } = await pgClient().from("deployments").select("status").eq("id", DEP2);
+    expect(((data ?? [])[0] as { status: string }).status).toBe("verifying");
+  });
+
+  it("refuses a second instance's insert of the same new row with 409 and keeps the first", async () => {
+    const { loadSnapshot, pgClient } = await import("@/lib/db/postgres-store");
+    const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
+    const store = pgStore();
+    const first = await loadSnapshot(pgClient(), user);
+    const second = await loadSnapshot(pgClient(), user);
+    const id = `${CONTRACT_PREFIX}-dep-race`;
+    await runWithSnapshot(first, async () => {
+      first.data.deployments.push({ ...deployment(id, PROJ2, ENV2, REV2), status: "planning" });
+      store.save(PROJ2);
+      await settle(store);
+    });
+    await expect(
+      runWithSnapshot(second, async () => {
+        second.data.deployments.push({ ...deployment(id, PROJ2, ENV2, REV2), status: "failed" });
+        store.save(PROJ2);
+        await settle(store);
+      })
+    ).rejects.toMatchObject({ status: 409 });
+    const { data } = await pgClient().from("deployments").select("status").eq("id", id);
+    expect((data ?? []).map((r) => (r as { status: string }).status)).toEqual(["planning"]);
+  });
+
   it("bumps the change feed for the workspace a deployment belongs to", async () => {
     const { pgClient } = await import("@/lib/db/postgres-store");
     const { data } = await pgClient()
@@ -446,9 +560,16 @@ describe.skipIf(!postgresContractEnabled())("history contract — Postgres only"
       version: 1,
     });
 
+    // Reset from a freshly loaded snapshot: deletes are version-guarded, so a
+    // stale baseline (earlier cases moved rows through other snapshots) is a 409.
+    const { loadSnapshot } = await import("@/lib/db/postgres-store");
+    const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
     const store = pgStore();
-    store.reset();
-    await settle(store);
+    const fresh = await loadSnapshot(client, user);
+    await runWithSnapshot(fresh, async () => {
+      store.reset();
+      await settle(store);
+    });
 
     const survived = await client.from("revisions").select("id").eq("workspace_id", OTHER);
     expect((survived.data ?? []).map((r) => (r as { id: string }).id)).toEqual([`${OTHER}-rev`]);

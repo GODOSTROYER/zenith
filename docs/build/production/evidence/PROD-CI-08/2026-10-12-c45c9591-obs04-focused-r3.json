@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45_obs04_actual_owned_temporal_focused_r3",
+  "sourceCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "sourceCount": 5960,
+  "sourceFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+  "beforeAfterByteIdentical": true,
+  "execution": {
+    "rootSession": 3068,
+    "closed": true,
+    "exitCode": 0,
+    "wrapperOutcome": "passed-focused-actual-owned-temporal",
+    "acceptedRunReceipt": false,
+    "heldCommands": 9,
+    "allHeldCommandsStrictlySettled": true,
+    "tests": {
+      "suitesPassed": 5,
+      "suitesTotal": 5,
+      "passed": 10,
+      "total": 10,
+      "failed": 0,
+      "pending": 0,
+      "todo": 0,
+      "exactIdentitySetMatched": true
+    },
+    "reportSha256": "f2d68b39c86e6a83e171b68de8e56a618b4e33721bf8be23df1488271e3c95a2",
+    "wrapperSha256": "c877fedfa9d932b1c27bed6b83875853ff34c76dffdf599e99cc61f708053d63",
+    "terminalReviewSha256": "d94c765607e23a500df01da71189228fb00097012ae94abbed83894f4f6e7677"
+  },
+  "custody": {
+    "completeNontruncated": true,
+    "noPendingOrFailures": true,
+    "finalAbsenceProven": true,
+    "captureExhaustions": 0,
+    "watcherJoinAndFloorGateBeforeReceipt": true,
+    "requiredFloorBytes": 12000000000,
+    "minimumRepositoryFreeBytes": 267375722496,
+    "minimumRuntimeFreeBytes": 267375726592
+  },
+  "priorR2": {
+    "failurePreserved": true,
+    "raw10PassesWrapperFailedWrongAncestor": true,
+    "accepted": false,
+    "ownedCacheCleanupReceiptSha256": "0307d673cc9aad782707930215acc89c56fb15f3b32ef9c0ac4444912ff34db7",
+    "exactOwnedFilesRemoved": 4,
+    "processSignalsSent": false,
+    "cleanupReceiptSaysHistoricalFailureAccepted": false
+  },
+  "scope": "Focused controlled actual-owned Temporal proof only. Not broad OBS-04 acceptance, default maintenance effects, J4 natural-timer acceptance, or production acceptance.",
+  "releaseState": {
+    "ledger": "10 verified / 66 in progress / 2 planned",
+    "cleanupR7": "pending",
+    "milestonePromotion": false,
+    "releaseFlagsChanged": false
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "local_engine",
+  "kind": "j1-failed-default-stack-owned-cleanup-only-r3",
+  "sourceHead": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+  "sourceFreezeSha256": "982ad059b55f28d23767bdc7990b316bd3c40d8393474cd18c82596c33f0ef07",
+  "rootAcceptanceReceiptSha256": "940755fb3a710b09fd1ef504336fbdea1ac21e6d44abcd308f82c184ba9fef40",
+  "actualDiagnosticReceiptSha256": "190194fd1496bc320828caffe52798bd127efa2dcf883daa92ed32056140de16",
+  "receiptPathMetadata": {
+    "reportedBasename": "cleanup.private.json",
+    "actualFinalWriterBasename": "diagnostic.private.json",
+    "reportedPathExists": false,
+    "actualDiagnosticMatchesEmittedHash": true,
+    "limitation": "Runner receiptPath names cleanup.private.json, but final writer emitted diagnostic.private.json. The immutable diagnostic hash matches the emitted hash; original evidence and runner were preserved."
+  },
+  "result": {
+    "disposition": "accepted-cleanup-only-with-receipt-path-metadata-limitation",
+    "wrapperExitCode": 0,
+    "elapsedSeconds": 6.717,
+    "canonicalDownExitCode": 0,
+    "ownedResourcesRemoved": 12,
+    "ownedResourcesRemaining": 0,
+    "forcedStops": 0,
+    "sourceStable": true,
+    "custodyCloseoutComplete": true,
+    "floorWatchersJoined": true,
+    "minimumHostFreeBytes": 352448118784,
+    "minimumVmFreeBytes": 431092486144,
+    "diskFloorBytes": 23622320128,
+    "trustMutationPerformed": false
+  },
+  "acceptance": {
+    "cleanupOnly": true,
+    "acceptedFailedRunReceipt": false,
+    "j1Accepted": false,
+    "j4Accepted": false,
+    "j2Accepted": false,
+    "defaultStackAccepted": false,
+    "productionReady": false
+  },
+  "limitation": "This cleanup-only pass removes the 12 resources owned by the failed attempt; it does not convert that failed J1 run into a pass or establish J1/J4/J2/default-stack acceptance. Preserve the original failed-run evidence and the receipt-path metadata limitation."
+}

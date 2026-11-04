@@ -1,0 +1,240 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": [
+        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*",
+        "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
+        "arn:${partition}:sqs:*:${account_id}:zenith-*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": [
+        "arn:${partition}:s3:::zenith-*",
+        "arn:${partition}:s3:::zenith-*/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "${account_id}"
+        },
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "sns:Publish",
+      "Resource": "arn:${partition}:sns:*:${account_id}:zenith-${environment_tag_value}-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "Resource": [
+        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*",
+        "arn:${partition}:secretsmanager:*:${account_id}:secret:rds!db-*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ],
+      "Resource": "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": {
+          "kms:CallerAccount": "${account_id}"
+        },
+        "StringLike": {
+          "kms:ViaService": [
+            "secretsmanager.*.${dns_suffix}",
+            "ssm.*.${dns_suffix}",
+            "s3.*.${dns_suffix}",
+            "sqs.*.${dns_suffix}",
+            "sns.*.${dns_suffix}"
+          ]
+        },
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "rds-db:connect",
+      "Resource": "arn:${partition}:rds-db:*:${account_id}:dbuser:db-*/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "elasticache:Connect",
+      "Resource": [
+        "arn:${partition}:elasticache:*:${account_id}:replicationgroup:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:user:zenith-*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "account:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": "iam:*",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "${state_bucket_arn}",
+        "${state_bucket_arn}/*"
+      ]
+    }
+  ]
+}

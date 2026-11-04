@@ -1,0 +1,51 @@
+{
+  "schema": "zenith.ci-terminal-snapshot.v1",
+  "observed_at_utc": "2026-10-11T05:53:55Z",
+  "repository": "GODOSTROYER/zenith",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "snapshot_kind": "single terminal refresh",
+  "required_jobs": {
+    "total": 24,
+    "success": 23,
+    "failure": 1,
+    "active": 0
+  },
+  "optional_jobs": {
+    "total": 8,
+    "skipped": 8,
+    "verified": 0
+  },
+  "aggregate_jobs": {
+    "total": 32,
+    "success": 23,
+    "failure": 1,
+    "skipped": 8,
+    "active": 0
+  },
+  "workflows": {
+    "main_ci": {
+      "run_id": 38114379591,
+      "total": 28,
+      "success": 19,
+      "failure": 1,
+      "skipped": 8,
+      "active": 0
+    },
+    "native_packaged_workers": {
+      "run_id": 38114379579,
+      "success": 2,
+      "total": 2
+    },
+    "native_skipped_platforms": {
+      "run_id": 38114379699,
+      "success": 2,
+      "total": 2
+    }
+  },
+  "go_failure": "known guest-baseline container mount-order diagnostic before PID1 tests; reviewed minimal repair pending and not applied",
+  "promotion": {
+    "ci09": false,
+    "go": false
+  },
+  "source_report_sha256": "cda714c54ef239b05e0a3a34bc93aa4e1d05e75a894cda101904047d0e1d196c"
+}

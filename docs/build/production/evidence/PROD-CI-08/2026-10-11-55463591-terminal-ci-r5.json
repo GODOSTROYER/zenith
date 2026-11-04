@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_source_terminal_ci_inventory",
+  "source": {
+    "commit": "554635916dfc8ce6c74e7b699a24e2f61670bebc",
+    "branch": "codex/production-2026-10-02",
+    "event": "push"
+  },
+  "inventory": {
+    "observedAt": "2026-10-11T16:16:23Z",
+    "sourceInventorySha256": "b1d1175f1f8b5f310d48a73c6beade3ced6e3d20f4d36c1abd5694888d96af6e",
+    "workflows": 3,
+    "jobsTotal": 32,
+    "cancelled": 0,
+    "conditionalSkipped": 8,
+    "active": 0,
+    "mainWorkflow": {
+      "runId": 38152561592,
+      "jobs": 28,
+      "conditionalSkipped": 8,
+      "success": 20,
+      "failure": 0
+    },
+    "nativePackagedWorkers": {
+      "runId": 38152561603,
+      "success": 2,
+      "total": 2
+    },
+    "nativeSkippedPlatforms": {
+      "runId": 38152561591,
+      "success": 2,
+      "total": 2
+    },
+    "verify": {
+      "jobId": 114508837459,
+      "conclusion": "success",
+      "typecheck": "success",
+      "lint": "success",
+      "unitSuites": {
+        "passed": 24590,
+        "failed": 0,
+        "skipped": 1925,
+        "fileLevelOutcomes": 26515,
+        "exactUniqueIdentityAudit": "not provided"
+      },
+      "smoke": "success",
+      "gimbal": "success",
+      "verifyReportSha256": "0a0f21ec072e9423e82c8b63367d109daee8ef5b3fae6533fe686782308a1abd",
+      "verifyReportMarkdownSha256": "04787006ae42bffd99e1d7e0ec506d5d1d720d77e072fa47e0a40d3334c5bf05"
+    },
+    "success": 24,
+    "failure": 0,
+    "jobCountsScope": "observed workflow/job conclusions; eight skipped jobs are conditional"
+  },
+  "limits": {
+    "conditionalJobsUnverified": true,
+    "acceptancePromotion": false
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "createdAt": "2026-10-10",
+  "baseCommit": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+  "branch": "codex/production-2026-10-02",
+  "candidatePreimages": {
+    "scripts/hosted-acceptance.ts": "2d18b752cd6e6cae1020d7b3bfc7f56baaa6b8ed9b01cb9766707cc0638362d0",
+    "scripts/ci/gate-manifest.mjs": "d4d9d89290e6137bb7c404691a54dc5a85c7c837c5d7af9711831915d70f373e",
+    "scripts/ci/run-guest-file-write-gate.mjs": "09144c8ff40f0ba70ff9df7223e96c64431e673ee7b907e81a10bda4be621ef7"
+  },
+  "files": [
+    {
+      "path": "candidates/sys1/scripts/ci/gate-manifest.mjs.txt",
+      "sha256": "bbb3c4233ee6672c87b3bcc37deb79f04749be400ba9a484dfd103b26a767d2c",
+      "bytes": 359433,
+      "status": "NOT_READY_INTERRUPTED_UNREVIEWED"
+    },
+    {
+      "path": "candidates/sys1/scripts/ci/guest-pid1-owned-guard.py.txt",
+      "sha256": "fc55fdb9d2f3025d5e54790149b987ac997763e61aab33f32452aa444385fb22",
+      "bytes": 7128,
+      "status": "NOT_READY_INTERRUPTED_UNREVIEWED"
+    },
+    {
+      "path": "candidates/sys1/scripts/ci/guest-pid1-fixtures.py.txt",
+      "sha256": "67814b902ec1cd6f7d4f70c993db49048d8f3607f0ba52e8d34184a0f174e5e4",
+      "bytes": 21484,
+      "status": "NOT_READY_INTERRUPTED_UNREVIEWED"
+    },
+    {
+      "path": "candidates/sys1/scripts/ci/run-guest-file-write-gate.mjs.txt",
+      "sha256": "c5089572af1d1d72ae3061dbbe62423460f748418a59e7fa41fd763956e4b9a6",
+      "bytes": 50349,
+      "status": "NOT_READY_INTERRUPTED_UNREVIEWED"
+    },
+    {
+      "path": "candidates/sys1/tracked.patch",
+      "sha256": "8ead289008a62dddd3dc26e2a3de231c7e0479203e707c417cda4e9f968e1489",
+      "bytes": 14314,
+      "status": "NOT_READY_INTERRUPTED_UNREVIEWED"
+    },
+    {
+      "path": "candidates/hosted/scripts/hosted-acceptance.ts.txt",
+      "sha256": "d69fcd37d9b3fbe8de8245bc931cd24f943d8a1bcfbf83da46c0a6a0e068cfcc",
+      "bytes": 20211,
+      "status": "SOURCE_REVIEWED_RUNTIME_PENDING"
+    },
+    {
+      "path": "candidates/hosted/tracked.patch",
+      "sha256": "37671c7ab289993b5e812c80064f26fa018645cc9a243838f26a00a38cee050f",
+      "bytes": 6061,
+      "status": "SOURCE_REVIEWED_RUNTIME_PENDING"
+    },
+    {
+      "path": "runtime-templates/supervisor142/run.py.txt",
+      "sha256": "91f875053249c5270119c2af1f05c20c692a796b0884ea7d518ece9d4b6f5a77",
+      "bytes": 21978,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/supervisor142/owned_guard.py.txt",
+      "sha256": "9b0f9cfdea69697b6effa65c77d09762613fdc5496fb767c4fbb0d57fa27095c",
+      "bytes": 7036,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/supervisor142/runtime.cjs.txt",
+      "sha256": "68615cfd1c7a9e460447215c5fb2e83eefd89d2c38dcb34a674493199a11eba6",
+      "bytes": 12132,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/supervisor142/mini-package.json",
+      "sha256": "bf2fd22bb1db6a1174762d4729f69e4ab67df48dfc6beeb0ffe9ef01b9576920",
+      "bytes": 219,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/supervisor142/mini-package-lock.json",
+      "sha256": "c9757bc9c21e3301ed35e72648f767d95ac426ad28d4a7bdd92508e4413bb508",
+      "bytes": 48204,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/supervisor142/EXECUTION-SOURCE-CONTRACT.json",
+      "sha256": "c4278a0d3f4fb8f2a126ffd3afd163a3a2a7135f5b0db0fa9748d93152253225",
+      "bytes": 1251306,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/supervisor142/FREEZE.json",
+      "sha256": "2ecfc3784e4f79c7cba2c4d34f260cd68a6e5821040fb58d505a9f9b1088f880",
+      "bytes": 622,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/runner-pid1-r2/run.py.txt",
+      "sha256": "45d373690ac3f6822d39b7e587f5bb90bccce993fcceec282796624f60a74e9d",
+      "bytes": 18517,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/runner-pid1-r2/owned_guard.py.txt",
+      "sha256": "9b0f9cfdea69697b6effa65c77d09762613fdc5496fb767c4fbb0d57fa27095c",
+      "bytes": 7036,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/runner-pid1-r2/SOURCE-CONTRACT.json",
+      "sha256": "730eb0d752c4238064f34fd9b3b2cf8633eed44e292d9d97a0c48cca704fb2c0",
+      "bytes": 54408,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "runtime-templates/runner-pid1-r2/FREEZE.json",
+      "sha256": "46ee0d8545c5e4e134bf03fbb11c468a666e2f3f3c76b3e30e315dce1e7fd400",
+      "bytes": 117863,
+      "status": "HISTORICAL_HOST_BOUND_TEMPLATE_REBIND_BEFORE_EXECUTION"
+    },
+    {
+      "path": "evidence/ci-28ea0b75.json",
+      "sha256": "53ab57080290f8915c0b95a67b0e4876c3c9681d9003711992fdc03c8e1526d1",
+      "bytes": 9616,
+      "status": "HISTORICAL_EXACT_SOURCE_REMOTE_CI"
+    },
+    {
+      "path": "evidence/summary.json",
+      "sha256": "677485f0aaad704ac92f9f5fe5edeedbe7f02f2ea89ecf3b28d9133030b914f4",
+      "bytes": 1291,
+      "status": "SANITIZED_HISTORICAL_SUMMARY"
+    }
+  ],
+  "warning": "Integrity verification does not approve or execute candidates. Runtime templates bind old host and old source; do not execute unchanged."
+}

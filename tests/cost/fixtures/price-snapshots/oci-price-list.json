@@ -1,0 +1,64 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "items": [
+    {
+      "partNumber": "B0",
+      "displayName": "Networking - Outbound Data Transfer",
+      "metricName": "Gigabyte Outbound Data Transfer Per Month",
+      "serviceCategory": "x",
+      "currencyCodeLocalizations": [
+        {
+          "currencyCode": "USD",
+          "prices": [
+            {
+              "model": "PAY_AS_YOU_GO",
+              "value": 0,
+              "rangeMin": 0
+            },
+            {
+              "model": "PAY_AS_YOU_GO",
+              "value": 0.0085,
+              "rangeMin": 10240
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "partNumber": "B0",
+      "displayName": "Object Storage - Storage",
+      "metricName": "GB Storage Capacity Per Month",
+      "serviceCategory": "x",
+      "currencyCodeLocalizations": [
+        {
+          "currencyCode": "USD",
+          "prices": [
+            {
+              "model": "PAY_AS_YOU_GO",
+              "value": 0.0255,
+              "rangeMin": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "partNumber": "B0",
+      "displayName": "Object Storage - Requests",
+      "metricName": "10,000 Requests Per Month",
+      "serviceCategory": "x",
+      "currencyCodeLocalizations": [
+        {
+          "currencyCode": "USD",
+          "prices": [
+            {
+              "model": "PAY_AS_YOU_GO",
+              "value": 0.0034,
+              "rangeMin": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

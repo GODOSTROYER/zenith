@@ -1,0 +1,42 @@
+{
+  "schema": "zenith.ci-terminal-snapshot.v1",
+  "source_commit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+  "run_id": 38123549396,
+  "workflow": "main CI",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "main_jobs": {
+    "total": 28,
+    "success": 19,
+    "failure": 0,
+    "cancelled": 1,
+    "skipped": 8
+  },
+  "required_jobs": {
+    "total": 20,
+    "success": 19,
+    "failure": 0,
+    "cancelled": 1
+  },
+  "conditional_jobs": {
+    "total": 8,
+    "skipped": 8
+  },
+  "verify": {
+    "job_id": 114423073590,
+    "conclusion": "cancelled",
+    "timeout_minutes": 45,
+    "annotation": "The job has exceeded the maximum execution time of 45m0s",
+    "unit_step": "cancelled",
+    "smoke_and_gimbal": "skipped during teardown"
+  },
+  "three_workflow_aggregate": {
+    "total": 32,
+    "success": 23,
+    "failure": 0,
+    "cancelled": 1,
+    "skipped": 8
+  },
+  "scope_note": "Terminal GitHub metadata for predecessor source 731 only. Counts are not evidence for source daa21596.",
+  "source_inventory_json_sha256": "949353741205e9fcd614d22d4b4880dab89932e396fe1c3cbcb2f893e1386ac4"
+}

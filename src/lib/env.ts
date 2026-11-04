@@ -28,14 +28,14 @@ import path from "node:path";
 import { z } from "zod";
 
 /** The model that translates Navigator goals when a key is configured. */
-export const DEFAULT_LLM_MODEL = "claude-opus-5";
+export const DEFAULT_LLM_MODEL = "claude-opus-5-5";
 
 /**
  * How to produce a valid `ZENITH_SECRET_KEY`. One string, so the boot failure,
  * every refused write and the inspector's banner all say the same thing.
  */
 export const SECRET_KEY_FIX =
-  "Set ZENITH_SECRET_KEY in .env.local to a 32-byte key and restart the server — generate one with `openssl rand -base64 32` (hex is accepted too). Keep the same key: values written under an old one cannot be read back.";
+  "Set ZENITH_SECRET_KEY in .env.local to a 32-byte key and restart the server — generate one with `openssl rand -base64 32` (hex is accepted too). Keep the same key; to rotate it, put the old key in ZENITH_VAULT_PREVIOUS_SECRET_KEYS (a JSON array) and run `npm run vault:rewrap` (docs/platform/operations/RECOVERY.md).";
 
 /**
  * How to make email alert delivery work. One string, so the env validation
@@ -57,28 +57,28 @@ export function decodeSecretKey(raw: string): Buffer | undefined {
 
 const Schema = z.object({
   /** Data directory: JSON snapshot plus the event and audit logs. */
-  ZENITH_DATA: z.string().min(1).default(path.join(process.cwd(), ".data")),
+  ZENITH_DATA: z.string().min(1).prefault(path.join(process.cwd(), ".data")),
   /** "1" collapses simulated step durations. Anything else is off. */
-  ZENITH_FAST: z.enum(["0", "1"]).default("0"),
+  ZENITH_FAST: z.enum(["0", "1"]).prefault("0"),
   /**
    * Which implementation backs product A's store (`src/lib/db/store.ts`).
    * "file" is the embedded JSON snapshot + JSONL logs and the only one this
    * build ships; "postgres" parses here — the flag exists end to end — and is
    * refused by the store itself, saying so.
    */
-  ZENITH_STORE: z.enum(["file", "postgres"]).default("file"),
+  ZENITH_STORE: z.enum(["file", "postgres"]).prefault("file"),
   /** LocalStack's edge endpoint. */
-  ZENITH_LOCALSTACK_ENDPOINT: z.string().url().default("http://localhost:4566"),
+  ZENITH_LOCALSTACK_ENDPOINT: z.string().url().prefault("http://localhost:4566"),
   /** Model id for the Navigator's optional language front-end. */
-  ZENITH_LLM_MODEL: z.string().min(1).default(DEFAULT_LLM_MODEL),
+  ZENITH_LLM_MODEL: z.string().min(1).prefault(DEFAULT_LLM_MODEL),
   /** Lowest level `lib/log.ts` emits. */
-  ZENITH_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  ZENITH_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).prefault("info"),
   /**
    * How long the engine waits on one provider step before failing it. Default
    * is generous (5 min): the slowest honest step in the catalog is a 45s ECR
    * push, and a real cloud can be slower than its own estimate.
    */
-  ZENITH_STEP_TIMEOUT_MS: z.coerce.number().int().positive().default(5 * 60_000),
+  ZENITH_STEP_TIMEOUT_MS: z.coerce.number().int().positive().prefault(5 * 60_000),
   /**
    * Optional. Encrypts the secret store (`lib/secrets`). Unset means Zenith
    * has nowhere to hold a secret value and says so instead of pretending.
@@ -110,6 +110,36 @@ const Schema = z.object({
    * validation error below.
    */
   SUPABASE_DB_URL: z.string().url().optional(),
+  /* -------------------------- platform control store ------------------------- */
+  /*
+   * The platform control store (ADR-0002, `src/lib/controlplane/db`). Its one
+   * reader is `platformDbConfigFromEnv()` in `controlplane/db/open.ts`; these
+   * entries exist so a malformed value fails at boot with the others.
+   */
+  /** "pglite" (in-process, local) or "postgres". Unset: postgres when a URL is set, else pglite. */
+  ZENITH_PLATFORM_DB: z.enum(["pglite", "postgres"]).optional(),
+  /** Postgres URL for schema `platform`; falls back to SUPABASE_DB_URL. Carries a password — redacted below. */
+  ZENITH_PLATFORM_DB_URL: z.string().url().optional(),
+  /** Connection pool size for the platform store (default 5). */
+  ZENITH_PLATFORM_DB_MAX: z.coerce.number().int().positive().max(100).optional(),
+  /* ---------------------- workload identity and signing ---------------------- */
+  /*
+   * Read in exactly one place, `loadCredentialsConfig()` in
+   * `src/lib/credentials/config.ts`, which wraps every private key in a
+   * SecretString and names variables — never values — in errors. Kept loose
+   * here (like the agent family) because that reader validates them.
+   */
+  /** OIDC issuer URL for cloud workload-identity federation; required wherever tokens are minted. */
+  ZENITH_OIDC_ISSUER: z.string().url().optional(),
+  /** RS256 private JWK (JSON or base64 JSON) for the OIDC issuer. Secret. Prefer the KMS variant in production. */
+  ZENITH_OIDC_SIGNING_JWK: z.string().optional(),
+  ZENITH_OIDC_KMS_KEY_ID: z.string().optional(),
+  /** Extra PUBLIC keys to publish in the JWKS during rotation (private members are refused). */
+  ZENITH_OIDC_EXTRA_PUBLIC_JWKS: z.string().optional(),
+  /** Ed25519 private JWK that signs capability grants, runner jobs and machine requests. Secret. */
+  ZENITH_CONTROL_SIGNING_JWK: z.string().optional(),
+  ZENITH_CONTROL_KMS_KEY_ID: z.string().optional(),
+  ZENITH_CONTROL_EXTRA_PUBLIC_JWKS: z.string().optional(),
   /* ------------------------------ agent access ------------------------------ */
   /*
    * The `ZENITH_AGENT_*` family, which until now was read straight out of
@@ -151,6 +181,13 @@ const Schema = z.object({
   ZENITH_AGENT_OAUTH_CLIENT_CLAIM: z.string().optional(),
   /** Which claim carries the subject. Defaults to `sub` at the call site. */
   ZENITH_AGENT_OAUTH_SUBJECT_CLAIM: z.string().optional(),
+  /** Platform observability backends (PROD-OBS-02). Operator configuration, never tenant input. */
+  ZENITH_OBSERVE_PROMETHEUS_URL: z.string().url().optional(),
+  ZENITH_OBSERVE_PROMETHEUS_TOKEN: z.string().optional(),
+  ZENITH_OBSERVE_LOKI_URL: z.string().url().optional(),
+  ZENITH_OBSERVE_LOKI_TOKEN: z.string().optional(),
+  /** Loki multi-tenant org id, sent as `X-Scope-OrgID`. */
+  ZENITH_OBSERVE_LOKI_TENANT: z.string().optional(),
   /** Optional. The From address on alert email. Required alongside ZENITH_SMTP_URL. */
   ZENITH_ALERT_FROM: z
     .string()
@@ -184,7 +221,22 @@ const RAW_KEYS = [
   "ZENITH_SECRET_KEY",
   "ZENITH_SMTP_URL",
   "ZENITH_ALERT_FROM",
+  "ZENITH_OBSERVE_PROMETHEUS_URL",
+  "ZENITH_OBSERVE_PROMETHEUS_TOKEN",
+  "ZENITH_OBSERVE_LOKI_URL",
+  "ZENITH_OBSERVE_LOKI_TOKEN",
+  "ZENITH_OBSERVE_LOKI_TENANT",
   "SUPABASE_DB_URL",
+  "ZENITH_PLATFORM_DB",
+  "ZENITH_PLATFORM_DB_URL",
+  "ZENITH_PLATFORM_DB_MAX",
+  "ZENITH_OIDC_ISSUER",
+  "ZENITH_OIDC_SIGNING_JWK",
+  "ZENITH_OIDC_KMS_KEY_ID",
+  "ZENITH_OIDC_EXTRA_PUBLIC_JWKS",
+  "ZENITH_CONTROL_SIGNING_JWK",
+  "ZENITH_CONTROL_KMS_KEY_ID",
+  "ZENITH_CONTROL_EXTRA_PUBLIC_JWKS",
   "ZENITH_AGENT_CONTROL",
   "ZENITH_AGENT_WRITES",
   "ZENITH_AGENT_READER",
@@ -234,7 +286,9 @@ export function env(): ZenithEnv {
         // it in the boot log. Say how long it was; that is what makes the error
         // actionable.
         const secretish =
-          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL";
+          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL" || key === "ZENITH_PLATFORM_DB_URL" ||
+          key === "ZENITH_OBSERVE_PROMETHEUS_TOKEN" || key === "ZENITH_OBSERVE_LOKI_TOKEN" || key === "ZENITH_OBSERVE_PROMETHEUS_URL" || key === "ZENITH_OBSERVE_LOKI_URL" ||
+          key === "ZENITH_OIDC_SIGNING_JWK" || key === "ZENITH_CONTROL_SIGNING_JWK";
         const shown = secretish ? `(${rawValue.length} chars, hidden)` : JSON.stringify(rawValue);
         return `  ${key}=${shown} — ${i.message}`;
       });

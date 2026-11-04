@@ -1,0 +1,692 @@
+{
+  "sourceTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "originalReportSha256": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065",
+  "rawMessagesOmitted": true,
+  "counts": {
+    "passed": 60,
+    "failed": 40,
+    "skipped": 0
+  },
+  "cases": [
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] genuine default paired codec commits an exact scoped native hold before entering the callback",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] direct repository and copied DTO calls cannot create a native hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] isolated custody never issues native cleanup authority or a destructive grant",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] wrong authenticated bytes refuse before retaining any native hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a copied owning SQL handle cannot originate a hold even with authentic bytes",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] one active authenticated held attempt reserves and inserts exactly one native owner JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a prior same-operation issued grant is retained as a blocker after claimed use returns ready",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] an earlier unconsumed mutation grant blocks callback entry while the new hold still commits",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] expiry or revocation of an issued grant never supplies provider nondelivery proof",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a pre-epoch operation remains unknown even when terminal projections and handoffs are empty",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] an unknown product scope creation time cannot be inferred fresh from zero native writers",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a new scoped mutation grant waits on the actual final coordinator then refuses the committed hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] scope inventory sees an independently committed grant after the real hold coordinator wait",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] current human demotion committed during the actual coordinator wait refuses hold insertion",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] fresh post-signing current human refusal never inserts or returns a bearer and retains its JTI reservation",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a detached async child cannot retain the active paired issuance context after callback disposal",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] direct Kubernetes or Zenith-style destroy issuance refuses without any private held context",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] read attenuation remains available under a retained hold and does not imply write authority",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] an actual unrelated immutable environment scope remains writable while an unscoped writer refuses",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] changed promoted scope cannot hide a writer behind another environment",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] foreign workspace inventory never sees the owning held operation or its grants",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] raw native dispatch without authenticated paired origin cannot use a seeded hold as approval",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] held epoch and possible-delivery records cannot be cleared by native UPDATE DELETE or TRUNCATE grants",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] every native mutation writer family records possible delivery before any hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a held scope refuses a new native workflow handoff before possible delivery",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a held scope refuses a new native plan handoff before possible delivery",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a held scope refuses a new native build handoff before possible delivery",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a held scope refuses a new native runner handoff before possible delivery",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a held scope refuses a new native machine handoff before possible delivery",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] late workflow acknowledgement and build terminal receipts remain immutable history under a diagnostic hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] queued runner and machine work cannot cross into running after a native hold commits",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] discarding an acknowledged hold result never authorizes another consume or destructive grant",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] every cleanup authority table retains exact RLS and client denial without DELETE TRUNCATE or TRIGGER rights",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a workspace foreign key mismatch never reaches any possible-delivery ledger",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] current consumed human approver demotion during the real coordinator wait refuses hold insertion",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] a current human rejection committed during the actual coordinator wait refuses hold insertion",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] expiration during the actual coordinator wait refuses the still-owned fence and hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] requester demotion during the final native grant inventory wait refuses the bearer and retains its JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] consumed approver demotion during the final native grant inventory wait refuses the bearer and retains its JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] native source connection revocation during the final grant inventory wait refuses the bearer and retains its JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] reviewed revision source replacement during the final grant inventory wait refuses the bearer and retains its JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] current target replacement during the final grant inventory wait refuses the bearer and retains its JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] lease expiry during the final grant inventory wait refuses the bearer and retains its JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] unchanged current authority after the final native grant inventory wait returns exactly its one retained JTI",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] requester demotion during final native reservation inventory refuses before signing and preserves the hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] consumed approver demotion during final native reservation inventory refuses before signing and preserves the hold",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] real original builtin apply retains one authenticated immutable settlement and refuses replay",
+      "status": "failed",
+      "failureMessageSha256": [
+        "8793455831e31e1c82369240ba89adb3a36b56b19541b409a90022548298c42d"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] new default paired codec reconciles only completed builtin plan history before exact same-scope destroy",
+      "status": "failed",
+      "failureMessageSha256": [
+        "7793f1796b112610d50912df9fbb42d2385142334d4a75958df2297dc7540bea"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] lost completion acknowledgement stays unconfirmed while independently retained proof permits a newly approved destroy",
+      "status": "failed",
+      "failureMessageSha256": [
+        "52c0329778fca422a8cae4e24709fbe19555e1221cccd89a70d8b5bae0492282"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] accepted builtin apply without a committed settlement remains uncertain and blocks later destroy",
+      "status": "failed",
+      "failureMessageSha256": [
+        "b28075b9484521fe675a12072b251543da8c3c13f0d996cb6b6319ae20d99914"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] status-only terminal use and invented SQL settlement never remove unresolved plan history",
+      "status": "failed",
+      "failureMessageSha256": [
+        "920c8bf1c50be644f04e2b763e70b6224ead3f3ec31cdd8c89ff1c885052a586"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied workspaceId tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied projectId tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied environmentId tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied operationId tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied attemptId tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied manifestDigest tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied rawSha256 tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied backendDigest tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied targetDigest tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied holder tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] authenticated settlement refuses copied fenceToken tuple",
+      "status": "failed",
+      "failureMessageSha256": [
+        "10fd06ee8cd54d12bb5b164c062a52427e205558b5f6f9cb5b77ea2c836d8eb2"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] corrupt settlement ciphertext and wrong purpose-separated key refuse independently",
+      "status": "failed",
+      "failureMessageSha256": [
+        "315be54eb0dcfb234371be62a9d30eb9ddb1b70e15279c1a62b0f0cab035ca21"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] fresh engine accepts retained old settlement key only during explicit overlap and refuses retirement",
+      "status": "failed",
+      "failureMessageSha256": [
+        "966c1d83e99e93fb9ca2d233134b8a99ca527b9b67f712bf655ca57310253736"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] current completion readback refuses changed state while immutable earlier settlement remains historical",
+      "status": "failed",
+      "failureMessageSha256": [
+        "865e20dbb50792ec5249d1a84bec85522e3f8e71b68b002d1644a521218008fe"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] different logical product scopes cannot bind the same actual local backend",
+      "status": "failed",
+      "failureMessageSha256": [
+        "6a7f49991206e95088eba1875b91378d7db1a3eb29a727a69295e33a2a63ed1f"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] mutable nonsticky grandparent refuses standalone admission before tool execution",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] fabricated readback with restored prototypes and genuine cleanup cannot mint settlement",
+      "status": "failed",
+      "failureMessageSha256": [
+        "f6b4a031831a1d3146a2ef41372903bc05e3cd6fce1959275f1d3d33c38d7296"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] incomplete actual checked cleanup cannot mint settlement or replay accepted apply",
+      "status": "failed",
+      "failureMessageSha256": [
+        "5633d938bc83dfc06c2c0b1d4c122bfaf41590af399ea72a538cfe54b6296002"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] prior issued grant remains unresolved despite builtin settlement",
+      "status": "failed",
+      "failureMessageSha256": [
+        "b9fca73368fc365a79a84a3de0299ef9b431c50624692810c668eece7b93a6ca"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] final builtin receipt fences requester demotion during post-readback current-role wait",
+      "status": "failed",
+      "failureMessageSha256": [
+        "843cdd68922c042ac069f48119a17460ee0a1d62c0fb28fdd8ef528690f000fd"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] final builtin receipt fences approver removal during post-readback current-role wait",
+      "status": "failed",
+      "failureMessageSha256": [
+        "843cdd68922c042ac069f48119a17460ee0a1d62c0fb28fdd8ef528690f000fd"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] final builtin receipt fences approval expiry during post-readback current-role wait",
+      "status": "failed",
+      "failureMessageSha256": [
+        "843cdd68922c042ac069f48119a17460ee0a1d62c0fb28fdd8ef528690f000fd"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] final builtin receipt fences provider revocation during post-readback current-role wait",
+      "status": "failed",
+      "failureMessageSha256": [
+        "843cdd68922c042ac069f48119a17460ee0a1d62c0fb28fdd8ef528690f000fd"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] final builtin receipt fences unchanged current authority during post-readback current-role wait",
+      "status": "failed",
+      "failureMessageSha256": [
+        "843cdd68922c042ac069f48119a17460ee0a1d62c0fb28fdd8ef528690f000fd"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] foreign provider resources in protected local state refuse before standalone tool admission",
+      "status": "failed",
+      "failureMessageSha256": [
+        "b3b7fd2e879677e91ab6a9c7b8bd44cf18fa89a982815589b8f0ac896e653cfc"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] observed native completion coordinator wait fences region replacement before terminal receipt insert",
+      "status": "failed",
+      "failureMessageSha256": [
+        "7027788939689a3db9fcae9db7ce9cd6e9661bb7e63d8c09063c847bbb0405d0"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] observed native completion coordinator wait fences approver demotion before terminal receipt insert",
+      "status": "failed",
+      "failureMessageSha256": [
+        "7027788939689a3db9fcae9db7ce9cd6e9661bb7e63d8c09063c847bbb0405d0"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] observed native completion coordinator wait fences lease expiry before terminal receipt insert",
+      "status": "failed",
+      "failureMessageSha256": [
+        "7027788939689a3db9fcae9db7ce9cd6e9661bb7e63d8c09063c847bbb0405d0"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] observed native completion coordinator wait fences state replacement before terminal receipt insert",
+      "status": "failed",
+      "failureMessageSha256": [
+        "7027788939689a3db9fcae9db7ce9cd6e9661bb7e63d8c09063c847bbb0405d0"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] observed native completion coordinator wait fences unchanged final tuple before terminal receipt insert",
+      "status": "failed",
+      "failureMessageSha256": [
+        "7027788939689a3db9fcae9db7ce9cd6e9661bb7e63d8c09063c847bbb0405d0"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] structural fake producer run cannot seal chosen bytes as a finite builtin original",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered finite producer refuses own init method with backend override before command launch",
+      "status": "failed",
+      "failureMessageSha256": [
+        "3f3bef99b8c5ac7e114ee2d385930a3d6dffbc989fb6ba014876b3cb0f930a40"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered finite producer refuses own plan method with backend override before command launch",
+      "status": "failed",
+      "failureMessageSha256": [
+        "3f3bef99b8c5ac7e114ee2d385930a3d6dffbc989fb6ba014876b3cb0f930a40"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered finite producer refuses accessor init fields changed during the prelaunch filesystem wait",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered finite producer refuses replacement target init fields changed during the prelaunch filesystem wait",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered cleanup refuses a substituted absent root and then permits actual original cleanup",
+      "status": "failed",
+      "failureMessageSha256": [
+        "51943bde5b937399af6d59b6845b0bc3283dcea4f6fc4a419aa936befff57755"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered cleanup field accessor during removal cannot mark a run cleaned or mint settlement",
+      "status": "failed",
+      "failureMessageSha256": [
+        "ab429df7fdc49dc5cbba963b7c910ec6d54c59216bf416ba4f4739ccccc46597"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered finite producer refuses altered init command arguments before tool launch",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered finite producer refuses altered plan command arguments before tool launch",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] genuine registered producer with a foreign workspace refuses before its first init",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] post-inspection producer own method accessor refuses before the next finite engine member read",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] post-inspection producer prototype method accessor refuses before the next finite engine member read",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] post-inspection apply own method accessor refuses before the next finite engine member read",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] post-inspection apply prototype method accessor refuses before the next finite engine member read",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] post-inspection readback prototype method accessor refuses before the next finite engine member read",
+      "status": "failed",
+      "failureMessageSha256": [
+        "09792b91820790bd1508c5036703586fa62eded634ea12da89b68c82e900ddea"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered apply refuses a plan-file method accessor installed during its awaited admission callback",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered runner finally refuses a dispose accessor after actual apply without invoking it or replaying",
+      "status": "failed",
+      "failureMessageSha256": [
+        "34ada644f59eb2050bc20007ee61765ea1851787d54eb040b248b88d30248bc4"
+      ]
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] registered apply refuses an init-field accessor installed during its awaited admission callback",
+      "status": "passed",
+      "failureMessageSha256": []
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "fullName": "native cleanup writer barrier [postgres; modeled hosted association and policy] unknown proxy producer origin refuses before any descriptor or method trap",
+      "status": "passed",
+      "failureMessageSha256": []
+    }
+  ]
+}

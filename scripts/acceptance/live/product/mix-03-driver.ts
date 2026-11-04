@@ -42,6 +42,8 @@ export interface Mix03DriverSeams {
   session?: () => Promise<{ tenant: TenantSession; close: () => Promise<void> }>;
   /** Waits between readbacks of a deployment. Default: a real timer. */
   sleep?: (ms: number) => Promise<void>;
+  /** The teardown review's Temporal workflow state, for a review that never proposed (default: the stack's own Temporal). */
+  reviewWorkflow?: (reviewOperationId: string) => Promise<string>;
 }
 
 /** The runner's stack, from the variables the workflow exported. Refuses unless the lean profile is the one running. */
@@ -289,6 +291,9 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
   const approve = seams.approve ?? ((session: TenantSession, operationId: string) => approveOperation({ stack: session.stack }, session, operationId, { separationOfDuties: false }));
   const openSession = seams.session ?? (() => openRealSession(env));
   const sleep = seams.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
+  // Diagnostics never hold the refusal: an unreachable Temporal answers "unreadable" within 30 seconds. Lazy import: deploy-01-driver imports this module.
+  const reviewWorkflow = seams.reviewWorkflow ?? (async (id: string) => Promise.race([(await import("./deploy-01-driver")).reviewWorkflowState(id),
+    new Promise<string>(resolve => setTimeout(() => resolve("workflow unreadable (timeout)"), 30_000).unref())]));
   const sessions = new Map<string, TenantSession>();
   /** The two child operations per mixed plan, adopted in order by startMixed: { partitionId, operationId }. */
   const adoptions = new Map<string, { partitionId: string; operationId: string }[]>();
@@ -628,7 +633,11 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         const destroyOperationId = await poll("the teardown review", async () => {
           const review = (ok(await send(session, session.owner, reviewPath, undefined, "GET")) as { review?: { operationId?: unknown; status?: unknown } | null }).review;
           if (typeof review?.operationId === "string") return idOf(review.operationId, "the destroy operation");
-          if (typeof review?.status === "string" && TERMINAL.includes(review.status)) refuse(`the teardown review ended ${review.status} without a destroy proposal`);
+          if (typeof review?.status === "string" && TERMINAL.includes(review.status)) {
+            // The review route returns only the status; the review operation carries the product's reason.
+            const why = sanitizedError((await operationOf(session, reviewId).catch(() => undefined))?.error);
+            refuse(`the teardown review ended ${review.status} without a destroy proposal${why ? ` (product: ${why})` : ""} [${await reviewWorkflow(reviewId)}]`);
+          }
           return undefined;
         });
         // The proposal round: a person approves the reviewed destroy proposal; its workflow then claims it and plans.

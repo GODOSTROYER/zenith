@@ -683,6 +683,19 @@ describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, 
     expect(review.body).toMatchObject({ mode: "execute", input: { environmentId: "env-consumer" }, scope: { projectId: "proj-1", environmentId: "env-consumer" } });
   });
 
+  it("openChildDestroy names the product's reason and the review workflow state when the review ends without a proposal", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }] });
+      if (sent.endpoint === "/api/actions/env.reviewTeardown") return action({ ok: true, data: { reviewOperationId: "op-review" } });
+      if (sent.endpoint === "/api/platform/v1/environments/env-producer/teardown-review?reviewId=op-review") return ok({ review: { status: "failed" } });
+      if (sent.endpoint === "/api/platform/v1/operations/op-review") return ok({ operation: { status: "failed", error: "Teardown review did not complete. Nothing was applied. Finish the active deployment before reviewing teardown." } });
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request, reviewWorkflow: async () => "workflow COMPLETED" });
+    await expect(product.openChildDestroy!(TENANT, "plan-1", P_PRODUCER)).rejects.toThrow(
+      "the teardown review ended failed without a destroy proposal (product: Teardown review did not complete. Nothing was applied. Finish the active deployment before reviewing teardown.) [workflow COMPLETED]");
+  });
+
   it("openChildDestroy refuses a child the stored plan does not have, before any review is requested", async () => {
     const t = transport(() => ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }] }));
     const product = await driverWithTenant({ request: t.request });

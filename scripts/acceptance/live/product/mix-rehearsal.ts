@@ -30,7 +30,7 @@ import type { Call, ProductScenarioPort } from "../contracts";
 import { liveRoleNames } from "../plan";
 import {
   canonical, childState, connectLane, fill, inventoryOf, LANES, mix02Order, owned, partitionReadback, pinned, PlanRefusal, preconditions, producerConsumerReadback,
-  receiptOf, refuse, Refusal, s3Upload, teardown, TEARDOWN_RESERVE_MS, unwiredProduct, uploadConsumerPackage, verifyConnection,
+  receiptOf, refuse, Refusal, s3Upload, teardown, TEARDOWN_RESERVE_MS, trustReadback, unwiredProduct, uploadConsumerPackage, verifyConnection,
   type Invoke, type LaneConnection, type Mix03Artifact, type Mix03Child, type Mix03Review, type Mix03Run, type Mix03Seams, type Mix03Tenant, type MixedReadback, type RunState,
 } from "./mix-03";
 import { refreshSandboxSession } from "./session-refresh";
@@ -64,7 +64,8 @@ export function mixRehearsalPort(env: EnvLike = process.env, seams: MixRehearsal
   const product = seams.product ?? unwiredProduct;
   const upload = seams.upload ?? s3Upload;
   const sleep = seams.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
-  const propagation = seams.propagation ?? { attempts: 12, intervalMs: 15_000 };
+  // Two of six runs saw AssumeRole denied for the whole 3 minutes after the trust write; 10 minutes covers slow IAM propagation.
+  const propagation = seams.propagation ?? { attempts: 40, intervalMs: 15_000 };
   const polls = seams.polls ?? { attempts: 400, intervalMs: 15_000 };
   const now = seams.now ?? Date.now;
   const quietMs = seams.quietMs ?? 10_000;
@@ -191,7 +192,7 @@ export function mixRehearsalPort(env: EnvLike = process.env, seams: MixRehearsal
       b = await connectLane(io, LANES[1]);
       if (a.connectionId === b.connectionId) refuse("the product returned one connection for two connection stacks");
       at("connection verification");
-      for (const connection of [a, b]) await verifyConnection(product, tenant, connection.connectionId, propagation, sleep);
+      for (const [i, connection] of [a, b].entries()) await verifyConnection(product, tenant, connection.connectionId, propagation, sleep, () => trustReadback(io, LANES[i]!.ids, connection.externalId));
       at("consumer package");
       artifact = await uploadConsumerPackage(invoke, planned, upload, { region, runId: plan.settings.runId, stateBucket: a.stateBucket, externalId: a.externalId });
     } catch (error) {

@@ -8,7 +8,7 @@ import { allCalls, buildPlan, scopedRequirementIds } from "../../scripts/accepta
 import { grantsFor, Guard } from "../../scripts/acceptance/live/guard";
 import type { Call, Json, Plan } from "../../scripts/acceptance/live/contracts";
 import {
-  consumerPackage, fill, mix03Port, templateExternalId, trustDocument, unwiredProduct, type Mix03Child, type Mix03Product, type MixedReadback,
+  consumerPackage, fill, mix03Port, templateExternalId, trustDocument, trustReadback, unwiredProduct, type Mix03Child, type Mix03Product, type MixedReadback,
 } from "../../scripts/acceptance/live/product/mix-03";
 import { buildReceipt } from "@/lib/execution/mixed/receipt";
 
@@ -268,8 +268,18 @@ describe("PROD-MIX-03 trust update (ExternalId only, restored afterwards)", () =
     const result = await run();
     expect(result.complete).toBe(false);
     expect(result.reason).toContain("propagation bound (last: ");
+    expect(result.reason).toContain("IAM trust ExternalId: observe matches, deploy matches");
     expect(state.trustDocs.observe).toBe(trustDocument(PRINCIPAL, OLD_EXT));
     expect(sent.filter(s => s.id === "mix03-iam-trust-deploy")).toHaveLength(2);
+  });
+
+  it("the trust readback says differs when IAM still holds another ExternalId, without printing either value", async () => {
+    const docs: Record<string, string> = { observe: trustDocument(PRINCIPAL, NEW_EXT), deploy: trustDocument(PRINCIPAL, OLD_EXT) };
+    const io = { principal: PRINCIPAL, planned: (id: string) => ({ id }) as unknown as Call,
+      invoke: async (call: Call) => ({ Role: { AssumeRolePolicyDocument: encodeURIComponent(docs[call.id.endsWith("observe") ? "observe" : "deploy"]!) } }) as never };
+    const seen = await trustReadback(io, "mix03", NEW_EXT);
+    expect(seen).toBe("IAM trust ExternalId: observe matches, deploy differs");
+    expect(seen).not.toContain(NEW_EXT);
   });
 
   it("the trust template rendering is the one the verifier accepts", () => {

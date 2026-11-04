@@ -475,14 +475,33 @@ export async function connectLane(io: LaneIo, lane: (typeof LANES)[number]): Pro
   return { ...connection, stateBucket };
 }
 
-/** connection.verifyAws until it passes, within the propagation bound of the trust change. */
-export async function verifyConnection(product: Mix03Product, tenant: Mix03Tenant, connectionId: string, propagation: { attempts: number; intervalMs: number }, sleep: (ms: number) => Promise<void>): Promise<void> {
+/** connection.verifyAws until it passes, within the propagation bound of the trust change. On failure `readback` says whether IAM holds the new trust. */
+export async function verifyConnection(product: Mix03Product, tenant: Mix03Tenant, connectionId: string, propagation: { attempts: number; intervalMs: number }, sleep: (ms: number) => Promise<void>, readback?: () => Promise<string>): Promise<void> {
   for (let attempt = 1; ; attempt++) {
     const verified = await product.verifyAws(tenant, connectionId);
     if (verified.ok) return;
-    if (attempt >= propagation.attempts) refuse(`connection.verifyAws did not pass after the trust update within the propagation bound (last: ${verified.reason})`);
+    if (attempt >= propagation.attempts) {
+      const seen = readback ? await readback().catch(() => "IAM trust readback failed") : undefined;
+      refuse(`connection.verifyAws did not pass after the trust update within the propagation bound (last: ${verified.reason})${seen ? `; ${seen}` : ""}`);
+    }
     await sleep(propagation.intervalMs);
   }
+}
+
+/**
+ * Whether each sandbox role's trust in IAM now carries the connection's ExternalId (words only, never the value).
+ * "matches" with a denied AssumeRole means slow IAM propagation; "differs" means the trust write did not land.
+ */
+export async function trustReadback(io: Pick<LaneIo, "invoke" | "planned" | "principal">, ids: string, externalId: string): Promise<string> {
+  const roles: string[] = [];
+  for (const role of ["observe", "deploy"] as const) {
+    const current = await io.invoke(io.planned(`${ids}-iam-read-${role}`));
+    let seen: string;
+    try { seen = templateExternalId(parsePolicy(field(field(current, "Role"), "AssumeRolePolicyDocument")), io.principal) === externalId ? "matches" : "differs"; }
+    catch { seen = "is not the template shape"; }
+    roles.push(`${role} ${seen}`);
+  }
+  return `IAM trust ExternalId: ${roles.join(", ")}`;
 }
 
 /**
@@ -571,7 +590,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
           await invoke(write, { trustDocument: trustDocument(principal, connection.externalId) });
         }
         step = "connection verification";
-        await verifyConnection(product, tenant, connection.connectionId, propagation, sleep);
+        await verifyConnection(product, tenant, connection.connectionId, propagation, sleep, () => trustReadback({ invoke, planned, principal }, "mix03", connection.externalId));
         step = "consumer package";
         const artifact = await uploadConsumerPackage(invoke, planned, upload, { region, runId: plan.settings.runId, stateBucket, externalId: connection.externalId });
         step = "mixed plan";
@@ -732,7 +751,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
       const [producerConnection, consumerConnection] = connections as [LaneConnection, LaneConnection];
       if (producerConnection.connectionId === consumerConnection.connectionId) refuse("the product returned one connection for two connection stacks");
       step = "connection verification";
-      for (const connection of connections) await verifyConnection(product, tenant, connection.connectionId, propagation, sleep);
+      for (const [i, connection] of connections.entries()) await verifyConnection(product, tenant, connection.connectionId, propagation, sleep, () => trustReadback({ invoke, planned, principal }, LANES[i]!.ids, connection.externalId));
       // Two independent children (one bucket each): a dependency across connections would need declared protected
       // connectivity (PROD-MIX-05), which the product rightly refuses to derive.
       step = "mixed plan";

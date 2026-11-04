@@ -17,7 +17,7 @@ export { evaluateOrdering, type OrderingSignals, type OrderingVerdict } from "./
 export { brokerTeardownApprovalPort, planTeardown, recordTeardownResult, releaseTeardownStep, verifyTeardownApproval, type TeardownApprovalPort } from "./teardown";
 export { MemoryMixedRunStore, platformMixedRunStore, type MixedRunStore } from "./run-store";
 export {
-  cancelMixedRun, consumeOutputs, NO_SIGNALS, openMixedRun, proposeTeardown, readMixedRun, recordChildEvent, releaseTeardown, sweepDueMixedRuns, syncTeardownStep, tickMixedRun,
+  cancelMixedRun, consumeOutputs, NO_SIGNALS, openMixedRun, proposeTeardown, readMixedRun, reconcileChild, recordChildEvent, releaseTeardown, sweepDueMixedRuns, syncTeardownStep, tickMixedRun,
   type MixedRunDeps, type ParentReviewPort,
 } from "./service";
 export { platformMixedRunDeps, platformParentReviewPort, platformPreauthorizationStore, platformTeardownPlanInput, refusingParentReviewPort } from "./platform";

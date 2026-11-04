@@ -681,6 +681,12 @@ export interface ExecutionDeps {
    * binds them. Absent means no operation produces or consumes any (the platform composition supplies it).
    */
   typedInputs?: import("./typed-inputs").TypedInputsPort;
+  /**
+   * The mixed teardown release gate of a destroy (PROD-MIX-04 "teardown order"): whether a mixed run proposes a teardown step for
+   * a child in this environment and released it to this destroy. It throws when it cannot answer, and the destroy then stops.
+   * Absent means no environment is a mixed child (isolated compositions); the platform composition always supplies it.
+   */
+  mixedTeardown?: { gate(workspaceId: string, environmentId: string, destroyOperationId: string): Promise<import("@/lib/workflows/definitions/destroy").TeardownReleaseCheck> };
   /* runtime */
   /** Temporal's `Context.current().heartbeat`, wired by the worker. Default: no-op. */
   heartbeat?: (detail?: unknown) => void;

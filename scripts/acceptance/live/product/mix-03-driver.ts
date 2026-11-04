@@ -348,6 +348,11 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
     const status = typeof op?.status === "string" && SAFE_CODE.test(op.status) ? op.status : refuse("the operation readback has no status");
     return { status, started: typeof op?.startedAt === "string", ...(typeof op?.error === "string" ? { error: op.error } : {}) };
   };
+  /** Whether the destroy recorded that it waits for its mixed teardown release (PROD-MIX-04), not for a plan round. */
+  const waitsForRelease = async (session: TenantSession, operationId: string): Promise<boolean> => {
+    const data = ok(await send(session, session.owner, `/api/platform/v1/operations/${encodeURIComponent(operationId)}/events?limit=500`, undefined, "GET")) as { events?: unknown };
+    return (Array.isArray(data.events) ? data.events : []).some((event: { type?: unknown; data?: { kind?: unknown } }) => event?.type === "operation.prepared" && event.data?.kind === "teardown_release_wait");
+  };
   /** Polls until `read` answers, within DESTROY_POLLS; the bound names what it waited for. */
   const poll = async <T>(what: string, read: () => Promise<T | undefined>): Promise<T> => {
     for (let attempt = 1; ; attempt++) {
@@ -651,8 +656,13 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         let view = await poll("the destroy proposal", async () => { const op = await operationOf(session, destroyOperationId); return op.status === "awaiting_approval" || TERMINAL.includes(op.status) ? op : undefined; });
         if (TERMINAL.includes(view.status)) return { destroyOperationId, status: view.status };
         await approve(session, destroyOperationId);
-        // The plan round: awaiting approval again once the workflow claimed it (startedAt) and recorded the reviewed list.
-        view = await poll("the destroy plan", async () => { const op = await operationOf(session, destroyOperationId); return (op.status === "awaiting_approval" && op.started) || TERMINAL.includes(op.status) ? op : undefined; });
+        // The release wait: the workflow planned (the reviewed list exists) and suspended, lease-free, until the run releases
+        // this child's step to it. It shows as awaiting approval (a fresh round) once claimed, with its release-wait event.
+        view = await poll("the destroy's release wait", async () => {
+          const op = await operationOf(session, destroyOperationId);
+          if (TERMINAL.includes(op.status)) return op;
+          return op.status === "awaiting_approval" && op.started && await waitsForRelease(session, destroyOperationId) ? op : undefined;
+        });
         return { destroyOperationId, status: view.status };
       });
     },
@@ -672,7 +682,8 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         const view = await poll("the destroy", async () => {
           const op = await operationOf(session, destroyOperationId);
           if (TERMINAL.includes(op.status)) return op;
-          // Every round the destroy still asks for is a person's approval, as the web app does; bounded so nothing loops.
+          // After the release, the release wait's round is a person's approval, as the web app does; the destroy then applies.
+          // Bounded so nothing loops.
           if (op.status === "awaiting_approval" && approvals < 3) { approvals++; await approve(session, destroyOperationId); }
           return undefined;
         });

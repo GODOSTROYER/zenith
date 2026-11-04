@@ -5885,6 +5885,18 @@ export const AGENT_JOURNAL_POSTGRES_REQUIREMENTS = [
   }
 ];
 
+/** Reviewed successors of the frozen replay corpus, one per fixture recorded after the freeze. Each carries a patch
+ * marker the versioning audit requires a committed history for; like the frozen cases they are literal identities
+ * that survive missing or deleted sources and fixtures.
+ */
+export const WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS = [
+  {
+    "file": "tests/workflows/history-replay.test.ts",
+    "suite": "committed workflow histories replay against the current bundle",
+    "test": "destroy-mixed-release-wait.json replays deterministically"
+  }
+];
+
 /** Recording remains opt-in; the frozen current-code corpus replays in the canonical workflow lane.
  * These literal case identities survive missing/deleted test sources and fixtures. They
  * prove current synthetic history compatibility, not histories from a prior release.
@@ -6624,7 +6636,7 @@ export function requirementsFor(lane, root) {
       requirements = ["backup", "clean-host restore", "temporal"].map(suite => ({ file: "tests/ops/recovery-rehearsal.test.ts", suite, backend: "postgres" }));
       break;
     case "workflow-history-replay":
-      requirements = WORKFLOW_HISTORY_REPLAY_REQUIREMENTS;
+      requirements = [...WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, ...WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS];
       break;
     case "postgres":
       requirements = [
@@ -6652,7 +6664,7 @@ export function requirementsFor(lane, root) {
         .flatMap((file) => file === "tests/platform/source-bundle.test.ts"
           ? ["source acquisition and canonical archives", "customer source bucket uploads", "GCS source upload through authorizedFetch", "live public GitHub source (opt-in network)"].map((suite) => ({ file, suite }))
           : [{ file }]);
-      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS, ...CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, ...WORKFLOW_HISTORY_REPLAY_REQUIREMENTS);
+      requirements.push(...ECS_REPLICA_REPAIR_WORKFLOW_REQUIREMENTS, ...BUILD_WORKFLOW_REQUIREMENTS, ...CRITICAL_SCHEDULE_TEMPORAL_REQUIREMENTS, ...WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, ...WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS);
       break;
     case "reconciliation":
       requirements = RECONCILIATION_REQUIREMENTS;

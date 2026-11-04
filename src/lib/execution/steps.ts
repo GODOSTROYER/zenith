@@ -63,6 +63,7 @@ export function deploymentStatusForStep(step: StepName): DeploymentStatus | unde
     case "verify_application":
     case "observe":
       return "verifying";
+    case "teardown_release":
     case "finalize":
     case "release":
       return undefined;

@@ -665,10 +665,12 @@ describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, 
     await expect(refused.proposeTeardown!(TENANT, "op-parent")).rejects.toThrow("the product refused the teardown proposal (invalid state, ownership: no)");
   });
 
-  it("openChildDestroy reviews the CHILD's environment from the stored plan, approves the proposal once and stops at the plan round", async () => {
+  it("openChildDestroy reviews the CHILD's environment from the stored plan, approves the proposal once and stops at the release wait", async () => {
     const statuses = ["awaiting_approval", "running", "awaiting_approval"];
-    let reviews = 0;
+    let reviews = 0, eventReads = 0;
     const t = transport((sent) => {
+      // The first read after the claim has no release-wait event yet (a plan round would never get one).
+      if (sent.endpoint === "/api/platform/v1/operations/op-destroy/events?limit=500") return ok({ events: eventReads++ ? [{ type: "operation.prepared", data: { kind: "teardown_release_wait" } }] : [{ type: "operation.prepared", data: { kind: "approval_gate" } }] });
       if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }, { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer" }] });
       if (sent.endpoint === "/api/actions/env.reviewTeardown") return action({ ok: true, data: { reviewOperationId: "op-review" } });
       if (sent.endpoint === "/api/platform/v1/environments/env-consumer/teardown-review?reviewId=op-review") return ok({ review: reviews++ ? { operationId: "op-destroy", status: "succeeded" } : { status: "running" } });
@@ -681,6 +683,7 @@ describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, 
     const approve = vi.fn(async () => undefined);
     const product = await driverWithTenant({ request: t.request, approve });
     await expect(product.openChildDestroy!(TENANT, "plan-1", P_CONSUMER)).resolves.toEqual({ destroyOperationId: "op-destroy", status: "awaiting_approval" });
+    expect(eventReads).toBe(2);
     expect(approve).toHaveBeenCalledTimes(1);
     expect(approve).toHaveBeenCalledWith(expect.objectContaining({ approver: APPROVER }), "op-destroy");
     const review = t.sent.find((sent) => sent.endpoint === "/api/actions/env.reviewTeardown")!;
@@ -717,7 +720,7 @@ describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, 
     await expect(blocked.releaseTeardown!(TENANT, "op-parent", P_PRODUCER, "op-destroy")).resolves.toEqual({ released: false, reason: "the product refused the release (invalid state, ordering_blocked)" });
   });
 
-  it("finishChildDestroy approves each round still asked for and returns how the destroy ended, as a category", async () => {
+  it("finishChildDestroy approves the release wait's round and returns how the destroy ended, as a category", async () => {
     const statuses = ["awaiting_approval", "running", "failed"];
     const t = transport(() => { const status = statuses.shift()!; return ok({ operation: { status, ...(status === "failed" ? { error: "apply_infrastructure failed: arn:aws:s3:::secret" } : {}) } }); });
     const approve = vi.fn(async () => undefined);

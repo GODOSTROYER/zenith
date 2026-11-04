@@ -14,10 +14,10 @@ export {
 } from "./preauthorization";
 export { applyRunEvent, createRunState, isRunOpen, nextDeadline, nextRunnable, summarizeRun, type ChildRunState, type MixedRunState, type RunEvent, type RunSummary } from "./run";
 export { evaluateOrdering, type OrderingSignals, type OrderingVerdict } from "./ordering-rules";
-export { brokerTeardownApprovalPort, planTeardown, recordTeardownResult, releaseTeardownStep, verifyTeardownApproval, type TeardownApprovalPort } from "./teardown";
+export { brokerTeardownApprovalPort, planTeardown, recordTeardownResult, releaseTeardownStep, teardownReleaseGate, verifyTeardownApproval, type TeardownApprovalPort, type TeardownReleaseGate } from "./teardown";
 export { MemoryMixedRunStore, platformMixedRunStore, type MixedRunStore } from "./run-store";
 export {
   cancelMixedRun, consumeOutputs, NO_SIGNALS, openMixedRun, proposeTeardown, readMixedRun, reconcileChild, recordChildEvent, releaseTeardown, sweepDueMixedRuns, syncTeardownStep, tickMixedRun,
   type MixedRunDeps, type ParentReviewPort,
 } from "./service";
-export { platformMixedRunDeps, platformParentReviewPort, platformPreauthorizationStore, platformTeardownPlanInput, refusingParentReviewPort } from "./platform";
+export { platformMixedRunDeps, platformParentReviewPort, platformPreauthorizationStore, platformTeardownPlanInput, refusingParentReviewPort, teardownReleaseGateOf } from "./platform";

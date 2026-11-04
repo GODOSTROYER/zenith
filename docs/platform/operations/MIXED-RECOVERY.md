@@ -22,22 +22,30 @@ to. The route reads each child's environment from the run's stored plan (never f
    child, consumers first. Nothing is destroyed.
 2. For the first step, open the destroy of that child's environment the normal way (`env.reviewTeardown` on the child
    environment) and approve the destroy proposal as a human admin. Its workflow claims it (this consumes that approval),
-   plans, and waits for the plan approval.
+   plans, and then stops before it applies: a destroy in the child environment of a run with a teardown proposal waits
+   until the run released that child's step to it. While it waits it holds no environment lease and is
+   `awaiting_approval` (a fresh approval round; a `running` operation without its lease would be marked uncertain). Its
+   events show `operation.prepared` with `kind: "teardown_release_wait"`, naming the children and runs it waits on.
 3. `{ "action": "release", "childId", "destroyOperationId" }` while the destroy waits. Release refuses a destroy in any
    other environment, a reviewed list that is not exactly the step's, an approval that is not a human admin's, a destroy
-   that already ended, a second step while one is released, and a producer whose consumers are not destroyed yet.
-4. Approve the destroy's plan round. When it ends, `{ "action": "sync", "childId" }` records its outcome from the
-   destroy operation's own status: `succeeded` is destroyed; `failed`, `rejected`, `denied` and `expired` are failed;
-   `uncertain` and `cancelled` are uncertain. A failed or uncertain step needs reconciliation and blocks every producer
-   behind it.
+   that already ended, a second step while one is released, and a producer whose consumers are not destroyed yet. A
+   release wakes the destroy.
+4. Approve the destroy's waiting round as a human admin (before or after the release; the destroy applies only once it
+   has both). It re-takes the lease, re-plans against the reviewed digest, applies and verifies absence. When it ends,
+   `{ "action": "sync", "childId" }` records its outcome from the destroy operation's own status: `succeeded` is
+   destroyed; `failed`, `rejected`, `denied` and `expired` are failed; `uncertain` and `cancelled` are uncertain. A failed
+   or uncertain step needs reconciliation and blocks every producer behind it.
 5. Repeat for the next step.
 
 Rehearsal: the live scenario `mix-rehearsal` walks this section on the AWS sandbox (a cancelled partial run, then this
 teardown for every run, newest first). See `docs/build/production/verify/PROD-MIX-04.md`, "Operational rehearsal (live)".
 
-The destroy path does not read the run: a person who destroys a producer environment out of order is not stopped there.
-The run never records that as a clean step: release refuses a producer whose consumers are not destroyed and a destroy
-that already ended, so the step stays `planned` and the run still shows the child applied until it is reconciled.
+The destroy path reads the run (PROD-MIX-04 "teardown order"). A destroy of a producer environment whose step is not
+released to it never applies: it waits, and expires after 24 hours with nothing changed; one whose step already ended
+`failed` or `uncertain` stops at once. If the run cannot be read, the destroy stops before it applies; it is never
+treated as outside a run. The gate covers a child environment only once its run has a teardown proposal, and only
+children that have a step (an applied child with managed resources); a destroy anywhere else runs as before. Destroys
+started before this gate shipped are refused at apply instead of waiting.
 
 ## 2. Cross-cloud connectivity (PROD-MIX-05)
 

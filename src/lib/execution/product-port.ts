@@ -86,6 +86,7 @@ const STEPS: Record<StepName, { phase: DeploymentStep["phase"]; title: string }>
   policy: { phase: "prepare", title: "Evaluate policy" },
   approval: { phase: "prepare", title: "Wait for approval" },
   final_plan: { phase: "prepare", title: "Confirm the plan is unchanged" },
+  teardown_release: { phase: "prepare", title: "Wait for the mixed teardown release" },
   apply_network: { phase: "provision", title: "Apply network" },
   apply_data: { phase: "provision", title: "Apply data stores" },
   apply_infrastructure: { phase: "provision", title: "Apply infrastructure" },

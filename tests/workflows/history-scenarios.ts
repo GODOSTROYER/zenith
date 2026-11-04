@@ -180,6 +180,7 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
       h.fake.approve();
       const plan = { planDigest: "a".repeat(64), create: 0, update: 0, delete: 1, replace: 0, empty: false, destroysData: true };
       const extra: DestroyActivities = {
+        checkTeardownRelease: async () => ({ gated: false }),
         planDestroyInfrastructure: async () => plan,
         finalDestroyPlan: async () => plan,
         applyDestroyInfrastructure: async () => ({ deleted: 1 }),
@@ -202,6 +203,7 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
       h.fake.approve();
       const plan = { planDigest: "a".repeat(64), create: 0, update: 0, delete: 1, replace: 0, empty: false, destroysData: true };
       const extra: DestroyActivities = {
+        checkTeardownRelease: async () => ({ gated: false }),
         planDestroyInfrastructure: async () => plan,
         finalDestroyPlan: async () => { throw syntheticFailure(ApplicationFailure.nonRetryable("plan moved", FAILURE_TYPES.planChanged)); },
         applyDestroyInfrastructure: async () => ({ deleted: 1 }),
@@ -211,6 +213,35 @@ export const WORKFLOW_HISTORY_SCENARIOS: readonly HistoryScenario[] = [
       return h.run(async () => {
         const input = { operationId: uniqueId("destroy"), workspaceId: "ws-1", environmentId: "env-1" };
         return [await startAndWait(h, WORKFLOW_TYPES.destroy, WORKFLOW_ID(input.operationId), input)];
+      });
+    },
+  },
+  {
+    id: "destroy-mixed-release-wait",
+    workflowType: WORKFLOW_TYPES.destroy,
+    covers: "mixed child destroy waits lease-free for its teardown release and the fresh round's approval (mixed-teardown-release-gate-v1)",
+    outcome: { result: { status: "succeeded" } },
+    activityCounts: { checkTeardownRelease: 2, planDestroyInfrastructure: 1, finalDestroyPlan: 1, applyDestroyInfrastructure: 1, verifyDestroyedInfrastructure: 1 },
+    run: (h) => {
+      h.fake.approve();
+      const plan = { planDigest: "a".repeat(64), create: 0, update: 0, delete: 1, replace: 0, empty: false, destroysData: true };
+      let released = false;
+      const extra: DestroyActivities = {
+        checkTeardownRelease: async () => ({ gated: true, state: released ? "released" : "waiting", childIds: ["producer"], parentOperationIds: ["op-parent"] }),
+        planDestroyInfrastructure: async () => plan,
+        finalDestroyPlan: async () => plan,
+        applyDestroyInfrastructure: async () => ({ deleted: 1 }),
+        verifyDestroyedInfrastructure: async () => ({ status: "passed", checks: 1, failed: 0 }),
+      };
+      install(h, extra);
+      return h.run(async () => {
+        const input = { operationId: uniqueId("destroy"), workspaceId: "ws-1", environmentId: "env-1" };
+        const handle = await h.client.workflow.start(WORKFLOW_TYPES.destroy, { workflowId: WORKFLOW_ID(input.operationId), taskQueue: h.taskQueue, args: [input] });
+        await waitForStatus(handle, "awaiting_approval");
+        released = true;
+        await signalApproval(input.operationId, { client: h.client });
+        await handle.result();
+        return [handle];
       });
     },
   },

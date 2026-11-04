@@ -14,6 +14,7 @@
     "deploy-retried-read.json": "73ca73a7756b788b4494946187359b153faea659ed5d08edb29ef421886ffb06",
     "deploy-started-by-client.json": "8e37fd20a2eed0b050e01d056defa165bbeeabde1b3b30d96a261ee4433b294f",
     "destroy-happy.json": "1d0853dcfae54faf979bcc3b107a94b3f436a972336cbd1b1ce9f4a24cdacb7e",
+    "destroy-mixed-release-wait.json": "c4cbefc16960fa64d583c73ef3f38604ce855638d4045c9cd5134b0b0fca3eca",
     "destroy-plan-changed.json": "c6ba1c556f19f44f2d779a56e12b1970a0a0f511033be6f7a0d46e6a834dbc77",
     "mixed-parent-all-children-succeed.json": "bb82ad99b19a7178f389aa7ed6bcb7950caa1509fa2fc575e167a810c88a75a9",
     "mixed-parent-child-fails.json": "c133604935bc7d3e611df26354a9dba3621904171b0c6c2d5449af83904a738d",

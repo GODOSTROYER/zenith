@@ -79,6 +79,7 @@ export type StepName =
   | "policy"
   | "approval"
   | "final_plan"
+  | "teardown_release"
   | "apply_network"
   | "apply_data"
   | "apply_infrastructure"

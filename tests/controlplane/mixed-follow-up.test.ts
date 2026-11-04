@@ -33,11 +33,11 @@ import { composeMixedDeps } from "@/lib/execution/mixed/deps";
 import { startMixedParent, type MixedWorkflowStarter } from "@/lib/execution/mixed/start";
 import type { MixedWorld } from "@/lib/execution/mixed/world";
 import { MixedOrchestrationError, NO_SIGNALS, proposeTeardown, readMixedRun, refusingParentReviewPort, releaseTeardown, syncTeardownStep, type MixedRunDeps } from "@/lib/execution/mixed-orchestration";
-import { childEnvironmentsOf, platformTeardownPlanInput } from "@/lib/execution/mixed-orchestration/platform";
+import { childEnvironmentsOf, platformTeardownPlanInput, teardownReleaseGateOf } from "@/lib/execution/mixed-orchestration/platform";
 import { brokerTeardownApprovalPort } from "@/lib/execution/mixed-orchestration/teardown";
 import { PlatformBrokerStore } from "@/lib/capabilities/platform-store";
 import { MemoryPreauthorizationStore } from "@/lib/execution/mixed-orchestration/preauthorization";
-import { MemoryMixedRunStore } from "@/lib/execution/mixed-orchestration/run-store";
+import { MemoryMixedRunStore, platformMixedRunStore } from "@/lib/execution/mixed-orchestration/run-store";
 import type { SemanticsStore } from "@/lib/execution/semantics/store";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
 import { LANES, approve, openLane, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
@@ -422,6 +422,46 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
         expect([status, (await readMixedRun(run, s.ws, s.parentOperationId))!.state.teardown!.steps[0].status]).toEqual([status, outcome]);
         expect((await readMixedRun(run, s.ws, s.parentOperationId))!.state.children[s.producer].reconciliationRequired).toBe(true);
       }
+    });
+
+    it("answers a child environment's destroy gate from the platform run store: not gated, waiting, released to that destroy, blocked", async () => {
+      const { s, run, state, childEnvironmentId, managed } = await appliedProducer();
+      const environments = childEnvironmentsOf(s.plan, state);
+      const consumerEnvironmentId = environments.get(s.consumer)!;
+      // The run, mirrored into the platform store the destroy path reads (the scenario's orchestration keeps it in memory).
+      const platform = platformMixedRunStore(db());
+      let version = (await platform.create(state, { kind: "run_created", data: {} })).version;
+      const mirror = async (kind: "teardown_planned" | "teardown_released" | "teardown_result") => {
+        version = (await platform.save(s.ws, s.parentOperationId, version, (await readMixedRun(run, s.ws, s.parentOperationId))!.state, { kind, data: {} })).version;
+      };
+      const gate = (environmentId: string, destroyOperationId: string, ws = s.ws) => teardownReleaseGateOf(db(), ws, environmentId, destroyOperationId);
+      const waiting = { gated: true, childIds: [s.producer], parentOperationIds: [s.parentOperationId] };
+
+      // A run without a teardown proposal does not gate.
+      expect(await gate(childEnvironmentId, "op-any")).toEqual({ gated: false });
+      await proposeTeardown(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, plan: await platformTeardownPlanInput(db(), state, environments) });
+      await mirror("teardown_planned");
+      const destroyOperationId = await destroyIn(s.ws, childEnvironmentId, managed);
+      expect(await gate(childEnvironmentId, destroyOperationId)).toEqual({ ...waiting, state: "waiting" });
+      // The consumer was never applied (no step), the parent environment is not a child, and another workspace sees nothing.
+      expect(await gate(consumerEnvironmentId, destroyOperationId)).toEqual({ gated: false });
+      expect(await gate(state.environmentId, destroyOperationId)).toEqual({ gated: false });
+      expect(await gate(childEnvironmentId, destroyOperationId, uid("ws"))).toEqual({ gated: false });
+
+      await releaseTeardown(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, childId: s.producer, destroyOperationId, childEnvironmentId, signals: NO_SIGNALS });
+      await mirror("teardown_released");
+      expect(await gate(childEnvironmentId, destroyOperationId)).toEqual({ ...waiting, state: "released" });
+      // Released to this destroy only: another destroy in the same environment keeps waiting.
+      expect(await gate(childEnvironmentId, "op-other")).toEqual({ ...waiting, state: "waiting" });
+
+      await db().query("update platform.operations set status = 'failed', finished_at = clock_timestamp() where workspace_id = $1 and id = $2", [s.ws, destroyOperationId]);
+      await syncTeardownStep(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, childId: s.producer });
+      await mirror("teardown_result");
+      expect(await gate(childEnvironmentId, "op-retry")).toEqual({ ...waiting, state: "blocked" });
+
+      // A store that cannot answer is not "not mixed".
+      const down: Sql = { query: async () => { throw new Error("connection refused"); }, tx: async () => { throw new Error("connection refused"); } };
+      await expect(teardownReleaseGateOf(down, s.ws, childEnvironmentId, destroyOperationId)).rejects.toMatchObject({ code: "unavailable" });
     });
 
     it("refuses child environments from a plan that is not the run's", async () => {

@@ -7,13 +7,14 @@ import type { Sql } from "@/lib/controlplane/types";
 import * as mixedPlansRepo from "@/lib/controlplane/db/repos/mixed-parent-plans";
 import * as preauthRepo from "@/lib/controlplane/db/repos/mixed-output-preauthorizations";
 import * as resourceRepo from "@/lib/controlplane/db/repos/resources";
+import * as runRepo from "@/lib/controlplane/db/repos/mixed-runs";
 import type { MixedParentPlan } from "@/lib/execution/mixed/types";
 import { refuse } from "./errors";
 import type { PreauthorizationStore } from "./preauthorization";
-import { platformMixedRunStore } from "./run-store";
+import { mapStoreError, platformMixedRunStore, storedRunOf } from "./run-store";
 import type { MixedRunState } from "./run";
 import type { ParentReviewPort, MixedRunDeps } from "./service";
-import { brokerTeardownApprovalPort, type TeardownPlanInput } from "./teardown";
+import { brokerTeardownApprovalPort, teardownReleaseGate, type TeardownPlanInput, type TeardownReleaseGate } from "./teardown";
 
 export function platformPreauthorizationStore(sql: Sql): PreauthorizationStore {
   return {
@@ -92,4 +93,15 @@ export async function platformTeardownPlanInput(sql: Sql, state: MixedRunState, 
     owners,
     externalDependents: (address) => (rowsOf.get(environmentOf.get(address) ?? "") ?? []).filter((row) => !inRun.has(row.address) && row.status !== "deleted" && row.dependsOn.includes(address)).map((row) => row.address),
   };
+}
+
+/**
+ * The teardown release gate of a destroy in `environmentId` (see `teardownReleaseGate`): every run whose stored plan places a
+ * child there, read and re-validated. A store that cannot answer, or a malformed run, throws (`unavailable` /
+ * `invalid_input`): the destroy then stops before it applies, never treats the environment as not mixed.
+ */
+export async function teardownReleaseGateOf(sql: Sql, workspaceId: string, environmentId: string, destroyOperationId: string): Promise<TeardownReleaseGate> {
+  let rows: Awaited<ReturnType<typeof runRepo.listByChildEnvironment>>;
+  try { rows = await runRepo.listByChildEnvironment(sql, workspaceId, environmentId); } catch (error) { return mapStoreError(error); }
+  return teardownReleaseGate(rows.map(({ childId, run }) => ({ childId, state: storedRunOf(run).state })), destroyOperationId);
 }

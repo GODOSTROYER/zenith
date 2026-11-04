@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, manifestFor, requirementsFor, workflowHistoryReplayStatus } from "../../scripts/ci/gate-manifest.mjs";
+import { WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS, manifestFor, requirementsFor, workflowHistoryReplayStatus } from "../../scripts/ci/gate-manifest.mjs";
 import { reportFailures } from "./assert-lane-report.mjs";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-replay-manifest-"));
@@ -18,14 +18,16 @@ describe("workflow-history replay manifest", () => {
     expect(manifest.command).toContain("tests/workflows/history-replay.test.ts");
     expect(manifest.command).toContain("--maxWorkers=1");
     expect(manifest.command).not.toContain("tests/workflows/history-record.test.ts");
-    expect(manifest.requirements).toHaveLength(34);
-    expect(reportFailures(manifest.requirements, { success: true, testResults: [] }, root)).toHaveLength(34);
+    expect(manifest.requirements).toHaveLength(35);
+    expect(reportFailures(manifest.requirements, { success: true, testResults: [] }, root)).toHaveLength(35);
   });
   it("keeps all frozen verifier controls and activates for the committed current-source corpus", () => {
     const manifest = manifestFor("workflow-history-replay", process.cwd());
     expect(manifest.required).toBe(true);
-    expect(manifest.requirements.map(({ id: _id, ...requirement }) => requirement)).toEqual(WORKFLOW_HISTORY_REPLAY_REQUIREMENTS);
-    expect(manifest.requirements.filter(requirement => requirement.suite === "committed workflow histories replay against the current bundle")).toHaveLength(21);
+    // The frozen 34 first, unchanged, then each reviewed successor fixture (one per post-freeze patch marker).
+    expect(manifest.requirements.map(({ id: _id, ...requirement }) => requirement)).toEqual([...WORKFLOW_HISTORY_REPLAY_REQUIREMENTS, ...WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS]);
+    expect(WORKFLOW_HISTORY_REPLAY_SUCCESSOR_REQUIREMENTS).toEqual([{ file: "tests/workflows/history-replay.test.ts", suite: "committed workflow histories replay against the current bundle", test: "destroy-mixed-release-wait.json replays deterministically" }]);
+    expect(manifest.requirements.filter(requirement => requirement.suite === "committed workflow histories replay against the current bundle")).toHaveLength(22);
     expect(manifest.requirements.every(requirement => manifest.files.includes(requirement.file))).toBe(true);
     expect(manifest.requirements.every(requirement => requirement.test !== undefined)).toBe(true);
   });
@@ -55,6 +57,6 @@ describe("workflow-history replay manifest", () => {
     }
     const missingReplay = structuredClone(report);
     missingReplay.testResults[0].assertionResults = missingReplay.testResults[0].assertionResults.filter(assertion => !assertion.ancestorTitles.includes("committed workflow histories replay against the current bundle"));
-    expect(reportFailures(requirements, missingReplay, root)).toHaveLength(21);
+    expect(reportFailures(requirements, missingReplay, root)).toHaveLength(22);
   });
 });

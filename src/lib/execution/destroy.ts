@@ -20,7 +20,7 @@ import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan
 import { assertTeardownOwnership } from "./decommission";
 import { TofuCommandError } from "@/lib/tofu/runner";
 import { TofuPlanProvenanceError, type NormalizedPlan } from "@/lib/tofu/types";
-import type { DestroyActivities } from "@/lib/workflows/definitions/destroy";
+import type { DestroyActivities, TeardownReleaseCheck } from "@/lib/workflows/definitions/destroy";
 import type { LeaseRef, PlanSummary } from "@/lib/workflows/types";
 import { buildWorkspace } from "./compile";
 import { loadExecContext, loadOperation, resolveConnection, type ExecContext } from "./context";
@@ -28,7 +28,7 @@ import { assertLeaseFor, requireExecutable, tofuSessionFor } from "./desired";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { planEvidence, toPlanSummary } from "./plan-evidence";
-import { planCustody, type Runtime } from "./runtime";
+import { planCustody, scopeOf, type Runtime } from "./runtime";
 import { assertApprovedSemantics, recordReviewedSemantics } from "./semantics/dispatch";
 import { SemanticsChangedError } from "./semantics/errors";
 import { driverContext, LONG_SESSION_SEC, OBSERVE_CAPABILITY, PLAN_CAPABILITY, withProviderSession } from "./session";
@@ -402,6 +402,20 @@ async function reviewedPlan(rt: Runtime, ec: ExecContext, planDigest: string): P
   return addresses as string[];
 }
 
+/**
+ * PROD-MIX-04: the mixed teardown release of this destroy (see `TeardownReleaseCheck`). A lookup that fails throws, so a
+ * mixed child is never treated as not mixed. `announce` records a wait as an operation event the operator sees.
+ */
+async function checkTeardownRelease(rt: Runtime, operationId: string, announce: boolean): Promise<TeardownReleaseCheck> {
+  const op = await loadOperation(rt, operationId);
+  if (op.capability !== "infrastructure.destroy" || !op.environmentId) throw new StepFailedError("This is not a destroy operation.");
+  const gate = rt.d.mixedTeardown ? await rt.d.mixedTeardown.gate(op.workspaceId, op.environmentId, op.id) : { gated: false as const };
+  if (announce && gate.gated && gate.state === "waiting") {
+    await rt.emit(scopeOf(op), "operation.prepared", `teardown-release-wait:${op.id}`, { kind: "teardown_release_wait", childIds: gate.childIds, parentOperationIds: gate.parentOperationIds });
+  }
+  return gate;
+}
+
 /** The shared gate must not treat policy's auto-approval as a person's approval. */
 export async function checkDestroyApproval(rt: Runtime, operationId: string): Promise<{ approved: boolean; rejected: boolean; approvalId?: string }> {
   const op = await loadOperation(rt, operationId);
@@ -419,6 +433,7 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
       return runDestroyReview(rt, await (ports.reviewBroker ?? platformBroker)(), input,
         (lease) => planStage(rt, input.operationId, lease, ports));
     },
+    checkTeardownRelease: ({ operationId, announce }) => checkTeardownRelease(rt, operationId, announce),
     planDestroyInfrastructure: ({ operationId, lease }) => planStage(rt, operationId, lease, ports),
     finalDestroyPlan: ({ operationId, approvedPlanDigest, lease }) => planStage(rt, operationId, lease, ports, approvedPlanDigest),
     async applyDestroyInfrastructure({ operationId, planDigest, lease }) {
@@ -427,6 +442,9 @@ export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts
       const reviewedDns = isDirect(ec) ? undefined : await reviewedDnsOwnership(rt, ec, planDigest);
       const approval = await checkDestroyApproval(rt, operationId);
       if (!approval.approved || approval.rejected) throw new StepFailedError("Teardown requires a current digest-bound human approval.");
+      // The workflow waits for this; refusing here also covers a workflow that predates the gate.
+      const release = await checkTeardownRelease(rt, operationId, false);
+      if (release.gated && release.state !== "released") throw new StepFailedError("This environment is a child of a mixed run whose teardown step is not released to this destroy; nothing was applied.");
       // PROD-DUR-08: this exact destroy is applied at most once. A retry returns the saved result or refuses; it never re-applies.
       const effects = rt.d.effects;
       const effectScope: CleanupEffectScope | undefined = effects ? { workspaceId: ec.workspaceId, operationId, environmentId: ec.environmentId,

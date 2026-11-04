@@ -519,6 +519,27 @@ describe("preauthorizationUses", () => {
   });
 });
 
+describe("preauthorizationStanding", () => {
+  it("reads each of the parent's grants' typed standing, sorted, and maps an unknown word to unknown", async () => {
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed-output-preauthorizations?parentOperationId=op-parent") {
+        return ok({ preauthorizations: [{ id: "mop-2", standing: "spent" }, { id: "mop-1", standing: "active" }, { id: "mop-3", standing: "<script>" }, { id: "mop-4" }] });
+      }
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const product = await driverWithTenant({ request: t.request });
+    expect(await product.preauthorizationStanding!(TENANT, "op-parent")).toEqual(["active", "spent", "unknown", "unknown"]);
+    expect(t.sent.every(call => call.method === "GET")).toBe(true);
+  });
+
+  it("refuses a malformed parent operation id before sending anything", async () => {
+    const t = transport(() => ok({ preauthorizations: [] }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.preauthorizationStanding!(TENANT, "op parent?")).rejects.toThrow();
+    expect(t.sent).toEqual([]);
+  });
+});
+
 describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, release and sync", () => {
   const RUN = "/api/platform/v1/operations/op-parent/mixed-run";
   const stored = (status = "planned", extra: Record<string, unknown> = {}) => ({ childId: P_CONSUMER, addresses: ["function/consumer"], after: [], stepDigest: "e".repeat(64), status, ...extra });

@@ -9,8 +9,11 @@
  * the producer's subplan digest, the parent's desired-inputs digest and the value type. For a
  * secret it names the exact vault reference (a new version of that reference is the
  * materialization the grant exists for; a different reference is not covered). Optionally it
- * pins the value digest. It has 1 to 10 uses (reserved atomically), expires between five
+ * pins the value digest. It has exactly one use (reserved atomically), expires between five
  * minutes and seven days, and lapses when revoked or when its creator stops being an admin.
+ * One use is the whole of it: a grant names one parent operation, a plan binds one parent
+ * operation, and a run materializes each reference once, so a second use can never arise.
+ * The list readback names why a grant no longer covers a use (`standing`).
  * No field accepts a wildcard, a list of references or a secret value.
  *
  * It never covers a change of desired inputs, scope, a different consumer subplan or contract:
@@ -27,7 +30,8 @@ import { ID, SHA, VAULT_REF } from "./errors";
 
 export const PREAUTH_MIN_LIFETIME_MS = 5 * 60_000;
 export const PREAUTH_MAX_LIFETIME_MS = 7 * 24 * 60 * 60_000;
-export const PREAUTH_MAX_USES = 10;
+/** A reference materializes once per run and a grant names one run, so more than one use would promise a use that cannot exist. The table still allows 10. */
+export const PREAUTH_MAX_USES = 1;
 
 export interface OutputPreauthorization {
   id: string;
@@ -55,6 +59,17 @@ export interface OutputPreauthorization {
   revokedBy?: string;
   revokedReason?: string;
 }
+/** Why a grant does or does not cover a use right now. Only `active` covers one. */
+export type PreauthorizationStanding = "active" | "spent" | "expired" | "revoked" | "creator_not_admin";
+
+/** First failing condition wins: revoked, expired, spent, then the creator's current role. */
+export function standingOf(row: OutputPreauthorization, now: Date, creatorIsAdmin: boolean): PreauthorizationStanding {
+  if (row.status !== "active") return "revoked";
+  if (Date.parse(row.expiresAt) <= now.getTime()) return "expired";
+  if (row.uses >= row.maxUses) return "spent";
+  return creatorIsAdmin ? "active" : "creator_not_admin";
+}
+
 export type NewOutputPreauthorization = Omit<OutputPreauthorization, "uses" | "status" | "revokedAt" | "revokedBy" | "revokedReason">;
 
 export interface PreauthorizationStore {
@@ -179,10 +194,20 @@ export async function revokeOutputPreauthorization(deps: BrokerDeps, store: Prea
   return revoked;
 }
 
-export async function listOutputPreauthorizations(deps: BrokerDeps, store: PreauthorizationStore, input: { workspaceId: string; principal: Principal; parentOperationId?: string; activeOnly?: boolean }): Promise<OutputPreauthorization[]> {
+/** `activeOnly` keeps exactly the grants whose standing is `active`, the ones a decision would still use. */
+export async function listOutputPreauthorizations(deps: BrokerDeps, store: PreauthorizationStore, input: { workspaceId: string; principal: Principal; parentOperationId?: string; activeOnly?: boolean }): Promise<(OutputPreauthorization & { standing: PreauthorizationStanding })[]> {
   const access = await memberAccess(deps, input.principal, input.workspaceId);
-  const all = await store.list(input.workspaceId, { parentOperationId: input.parentOperationId, activeOnly: input.activeOnly, now: deps.clock.now() });
-  return all.filter((row) => !access.allowedEnvironmentIds || access.allowedEnvironmentIds.includes(row.environmentId));
+  const now = deps.clock.now();
+  const all = await store.list(input.workspaceId, { parentOperationId: input.parentOperationId, activeOnly: input.activeOnly, now });
+  const admin = new Map<string, boolean>();
+  const out: (OutputPreauthorization & { standing: PreauthorizationStanding })[] = [];
+  for (const row of all) {
+    if (access.allowedEnvironmentIds && !access.allowedEnvironmentIds.includes(row.environmentId)) continue;
+    if (!admin.has(row.createdBy)) admin.set(row.createdBy, ROLE_RANK[(await deps.roles.resolve({ kind: "user", id: row.createdBy, name: row.createdByName }, input.workspaceId)).role] >= ROLE_RANK.admin);
+    const standing = standingOf(row, now, admin.get(row.createdBy)!);
+    if (!input.activeOnly || standing === "active") out.push({ ...row, standing });
+  }
+  return out;
 }
 
 /**
@@ -195,7 +220,7 @@ export async function resolveLivePreauthorizations(deps: Pick<BrokerDeps, "roles
   for (const id of [...new Set(ids)].slice(0, 64)) {
     if (!ID.test(id)) continue;
     const row = await store.get(workspaceId, id);
-    if (!row || row.status !== "active" || Date.parse(row.expiresAt) <= now.getTime() || row.uses >= row.maxUses) continue;
+    if (!row || standingOf(row, now, true) !== "active") continue;
     const access = await deps.roles.resolve({ kind: "user", id: row.createdBy, name: row.createdByName }, workspaceId);
     if (ROLE_RANK[access.role] < ROLE_RANK.admin) continue;
     live.push(row);

@@ -194,6 +194,7 @@ const DEPLOY_POLLS = { attempts: 60, intervalMs: 5_000 };
 /** One use, fifteen minutes: enough for one consumer materialization and short enough to lapse on its own. */
 const PREAUTH_LIFETIME_MS = 15 * 60_000;
 const PREAUTH_REASON = "PROD-MIX-03 one-use output preauthorization";
+const STANDINGS: ReadonlySet<string> = new Set(["active", "spent", "expired", "revoked", "creator_not_admin"]);
 
 /** Destroy readback bound: 240 polls, 10 seconds apart (the teardown review alone may take 35 minutes). */
 const DESTROY_POLLS = { attempts: 240, intervalMs: 10_000 };
@@ -548,6 +549,15 @@ export function browserMix03Product(env: EnvLike = process.env, seams: Mix03Driv
         const all = await list(false), active = await list(true);
         const count = (key: "uses" | "maxUses") => all.reduce((sum, grant) => sum + (Number.isInteger(grant[key]) ? grant[key] as number : 0), 0);
         return { total: all.length, uses: count("uses"), maxUses: count("maxUses"), active: active.length };
+      });
+    },
+
+    async preauthorizationStanding(tenant, parentOperationId) {
+      return step("preauthorization standing", async () => {
+        const session = sessionOf(tenant);
+        const data = ok(await send(session, session.owner, `/api/platform/v1/mixed-output-preauthorizations?parentOperationId=${encodeURIComponent(idOf(parentOperationId, "the parent operation"))}`, undefined, "GET")) as { preauthorizations?: unknown };
+        const rows = (Array.isArray(data.preauthorizations) ? data.preauthorizations : []) as { standing?: unknown }[];
+        return rows.map((row) => (typeof row.standing === "string" && STANDINGS.has(row.standing) ? row.standing : "unknown")).sort();
       });
     },
 

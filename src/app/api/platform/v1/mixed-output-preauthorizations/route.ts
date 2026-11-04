@@ -5,14 +5,16 @@
  * A precise preauthorization lets ONE dependency reference of ONE parent operation be materialized and
  * consumed without a fresh review (PROD-MIX-03). It names the parent operation, the reference and its
  * contract digest, the consumer's and producer's immutable subplan digests, the parent's desired-inputs
- * digest and the value type (and for a secret the exact vault reference). 1 to 10 uses, 5 minutes to 7
+ * digest and the value type (and for a secret the exact vault reference). Exactly one use, 5 minutes to 7
  * days. It never accepts a value, a wildcard or a list. Needs the admin's own browser session.
+ * GET lists each grant with its `standing`: active, spent, expired, revoked or creator_not_admin. Only
+ * `active` covers a use; `activeOnly=true` returns exactly those.
  * Body: `{ parentOperationId, environmentId, desiredDigest, referenceId, contractDigest, consumerSubplanDigest,
  * producerSubplanDigest, valueType, secretRef?, valueDigest?, maxUses, lifetimeMs, reason? }`.
  */
 import { z } from "zod";
 import { BrokerError } from "@/lib/capabilities/errors";
-import { createOutputPreauthorization, listOutputPreauthorizations } from "@/lib/execution/mixed-orchestration/preauthorization";
+import { createOutputPreauthorization, listOutputPreauthorizations, PREAUTH_MAX_USES } from "@/lib/execution/mixed-orchestration/preauthorization";
 import { assertBrowserSession } from "../_lib/browser";
 import { parseWith, platformRoute, readJson } from "../_lib/http";
 import { guarded, mixedContext } from "../_lib/mixed-run";
@@ -35,7 +37,7 @@ const Body = z
     valueType: z.enum(["string", "number", "boolean", "resource_id", "endpoint", "secret_ref"]),
     secretRef: z.string().max(400).optional(),
     valueDigest: z.string().regex(SHA).optional(),
-    maxUses: z.number().int().min(1).max(10),
+    maxUses: z.number().int().min(1).max(PREAUTH_MAX_USES),
     lifetimeMs: z.number().int().min(5 * 60_000).max(7 * 24 * 60 * 60_000),
     reason: z.string().max(300).optional(),
   })

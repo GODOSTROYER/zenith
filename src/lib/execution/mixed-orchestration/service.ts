@@ -83,6 +83,19 @@ export async function recordChildEvent(deps: MixedRunDeps, input: { workspaceId:
   return summarizeRun(stored.state);
 }
 
+/**
+ * Record an operator's reconciliation of an indeterminate child (PROD-MIX-04). The outcome is the operator's reading of the
+ * provider, evidenced by a digest; the ledger keeps who recorded it, the outcome and the digest, never provider values.
+ * The reducer refuses a child that needs no reconciliation.
+ */
+export async function reconcileChild(deps: Pick<MixedRunDeps, "runs" | "now">, input: { workspaceId: string; parentOperationId: string; childId: string; outcome: "no_effects" | "effects_present"; evidenceDigest: string; reconciledBy: string }): Promise<RunSummary> {
+  const parsed = RunEventSchema.safeParse({ kind: "reconciled", childId: input.childId, outcome: input.outcome, evidenceDigest: input.evidenceDigest, at: deps.now().toISOString() });
+  if (!parsed.success) return refuse("invalid_input");
+  const event = parsed.data;
+  const stored = await transact(deps, input.workspaceId, input.parentOperationId, "reconciled", input.childId, { ...event, reconciledBy: input.reconciledBy }, (state) => applyRunEvent(state, event));
+  return summarizeRun(stored.state);
+}
+
 /** Time-driven progress: child timeouts and approval expiry. Idempotent. */
 export async function tickMixedRun(deps: Pick<MixedRunDeps, "runs" | "now">, workspaceId: string, parentOperationId: string): Promise<RunSummary> {
   const at = deps.now().toISOString();

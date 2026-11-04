@@ -70,6 +70,22 @@ export async function get(sql: Sql, workspaceId: string, parentOperationId: stri
   return rows.length ? toRow(rows[0]) : null;
 }
 
+/**
+ * The runs whose stored plan places a child in `environmentId` (a child environment, not the parent's), with that
+ * child's partition id. Tenant-filtered; the destroy path reads it to wait for its mixed teardown release.
+ */
+export async function listByChildEnvironment(sql: Sql, workspaceId: string, environmentId: string, limit = 50): Promise<{ childId: string; run: MixedRunRow }[]> {
+  const rows = await sql.query<Row & { child_id: string }>(
+    `select c.partition_id as child_id, ${COLUMNS.split(", ").map((column) => `r.${column}`).join(", ")}
+       from platform.mixed_child_plans c
+       join platform.mixed_parent_plans p on p.workspace_id = c.workspace_id and p.plan_id = c.plan_id
+       join platform.mixed_runs r on r.workspace_id = p.workspace_id and r.parent_operation_id = p.parent_operation_id
+      where c.workspace_id = $1 and c.child_environment_id = $2
+      order by r.parent_operation_id, c.partition_id limit $3`,
+    [requireText("workspaceId", workspaceId), requireText("environmentId", environmentId), clampLimit(limit, 50, 500)]);
+  return rows.map((row) => ({ childId: row.child_id, run: toRow(row) }));
+}
+
 /** Insert the first state (version 1) and its `run_created` event atomically. A second create for the parent conflicts. */
 export async function create(sql: Sql, input: MixedRunWrite): Promise<MixedRunRow> {
   const ws = requireText("workspaceId", input.workspaceId);

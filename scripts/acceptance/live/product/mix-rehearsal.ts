@@ -341,7 +341,8 @@ export function mixRehearsalPort(env: EnvLike = process.env, seams: MixRehearsal
             opened.set(childId, destroy.destroyOperationId);
             return destroy.destroyOperationId;
           };
-          // Ordering: a producer released while its consumer stands is refused; the step stays planned.
+          // Ordering: a producer released while its consumer stands is refused; the step stays planned, and its destroy keeps
+          // waiting for the release instead of applying (its later release is accepted only because it has not ended).
           const early = proposal.steps.find(item => item.after.length);
           if (early && !orderingRefused) {
             at(`${parent.label} ordering check`);

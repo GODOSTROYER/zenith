@@ -196,3 +196,29 @@ export function recordTeardownResult(state: MixedRunState, childId: string, outc
   next.seq += 1;
   return next;
 }
+
+/* ------------------------------ destroy gate ------------------------------ */
+
+/**
+ * What the destroy workflow waits on before it applies (PROD-MIX-04 "teardown order"). `gated: false`: no run proposes
+ * a teardown step for a child in this environment (not a mixed child, no proposal yet, nothing managed to destroy, or the
+ * step is already destroyed), so the destroy runs as any other. Otherwise every such step must be `released` to THIS
+ * destroy. A step that ended `failed` or `uncertain` can never be released again, so the destroy stops (`blocked`);
+ * anything else (planned, or released to another destroy) is a wait.
+ */
+export type TeardownReleaseGate =
+  | { gated: false }
+  | { gated: true; state: "released" | "waiting" | "blocked"; childIds: string[]; parentOperationIds: string[] };
+
+export function teardownReleaseGate(runs: readonly { childId: string; state: MixedRunState }[], destroyOperationId: string): TeardownReleaseGate {
+  const steps = runs.flatMap(({ childId, state }) => {
+    const step = state.teardown?.steps.find((item) => item.childId === childId);
+    return step && step.status !== "destroyed" ? [{ step, parentOperationId: state.parentOperationId }] : [];
+  });
+  if (!steps.length) return { gated: false };
+  const childIds = sortedUnique(steps.map(({ step }) => step.childId));
+  const parentOperationIds = sortedUnique(steps.map(({ parentOperationId }) => parentOperationId));
+  const state = steps.some(({ step }) => step.status === "failed" || step.status === "uncertain") ? "blocked"
+    : steps.every(({ step }) => step.status === "released" && step.destroyOperationId === destroyOperationId) ? "released" : "waiting";
+  return { gated: true, state, childIds, parentOperationIds };
+}

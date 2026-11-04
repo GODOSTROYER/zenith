@@ -5,6 +5,7 @@
  */
 import { createPlatformSemanticsStore } from "@/lib/controlplane/db/repos/executable-semantics";
 import { createPlatformTypedInputs } from "@/lib/execution/mixed/typed-inputs";
+import { teardownReleaseGateOf } from "@/lib/execution/mixed-orchestration/platform";
 import { createPlanArtifactRuntime } from "./plan-artifacts";
 import { withWorkerCustody } from "./plan-custody";
 import { hkdfSync } from "node:crypto";
@@ -143,6 +144,8 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     buildProfile: ref => buildProfileDigest(createBuildCustody().profile(ref)),
     // Producer outputs captured at apply, and the typed inputs a mixed consumer receives (PROD-MIX follow-up).
     typedInputs: createPlatformTypedInputs({ sql: opts.db }),
+    // A mixed child's destroy waits for its teardown step release (PROD-MIX-04).
+    mixedTeardown: { gate: (workspaceId, environmentId, destroyOperationId) => teardownReleaseGateOf(opts.db, workspaceId, environmentId, destroyOperationId) },
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     // The captured source authority is final; the generic test-port spread cannot replace it.

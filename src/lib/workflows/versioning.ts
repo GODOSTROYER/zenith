@@ -110,6 +110,7 @@ export interface WorkflowPatchEntry {
 export const WORKFLOW_PATCHES: readonly WorkflowPatchEntry[] = [
   { id: "ecs-replica-repair-v1", workflow: "dayTwoOperationWorkflow", status: "active", reason: "drift.repair gained the ECS replica repair recipe steps", removableWhen: "every dayTwoOperationWorkflow started before the patch has closed or been retention-pruned" },
   { id: "durable-build-launch-v1", workflow: "infrastructureDeployWorkflow", status: "active", reason: "build step uses the durable build-launch activity options and uncertain-launch handling", removableWhen: "every infrastructureDeployWorkflow that passed the build step before the patch has closed" },
+  { id: "mixed-teardown-release-gate-v1", workflow: "infrastructureDestroyWorkflow", status: "active", reason: "destroy waits for its mixed teardown step release before final plan and apply (PROD-MIX-04)", removableWhen: "every infrastructureDestroyWorkflow started before the patch has closed" },
   { id: "reconcile-canonical-proposals-v1", workflow: "reconcileEnvironmentWorkflow", status: "active", reason: "reconcile passes run the canonical repair lifecycle (proposals) instead of observe-only", removableWhen: "every reconcileEnvironmentWorkflow started before the patch has closed (passes are short, so this is the first candidate)" },
 ];
 

@@ -323,6 +323,57 @@ export class OperationRun {
     }
   }
 
+  /**
+   * Wait for an outside release before a mutating step (the mixed teardown release, PROD-MIX-04). `check` decides each
+   * time; `announce` is true on the first call only. Already `ready` is taken on the spot with the lease kept. `blocked`
+   * halts `failed`. Otherwise the wait is lease-free, as in `approvalGate` (invariant 4): the lease is dropped and the
+   * operation is suspended to `awaiting_approval`, which opens a fresh approval round (a `running` operation without its
+   * lease would be marked uncertain by the reconciler). The loop wakes on the `approvalRecorded` signal or every
+   * APPROVAL_POLL_INTERVAL_MS and continues once the release is in AND a person approved that round; a rejection halts
+   * `failed`, and APPROVAL_TIMEOUT_MS halts `expired`. Nothing is changed on any halt. A fresh lease is taken after a wait.
+   */
+  async releaseGate(step: StepName, check: (announce: boolean) => Promise<{ ready: boolean; blocked?: string; waiting?: string }>, expired: string): Promise<void> {
+    let waited = false;
+    await this.step(
+      step,
+      async () => {
+        const deadline = Date.now() + APPROVAL_TIMEOUT_MS;
+        for (;;) {
+          const seen = this.approvalSignals;
+          const gate = await check(!waited);
+          if (gate.blocked) throw new OperationHalt("failed", gate.blocked);
+          if (!waited) {
+            if (gate.ready) return gate;
+            waited = true;
+            try {
+              await this.dropLease();
+            } catch (err) {
+              if (isCancellation(err)) throw err;
+              log.warn("releasing the lease before the release wait failed; it will expire on its own");
+            }
+            await activities.markOperation({ operationId: this.operationId, status: "awaiting_approval" });
+            this.status = "awaiting_approval";
+            if (gate.waiting) await this.mark(step, "running", gate.waiting);
+          } else {
+            const approval = await activities.checkApproval({ operationId: this.operationId });
+            if (approval.rejected) throw new OperationHalt("failed", "The approval was rejected; nothing was changed.");
+            if (gate.ready && approval.approved) return gate;
+          }
+          const remaining = deadline - Date.now();
+          if (remaining <= 0) throw new OperationHalt("expired", expired);
+          await condition(() => this.approvalSignals > seen, Math.min(remaining, APPROVAL_POLL_INTERVAL_MS));
+        }
+      },
+      () => "released",
+      { renew: false }
+    );
+    if (waited) {
+      this.status = "running";
+      await activities.markOperation({ operationId: this.operationId, status: "running" });
+      await this.acquireLeaseStep();
+    }
+  }
+
   /* --------------------------------- run --------------------------------- */
 
   /**

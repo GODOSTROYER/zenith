@@ -70,6 +70,7 @@ export const STEP_MAY_HAVE_ACTED: Readonly<Record<StepName, boolean>> = {
   policy: false,
   approval: false,
   final_plan: false,
+  teardown_release: false,
   apply_network: true,
   apply_data: true,
   apply_infrastructure: true,

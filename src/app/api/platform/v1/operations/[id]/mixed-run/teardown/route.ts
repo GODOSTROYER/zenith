@@ -11,6 +11,8 @@
  *                                                      infrastructure.destroy operation is in the CHILD's own environment
  *                                                      (env.reviewTeardown of it), approved by a human admin for exactly
  *                                                      the step's addresses, has not ended, and the ordering rules allow it.
+ *                                                      The destroy waits for this release before it applies; the
+ *                                                      release wakes it (a durable signal; its own poll covers a loss).
  *   { action: "sync", childId }                        records the released step's outcome from the destroy operation's
  *                                                      own status (never from the caller).
  * Each child's environment comes from the run's stored, digest-bound plan, never from the caller.
@@ -22,6 +24,7 @@ import * as mixedPlans from "@/lib/controlplane/db/repos/mixed-parent-plans";
 import { asOrderingSignals, readRunSignals } from "@/lib/execution/mixed/signals";
 import { childEnvironmentsOf, platformTeardownPlanInput } from "@/lib/execution/mixed-orchestration/platform";
 import { proposeTeardown, readMixedRun, releaseTeardown, syncTeardownStep } from "@/lib/execution/mixed-orchestration/service";
+import { signalDurably } from "@/lib/controlplane/outbox/signal";
 import { assertBrowserSession } from "../../../../_lib/browser";
 import { parseWith, platformRoute, readJson } from "../../../../_lib/http";
 import { authorizeRunControl, guarded, mixedContext } from "../../../../_lib/mixed-run";
@@ -64,5 +67,8 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
     releaseTeardown(deps, { workspaceId: caller.workspaceId, parentOperationId: id, childId: body.childId, destroyOperationId: body.destroyOperationId,
       childEnvironmentId: environments.get(body.childId) ?? "", signals }),
   );
-  return { body: { summary } };
+  // The release is recorded; waking the destroy is best effort (it re-checks on its own poll).
+  const signal = await signalDurably({ workspaceId: caller.workspaceId, operationId: body.destroyOperationId, signal: "approvalRecorded", key: `teardown-release:${body.destroyOperationId}` }, { sql })
+    .catch(() => ({ delivered: false as const, reason: "pending" as const }));
+  return { body: { summary, signal } };
 });

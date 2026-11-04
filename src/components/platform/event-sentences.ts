@@ -44,7 +44,12 @@ type Rule = { sentence: (who: string, d: Data) => string; tone: DotStatus };
 
 const RULES: Record<PlatformEventType, Rule> = {
   "operation.proposed": { sentence: (w) => `${w} proposed this change.`, tone: "idle" },
-  "operation.prepared": { sentence: () => "Zenith prepared the change for execution.", tone: "idle" },
+  "operation.prepared": {
+    sentence: (_w, d) => d.kind === "teardown_release_wait"
+      ? "This destroy waits for its mixed teardown step to be released, then for a person's approval. Nothing was changed yet."
+      : "Zenith prepared the change for execution.",
+    tone: "idle",
+  },
   "operation.approved": { sentence: (w) => `${w} approved this proposal.`, tone: "ok" },
   "operation.rejected": { sentence: (w) => `${w} rejected this proposal. Nothing was changed.`, tone: "idle" },
   "operation.denied": { sentence: () => "Policy blocked this change before it ran.", tone: "err" },

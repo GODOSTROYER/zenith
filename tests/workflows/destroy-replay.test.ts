@@ -29,6 +29,7 @@ describe.skipIf(!enabled)("real destroy workflow histories (ZENITH_TEST_TEMPORAL
     const plan = { planDigest: "a".repeat(64), create: 0, update: 0, delete: 1, replace: 0, empty: false, destroysData: true };
     const calls: string[] = [];
     const extra: DestroyActivities = {
+      checkTeardownRelease: async () => ({ gated: false }),
       planDestroyInfrastructure: async () => { calls.push("plan"); return plan; },
       finalDestroyPlan: async () => { calls.push("final"); if (kind === "plan_changed") throw ApplicationFailure.nonRetryable("plan moved", "plan_changed"); return plan; },
       applyDestroyInfrastructure: async () => { calls.push("apply"); if (kind === "lease_lost") throw ApplicationFailure.nonRetryable("fence lost", "LeaseLost"); return { deleted: 1 }; },

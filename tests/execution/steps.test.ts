@@ -49,6 +49,7 @@ describe("recordStep", () => {
       policy: "planning",
       final_plan: "planning",
       approval: "awaiting_approval",
+      teardown_release: undefined,
       apply_network: "applying",
       apply_data: "applying",
       apply_infrastructure: "applying",

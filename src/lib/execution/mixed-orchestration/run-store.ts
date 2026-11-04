@@ -59,19 +59,22 @@ const write = (state: MixedRunState) => ({
   desiredDigest: state.desiredDigest, state, stateDigest: digest(state), open: isRunOpen(state), nextDeadlineAt: nextDeadline(state),
 });
 
-function mapStoreError(error: unknown): never {
+export function mapStoreError(error: unknown): never {
   if (error instanceof ControlStoreError && error.code === "conflict") throw new MixedOrchestrationError("conflict");
   if (error instanceof MixedOrchestrationError) throw error;
   throw new MixedOrchestrationError("unavailable");
 }
 
+/** A stored row, re-validated: a malformed state or one that disagrees with its row's identity is an error. */
+export function storedRunOf(row: repo.MixedRunRow): StoredRun {
+  const state = parseRunState(row.state);
+  if (state.workspaceId !== row.workspaceId || state.parentOperationId !== row.parentOperationId
+    || state.environmentId !== row.environmentId || state.desiredDigest !== row.desiredDigest) return refuse("invalid_input");
+  return { state, version: row.version };
+}
+
 export function platformMixedRunStore(sql: Sql): MixedRunStore {
-  const toStored = (row: repo.MixedRunRow): StoredRun => {
-    const state = parseRunState(row.state);
-    if (state.workspaceId !== row.workspaceId || state.parentOperationId !== row.parentOperationId
-      || state.environmentId !== row.environmentId || state.desiredDigest !== row.desiredDigest) return refuse("invalid_input");
-    return { state, version: row.version };
-  };
+  const toStored = storedRunOf;
   return {
     async get(workspaceId, parentOperationId) {
       try { const row = await repo.get(sql, workspaceId, parentOperationId); return row ? toStored(row) : null; } catch (error) { return mapStoreError(error); }

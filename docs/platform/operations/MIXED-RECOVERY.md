@@ -84,6 +84,9 @@ Otherwise reconcile and retry as above.
 
 The control plane re-verifies each child's connection before it starts; a revoked connection refuses that child, changes nothing and
 leaves earlier children applied. The running application's data plane is independent of the control plane and keeps serving.
+In the run summary (confirm-blast-radius) the refused child is listed under `failed` with reason `refused_connection_unverified`
+and effects `none`; `nextSteps` names `review_replan` (and `propose_teardown_for_human_approval` when earlier children applied),
+never `retry_after_reconcile`, because a revoked connection does not come back.
 - **rebind-connection-and-replan**: create and verify a replacement connection, then plan again. A revoked connection never works
   again; the old plan is not resumed.
 - **resume-after-new-approval**: a person approves the new plan; completed children are not re-applied.

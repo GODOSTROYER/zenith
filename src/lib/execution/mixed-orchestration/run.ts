@@ -117,6 +117,8 @@ export const RunEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("cancel_confirmed"), childId: ChildId, effects: z.enum(["none", "possible", "present"]), at: At }).strict(),
   z.object({ kind: z.literal("reconciled"), childId: ChildId, outcome: z.enum(["no_effects", "effects_present"]), evidenceDigest: z.string().regex(SHA), at: At }).strict(),
   z.object({ kind: z.literal("retry"), childId: ChildId, at: At }).strict(),
+  // A child refused before it started (for example its connection was revoked): nothing reached the provider.
+  z.object({ kind: z.literal("refuse"), childId: ChildId, reason: z.string().regex(/^refused_[a-z0-9_]{1,55}$/), at: At }).strict(),
 ]);
 export type RunEvent = z.infer<typeof RunEventSchema>;
 
@@ -287,6 +289,13 @@ export function applyRunEvent(state: MixedRunState, raw: AnyRunEvent, view?: Par
         c.effects = event.outcome === "no_effects" ? "none" : "present"; c.reconciliationRequired = false;
         break;
       }
+      case "refuse": {
+        const c = child(next, event.childId);
+        if (c.status !== "pending" && c.status !== "blocked") refuse("illegal_transition", c.id);
+        // No new effect: earlier attempts' effects and reconciliation needs stay as they were.
+        c.status = "failed"; c.reason = event.reason; c.finishedAt = event.at; delete c.blockedBy;
+        break;
+      }
       case "retry": {
         const c = child(next, event.childId);
         if (next.cancelRequestedAt) refuse("run_terminal", c.id);
@@ -380,7 +389,8 @@ export function summarizeRun(state: MixedRunState): RunSummary {
   const steps: NextStep[] = [];
   if (inFlight.length) steps.push("wait_for_in_flight_children");
   if (indeterminate.length) steps.push("reconcile_before_retry");
-  if (failed.some((c) => !c.reconciliationRequired && (c.status === "failed" || c.status === "timed_out" || c.status === "outage")) && !state.cancelRequestedAt) steps.push("retry_after_reconcile");
+  // A child refused before it started is not retried: its cause (a revoked connection) needs a rebind and a replan.
+  if (failed.some((c) => !c.reconciliationRequired && (c.status === "failed" || c.status === "timed_out" || c.status === "outage") && !c.reason?.startsWith("refused_")) && !state.cancelRequestedAt) steps.push("retry_after_reconcile");
   if (hasBadEnd || all.some((c) => c.status === "blocked")) steps.push("review_replan");
   if (!complete && succeeded.some((c) => c.effects !== "none")) steps.push("propose_teardown_for_human_approval");
   if (!steps.length) steps.push("none");

@@ -25,7 +25,7 @@ import { settleOutcome } from "@/lib/execution/mixed/settle";
 import { composeMixedDeps } from "@/lib/execution/mixed/deps";
 import { advanceChild, beginParent, observeChild, settleParent, verifyParent, type ChildLauncher } from "@/lib/execution/mixed/service";
 import {
-  cancelRunForParent, joinedLauncher, materializeIncoming, openRunForParent, reviewStillPending, syncAllChildren, syncChildOutcome, tickRun, type JoinDeps, type ParentReviewOpener,
+  cancelRunForParent, joinedLauncher, materializeIncoming, openRunForParent, recordChildRefusal, reviewStillPending, syncAllChildren, syncChildOutcome, tickRun, type JoinDeps, type ParentReviewOpener,
 } from "@/lib/execution/mixed/orchestration-join";
 import { MixedOrchestrationError, platformMixedRunDeps, type MixedRunDeps } from "@/lib/execution/mixed-orchestration";
 import { MIXED_PARENT_CAPABILITY } from "@/lib/execution/mixed/types";
@@ -171,7 +171,14 @@ export function createMixedActivities(options: MixedActivityDeps): MixedActiviti
         await plans.blockChild(options.db, { workspaceId: input.workspaceId, planId: input.parentPlanId, partitionId: input.partitionId, reason: materialized.reason });
         return { state: "blocked" as const, reason: materialized.reason };
       }
-      const result = await advanceChild(deps, joinedLauncher(j, launcher, scope), { workspaceId: input.workspaceId, operationId: input.operationId, planId: input.parentPlanId, partitionId: input.partitionId });
+      let result: Awaited<ReturnType<typeof advanceChild>>;
+      try {
+        result = await advanceChild(deps, joinedLauncher(j, launcher, scope), { workspaceId: input.workspaceId, operationId: input.operationId, planId: input.parentPlanId, partitionId: input.partitionId });
+      } catch (error) {
+        // Refused before the claim (the connection is revoked or no longer verifies): the run names it, nothing was applied.
+        if (error instanceof MixedPlanError && error.code === "connection_unverified") await recordChildRefusal(j, { ...scope, partitionId: input.partitionId, reason: error.code });
+        throw error;
+      }
       if (result.state === "blocked") return { state: "blocked" as const, reason: result.reason };
       if (result.state === "waiting") return { state: "waiting" as const };
       if (result.state !== "started") {

@@ -195,6 +195,19 @@ export async function syncChildOutcome(deps: JoinDeps, input: { workspaceId: str
   await recordChildEvent(deps.run, { workspaceId: input.workspaceId, parentOperationId: input.parentOperationId, view, event: { kind: "fail", childId: input.partitionId, reason, effects: "possible", at } });
 }
 
+/**
+ * Record that a child was refused before it started (for example its connection was revoked or no longer verifies), so the
+ * run summary names the refusal instead of showing the child as not started. Nothing reached the provider. Idempotent: a
+ * child that already started or ended is left as it is.
+ */
+export async function recordChildRefusal(deps: JoinDeps, input: { workspaceId: string; parentOperationId: string; plan: MixedParentPlan; partitionId: string; reason: string }): Promise<void> {
+  const run = await readMixedRun(deps.run, input.workspaceId, input.parentOperationId);
+  const current = run?.state.children[input.partitionId];
+  if (!current || (current.status !== "pending" && current.status !== "blocked")) return;
+  await recordChildEvent(deps.run, { workspaceId: input.workspaceId, parentOperationId: input.parentOperationId, view: parentViewOfPlan(input.plan),
+    event: { kind: "refuse", childId: input.partitionId, reason: `refused_${input.reason}`, at: atOf(deps) } });
+}
+
 /** Sync every child whose durable row is terminal but whose run record is not (a crash between observe and record). */
 export async function syncAllChildren(deps: JoinDeps, input: { workspaceId: string; parentOperationId: string; plan: MixedParentPlan }): Promise<void> {
   const rows = await plans.listChildren(deps.sql, input.workspaceId, input.plan.parentPlanId);

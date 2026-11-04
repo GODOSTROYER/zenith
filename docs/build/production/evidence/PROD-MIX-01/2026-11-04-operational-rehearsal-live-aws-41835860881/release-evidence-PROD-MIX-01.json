@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-MIX-01",
+  "level": "operational_rehearsal",
+  "commit": "8888743fa1369b5b9af14011942f15d384233547",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 8cc1c82db8c1fab31e79737faadfa8504cd91d713e8bcf1a3b47ad7528178f15; cleanup complete",
+  "command": "GitHub Actions live-acceptance.yml, operational rehearsal (live) of the operator runbook, scenario mix-rehearsal, run id zlive-202611041311-8de0; plan sha256 49c6e6ff215e6d1ded82dd3047e7b3153e5755fe5cd2a692abed2a8a6e842186",
+  "mode": "live",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-MIX-01/2026-11-04-operational-rehearsal-live-aws-41835860881/release-source-PROD-MIX-01.json",
+      "sha256": "b8cb87a7df39c68511e18317381c1657bf6a709a5fcd852d829b01d3a300c162"
+    }
+  ]
+}

@@ -61,9 +61,28 @@ export interface Mix03Product {
   operationHalt?(tenant: Mix03Tenant, operationId: string): Promise<{ status: string; halt?: string; detail?: string }>;
   /** PROD-MIX-02: the stored parent plan, as GET /api/platform/v1/mixed/plans/:id returns it. */
   planReadback?(tenant: Mix03Tenant, planId: string): Promise<MixedReadback>;
+  /** PROD-MIX-04: the run as GET /api/platform/v1/operations/:id/mixed-run returns it: outcome, next steps and teardown steps. */
+  mixedRun?(tenant: Mix03Tenant, parentOperationId: string): Promise<Mix03Run>;
+  /** PROD-MIX-04: writes the teardown proposal (consumers first) through the browser-only teardown route. Destroys nothing. */
+  proposeTeardown?(tenant: Mix03Tenant, parentOperationId: string): Promise<Mix03Teardown>;
+  /**
+   * PROD-MIX-04: env.reviewTeardown of the child's OWN environment (from the stored plan), the person's approval of the destroy
+   * proposal it opens, and a wait until the destroy has planned and waits for its final approval. Nothing is deleted yet.
+   */
+  openChildDestroy?(tenant: Mix03Tenant, planId: string, childId: string): Promise<{ destroyOperationId: string; status: string }>;
+  /** PROD-MIX-04: releases one teardown step to that destroy. A product refusal (ordering, approval) is a reason, not an error. */
+  releaseTeardown?(tenant: Mix03Tenant, parentOperationId: string, childId: string, destroyOperationId: string): Promise<{ released: true } | { released: false; reason: string }>;
+  /** PROD-MIX-04: approves the destroy's remaining rounds and waits until it ends; the halt is a fixed category, never its text. */
+  finishChildDestroy?(tenant: Mix03Tenant, destroyOperationId: string): Promise<{ status: string; halt?: string }>;
+  /** PROD-MIX-04: records the released step's outcome from the destroy operation's own status and returns the step as stored. */
+  syncTeardown?(tenant: Mix03Tenant, parentOperationId: string, childId: string): Promise<Mix03TeardownStep>;
   /** Releases the browser. Called once the run is over, after teardown. */
   close?(): Promise<void>;
 }
+/** One teardown step as the run stores it: ids, a fixed status, the steps it waits for and how many addresses it lists. */
+export interface Mix03TeardownStep { childId: string; status: string; after: string[]; addresses: number; destroyOperationId?: string }
+export interface Mix03Run { outcome: string; nextSteps: string[]; steps: Mix03TeardownStep[] }
+export interface Mix03Teardown { steps: Mix03TeardownStep[]; retained: number; nothingToDestroy: string[] }
 
 /** A durable child receipt as read back (src/lib/execution/mixed/receipt.ts): digests, ids and fixed words, never outputs. */
 export interface MixedReceipt {

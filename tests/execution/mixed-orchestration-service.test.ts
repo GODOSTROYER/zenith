@@ -369,10 +369,10 @@ describe("teardown through the service", () => {
     const report = await proposeTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, plan: plan(w) });
     expect(report.state.teardown!.steps.map((step) => step.childId)).toEqual([w.ids.fn, w.ids.web, w.ids.db]);
     // No approval on record: refused and nothing changes.
-    expect(await refusedCode(releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn, destroyOperationId: `op-destroy-${FN}`, signals: { drift: [], migrationChildIds: [] } }))).toBe("approval_invalid");
+    expect(await refusedCode(releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn, destroyOperationId: `op-destroy-${FN}`, childEnvironmentId: ENV, signals: { drift: [], migrationChildIds: [] } }))).toBe("approval_invalid");
     expect((await r.store.get(WS, PARENT))!.state.teardown!.steps[0].status).toBe("planned");
     r.facts[`op-destroy-${FN}`] = fact(FN);
-    await releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn, destroyOperationId: `op-destroy-${FN}`, signals: { drift: [], migrationChildIds: [] } });
+    await releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn, destroyOperationId: `op-destroy-${FN}`, childEnvironmentId: ENV, signals: { drift: [], migrationChildIds: [] } });
     expect((await r.store.get(WS, PARENT))!.state.teardown!.steps[0]).toMatchObject({ status: "released", approvalId: "appr-1" });
     // The destroy is still approved, not finished: there is no outcome to record, and the caller cannot supply one.
     expect(await refusedCode(syncTeardownStep(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn }))).toBe("illegal_transition");
@@ -381,7 +381,7 @@ describe("teardown through the service", () => {
     expect(synced.appliedWithoutRunCompletion).toEqual([]);
     expect((await r.store.get(WS, PARENT))!.state.children[w.ids.fn].effects).toBe("none");
     expect((await r.store.events(WS, PARENT)).map((event) => event.kind)).toEqual(["run_created", "teardown_planned", "teardown_released", "teardown_result"]);
-    expect(await refusedCode(releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.db, destroyOperationId: `op-destroy-${DB}`, signals: { drift: [], migrationChildIds: [] } }))).toBe("approval_invalid");
+    expect(await refusedCode(releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.db, destroyOperationId: `op-destroy-${DB}`, childEnvironmentId: ENV, signals: { drift: [], migrationChildIds: [] } }))).toBe("approval_invalid");
   });
 
   it("records a failed or uncertain destroy as such", async () => {
@@ -391,7 +391,7 @@ describe("teardown through the service", () => {
       await applied(r, w);
       await proposeTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, plan: plan(w) });
       r.facts[`op-destroy-${FN}`] = fact(FN);
-      await releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn, destroyOperationId: `op-destroy-${FN}`, signals: { drift: [], migrationChildIds: [] } });
+      await releaseTeardown(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn, destroyOperationId: `op-destroy-${FN}`, childEnvironmentId: ENV, signals: { drift: [], migrationChildIds: [] } });
       r.facts[`op-destroy-${FN}`] = fact(FN, status);
       await syncTeardownStep(r.deps, { workspaceId: WS, parentOperationId: PARENT, childId: w.ids.fn });
       const state = (await r.store.get(WS, PARENT))!.state;

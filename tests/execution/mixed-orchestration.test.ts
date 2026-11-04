@@ -538,7 +538,7 @@ describe("teardown: reverse order, ownership, human destructive approval", () =>
     proposalDigest: H("proposal"), approvals: [{ id: "appr-1", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false }], ...over,
   });
   const verify = (state: MixedRunState, childId: string, destroyed: DestroyApprovalFact | null) =>
-    verifyTeardownApproval(port({ [`op-destroy-${addresses[childId]}`]: destroyed }), state, childId, `op-destroy-${addresses[childId]}`, NOW);
+    verifyTeardownApproval(port({ [`op-destroy-${addresses[childId]}`]: destroyed }), state, childId, `op-destroy-${addresses[childId]}`, NOW, ENV);
 
   it("proposes one step per applied child, consumers first, with explicit ordering edges", () => {
     const report = plan();
@@ -622,19 +622,32 @@ describe("teardown: reverse order, ownership, human destructive approval", () =>
       ["an editor", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "editor", expiresAt: at(60), consumed: false }] }],
       ["an approval of another proposal", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("other"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false }] }],
       ["an expired approval", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(-1), consumed: false }] }],
-      ["a consumed approval", { approvals: [{ id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: true }] }],
       ["no approval at all", { approvals: [] }],
       ["an approval alongside a rejection", { approvals: [
         { id: "a", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false },
         { id: "b", decision: "reject", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt: at(60), consumed: false }] }],
     ];
+    // The destroy path consumes its approval when its workflow claims the operation, before the reviewed list exists.
+    it.each([["consumed", at(60)], ["consumed after it expired", at(-1)]])("accepts the destroy's own approval %s by its claim", async (_label, expiresAt) => {
+      const approval = await verify(planned, w.ids.fn, fact(FN, { status: "running", approvals: [{ id: "appr-1", decision: "approve", proposalDigest: H("proposal"), approverKind: "user", humanOnly: true, approverRole: "admin", expiresAt, consumed: true }] }));
+      expect(releaseTeardownStep(planned, w.ids.fn, approval, NONE, NOW).teardown!.steps[0]).toMatchObject({ status: "released", approvalId: "appr-1" });
+    });
+
+    it("binds the check to the child's own environment and the proof to its child", async () => {
+      await expect(verifyTeardownApproval(port({ "op-c": fact(FN, { operationId: "op-c", environmentId: "env-child" }) }), planned, w.ids.fn, "op-c", NOW, ENV)).rejects.toMatchObject({ code: "approval_invalid" });
+      const approval = await verifyTeardownApproval(port({ "op-c": fact(FN, { operationId: "op-c", environmentId: "env-child" }) }), planned, w.ids.fn, "op-c", NOW, "env-child");
+      expect(approval).toMatchObject({ environmentId: "env-child", childId: w.ids.fn });
+      expect(code(() => releaseTeardownStep(planned, w.ids.web, approval, NONE, NOW))).toBe("approval_invalid");
+      expect(releaseTeardownStep(planned, w.ids.fn, approval, NONE, NOW).teardown!.steps[0].status).toBe("released");
+    });
+
     it.each(bad)("refuses %s", async (_label, over) => {
       await expect(verify(planned, w.ids.fn, over === null ? null : fact(FN, over))).rejects.toMatchObject({ code: "approval_invalid" });
     });
 
     it("refuses a step that is not in the proposal and a forged approval object", async () => {
-      await expect(verifyTeardownApproval(port({}), done, w.ids.fn, "op-x", NOW)).rejects.toMatchObject({ code: "teardown_refused" });
-      const forged = { workspaceId: WS, environmentId: ENV, destroyOperationId: "op-x", approvalId: "appr-1", destroyAddresses: [FN] };
+      await expect(verifyTeardownApproval(port({}), done, w.ids.fn, "op-x", NOW, ENV)).rejects.toMatchObject({ code: "teardown_refused" });
+      const forged = { workspaceId: WS, environmentId: ENV, childId: w.ids.fn, destroyOperationId: "op-x", approvalId: "appr-1", destroyAddresses: [FN] };
       expect(code(() => releaseTeardownStep(planned, w.ids.fn, forged, NONE, NOW))).toBe("approval_invalid");
     });
 

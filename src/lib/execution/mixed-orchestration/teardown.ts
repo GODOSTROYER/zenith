@@ -6,8 +6,9 @@
  * applied child, consumers first (reverse dependency order). Each step is released only by
  * `releaseTeardownStep`, which needs a verified HUMAN destructive approval of an
  * `infrastructure.destroy` operation (the existing destroy path: reviewed plan, admin role,
- * browser approval) whose reviewed destroy list matches this step, and which re-evaluates the
- * ordering rules at release time. Only one step is released at a time, and a step whose consumers
+ * browser approval) in THAT child's own environment (its state lives there, not in the parent's),
+ * whose reviewed destroy list matches this step, and which re-evaluates the ordering rules at
+ * release time. Only one step is released at a time, and a step whose consumers
  * are not confirmed destroyed (failed or uncertain count as not destroyed) can never be released.
  *
  * Ownership: only addresses with `managed` ownership in the child plan are ever listed; referenced
@@ -102,6 +103,7 @@ export interface TeardownApprovalPort {
 export interface VerifiedTeardownApproval {
   readonly workspaceId: string;
   readonly environmentId: string;
+  readonly childId: string;
   readonly destroyOperationId: string;
   readonly approvalId: string;
   readonly destroyAddresses: readonly string[];
@@ -132,16 +134,21 @@ export function brokerTeardownApprovalPort(deps: Pick<BrokerDeps, "store">): Tea
 }
 
 /**
- * The destroy operation must be a live `infrastructure.destroy` in this workspace and environment with a
- * non-simulated reviewed list, approved by a human admin for exactly the proposal digest (not rejected, not
- * expired, not already consumed), and its list must match the step: equal for a succeeded child, a non-empty
+ * The destroy operation must be a live `infrastructure.destroy` in this workspace and in the child's own environment
+ * (`childEnvironmentId`, from the run's stored plan) with a non-simulated reviewed list, approved by a human admin for
+ * exactly the proposal digest (not rejected), and its list must match the step: equal for a succeeded child, a non-empty
  * subset of the step for a child that did not finish (it may have created only some resources).
+ *
+ * The destroy path consumes its own approval when its workflow claims the operation, before it plans; the reviewed list
+ * only exists after that. So an approval this destroy consumed still counts (it is bound to this operation and digest,
+ * and the step is released once); an unconsumed one must be unexpired. A destroy that already ended is refused: the
+ * release is recorded before the destroy has an outcome.
  */
-export async function verifyTeardownApproval(port: TeardownApprovalPort, state: MixedRunState, childId: string, destroyOperationId: string, now: Date): Promise<VerifiedTeardownApproval> {
+export async function verifyTeardownApproval(port: TeardownApprovalPort, state: MixedRunState, childId: string, destroyOperationId: string, now: Date, childEnvironmentId: string): Promise<VerifiedTeardownApproval> {
   const step = state.teardown?.steps.find((item) => item.childId === childId);
   if (!step) return refuse("teardown_refused", childId);
   const fact = await port.lookup(state.workspaceId, destroyOperationId);
-  if (!fact || fact.workspaceId !== state.workspaceId || fact.environmentId !== state.environmentId || fact.capability !== "infrastructure.destroy"
+  if (!fact || fact.workspaceId !== state.workspaceId || fact.environmentId !== childEnvironmentId || fact.capability !== "infrastructure.destroy"
     || ["denied", "rejected", "cancelled", "expired", "failed", "uncertain", "succeeded", "completed"].includes(fact.status)) return refuse("approval_invalid");
   const listed = sortedUnique(fact.destroyAddresses);
   const inStep = new Set(step.addresses);
@@ -150,16 +157,16 @@ export async function verifyTeardownApproval(port: TeardownApprovalPort, state: 
   if (!matches) return refuse("approval_invalid", childId);
   if (fact.approvals.some((approval) => approval.decision === "reject")) return refuse("approval_invalid", childId);
   const good = fact.approvals.find((approval) => approval.decision === "approve" && approval.approverKind === "user" && approval.humanOnly && approval.approverRole === "admin"
-    && approval.proposalDigest === fact.proposalDigest && !approval.consumed && Date.parse(approval.expiresAt) > now.getTime());
+    && approval.proposalDigest === fact.proposalDigest && (approval.consumed || Date.parse(approval.expiresAt) > now.getTime()));
   if (!good) return refuse("approval_invalid", childId);
-  const proof: VerifiedTeardownApproval = Object.freeze({ workspaceId: fact.workspaceId, environmentId: fact.environmentId, destroyOperationId: fact.operationId, approvalId: good.id, destroyAddresses: Object.freeze(listed) });
+  const proof: VerifiedTeardownApproval = Object.freeze({ workspaceId: fact.workspaceId, environmentId: fact.environmentId, childId, destroyOperationId: fact.operationId, approvalId: good.id, destroyAddresses: Object.freeze(listed) });
   verified.add(proof);
   return proof;
 }
 
 /** Release one step to the existing destroy path. Pure state change: it destroys nothing. */
 export function releaseTeardownStep(state: MixedRunState, childId: string, approval: VerifiedTeardownApproval, signals: OrderingSignals, now: Date): MixedRunState {
-  if (!verified.has(approval) || approval.workspaceId !== state.workspaceId || approval.environmentId !== state.environmentId) return refuse("approval_invalid");
+  if (!verified.has(approval) || approval.workspaceId !== state.workspaceId || approval.childId !== childId) return refuse("approval_invalid");
   const teardown = state.teardown;
   const step = teardown?.steps.find((item) => item.childId === childId);
   if (!teardown || !step) return refuse("teardown_refused", childId);

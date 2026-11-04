@@ -13,7 +13,28 @@ A mixed run is not a transaction. `summarizeRun` returns the constants `atomicit
 `automaticCompensation: "never"`. Children that finished stay applied and are reported in
 `appliedWithoutRunCompletion`; nothing is rolled back and nothing is destroyed automatically. Teardown is a proposal in
 reverse dependency order that a person releases step by step against an approved destroy operation
-(`POST /api/platform/v1/operations/:id/mixed-run/teardown`, browser only).
+(`POST /api/platform/v1/operations/:id/mixed-run/teardown`, browser only, editor or admin).
+
+Each child keeps its state and resources in its own child environment, not in the parent environment the run is bound
+to. The route reads each child's environment from the run's stored plan (never from the caller) and uses it at every step:
+
+1. `{ "action": "propose" }` reads ownership from each child's own environment registry and writes one step per applied
+   child, consumers first. Nothing is destroyed.
+2. For the first step, open the destroy of that child's environment the normal way (`env.reviewTeardown` on the child
+   environment) and approve the destroy proposal as a human admin. Its workflow claims it (this consumes that approval),
+   plans, and waits for the plan approval.
+3. `{ "action": "release", "childId", "destroyOperationId" }` while the destroy waits. Release refuses a destroy in any
+   other environment, a reviewed list that is not exactly the step's, an approval that is not a human admin's, a destroy
+   that already ended, a second step while one is released, and a producer whose consumers are not destroyed yet.
+4. Approve the destroy's plan round. When it ends, `{ "action": "sync", "childId" }` records its outcome from the
+   destroy operation's own status: `succeeded` is destroyed; `failed`, `rejected`, `denied` and `expired` are failed;
+   `uncertain` and `cancelled` are uncertain. A failed or uncertain step needs reconciliation and blocks every producer
+   behind it.
+5. Repeat for the next step.
+
+The destroy path does not read the run: a person who destroys a producer environment out of order is not stopped there.
+The run never records that as a clean step: release refuses a producer whose consumers are not destroyed and a destroy
+that already ended, so the step stays `planned` and the run still shows the child applied until it is reconciled.
 
 ## 2. Cross-cloud connectivity (PROD-MIX-05)
 

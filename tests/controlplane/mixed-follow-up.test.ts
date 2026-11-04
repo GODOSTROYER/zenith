@@ -32,12 +32,15 @@ import { MIXED_PARENT_CAPABILITY, type MixedParentPlan } from "@/lib/execution/m
 import { composeMixedDeps } from "@/lib/execution/mixed/deps";
 import { startMixedParent, type MixedWorkflowStarter } from "@/lib/execution/mixed/start";
 import type { MixedWorld } from "@/lib/execution/mixed/world";
-import { MixedOrchestrationError, readMixedRun, refusingParentReviewPort, type MixedRunDeps } from "@/lib/execution/mixed-orchestration";
+import { MixedOrchestrationError, NO_SIGNALS, proposeTeardown, readMixedRun, refusingParentReviewPort, releaseTeardown, syncTeardownStep, type MixedRunDeps } from "@/lib/execution/mixed-orchestration";
+import { childEnvironmentsOf, platformTeardownPlanInput } from "@/lib/execution/mixed-orchestration/platform";
+import { brokerTeardownApprovalPort } from "@/lib/execution/mixed-orchestration/teardown";
+import { PlatformBrokerStore } from "@/lib/capabilities/platform-store";
 import { MemoryPreauthorizationStore } from "@/lib/execution/mixed-orchestration/preauthorization";
 import { MemoryMixedRunStore } from "@/lib/execution/mixed-orchestration/run-store";
 import type { SemanticsStore } from "@/lib/execution/semantics/store";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
-import { LANES, approve, openLane, seedApprovedOperation, seedAwaitingApproval, uid } from "./_support/harness";
+import { LANES, approve, openLane, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
 import { DB, PARENT_ENV, PROJECT, WEB, connection, fixtureConnectivity, mixedGraph, refresh } from "../execution/mixed/_fixtures";
 
 const ENVIRONMENTS = ["env-azure", "env-gcp", "env-aws"] as const;
@@ -345,6 +348,89 @@ describe.each(LANES)("mixed follow-up: producer outputs and ordering signals [$n
       await repos.drift.insert(db(), { workspaceId: s.ws, report: driftReport(s, await clock(), []) });
       await recordChildStart(s.join, scope(s, s.consumer));
       expect((await readMixedRun(s.join.run, s.ws, s.parentOperationId))!.state.children[s.consumer].status).toBe("running");
+    });
+  });
+
+  describe("teardown of a run whose children live in their own child environments (the live shape)", () => {
+    /** The producer applied: its managed resources are registered in ITS child environment, as the child's own apply records them. */
+    async function appliedProducer() {
+      const s = await scenario({ references: false });
+      await startProducer(s);
+      await finishProducer(s);
+      const child = s.plan.children.find((candidate) => candidate.partitionId === s.producer)!;
+      const managed = child.nodes.filter((node) => node.ownership === "managed").map((node) => node.address).sort();
+      for (const address of managed) {
+        await repos.resources.upsertDesired(db(), { workspaceId: s.ws, projectId: PROJECT, environmentId: child.childEnvironmentId, node: mixedGraph().nodes.find((node) => node.address === address)!, status: "active" });
+      }
+      // The production approval port over the real broker store: no fake decides the release.
+      const run: MixedRunDeps = { ...s.join.run, teardownApprovals: brokerTeardownApprovalPort({ store: new PlatformBrokerStore(db()) }) };
+      const state = (await readMixedRun(run, s.ws, s.parentOperationId))!.state;
+      return { s, run, state, childEnvironmentId: child.childEnvironmentId, managed };
+    }
+    /**
+     * An infrastructure.destroy in `environmentId` the way the destroy path leaves it once a human admin approved it and its
+     * workflow claimed it: running, the approval consumed by the claim, the reviewed non-simulated destroy list recorded.
+     */
+    async function destroyIn(ws: string, environmentId: string, addresses: string[]): Promise<string> {
+      const seeded = await seedAwaitingApproval(db(), { workspaceId: ws, minRole: "admin", proposal: { capability: "infrastructure.destroy", risk: "critical", scope: { workspaceId: ws, projectId: PROJECT, environmentId }, input: { environmentId } } });
+      await approve(db(), seeded, user(), { role: "admin" });
+      const planDigest = digest({ destroy: environmentId, addresses });
+      await db().query("update platform.operations set status = 'running', plan_digest = $3, started_at = clock_timestamp() where workspace_id = $1 and id = $2", [ws, seeded.operation.id, planDigest]);
+      await db().query("update platform.approvals set consumed_at = clock_timestamp() where workspace_id = $1 and operation_id = $2", [ws, seeded.operation.id]);
+      await repos.evidence.insert(db(), { workspaceId: ws, operationId: seeded.operation.id, kind: "tofu_plan", digest: planDigest, summary: { stage: "plan", destroy: true, destroyAddresses: addresses }, simulated: false });
+      return seeded.operation.id;
+    }
+    const codeOf = async (promise: Promise<unknown>) => { try { await promise; return "resolved"; } catch (error) { return error instanceof MixedOrchestrationError ? error.code : String(error); } };
+
+    it("proposes from the child environments, releases only to a human-approved destroy in THAT child's environment, and syncs its outcome", async () => {
+      const { s, run, state, childEnvironmentId, managed } = await appliedProducer();
+      const environments = childEnvironmentsOf(s.plan, state);
+      expect(environments.get(s.producer)).toBe(childEnvironmentId);
+      const proposed = await proposeTeardown(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, plan: await platformTeardownPlanInput(db(), state, environments) });
+      expect(proposed.state.teardown!.steps.map((step) => [step.childId, step.addresses])).toEqual([[s.producer, managed]]);
+
+      const release = (destroyOperationId: string) => releaseTeardown(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, childId: s.producer, destroyOperationId, childEnvironmentId: environments.get(s.producer)!, signals: NO_SIGNALS });
+      // The same list destroyed in the parent environment, or in another child's environment, is not this child's teardown.
+      expect(await codeOf(release(await destroyIn(s.ws, state.environmentId, managed)))).toBe("approval_invalid");
+      const other = s.plan.children.find((candidate) => candidate.partitionId !== s.producer)!.childEnvironmentId;
+      expect(await codeOf(release(await destroyIn(s.ws, other, managed)))).toBe("approval_invalid");
+      // A list that is not exactly the step's is refused too.
+      expect(await codeOf(release(await destroyIn(s.ws, childEnvironmentId, [...managed, "resource/extra"])))).toBe("approval_invalid");
+
+      const destroyOperationId = await destroyIn(s.ws, childEnvironmentId, managed);
+      await release(destroyOperationId);
+      const stepOf = async () => (await readMixedRun(run, s.ws, s.parentOperationId))!.state.teardown!.steps[0];
+      expect(await stepOf()).toMatchObject({ childId: s.producer, status: "released", destroyOperationId });
+      const sync = () => syncTeardownStep(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, childId: s.producer });
+      // A destroy still running is not an outcome.
+      expect(await codeOf(sync())).toBe("illegal_transition");
+      await db().query("update platform.operations set status = 'succeeded', finished_at = clock_timestamp() where workspace_id = $1 and id = $2", [s.ws, destroyOperationId]);
+      await sync();
+      expect(await stepOf()).toMatchObject({ status: "destroyed" });
+      expect((await readMixedRun(run, s.ws, s.parentOperationId))!.state.children[s.producer].effects).toBe("none");
+    });
+
+    it("maps a destroy that ended without destroying (cancelled, rejected, expired) to an uncertain or failed step, never destroyed", async () => {
+      for (const [status, outcome] of [["cancelled", "uncertain"], ["rejected", "failed"], ["failed", "failed"], ["uncertain", "uncertain"]] as const) {
+        const { s, run, state, childEnvironmentId, managed } = await appliedProducer();
+        const environments = childEnvironmentsOf(s.plan, state);
+        await proposeTeardown(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, plan: await platformTeardownPlanInput(db(), state, environments) });
+        const destroyOperationId = await destroyIn(s.ws, childEnvironmentId, managed);
+        await releaseTeardown(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, childId: s.producer, destroyOperationId, childEnvironmentId, signals: NO_SIGNALS });
+        await db().query("update platform.operations set status = $3, finished_at = clock_timestamp() where workspace_id = $1 and id = $2", [s.ws, destroyOperationId, status]);
+        await syncTeardownStep(run, { workspaceId: s.ws, parentOperationId: s.parentOperationId, childId: s.producer });
+        expect([status, (await readMixedRun(run, s.ws, s.parentOperationId))!.state.teardown!.steps[0].status]).toEqual([status, outcome]);
+        expect((await readMixedRun(run, s.ws, s.parentOperationId))!.state.children[s.producer].reconciliationRequired).toBe(true);
+      }
+    });
+
+    it("refuses child environments from a plan that is not the run's", async () => {
+      const { s, state } = await appliedProducer();
+      const other = (await scenario({ references: false })).plan;
+      expect(() => childEnvironmentsOf(other, state)).toThrow(MixedOrchestrationError);
+      const changed = structuredClone(s.plan) as MixedParentPlan & { children: { subplanDigest: string }[] };
+      changed.children[0].subplanDigest = "f".repeat(64);
+      expect(() => childEnvironmentsOf(changed, state)).toThrow(MixedOrchestrationError);
     });
   });
 

@@ -305,6 +305,25 @@ describe("run state machine: failure never becomes a transaction", () => {
     expect(failed.children[w.ids.web].status).toBe("succeeded");
   });
 
+  it("records a child refused before it started (revoked connection) as failed with no new effects, and points to a replan", () => {
+    const w = world();
+    const step = throughWeb(w);
+    const refusedChild = drive(step.state, w.view, { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: at(8) } as AnyRunEvent);
+    expect(refusedChild.children[w.ids.fn]).toMatchObject({ status: "failed", reason: "refused_connection_unverified", effects: "none", reconciliationRequired: false, attempts: 0 });
+    const summary = summarizeRun(refusedChild);
+    expect(summary.outcome).toBe("partial");
+    expect(summary.failed).toEqual([{ childId: w.ids.fn, status: "failed", reason: "refused_connection_unverified" }]);
+    expect(summary.notStarted).toEqual([]);
+    expect(summary.indeterminate).toEqual([]);
+    expect(summary.appliedWithoutRunCompletion).toEqual([w.ids.db, w.ids.web]);
+    // A revoked connection never works again: the runbook step is rebind and replan, not retry.
+    expect(summary.nextSteps).toEqual(["propose_teardown_for_human_approval", "review_replan"]);
+    expect(code(() => drive(refusedChild, w.view, { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: at(9) } as AnyRunEvent))).toBe("illegal_transition");
+    const running = drive(step.state, w.view, start(w.ids.fn, step.state, 7));
+    expect(code(() => drive(running, w.view, { kind: "refuse", childId: w.ids.fn, reason: "refused_connection_unverified", at: at(8) } as AnyRunEvent))).toBe("illegal_transition");
+    expect(code(() => drive(step.state, w.view, { kind: "refuse", childId: w.ids.fn, reason: "connection_unverified", at: at(8) } as AnyRunEvent))).toBe("invalid_input");
+  });
+
   it("needs a recorded reconciliation before an indeterminate child is retried", () => {
     const w = world();
     const step = throughWeb(w);

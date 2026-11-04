@@ -71,7 +71,9 @@ export async function recordChildEvent(deps: MixedRunDeps, input: { workspaceId:
   if (!parsedEvent.success) return refuse("invalid_input");
   const event: AnyRunEvent = parsedEvent.data;
   const childId = "childId" in event ? event.childId : undefined;
-  const stored = await transact(deps, input.workspaceId, input.parentOperationId, event.kind, childId, event, (state) => {
+  // A refusal before start is a failure in the ledger's closed kind list (0041_mixed_runs); the stored event keeps "refuse".
+  const ledgerKind: LedgerEventKind = event.kind === "refuse" ? "fail" : event.kind;
+  const stored = await transact(deps, input.workspaceId, input.parentOperationId, ledgerKind, childId, event, (state) => {
     if (event.kind === "start") {
       const verdict = evaluateOrdering(state, { kind: "start_child", childId: event.childId }, input.signals ?? NO_SIGNALS);
       if (!verdict.allowed) return refuse("ordering_blocked", ...verdict.blocks.map((block) => `${block.rule}:${block.blockedBy}`));

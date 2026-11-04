@@ -223,6 +223,11 @@ describe("mixed proposal: the sandbox parent, two AWS children and the plan", ()
     expect(t.sent.filter(c => c.endpoint === "/api/actions/project.updateManifest").map(c => inputOf(c).manifest)).toEqual([graph, producer, consumer]);
   });
 
+  it("every mix manifest allows the stateful delete a product teardown performs (assertDeletionAllowed)", () => {
+    const { mix01, mix03 } = { mix01: mix01Manifests("ap-south-1"), mix03: mix03Manifests("ap-south-1", ARTIFACT) };
+    for (const manifest of [mix01.producer, mix01.consumer, mix01.graph, mix03.producer, mix03.consumer, mix03.graph]) expect(manifest.policies).toEqual({ deletion: "allow" });
+  });
+
   it("lowers the parent's autonomy below deployment.deploy's default before the plan, so the parent operation waits for a person", async () => {
     const t = transport(proposeRoute());
     await (await driverWithTenant({ request: t.request })).proposeMixed(TENANT, { connectionId: "conn-1", accountId: "123456789012", region: "ap-south-1", artifact: ARTIFACT });

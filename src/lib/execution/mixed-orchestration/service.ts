@@ -164,6 +164,10 @@ export async function consumeOutputs(deps: MixedRunDeps, input: ConsumeOutputsIn
 
 /* -------------------------------- teardown -------------------------------- */
 
+const TEARDOWN_OUTCOME: Partial<Record<string, "destroyed" | "failed" | "uncertain">> = {
+  succeeded: "destroyed", failed: "failed", rejected: "failed", denied: "failed", expired: "failed", uncertain: "uncertain", cancelled: "uncertain",
+};
+
 export async function proposeTeardown(deps: MixedRunDeps, input: { workspaceId: string; parentOperationId: string; plan: Omit<TeardownPlanInput, "now"> }): Promise<TeardownReport & { stored: StoredRun }> {
   let report: TeardownReport | undefined;
   const stored = await transact(deps, input.workspaceId, input.parentOperationId, "teardown_planned", undefined, { at: deps.now().toISOString() }, (state) => {
@@ -173,12 +177,15 @@ export async function proposeTeardown(deps: MixedRunDeps, input: { workspaceId: 
   return { ...report!, stored };
 }
 
-/** Release one teardown step to the existing destroy path. Needs a verified human admin approval of the destroy operation. */
-export async function releaseTeardown(deps: MixedRunDeps, input: { workspaceId: string; parentOperationId: string; childId: string; destroyOperationId: string; signals: OrderingSignals }): Promise<RunSummary> {
+/**
+ * Release one teardown step to the existing destroy path. Needs a verified human admin approval of the destroy operation,
+ * which must be in the child's own environment (`childEnvironmentId`, resolved from the run's stored plan by the caller).
+ */
+export async function releaseTeardown(deps: MixedRunDeps, input: { workspaceId: string; parentOperationId: string; childId: string; destroyOperationId: string; childEnvironmentId: string; signals: OrderingSignals }): Promise<RunSummary> {
   const now = deps.now();
   const current = await deps.runs.get(input.workspaceId, input.parentOperationId);
   if (!current) return refuse("unknown_child", input.parentOperationId);
-  const approval = await verifyTeardownApproval(deps.teardownApprovals, current.state, input.childId, input.destroyOperationId, now);
+  const approval = await verifyTeardownApproval(deps.teardownApprovals, current.state, input.childId, input.destroyOperationId, now, input.childEnvironmentId);
   const stored = await transact(deps, input.workspaceId, input.parentOperationId, "teardown_released", input.childId, { destroyOperationId: input.destroyOperationId, approvalId: approval.approvalId },
     (state) => releaseTeardownStep(state, input.childId, approval, input.signals, now));
   return summarizeRun(stored.state);
@@ -186,8 +193,10 @@ export async function releaseTeardown(deps: MixedRunDeps, input: { workspaceId: 
 
 /**
  * Sync a released step with the destroy operation it was released to. The outcome is read from that
- * operation's own recorded status (succeeded, failed, uncertain), never from the caller, so nobody can
- * claim a step destroyed to unlock the steps behind it. A destroy still queued or running is not an outcome.
+ * operation's own recorded status, never from the caller, so nobody can claim a step destroyed to unlock
+ * the steps behind it: succeeded is destroyed; failed, rejected, denied and expired are failed (it stopped;
+ * whether it deleted anything is for reconciliation); uncertain and cancelled (a cancel can land mid-apply)
+ * are uncertain. A destroy still waiting, queued or running is not an outcome.
  */
 export async function syncTeardownStep(deps: MixedRunDeps, input: { workspaceId: string; parentOperationId: string; childId: string }): Promise<RunSummary> {
   const now = deps.now();
@@ -196,7 +205,7 @@ export async function syncTeardownStep(deps: MixedRunDeps, input: { workspaceId:
   if (!current || !step || step.status !== "released" || !step.destroyOperationId) return refuse("illegal_transition", input.childId);
   const fact = await deps.teardownApprovals.lookup(input.workspaceId, step.destroyOperationId);
   if (!fact || fact.capability !== "infrastructure.destroy") return refuse("approval_invalid", input.childId);
-  const outcome = fact.status === "succeeded" ? "destroyed" : fact.status === "failed" ? "failed" : fact.status === "uncertain" ? "uncertain" : undefined;
+  const outcome = TEARDOWN_OUTCOME[fact.status];
   if (!outcome) return refuse("illegal_transition", input.childId);
   const stored = await transact(deps, input.workspaceId, input.parentOperationId, "teardown_result", input.childId, { outcome, destroyOperationId: step.destroyOperationId },
     (state) => recordTeardownResult(state, input.childId, outcome, now));

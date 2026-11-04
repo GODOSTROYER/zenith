@@ -12,7 +12,7 @@ import { parseManifest } from "@/lib/resources/manifest-v2";
 import { buildParentPlan } from "@/lib/execution/mixed/parent-plan";
 import { connection, PARENT_ENV, PROJECT, WS } from "../execution/mixed/_fixtures";
 import {
-  browserMix03Product, MIX03_REFERENCE, mix01Manifests, mix03Manifests, mixedReadbackOf, runnerStack, type ProductRequest, type RunnerStack, type TenantSession,
+  browserMix03Product, MIX03_REFERENCE, mix01Manifests, mix03Manifests, mixedReadbackOf, runnerStack, teardownStepsOf, type ProductRequest, type RunnerStack, type TenantSession,
 } from "../../scripts/acceptance/live/product/mix-03-driver";
 
 const STACK: RunnerStack = { apiUrl: "http://127.0.0.1:36400", supabaseUrl: "http://127.0.0.1:54321", adminKey: "admin-test", mailpitUrl: "http://127.0.0.1:8025" };
@@ -516,6 +516,100 @@ describe("preauthorizationUses", () => {
     const product = await driverWithTenant({ request: t.request });
     expect(await product.preauthorizationUses(TENANT, "op-parent")).toEqual({ total: 1, uses: 1, maxUses: 1, active: 0 });
     expect(t.sent.every(call => call.method === "GET")).toBe(true);
+  });
+});
+
+describe("PROD-MIX-04 teardown: the run, the proposal, the child's own destroy, release and sync", () => {
+  const RUN = "/api/platform/v1/operations/op-parent/mixed-run";
+  const stored = (status = "planned", extra: Record<string, unknown> = {}) => ({ childId: P_CONSUMER, addresses: ["function/consumer"], after: [], stepDigest: "e".repeat(64), status, ...extra });
+  const runReply = (steps: unknown[]) => ok({ summary: { outcome: "complete", nextSteps: ["none"] }, run: { teardown: { planDigest: "f".repeat(64), createdAt: "2026-11-04T00:00:00.000Z", steps } }, ledger: [], references: [] });
+
+  it("mixedRun reads the run's outcome, next steps and teardown steps, counting addresses without returning them", async () => {
+    const t = transport(() => runReply([stored(), { ...stored(), childId: P_PRODUCER, after: [P_CONSUMER], addresses: ["object_store/bucket"] }]));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.mixedRun!(TENANT, "op-parent")).resolves.toEqual({
+      outcome: "complete", nextSteps: ["none"],
+      steps: [{ childId: P_CONSUMER, status: "planned", after: [], addresses: 1 }, { childId: P_PRODUCER, status: "planned", after: [P_CONSUMER], addresses: 1 }],
+    });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: RUN, method: "GET", body: undefined, workspaceId: "ws-1" }]);
+    // No proposal yet: no steps.
+    const none = await driverWithTenant({ request: transport(() => ok({ summary: { outcome: "partial", nextSteps: ["propose_teardown_for_human_approval"] }, run: {} })).request });
+    await expect(none.mixedRun!(TENANT, "op-parent")).resolves.toMatchObject({ steps: [] });
+  });
+
+  it("proposeTeardown posts the proposal as the owner and returns its steps; a refusal names the service's reason", async () => {
+    const t = transport(() => ({ status: 201, data: { teardown: { steps: [stored()] }, retained: [{ childId: P_CONSUMER, address: "x", ownership: "referenced" }], nothingToDestroy: [] } }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.proposeTeardown!(TENANT, "op-parent")).resolves.toEqual({ steps: [{ childId: P_CONSUMER, status: "planned", after: [], addresses: 1 }], retained: 1, nothingToDestroy: [] });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: `${RUN}/teardown`, method: "POST", body: { action: "propose" }, workspaceId: "ws-1" }]);
+    const refused = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", message: "no", details: { reason: "ownership" } } } })).request });
+    await expect(refused.proposeTeardown!(TENANT, "op-parent")).rejects.toThrow("the product refused the teardown proposal (invalid state, ownership: no)");
+  });
+
+  it("openChildDestroy reviews the CHILD's environment from the stored plan, approves the proposal once and stops at the plan round", async () => {
+    const statuses = ["awaiting_approval", "running", "awaiting_approval"];
+    let reviews = 0;
+    const t = transport((sent) => {
+      if (sent.endpoint === "/api/platform/v1/mixed/plans/plan-1") return ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }, { partitionId: P_CONSUMER, childEnvironmentId: "env-consumer" }] });
+      if (sent.endpoint === "/api/actions/env.reviewTeardown") return action({ ok: true, data: { reviewOperationId: "op-review" } });
+      if (sent.endpoint === "/api/platform/v1/environments/env-consumer/teardown-review?reviewId=op-review") return ok({ review: reviews++ ? { operationId: "op-destroy", status: "succeeded" } : { status: "running" } });
+      if (sent.endpoint === "/api/platform/v1/operations/op-destroy") {
+        const status = statuses.length > 1 ? statuses.shift()! : statuses[0];
+        return ok({ operation: { status, ...(status === "awaiting_approval" && !statuses.includes("running") ? { startedAt: "2026-11-04T00:00:00.000Z" } : {}) } });
+      }
+      throw new Error(`unexpected ${sent.endpoint}`);
+    });
+    const approve = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, approve });
+    await expect(product.openChildDestroy!(TENANT, "plan-1", P_CONSUMER)).resolves.toEqual({ destroyOperationId: "op-destroy", status: "awaiting_approval" });
+    expect(approve).toHaveBeenCalledTimes(1);
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ approver: APPROVER }), "op-destroy");
+    const review = t.sent.find((sent) => sent.endpoint === "/api/actions/env.reviewTeardown")!;
+    expect(review.page).toBe(OWNER);
+    expect(review.body).toMatchObject({ mode: "execute", input: { environmentId: "env-consumer" }, scope: { projectId: "proj-1", environmentId: "env-consumer" } });
+  });
+
+  it("openChildDestroy refuses a child the stored plan does not have, before any review is requested", async () => {
+    const t = transport(() => ok({ children: [{ partitionId: P_PRODUCER, childEnvironmentId: "env-producer" }] }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.openChildDestroy!(TENANT, "plan-1", P_CONSUMER)).rejects.toThrow("the child environment was not returned by the product");
+    expect(t.sent.map((sent) => sent.endpoint)).toEqual(["/api/platform/v1/mixed/plans/plan-1"]);
+  });
+
+  it("releaseTeardown posts the child and destroy operation; an ordering refusal is a reason, not an error", async () => {
+    const t = transport(() => ok({ summary: {} }));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.releaseTeardown!(TENANT, "op-parent", P_CONSUMER, "op-destroy")).resolves.toEqual({ released: true });
+    expect(t.sent).toEqual([{ page: OWNER, endpoint: `${RUN}/teardown`, method: "POST", body: { action: "release", childId: P_CONSUMER, destroyOperationId: "op-destroy" }, workspaceId: "ws-1" }]);
+    const blocked = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", details: { reason: "ordering_blocked" } } } })).request });
+    await expect(blocked.releaseTeardown!(TENANT, "op-parent", P_PRODUCER, "op-destroy")).resolves.toEqual({ released: false, reason: "the product refused the release (invalid state, ordering_blocked)" });
+  });
+
+  it("finishChildDestroy approves each round still asked for and returns how the destroy ended, as a category", async () => {
+    const statuses = ["awaiting_approval", "running", "failed"];
+    const t = transport(() => { const status = statuses.shift()!; return ok({ operation: { status, ...(status === "failed" ? { error: "apply_infrastructure failed: arn:aws:s3:::secret" } : {}) } }); });
+    const approve = vi.fn(async () => undefined);
+    const product = await driverWithTenant({ request: t.request, approve });
+    const result = await product.finishChildDestroy!(TENANT, "op-destroy");
+    expect(result).toEqual({ status: "failed", halt: "apply_infrastructure_failed" });
+    expect(approve).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(result)).not.toContain("arn:");
+  });
+
+  it("syncTeardown posts the sync and returns the step as the run now stores it", async () => {
+    const t = transport((sent) => sent.method === "POST" ? ok({ summary: {} }) : runReply([stored("destroyed", { destroyOperationId: "op-destroy" })]));
+    const product = await driverWithTenant({ request: t.request });
+    await expect(product.syncTeardown!(TENANT, "op-parent", P_CONSUMER)).resolves.toEqual({ childId: P_CONSUMER, status: "destroyed", after: [], addresses: 1, destroyOperationId: "op-destroy" });
+    expect(t.sent.map((sent) => [sent.method, sent.endpoint, sent.body])).toEqual([["POST", `${RUN}/teardown`, { action: "sync", childId: P_CONSUMER }], ["GET", RUN, undefined]]);
+    const early = await driverWithTenant({ request: transport(() => ({ status: 409, data: { error: { code: "invalid_state", details: { reason: "illegal_transition" } } } })).request });
+    await expect(early.syncTeardown!(TENANT, "op-parent", P_CONSUMER)).rejects.toThrow("the product refused the teardown sync (invalid state, illegal_transition)");
+  });
+
+  it("teardownStepsOf refuses an unexpected shape instead of passing it on", () => {
+    expect(teardownStepsOf(undefined)).toEqual([]);
+    expect(() => teardownStepsOf({ steps: "x" })).toThrow("the run's teardown has no steps");
+    expect(() => teardownStepsOf({ steps: [{ ...stored(), status: "Destroyed!" }] })).toThrow("a teardown step has an unexpected shape");
+    expect(() => teardownStepsOf({ steps: [{ ...stored(), destroyOperationId: "op destroy" }] })).toThrow("a teardown step names an unexpected destroy operation");
   });
 });
 

@@ -131,6 +131,10 @@ describe("runAcceptance", () => {
     const first = fakeExec({ fail: ["rotation"] });
     const r1 = await runAcceptance({ root: process.cwd(), outDir: dir, runId: "resume-1", includeLive: false, only: ["install", "rotation"] }, { exec: first.exec, store, now: () => NOW });
     expect(byId(r1, "rotation").status).toBe("failed");
+    // PROD-REL-04: the exact command that continues this run, written before the first lane and kept while a lane is left.
+    const resume = `npx tsx scripts/release/acceptance-orchestrator.ts run --only install,rotation --out '${dir}' --run-id resume-1`;
+    expect(store.snapshot()!.nextCommands).toEqual([resume]);
+    expect(store.snapshot()!.unattendedClaims).toBe(false);
     const second = fakeExec();
     const r2 = await runAcceptance({ root: process.cwd(), outDir: dir, runId: "resume-1", includeLive: false, only: ["install", "rotation"] }, { exec: second.exec, store, now: () => NOW });
     expect(byId(r2, "install").status).toBe("local_passed");
@@ -140,6 +144,19 @@ describe("runAcceptance", () => {
     expect(reran[0]!.some((a) => a.includes("-rotation-"))).toBe(true);
     const saved = JSON.parse(readFileSync(path.join(dir, "resume-1", "acceptance-report.json"), "utf8")) as { summary: { failed: number } };
     expect(saved.summary.failed).toBe(0);
+    expect(store.snapshot()!.nextCommands).toEqual([]);
+  });
+
+  it("records the exact resume command before the first lane runs, quoting the out directory", async () => {
+    const store = memoryStore();
+    const dir = path.join(outDir(), "it's here");
+    let seen: string[] | undefined;
+    const exec: Exec = async (argv, options) => {
+      if (argv[0] === "node") seen ??= [...store.snapshot()!.nextCommands];
+      return fakeExec().exec(argv, options);
+    };
+    await runAcceptance({ root: process.cwd(), outDir: dir, runId: "resume-2", includeLive: true, only: ["install"] }, { exec, store, now: () => NOW, scope: approvedScope() });
+    expect(seen).toEqual([`npx tsx scripts/release/acceptance-orchestrator.ts run --only install --out '${dir.replace("'", "'\\''")}' --run-id resume-2 --include-live`]);
   });
 
   it("rejects unknown scenarios and unsafe run ids", async () => {

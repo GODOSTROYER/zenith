@@ -15,7 +15,8 @@
  *    returned or changed.
  *
  * The product routes run through the real request layer (real workspace resolution and scoping; only the session cookie
- * lookup is stubbed, as in tests/api/observe-isolation.test.ts). The repositories run on the real PGlite platform schema.
+ * lookup is stubbed, as in tests/api/observe-isolation.test.ts). The repositories run on the real PGlite platform schema, and
+ * also on real PostgreSQL when ZENITH_TEST_PLATFORM_PG_URL is set.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -258,12 +259,15 @@ afterAll(() => setOpsRuntimeForTests(undefined));
 
 /* ------------------------------------ repository sweep ------------------------------------ */
 
-describe("every repository function with a (sql, workspaceId, ...) signature, called as another tenant", () => {
+// Same lanes as the control-plane harness: real PGlite always, real PostgreSQL too when ZENITH_TEST_PLATFORM_PG_URL is set.
+const REPOSITORY_LANES = ["pglite", ...(process.env.ZENITH_TEST_PLATFORM_PG_URL ? ["postgres"] : [])];
+
+describe.each(REPOSITORY_LANES)("every repository function with a (sql, workspaceId, ...) signature, called as another tenant [%s]", (lane) => {
   let ctx: Awaited<ReturnType<typeof import("../controlplane/_support/harness").openLane>>;
   let seeded: { workspaceId: string; operation: { id: string } };
   beforeAll(async () => {
     const harness = await import("../controlplane/_support/harness");
-    ctx = await harness.openLane(harness.LANES[0]!);
+    ctx = await harness.openLane(harness.LANES.find((l) => l.name === lane)!);
     seeded = (await harness.seedApprovedOperation(ctx.db)) as typeof seeded;
   }, 60_000);
   afterAll(async () => { await ctx?.close(); });

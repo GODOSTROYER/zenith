@@ -8940,6 +8940,18 @@
           "result": "PROD-OPS-09 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops09-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-09.json",
           "sha256": "4408bba9ddca262d01ba29bec9e9aebb67b0ae71e7b455664382e7c46db24a98"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42114952805,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42114952805",
+          "command": "Tag v0.1.0-beta.1 at c756d2d7 pushed; .github/workflows/release.yml run 42114952805 approved by the required reviewer (saivedant169) of the protected release environment; then gh release download v0.1.0-beta.1 -R saivedant169/zenith; node scripts/supply-chain/published-release-source.mjs (offline, --strict)",
+          "environment": "GitHub Actions release.yml run https://github.com/saivedant169/zenith/actions/runs/42114952805 in the protected release environment; published release v0.1.0-beta.1 of saivedant169/zenith; signed with pinned key release-2026-11; pinned public key in the release environment variable ZENITH_RELEASE_PUBLIC_KEYS; signing seed held only as the environment secret ZENITH_RELEASE_SIGNING_SEED (owner-generated offline, 2026-11-06)",
+          "result": "Live signed release at the release candidate c756d2d7. Published release v0.1.0-beta.1 verified offline with --strict: signature by pinned key release-2026-11, 12 artifacts at their signed sha256 and size, nothing unlisted, CycloneDX SBOM exactly the lockfile's npm packages, OCI image digests and SLSA provenance subjects bound by the signed manifest, commit c756d2d7. Release published as a prerelease at https://github.com/saivedant169/zenith/releases/tag/v0.1.0-beta.1. Not a promotion.",
+          "logs": "docs/build/production/evidence/PROD-OPS-09/2026-11-06-live-release-42114952805/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-06-live-release-42114952805/release-evidence-PROD-OPS-09.json",
+          "sha256": "585dd9708f61f8cb28015c1dba0768da53cba385e3dae069499e2371e8abc944"
         }
       ],
       "requiredEvidence": [

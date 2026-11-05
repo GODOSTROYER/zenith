@@ -2,6 +2,7 @@
  * PROD-OPS-09: the release workflow is tag-only, signs only with a configured key, verifies before it publishes, and
  * keeps the same toolchain pins as every other workflow. Parses the YAML (no grepping comments), like release-gates.test.ts.
  */
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { load } from "js-yaml";
@@ -18,6 +19,12 @@ const job = release.jobs.release;
 const steps = job.steps;
 const named = (fragment: string): number => steps.findIndex((s) => (s.name ?? "").includes(fragment));
 const code = read("release.yml").split(/\r?\n/).filter((l) => !l.trim().startsWith("#")).join("\n");
+
+describe("release workflow scripts", () => {
+  it("go/build.sh, which the workflow runs as ./build.sh, is executable in the repository", () => {
+    expect(execFileSync("git", ["ls-files", "-s", "go/build.sh"], { encoding: "utf8" })).toMatch(/^100755 /);
+  });
+});
 
 describe("release workflow trigger and permissions", () => {
   it("runs only for version tags: never a branch push, pull request, schedule or manual dispatch", () => {

@@ -286,7 +286,9 @@ export function verifyRelease({ dir, keys, now = new Date(), strict = false, loc
       if (lock !== undefined) {
         try {
           const packages = JSON.parse(lock).packages ?? {};
-          const expected = Object.keys(packages).filter((n) => n).map((n) => `${packages[n].name ?? n.slice(n.lastIndexOf("node_modules/") + 13)}@${packages[n].version}`).sort();
+          // A link entry (the vendored package) is inventoried under its target's name and version, as the SBOM does.
+          const source = (n) => (packages[n].link ? packages[packages[n].resolved] ?? packages[n] : packages[n]);
+          const expected = Object.keys(packages).filter((n) => n).map((n) => `${source(n).name ?? n.slice(n.lastIndexOf("node_modules/") + 13)}@${source(n).version}`).sort();
           const actual = components.filter((c) => c.purl?.startsWith("pkg:npm/")).map((c) => `${c.name}@${c.version}`).sort();
           if (JSON.stringify(expected) !== JSON.stringify(actual)) fail("the SBOM's npm components are not exactly those of the supplied package-lock.json");
         } catch { fail("the supplied package-lock.json is unreadable"); }

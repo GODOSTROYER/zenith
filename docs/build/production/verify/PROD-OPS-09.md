@@ -172,3 +172,14 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-09 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Operational rehearsal with an ephemeral key (2026-11-05)
+
+`tests/acceptance/ops09-rehearsal.operated.test.ts` (gate `ZENITH_LOCAL_OPS09_REHEARSAL=1`) generates a throwaway key with
+`zenith-release keygen`, runs the build, SBOM, triage, updater-signing, signing and self-verify steps of `release.yml` verbatim
+(read from the workflow, expressions filled for a local prerelease tag; nothing uploaded or published), verifies the bundle and
+both updater manifests offline, and checks that an unpinned key and a changed binary byte are refused. It found and fixed two
+release blockers: `go/build.sh` was not executable in git (the workflow's `./build.sh` would fail), and the offline verifier read
+the vendored minimatch link entry without its target's version, so a correct bundle failed the lockfile comparison (since
+03fcdb5d). All release base images are now digest-pinned, so `--strict` verifies; the earlier tag-only notes above are historical.
+The real signing key and a tag release remain the live level (owner decision). The audit export is not part of this rehearsal.

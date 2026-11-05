@@ -1271,6 +1271,13 @@ Resources:
             Effect: Allow
             Action: [logs:GetQueryResults, logs:StopQuery, logs:DescribeQueries]
             Resource: "*"
+          # OpenTofu refreshes a Zip function with both reads; a teardown review plans with this role (src/lib/execution/destroy.ts).
+          - Sid: ReadZenithFunctions
+            Effect: Allow
+            Action: [lambda:GetFunction, lambda:GetFunctionCodeSigningConfig]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:zenith-*"
+              - !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:zenith-*:*"
           - Sid: ReadZenithBuckets
             Effect: Allow
             Action:

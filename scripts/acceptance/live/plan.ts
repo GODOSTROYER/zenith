@@ -21,6 +21,9 @@ const scenarios: Record<Scenario, { families: Family[]; scope?: string[] }> = {
   "ops-04": { families: [], scope: ["PROD-OPS-04", "PROD-OPS-01"] },
   // No harness fixtures: Zenith deploys up to two buckets; every installation key is rotated in between (key custody).
   "ops-05": { families: [], scope: ["PROD-OPS-05"] },
+  // No harness fixtures: Zenith deploys one bucket for a first tenant; a second tenant probes it (cross-tenant ids, a confused-deputy
+  // connection on the first tenant's roles, a forged approval). Its passed check is builder probes; independence is reviewed apart.
+  "ops-08": { families: [], scope: ["PROD-OPS-08"] },
   // No harness fixtures: Zenith deploys up to two buckets; the stack is upgraded with a deploy in flight, then rolled back.
   "ops-03": { families: [], scope: ["PROD-OPS-03"] },
   // No harness fixtures: Zenith deploys the DEPLOY-01 Fargate service; two tenants are compared and the control plane is stopped.
@@ -39,7 +42,7 @@ export function evidenceLevel(settings: Pick<Settings, "scenario">): "live_sandb
   return settings.scenario && REHEARSAL_SCENARIOS.includes(settings.scenario) ? "operational_rehearsal" : "live_sandbox";
 }
 /** Scenarios that create nothing tagged zenith:purpose=live-acceptance, so a second lane cannot trip the other's leak preflight. */
-export const LANE_SCENARIOS: readonly Scenario[] = ["mix-03", "deploy-01", "teardown-01", "ops-06", "ops-04", "ops-05", "ops-03", "ops-02", "mix-01", "mix-rehearsal"];
+export const LANE_SCENARIOS: readonly Scenario[] = ["mix-03", "deploy-01", "teardown-01", "ops-06", "ops-04", "ops-05", "ops-08", "ops-03", "ops-02", "mix-01", "mix-rehearsal"];
 /** The connection stack NameSuffix of a sandbox lane (deploy/aws/zenith-connection.cfn.yaml): zenith-connection-live or -live2. */
 export function laneSuffix(settings: Pick<Settings, "lane">): string { return settings.lane ? `-${settings.lane}` : "-live"; }
 /** Sandbox IAM names installed by deploy/aws/zenith-connection.cfn.yaml with the lane's NameSuffix (verify before a live run). */
@@ -213,7 +216,7 @@ export function buildPlan(input: Settings): Plan {
   const { lane, ...base } = rest;
   // Canonical settings omit the default lane too.
   const settings: Settings = { ...(scenario === "fixtures" ? base : { ...base, scenario }), ...(lane ? { lane: parseLane(lane) } : {}) };
-  if (settings.lane && !LANE_SCENARIOS.includes(scenario)) throw new Error("The second sandbox lane runs only product scenarios (mix-03, deploy-01, teardown-01, ops-06, ops-04, ops-05, ops-03, ops-02, mix-01, mix-rehearsal)");
+  if (settings.lane && !LANE_SCENARIOS.includes(scenario)) throw new Error("The second sandbox lane runs only product scenarios (mix-03, deploy-01, teardown-01, ops-06, ops-04, ops-05, ops-08, ops-03, ops-02, mix-01, mix-rehearsal)");
   assertRunId(settings.runId);
   if (!/^\d{12}$/.test(settings.accountId)) throw new Error("Explicit 12-digit sandbox account required");
   if (!/^(us|eu|ap|ca|sa|me|af|il|mx)-(central|north|south|east|west|northeast|northwest|southeast|southwest)-\d$/.test(settings.region)) throw new Error("Commercial AWS region required");
@@ -221,7 +224,7 @@ export function buildPlan(input: Settings): Plan {
   // TEARDOWN-01 waits about 80 minutes after its deploy for the earlier writers to settle (WP3), then tears down: up to 150.
   // The rehearsal runs four mixed parents, then waits for the last deploy to settle (about 85 minutes) before its product teardown:
   // like TEARDOWN-01, 120..150.
-  const maxMinutes = scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" || scenario === "ops-02" ? 60 : scenario === "mix-03" || scenario === "mix-01" ? 40 : scenario === "teardown-01" || scenario === "mix-rehearsal" ? 150 : 20;
+  const maxMinutes = scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-08" || scenario === "ops-03" || scenario === "ops-02" ? 60 : scenario === "mix-03" || scenario === "mix-01" ? 40 : scenario === "teardown-01" || scenario === "mix-rehearsal" ? 150 : 20;
   // A shorter TEARDOWN-01 run ends at its envelope before the settlement wait can finish: refuse it before anything is deployed.
   const minMinutes = scenario === "teardown-01" || scenario === "mix-rehearsal" ? 120 : 5;
   if (!Number.isInteger(settings.durationMinutes) || settings.durationMinutes < minMinutes || settings.durationMinutes > maxMinutes) throw new Error(`Duration must be ${minMinutes}..${maxMinutes} minutes (25 minutes reserved for cleanup)`);
@@ -325,7 +328,7 @@ export function buildPlan(input: Settings): Plan {
   // TEARDOWN-01: one empty S3 bucket for about two hours and a few dozen requests: far below a cent. The 0.50 base and
   // 0.005/minute are generous ceilings; the 0.25 reserve covers the fallback destroy from the recorded state.
   // OPS-04 and OPS-05 hold only S3 buckets (two at most) for under an hour: the TEARDOWN-01 ceiling formula.
-  const estimate: Plan["estimate"] = scenario === "teardown-01" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" ? { usd: 0.5 + settings.durationMinutes * 0.005, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for TEARDOWN-01: one empty managed S3 bucket deployed and torn down by Zenith, a few dozen planned control-plane calls and the fallback destroy from the recorded state." }
+  const estimate: Plan["estimate"] = scenario === "teardown-01" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-08" || scenario === "ops-03" ? { usd: 0.5 + settings.durationMinutes * 0.005, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for TEARDOWN-01: one empty managed S3 bucket deployed and torn down by Zenith, a few dozen planned control-plane calls and the fallback destroy from the recorded state." }
     : scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-02" ? { usd: 1 + settings.durationMinutes * 0.03, cleanupReserveUsd: 0.5, provisional: true, basis: "Conservative provisional USD ceiling for DEPLOY-01: one VPC with a single NAT gateway, one ALB and one 0.25 vCPU Fargate task for the run, destroyed from the recorded state." }
     : scenario === "mix-rehearsal" ? { usd: 0.5 + settings.durationMinutes * 0.015, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for the PROD-MIX-01..04 operational rehearsal: four mixed parents over two AWS connections in one account, at most five owned S3 buckets with no objects and two 128MiB Lambda functions with no invocation and their CloudWatch log groups, held for about two hours while the last deploy settles, IAM roles (no charge) and about two hundred planned control-plane calls; includes 0.25USD cleanup reserve. Owner must validate regional rates." }
     : scenario === "mix-01" ? { usd: 0.5 + settings.durationMinutes * 0.02, cleanupReserveUsd: 0.25, provisional: true, basis: "Conservative provisional USD ceiling for PROD-MIX-01: one mixed parent over two AWS connections in one account, one owned S3 bucket with no objects, one 128MiB Lambda function with no invocation and one CloudWatch log group, IAM roles (no charge) and a few dozen planned control-plane calls; includes 0.25USD cleanup reserve. Owner must validate regional rates." }
@@ -339,7 +342,7 @@ export function buildPlan(input: Settings): Plan {
     ...(scenario === "mix-rehearsal" ? { productCalls: mixRehearsalProductCalls(account, region, runId) } : {}),
     // OPS-06 makes the same sandbox calls as DEPLOY-01 (trust, deploy-role session, tag re-list).
     ...(scenario === "deploy-01" || scenario === "ops-06" || scenario === "ops-02" ? { productCalls: deploy01ProductCalls(account, runId, liveRoleNames(laneSuffix(settings)), scenario === "ops-06") } : {}),
-    ...(scenario === "teardown-01" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-03" ? { productCalls: teardown01ProductCalls(account, runId, liveRoleNames(laneSuffix(settings))) } : {}),
+    ...(scenario === "teardown-01" || scenario === "ops-04" || scenario === "ops-05" || scenario === "ops-08" || scenario === "ops-03" ? { productCalls: teardown01ProductCalls(account, runId, liveRoleNames(laneSuffix(settings))) } : {}),
     requirements: ledger.requirements.filter(r => r.requiredEvidence.includes("live_sandbox")).map(r => ({ id: r.id, acceptance: r.acceptance, fixtures: requirements[r.id] ?? [], join: "Wave 5 release ProductScenarioPort: real approved product operations, independent traffic/readback, quiescence. AWS fixtures alone do not meet this requirement." })),
   };
   return { ...body, sha256: digest(body) };

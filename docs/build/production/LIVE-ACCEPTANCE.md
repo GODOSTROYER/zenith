@@ -264,6 +264,21 @@ No operator output may contain any key value, old or new (plain keys, previous-k
 
 Runner tools: the workflow installs the pinned Temporal CLI 1.9.1 (and the PostgreSQL 17 client) for ops-04 and ops-05.
 
+## OPS-08 adversarial probes run (2026-11-05)
+
+Scenario `ops-08` (either lane, 5 to 60 minutes) runs the builder's adversarial probes for PROD-OPS-08 against real AWS-backed
+product state. It uses the TEARDOWN-01 sandbox calls; Zenith deploys one S3 bucket.
+
+1. Tenant A connects the sandbox roles (trust set to A's ExternalId only) and deploys one managed bucket.
+2. Tenant B reads A's operation and A's environment deployments by id: each is refused and carries nothing of A.
+3. Tenant B runs `deploy.apply` on A's environment, `connection.verifyAws` on A's connection and `env.create` on A's connection: each is refused.
+4. Tenant B registers a connection naming A's observe and deploy roles. Real STS refuses B's own ExternalId, so it never verifies (two attempts); A's still does.
+5. Tenant A proposes a second deploy; B's approval of it is refused and the proposal does not change.
+6. By independent readback A's environment still holds exactly one tagged bucket. Cleanup destroys the recorded state and restores the trust.
+
+These are the builder's probes. The run's live_sandbox receipt counts for OPS-08 only together with the tester's review of the
+probes and their results, recorded in the ledger entry; the tester's own local session follows `verify/PROD-OPS-08-TESTER-CHECKLIST.md`.
+
 **Not covered (named residuals).** KMS-held signing keys, the backup key (no decrypt-only list in this build), agent-link and invite sealing (no overlap by design), and retiring the old keys after the history window.
 
 ## OPS-03 rolling upgrade run (2026-10-31)

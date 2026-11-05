@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-REL-04"
+  ],
+  "mode": "local",
+  "commit": "09711b10825fc79319cfecf11c0b71e2876fdcb7",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (acceptance-orchestrator, permissions-cli) on a private copy of the owner-approved scope manifest; no cloud, no stack, no approval written; gate ZENITH_LOCAL_REL04_REHEARSAL",
+  "command": "vitest run tests/acceptance/rel04-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/acceptance/rel04-rehearsal.operated.test.ts",
+      "sha256": "1e58495613385289421da05c00f860be521dc50d22a37d88d2aabe7c3af446e1"
+    }
+  ]
+}

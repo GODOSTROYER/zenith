@@ -9169,7 +9169,7 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipts_at_live_commit_2026-11-01; contract_and_local_engine_receipts_at_c4653f94_2026-11-02; contract_local_engine_and_live_receipts_at_85a9b254_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipts_at_live_commit_2026-11-01; contract_and_local_engine_receipts_at_c4653f94_2026-11-02; contract_local_engine_and_live_receipts_at_85a9b254_2026-11-03; operational_rehearsal_receipt_at_09711b10_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -9301,6 +9301,16 @@
           "result": "PROD-REL-04 local target engine lane, profile mixed (stateful-traffic and mixed-recovery): 2 passed, 0 failed, 0 skipped, exit 0, over tests/acceptance/local-targets.engine.test.ts against the real disposable fixtures, each scenario receipt validated by validateLocalReceipt with evidenceLabel local_rehearsal. Local rehearsal only: no live provider, account or public DNS. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-03-local-engine-85a9b254-mixed/release-evidence-PROD-REL-04.json",
           "sha256": "81e409b03aaa2ce028aaa99d3ebaaf8bcb30919036e9508c041fcb4bc4e4c04e"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "09711b10825fc79319cfecf11c0b71e2876fdcb7",
+          "command": "ZENITH_LOCAL_REL04_REHEARSAL=1 node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-04 --mode local -- tests/acceptance/rel04-rehearsal.operated.test.ts",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (acceptance-orchestrator, permissions-cli) on a private copy of the owner-approved scope manifest; no cloud, no stack, no approval written; gate ZENITH_LOCAL_REL04_REHEARSAL",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-05-operational-rehearsal-09711b10/",
+          "result": "PROD-REL-04 operational rehearsal at 09711b10 (mode local), following LIVE-ACCEPTANCE.md 'Budget, cleanup and evidence limits' and verify/PROD-REL-04.md: on a private copy of the owner-approved scope manifest, permissions-cli check passes; a release acceptance run is SIGKILLed (whole process group) while its second lane runs; the checkpoint shows the first lane done, the second in progress, unattendedClaims false, no report and exactly one next command, the exact resume command; that command run verbatim does not repeat the finished lane (attempts 1, same evidence digest), reruns the interrupted one (attempts 2) and leaves no next command; a live run under the approved copy defers its live lane on its own gates; after the operator raises a budget, permissions-cli check is refused (approval_stale) and the recorded resume is refused (scope changed) before any lane runs. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; no cloud, no stack, no approval written. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-05-operational-rehearsal-09711b10/release-evidence-PROD-REL-04.json",
+          "sha256": "51d242df6f1019367c8b83ea9f12518fe0f10fdc510b19f125cc9778a42dc8be"
         }
       ],
       "requiredEvidence": [

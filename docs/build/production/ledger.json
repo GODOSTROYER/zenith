@@ -4521,7 +4521,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; teardown_after_deploy_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01",
+      "implementationStatus": "implementation_complete_verification_pending; teardown_after_deploy_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_3e05bb2b_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -4555,6 +4555,18 @@
           "result": "PROD-MIX-04 real-engine suite at the commit of its live_sandbox receipt: 199 passed, 0 failed, 0 skipped, exit 0, over 5 test files (tests/execution/mixed-run-store.test.ts, tests/controlplane/mixed-runs.test.ts, tests/controlplane/mixed-follow-up.test.ts, tests/controlplane/mixed-parent-plans.test.ts, tests/controlplane/mixed-child-admission.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-MIX-04/2026-11-01-local-engine-81529b35/release-evidence-PROD-MIX-04.json",
           "sha256": "00cb8e0717daa0c52c098b0e97d46c0dcde42906261e56e7a2a4a1f52ff49ad8"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "3e05bb2bfde88430551d73c0a43ba610581eed41",
+          "runId": 41980774835,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/41980774835",
+          "command": "GitHub Actions live-acceptance.yml, workflow_dispatch with scenario mix-rehearsal and run_id zlive-202611050629-7c0f (lane live); plan sha256 966a4703af63ac5d99a3c77f81fee653707f0ef3a31ffaa84e79a4f5ee408fe9; permission sha256 95a1f2bedabda801c0a0908155a1b15cda6c5701086ee0318c76469436e6ddcc",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26); estimated cap USD 2.675 (provisional, billing not measured); 145 minute window (plan)",
+          "result": "Operational rehearsal on live AWS at 3e05bb2b (mode live). PROD-MIX-04 operational rehearsal (live AWS sandbox, operator runbook MIXED-PARTITIONS.md and MIXED-RECOVERY.md sections 1 and 4) passed: with the producer succeeded and the consumer waiting for its output review, the operator cancelled the run (POST /api/platform/v1/operations/:id/mixed-run/cancel); the run reads partial and cancelled, with the producer in appliedWithoutRunCompletion, the consumer cancelled before it started, atomicity none, automatic compensation never and propose_teardown_for_human_approval among the next steps (propose_teardown_for_human_approval, review_replan), and AWS still holds the producer bucket and nothing of the consumer (nothing compensated); the product tore down all 3 parents, newest first: each run's teardown proposal (consumers first); each step's destroy opened in the child's own environment once its deploy activity settled (80 minutes after the last deploy), released, approved by a person and synced destroyed, one at a time (5 steps); releasing a producer before its consumer was refused (ordering_blocked); afterwards AWS shows no tagged bucket or function in any of the run's 6 environments. Approvals by an automated test approver through the browser path Cleanup complete.",
+          "logs": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-operational-rehearsal-live-aws-41980774835/",
+          "artifact": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-operational-rehearsal-live-aws-41980774835/release-evidence-PROD-MIX-04.json",
+          "sha256": "5c4bdab19ca1c2f786c641bd1106ca6c804f4def1c7d7bc6ec040d4c3201a3e5"
         }
       ],
       "requiredEvidence": [

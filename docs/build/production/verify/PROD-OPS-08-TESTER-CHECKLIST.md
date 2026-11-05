@@ -4,7 +4,7 @@ Tester: Sai (independent of the builder). Requirement: "Independent adversarial 
 
 Builder evidence (not acceptance): `docs/build/production/verify/PROD-OPS-08.md`, `docs/platform/ADVERSARIAL-ACCEPTANCE.md`, and the vitest suites in `tests/adversarial/`. Those suites were written and run by the builder and do not count as this acceptance. Use them only to find the enforcement point for each probe.
 
-Path convention: every `src/`, `tests/`, `docs/`, `scripts/` path below is relative to the repository root.
+Path convention: every `src/`, `tests/`, `docs/`, `scripts/` path below is relative to the repository root of the checkout the stack was started from.
 
 ---
 

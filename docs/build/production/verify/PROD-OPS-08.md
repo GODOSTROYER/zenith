@@ -190,3 +190,13 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-OPS-08 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Engine lane and independent tester checklist (2026-11-05)
+
+Local engine lane: `tests/adversarial/cross-tenant.test.ts`, `approvals-forgery.test.ts` and `role-escalation.test.ts` with
+`ZENITH_TEST_PLATFORM_PG_URL` set to a fresh database migrated by `scripts/platform/migrate.ts`. The approval, stale-approval,
+forgery and escalation matrices then also run on real PostgreSQL (`[postgres]` cases), and the cross-tenant repository sweep runs
+on both PGlite and PostgreSQL. These are still the builder's tests, not the independent acceptance.
+
+Independent acceptance: the tester works through [PROD-OPS-08-TESTER-CHECKLIST.md](PROD-OPS-08-TESTER-CHECKLIST.md) against the
+operated local stack and reports one line per probe. Those probe lines are the operational rehearsal record.

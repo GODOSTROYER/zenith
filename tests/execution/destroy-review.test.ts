@@ -17,6 +17,7 @@ import { setBridgeDepsForTests } from "@/lib/bridge/deps";
 import { planEvidence, toPlanSummary } from "@/lib/execution/plan-evidence";
 import { extractPlanFacts } from "@/lib/policy/plan-facts";
 import { StepFailedError } from "@/lib/execution/errors";
+import { TofuCommandError } from "@/lib/tofu/runner";
 
 closeSharedPgliteAfterAll();
 const worlds: World[] = [];
@@ -258,6 +259,15 @@ describe("first destroy review", () => {
     const error = (await h.store.getOperation(scope.workspaceId, coded.reviewOperationId))?.error;
     expect(error).toBe("Teardown review did not complete. Nothing was applied. (unclassified; cause TypeError/ERR_X)");
     expect(error).not.toContain(CANARY_SECRET);
+    // A failed OpenTofu plan says which command failed and OpenTofu's first error summary (redacted by the runner), not its output.
+    const failed = await request("tofu-intent");
+    vi.spyOn(w.tofu, "planWorkspace").mockRejectedValueOnce(new TofuCommandError("tofu_command_failed", "tofu plan failed with exit code 1.",
+      { command: "plan", exitCode: 1, output: "raw " + CANARY_SECRET, truncated: false, durationMs: 1 },
+      [{ severity: "warning", summary: "Deprecated" }, { severity: "error", summary: "No value for required variable" }]));
+    await expect(run(failed.reviewOperationId)).rejects.toBeTruthy();
+    const tofuError = (await h.store.getOperation(scope.workspaceId, failed.reviewOperationId))?.error;
+    expect(tofuError).toBe("Teardown review did not complete. Nothing was applied. OpenTofu plan failed (exit code 1) before anything was applied; nothing was changed: No value for required variable.");
+    expect(tofuError).not.toContain(CANARY_SECRET);
   });
   it("refuses foreign scope, no plan scope and injected approval/plan fields before dispatch", async () => {
     const { h, scope, agent, dispatch } = await setup();

@@ -370,7 +370,7 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
       }
       return rt.tofu.planWorkspace(ws, await tofuSessionFor(rt, ec, session, ws), { destroy: true, custody: planCustody(ec, graph.graphDigest, connection), lock: false, signal, deletionNodes: graph.nodes, inspectPlan: (plan) => guard(plan, graph.nodes), normalize: { fingerprintKey: rt.d.fingerprintKey } });
     })
-  );
+  ).catch((err: unknown) => { throw destroyPlanFailure(err); });
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
   guard(result.plan, graph.nodes);
   const facts = extractPlanFacts(result.plan);
@@ -393,6 +393,13 @@ async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, port
   } });
   else await rt.evidence(ec.scope,{ kind:"tofu_plan",digest:evidence.digest,key:`destroy:${evidence.key}`,summary,simulated:false },{critical:false});
   return toPlanSummary(result.plan, facts, {});
+}
+
+/** A failed OpenTofu destroy plan changed nothing: name the command and OpenTofu's first error (redacted, as plan evidence shows it). */
+function destroyPlanFailure(err: unknown): unknown {
+  if (!(err instanceof TofuCommandError) || err.code !== "tofu_command_failed") return err;
+  const first = err.diagnostics.find((d) => d.severity === "error")?.summary;
+  return new StepFailedError(`OpenTofu ${safeText(err.result.command, 20)} failed (exit code ${err.result.exitCode}) before anything was applied; nothing was changed${first ? `: ${safeText(first, 200)}` : ""}.`);
 }
 
 async function reviewedPlan(rt: Runtime, ec: ExecContext, planDigest: string): Promise<string[]> {

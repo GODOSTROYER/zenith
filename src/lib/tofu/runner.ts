@@ -235,7 +235,9 @@ export class TofuCommandError extends Error {
   constructor(
     code: TofuCommandError["code"],
     message: string,
-    readonly result: TofuRunResult
+    readonly result: TofuRunResult,
+    /** OpenTofu's diagnostics, redacted like `result.output` (empty unless the command streamed them). */
+    readonly diagnostics: readonly PlanDiagnostic[] = []
   ) {
     super(message);
     this.name = "TofuCommandError";
@@ -496,7 +498,7 @@ export class TofuRun {
     if (raw.stdoutOverflow) throw new TofuCommandError("tofu_output_overflow", `tofu ${command} produced more structured output than the ${o.captureStdoutBytes} byte cap.`, result);
     const ok = o.okExitCodes ?? [0];
     if (!o.allowFailure && !ok.includes(raw.exitCode)) {
-      throw new TofuCommandError("tofu_command_failed", `tofu ${command} failed with exit code ${raw.exitCode}.`, result);
+      throw new TofuCommandError("tofu_command_failed", `tofu ${command} failed with exit code ${raw.exitCode}.`, result, diagnostics);
     }
     return { result, stdout: raw.stdout, diagnostics, raw };
   }

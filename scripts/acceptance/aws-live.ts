@@ -34,6 +34,7 @@ import { teardown01Port } from "./live/product/teardown-01";
 import { ops04Port } from "./live/product/ops-04";
 import { runnerWorker } from "./live/product/ops-04-stack";
 import { ops05Port } from "./live/product/ops-05";
+import { ops08Port } from "./live/product/ops-08";
 import { ops03Port } from "./live/product/ops-03";
 
 export const LIVE_USAGE = `Usage: npx tsx scripts/acceptance/aws-live.ts --scenario A[,B,...] [options]
@@ -101,6 +102,7 @@ export async function runLiveCli(argv: readonly string[], env: EnvLike = process
       : selected === "teardown-01" ? teardown01Port(env, { product: browserDeploy01Product(env) })
       : selected === "ops-04" ? ops04Port(env, { product: browserDeploy01Product(env) })
       : selected === "ops-05" ? ops05Port(env, { product: browserDeploy01Product(env) })
+      : selected === "ops-08" ? ops08Port(env, { product: browserDeploy01Product(env) })
       : selected === "ops-03" ? ops03Port(env, { product: browserDeploy01Product(env) })
       : undefined;
     return runProductionCli(argv, env, io, { product });

@@ -49,6 +49,10 @@ export interface Deploy01Product {
   decideRecovery?(tenant: Deploy01Tenant, itemId: string, input: { decision: string; bindingDigest: string; reason: string }): Promise<{ status: number; state?: string; why?: string }>;
   /** OPS-04: one approval attempt; a product refusal is returned (its fixed message), never thrown. */
   tryApprove?(tenant: Deploy01Tenant, operationId: string): Promise<{ ok: boolean; refusal?: string }>;
+  /** OPS-08: one request as the tenant's owner that may be refused; never throws on a refusal. Body text only for leak checks. */
+  probe?(tenant: Deploy01Tenant, endpoint: string, method?: string, body?: unknown): Promise<{ status: number; text: string }>;
+  /** OPS-08: one action as the tenant's owner that may be refused; never throws on a refusal. */
+  tryAction?(tenant: Deploy01Tenant, id: string, input: Record<string, unknown>, scope?: Record<string, unknown>): Promise<{ status: number; ok: boolean; why?: string }>;
   close?(): Promise<void>;
 }
 export interface Deploy01DriverSeams {
@@ -358,6 +362,23 @@ export function browserDeploy01Product(env: EnvLike = process.env, seams: Deploy
       const session = sessionOf(tenant);
       try { await approve(session, operationId); return { ok: true }; }
       catch (error) { return { ok: false, refusal: error instanceof Error ? sanitizedError(error.message) ?? "refused" : "refused" }; }
+    },
+    async probe(tenant, endpoint, method = "GET", body) {
+      return step("probe", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, endpoint, body, method);
+        return { status: response.status, text: JSON.stringify(response.data ?? null) };
+      });
+    },
+    async tryAction(tenant, id, input, scope = {}) {
+      return step("action probe", async () => {
+        const session = sessionOf(tenant);
+        const response = await send(session, session.owner, `/api/actions/${id}`, { mode: "execute", input, scope, idempotencyKey: nonce() });
+        const result = (response.data as { result?: { ok?: unknown; error?: unknown } } | undefined)?.result;
+        const ok = response.status >= 200 && response.status < 300 && result?.ok === true;
+        const why = sanitizedError(result?.error) ?? codeOf(response.data);
+        return { status: response.status, ok, ...(why && /^[A-Za-z0-9 ,.;:()'_/-]{1,200}$/.test(why) ? { why } : {}) };
+      });
     },
     async deploy(tenant, environmentId, kind) {
       return step(kind === "apply" ? "deploy" : "rollback", async () => {

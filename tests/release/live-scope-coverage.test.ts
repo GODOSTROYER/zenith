@@ -53,6 +53,8 @@ const COVERED_BY: Record<string, string> = {
   "scripts/acceptance/live/product/ops-04.ts": "scripts/acceptance/live/cli.ts",
   // OPS-05 runs only behind the production CLI, as OPS-04.
   "scripts/acceptance/live/product/ops-05.ts": "scripts/acceptance/live/cli.ts",
+  // OPS-08 runs only behind the production CLI, as OPS-05.
+  "scripts/acceptance/live/product/ops-08.ts": "scripts/acceptance/live/cli.ts",
   // OPS-03 runs only behind the production CLI, as OPS-04.
   "scripts/acceptance/live/product/ops-03.ts": "scripts/acceptance/live/cli.ts",
   "scripts/acceptance/live/product/ops-02-stack.ts": "scripts/acceptance/live/cli.ts",
@@ -61,6 +63,7 @@ const COVERED_BY: Record<string, string> = {
   "tests/acceptance/aws-ops06-port.test.ts": "scripts/acceptance/live/scope.ts",
   "tests/acceptance/aws-ops04-port.test.ts": "scripts/acceptance/live/scope.ts",
   "tests/acceptance/aws-ops05-port.test.ts": "scripts/acceptance/live/scope.ts",
+  "tests/acceptance/aws-ops08-port.test.ts": "scripts/acceptance/live/scope.ts",
   "tests/acceptance/aws-ops03-port.test.ts": "scripts/acceptance/live/scope.ts",
   "tests/acceptance/aws-session-refresh.test.ts": "scripts/acceptance/live/scope.ts",
   // The PROD-REL-04 drill only spawns the production CLI (which loads and enforces the root and envelope scope) and reads the journals it writes.

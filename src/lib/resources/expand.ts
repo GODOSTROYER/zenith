@@ -339,7 +339,8 @@ function emitFunctions(ctx: Ctx): void {
       else ctx.b.note("function", `${address} depends on "${d}", which has no node in the graph; the dependency is dropped.`);
     }
     ctx.b.add({ address, kind: "function", place: { provider: f.provider, region: f.region }, nativeType: "aws:lambda_function",
-      spec: { runtime: f.runtime, handler: f.handler, memoryMb: f.memoryMb, timeoutSec: f.timeoutSec, architecture: f.architecture, artifact: { ...f.source }, env: f.env }, origin: [f.id], dependsOn: uniqSorted(dependsOn) });
+      // The driver's log group holds data: its teardown needs the manifest's deletion policy on this node.
+      spec: { runtime: f.runtime, handler: f.handler, memoryMb: f.memoryMb, timeoutSec: f.timeoutSec, architecture: f.architecture, artifact: { ...f.source }, env: f.env, deletionPolicy: ctx.policies.deletion }, origin: [f.id], dependsOn: uniqSorted(dependsOn) });
     ctx.addrByKey.set(f.id, address); ctx.addrByKey.set(f.name, address);
     for (const id of f.invokedBy) {
       const svc = ctx.svcs.get(id);

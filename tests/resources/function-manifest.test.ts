@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ManifestV2 } from "@/lib/resources/manifest-v2";
+import { ManifestV2, resolvePolicies } from "@/lib/resources/manifest-v2";
+import { assertDeletionAllowed } from "@/lib/tofu/plan";
+import type { NormalizedPlan } from "@/lib/tofu/types";
 import { expandManifest } from "@/lib/resources/expand";
 import { v2OnlySections } from "@/lib/resources/upgrade";
 import template from "../../fixtures/mixed-app/zenith.app.json";
@@ -44,6 +46,17 @@ describe("experimental manifest Lambda binding", () => {
     expect(fn.dependsOn).toHaveLength(1);
     expect(graph.nodes.find(n => n.address === fn.dependsOn[0])?.origin).toContain(resource.id);
     expect(graph.notes.some(note => note.includes('depends on "absent"'))).toBe(true);
+  });
+  it("carries the manifest's deletion policy, so teardown can delete the function's log group only when it allows", () => {
+    const logs = { resourceChanges: [{ address: "aws_cloudwatch_log_group.function_enricher_logs", type: "aws_cloudwatch_log_group", action: "delete", nodeAddress: "function/enricher" }] } as unknown as NormalizedPlan;
+    for (const deletion of ["allow", "deny"] as const) {
+      const m = ManifestV2.parse({ ...bind(), policies: { ...bind().policies, deletion } });
+      const graph = expandManifest(m, { id: "mixed", name: "mixed", class: "production", provider: "gcp", region: "us-central1", baseDomain: "mixed.example.test" });
+      const fn = graph.nodes.find(n => n.address === "function/enricher")!;
+      expect(fn.spec.deletionPolicy).toBe(resolvePolicies(m).deletion);
+      if (deletion === "allow") expect(() => assertDeletionAllowed(logs, [fn])).not.toThrow();
+      else expect(() => assertDeletionAllowed(logs, [fn])).toThrow(/explicit deletionPolicy of allow/);
+    }
   });
   it("refuses the unbound template instead of accepting fictional digest evidence", () => { expect(ManifestV2.safeParse(template).success).toBe(false); });
 });

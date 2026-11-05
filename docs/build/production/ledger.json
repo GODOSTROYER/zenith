@@ -8174,6 +8174,16 @@
           "logs": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-live-aws-42025340884/",
           "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-live-aws-42025340884/release-evidence-PROD-OPS-03.json",
           "sha256": "84367d220966464529b0a6d11363bef360f05ede31773d722d80cc8220027ea3"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_DEFAULT_JOURNEY ZENITH_LOCAL_JOINED_DRIVERS ZENITH_LOCAL_JOURNEY_CONFIG_FILE ZENITH_LOCAL_OPERATED ZENITH_LOCAL_ROOT ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_TARGETS node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-03 --mode local -- tests/acceptance/operated-upgrade.engine.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 and kind v0.33.0 (release checksums verified), Temporal CLI 1.9.1; fresh lean J1 default stack (readiness 16/0/0 before the gate) and private J2 journey fixture (kind zenith-j2) per docs/build/production/verify/DRV-3.md, stack CA trusted SSL-only in the login keychain by the owner; operated scenario upgrade; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_JOINED_DRIVERS ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_DEFAULT_JOURNEY ZENITH_LOCAL_OPERATED ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_LOCAL_JOURNEY_CONFIG_FILE",
+          "logs": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-03 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/operated-upgrade.engine.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-03.json",
+          "sha256": "ebe29d575541c82e91334700ee43437122fca9092379dd4f1ea054f98595c5fd"
         }
       ],
       "requiredEvidence": [
@@ -9626,6 +9636,16 @@
           "logs": "docs/build/production/evidence/PROD-REL-01/2026-11-05-live-aws-42026183803/",
           "artifact": "docs/build/production/evidence/PROD-REL-01/2026-11-05-live-aws-42026183803/release-evidence-PROD-REL-01.json",
           "sha256": "53c65a711102d2ba7f8178f1946e69287df3e8ccd96c16648ab7d2d404d6a383"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_DEFAULT_JOURNEY ZENITH_LOCAL_DRV1 ZENITH_LOCAL_JOINED_DRIVERS ZENITH_LOCAL_JOURNEY_CONFIG_FILE ZENITH_LOCAL_ROOT ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_TARGETS node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-01 --mode local -- tests/acceptance/drv1-update-rollback.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 and kind v0.33.0 (release checksums verified), Temporal CLI 1.9.1; fresh lean J1 default stack (readiness 16/0/0 before the gate) and private J2 journey fixture (kind zenith-j2) per docs/build/production/verify/DRV-1.md, stack CA trusted SSL-only in the login keychain by the owner; operated scenario update-rollback; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_JOINED_DRIVERS ZENITH_ACCEPTANCE_DEFAULT_STACK ZENITH_DEFAULT_JOURNEY ZENITH_LOCAL_DRV1 ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR ZENITH_LOCAL_JOURNEY_CONFIG_FILE NODE_EXTRA_CA_CERTS=stack CA",
+          "logs": "docs/build/production/evidence/PROD-REL-01/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-REL-01 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/drv1-update-rollback.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-01/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-REL-01.json",
+          "sha256": "31856525e5202c13f5455fd8f9fd2f13f8c439f87e724c913c313bb8bb2cc6fb"
         }
       ],
       "requiredEvidence": [

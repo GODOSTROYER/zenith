@@ -75,3 +75,16 @@ Until now the live AWS runs were recorded in the ledger as prose with a `logs` d
 Backfilled: PROD-MIX-04 (run 40979439520), PROD-OPS-01 (41065148794), PROD-OPS-04 (41012192964 and 41065148794), PROD-OPS-05 (41033090300), PROD-OPS-06 (40878106025), PROD-OPS-07 (40234506190) and PROD-REL-01 (40460096635). The dossier now reads `live_sandbox: performed` for those seven requirements. PROD-MIX-03 has no source because its run was only partly proven. PROD-REL-04's proof is its drill receipt, not this packet, so it is not backfilled here.
 
 Limits: each receipt is on its run's commit, not a frozen release candidate. When `releaseCandidate.commit` is frozen, these receipts stop satisfying the release gate until the runs are repeated on that commit. `operational_rehearsal` is still not done for any requirement.
+
+## Live check over a finished live run (2026-11-05)
+
+`scripts/acceptance/live/drill/verify-release-dossier.ts --run-dir DIR` takes the downloaded artifacts of one passing
+live_sandbox run (`evidence.json` and its `release-source-*.json`) and re-derives, offline, the REL-02 and REL-03 behaviour on
+that real evidence: receipts built from the run's sources make the dossier, with the run's commit as a candidate scoped to the
+run's requirements, read live_sandbox performed with the run's environment; requirements the run did not pass stay not performed;
+rows outside the scope are flagged; a changed source byte undoes the row. On the same candidate the release gates stay separate
+(PROD-REL-03): all-false needs nothing, implementationComplete alone asks for no evidence, sandboxVerified is refused for exactly
+the levels the dossier shows unperformed, pilotReady needs sandboxVerified, and productionApproved is refused for a scoped
+candidate and without sign-off. On success it writes `release-source-PROD-REL-02.json` and `release-source-PROD-REL-03.json`
+(mode live) next to the evidence, for `scripts/release/evidence-cli.mjs --level live_sandbox --mode live`. Use a run whose commit
+already contains this verifier. Test: `tests/acceptance/verify-release-dossier.test.ts` (real committed run 41617473729).

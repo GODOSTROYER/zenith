@@ -183,6 +183,12 @@ export async function runAcceptance(options: RunOptions, deps: RunDeps = {}): Pr
   }
   const laneIds = scenarios.flatMap((s) => s.lanes.map((l) => `${s.id}.${l.id}`));
   const { checkpoint } = RunCheckpoint.open({ store: deps.store ?? fileStore(path.join(runDir, "checkpoint.json")), runId: options.runId, harness: "release-acceptance", scopeDigest: digest({ scope: scope?.digest ?? "no-live-scope", sourceCommit, lanes: scenarios, source: harnessDigest, localRun: options.localTargets ? { root: env.ZENITH_LOCAL_ROOT, joined: env.ZENITH_LOCAL_JOINED_DRIVERS } : null }), steps: laneIds, now });
+  // The exact command that continues this run: same selection, out directory and run id (another selection is a new run).
+  const quote = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
+  const resume = ["npx tsx scripts/release/acceptance-orchestrator.ts run", ...(options.only ? ["--only", options.only.join(",")] : []), "--out", quote(path.resolve(options.outDir)),
+    "--run-id", options.runId, ...(options.includeLive ? ["--include-live"] : []), ...(options.localTargets ? ["--local-targets"] : [])].join(" ");
+  // Recorded before the first lane, so a killed run still leaves its exact resume command on disk.
+  checkpoint.setNextCommands([resume]);
   const cachePath = (id: string): string => path.join(runDir, "lanes", `${id}.json`);
 
   const results: ScenarioResult[] = [];
@@ -225,9 +231,10 @@ export async function runAcceptance(options: RunOptions, deps: RunDeps = {}): Pr
   const summary = { total: results.length, failed: 0, not_run: 0, incomplete: 0, local_passed: 0, local_passed_live_pending: 0, verified_live: 0 } as AcceptanceReport["summary"];
   for (const r of results) summary[r.status] += 1;
   const commit = sourceCommit;
+  const deferred = results.some((r) => r.lanes.some((l) => l.status === "deferred"));
   checkpoint.setNextCommands([
-    "Re-run the scenarios that did not pass: npx tsx scripts/release/acceptance-orchestrator.ts run --only <ids> --run-id " + options.runId,
-    "Live lanes (a person approves the scope first): npx tsx scripts/release/permissions-cli.ts approve --by <name>, then run with --include-live",
+    ...(checkpoint.remaining().length ? [resume] : []),
+    ...(deferred && !options.localTargets ? ["npx tsx scripts/release/permissions-cli.ts approve --by <name>"] : []),
   ]);
   const report: AcceptanceReport = { schema: 1, runId: options.runId, generatedAt: now().toISOString(), sourceCommit: commit, harnessDigest, scenarios: results, summary, statement: STATEMENT };
   writeFileSync(path.join(runDir, "acceptance-report.json"), JSON.stringify(report, null, 2));

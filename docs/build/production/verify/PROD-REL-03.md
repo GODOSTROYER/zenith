@@ -63,3 +63,12 @@ node scripts/ci/wave6-gates.mjs --requirement PROD-REL-03 --print > /tmp/zenith-
 ```
 
 This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Scoped release candidate (2026-11-05)
+
+`releaseCandidate.requirements` (optional) names the requirements a candidate covers, for a pilot such as the AWS private beta.
+`implementationComplete`, `sandboxVerified` and `pilotReady` then need complete implementations and passing evidence at the
+candidate commit for those requirements only; the dossier applies the candidate commit to those rows and flags the others
+"outside the release candidate's requirement scope". `productionApproved` is refused unless the candidate covers every
+requirement, and `signoff-cli.mjs prepare` refuses a scoped candidate. Without the field nothing changes. Tests:
+`tests/release/status.test.ts` ("a scoped candidate gates pilot on its own requirements only").

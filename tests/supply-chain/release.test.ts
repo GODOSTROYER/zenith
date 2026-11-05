@@ -65,7 +65,7 @@ function ociImage(label: string, tamper = false): { archive: Buffer; digest: str
 interface Bundle { dir: string; keys: ReturnType<typeof publicKeyEntry>[]; seed: Buffer; lock: string }
 
 /** Assemble and sign a bundle exactly as the workflow does: files, SBOM, provenance, manifest, signature. */
-function makeBundle(name: string, options: { signSeed?: Buffer; tamperImage?: boolean; commitInProvenance?: string; validDays?: number } = {}): Bundle {
+function makeBundle(name: string, options: { signSeed?: Buffer; tamperImage?: boolean; commitInProvenance?: string; validDays?: number; lock?: string } = {}): Bundle {
   const dir = path.join(scratch, name);
   fs.mkdirSync(path.join(dir, "go/linux-amd64"), { recursive: true });
   fs.mkdirSync(path.join(dir, "images"), { recursive: true });
@@ -73,7 +73,7 @@ function makeBundle(name: string, options: { signSeed?: Buffer; tamperImage?: bo
   fs.writeFileSync(path.join(dir, "go/linux-amd64/zenith-runner"), randomBytes(64));
   const image = ociImage("zenithd");
   fs.writeFileSync(path.join(dir, "images/zenithd.oci.tar"), image.archive);
-  const lock = JSON.stringify({ lockfileVersion: 3, packages: { "": { name: "app", version: "1.0.0", dependencies: { a: "^1" } }, "node_modules/a": { version: "1.0.0", integrity: `sha512-${randomBytes(64).toString("base64")}` } } });
+  const lock = options.lock ?? JSON.stringify({ lockfileVersion: 3, packages: { "": { name: "app", version: "1.0.0", dependencies: { a: "^1" } }, "node_modules/a": { version: "1.0.0", integrity: `sha512-${randomBytes(64).toString("base64")}` } } });
   const lockFile = path.join(scratch, `${name}-lock.json`);
   fs.writeFileSync(lockFile, lock);
   const sbom = buildSbom({ lock: JSON.parse(lock), goInfos: [], images: [{ name: "zenithd", digest: image.digest }], version: "1.2.3", commit: COMMIT, timestamp: NOW.toISOString() });
@@ -194,6 +194,11 @@ describe("tampering is detected", () => {
     const c = makeBundle("t-lock");
     const other = JSON.stringify({ lockfileVersion: 3, packages: { "": { name: "app" }, "node_modules/b": { version: "9.9.9", integrity: `sha512-${randomBytes(64).toString("base64")}` } } });
     expect(verify(c, { lock: other }).errors.join()).toMatch(/not exactly those of the supplied package-lock.json/);
+  });
+
+  it("verifies against the repository's own package-lock.json, whose vendored minimatch is a link entry", () => {
+    const b = makeBundle("t-real-lock", { lock: fs.readFileSync("package-lock.json", "utf8") });
+    expect(verify(b).errors).toEqual([]);
   });
 
   it("rejects an image archive whose blobs were altered, and one whose digest differs from the signed digest", () => {

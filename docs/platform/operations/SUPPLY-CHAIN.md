@@ -64,8 +64,9 @@ Exit 0 verified, 1 not verified (every failed check listed), 2 usage error.
   is not on an isolated hosted builder, and no SLSA level is claimed.
 - Images are not pushed to a registry. They ship as OCI archives (`docker load`, `skopeo copy oci-archive:...`). Digests are verified
   from the archive; there is no registry signature.
-- Base images are not all digest-pinned in source. `docker/runner.Dockerfile` and `docker/zenithd.Dockerfile` use tag-only
-  `golang`, `alpine` and `distroless` bases. The SBOM marks them `zenith:pinned=tag-only`; the verifier warns, and fails with `--strict`.
+- Every base image in the four release Dockerfiles is digest-pinned in source (checked 2026-11-05: `--strict` verifies the
+  rehearsal bundle). A tag-only base added later is marked `zenith:pinned=tag-only` in the SBOM; the verifier warns, and fails
+  with `--strict`.
 - OS packages inside base images are not inventoried. Every container component says `zenith:os-packages=not-inventoried`.
 - An SBOM is not a vulnerability statement. It lists inputs. Vulnerability state is the audit gate plus the triage records.
 - The first signed release has not been produced; no key exists yet, and the workflow has not been run.

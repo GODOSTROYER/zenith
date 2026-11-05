@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-OPS-08",
+  "level": "contract",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/adversarial/approvals-forgery.test.ts tests/adversarial/build-exfiltration.test.ts tests/adversarial/cross-tenant.test.ts tests/adversarial/integration-compromise.test.ts tests/adversarial/malicious-archives.test.ts tests/adversarial/prompt-injection.test.ts tests/adversarial/residual-hardening.test.ts tests/adversarial/role-escalation.test.ts tests/adversarial/ssrf-rebinding.test.ts tests/adversarial/token-forgery.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "contract",
+  "status": "passed",
+  "passed": 238,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-contract-c756d2d7/lane-source-PROD-OPS-08.json",
+      "sha256": "8bd0ce5b756fe86698061abd05140c97efe0a5200cd11be6337472fddc02baf3"
+    }
+  ]
+}

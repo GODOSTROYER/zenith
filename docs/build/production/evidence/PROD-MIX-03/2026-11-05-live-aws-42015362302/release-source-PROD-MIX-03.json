@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-03"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario mix-03, run id zlive-202611051100-9339; plan sha256 b9156d8f5c456f7969c807155a84abf9b745666b86ab789c88067576b083c7fa",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 3964ed4d39b69efb4374221cd874122c34b2733f543609539d770bf457fbfbc4; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611051100-9339",
+    "file": "evidence.json",
+    "sha256": "0c05972a9431c80688518fd5c824a601ff6d7354ab7b2a138a43e1b28c63ffeb",
+    "packetSha256": "ee9d999cace38f3b4b013e41b49be8a6a45ea52521babf88693dac77a1f5f7ab"
+  },
+  "result": "PROD-MIX-03 proven on the live AWS sandbox: the trust change touched only the ExternalId of both sandbox roles and was restored; connection.verifyAws passed. Review path: the producer (S3 bucket) finished before the consumer (Lambda function) started; the producer's newly materialized output changed the consumer's effect, so the parent workflow opened a review binding the new parent digest (previous b662af52b221, required 432207eae634) and the consumer waited until a person approved it; both receipts link their child operations; the consumer's deployed PRODUCER_BUCKET_ARN equals the producer bucket ARN by independent readback. Preauthorized path: a second parent on the same connection had its one reference precisely preauthorized (parent operation, reference, contract, both subplan digests, desired digest, value type; one use, 15 minutes) before it started; its consumer started with no review, the preauthorization's one use was spent (1 of 1) and the product no longer lists it as able to cover a use; the second consumer's PRODUCER_BUCKET_ARN equals its own producer bucket ARN by independent readback. Approvals by an automated test approver through the browser path. A second use of the same grant is refused by the reservation (uses < max_uses), shown here as the grant no longer listed active, not by attempting a second materialization"
+}

@@ -4289,7 +4289,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_local_engine_and_live_receipts_at_f3b8fae6_2026-11-03; operational_rehearsal_receipt_at_8888743f_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; contract_local_engine_and_live_receipts_at_f3b8fae6_2026-11-03; operational_rehearsal_receipt_at_8888743f_2026-11-04; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -4335,6 +4335,26 @@
           "logs": "docs/build/production/evidence/PROD-MIX-01/2026-11-04-operational-rehearsal-live-aws-41835860881/",
           "artifact": "docs/build/production/evidence/PROD-MIX-01/2026-11-04-operational-rehearsal-live-aws-41835860881/release-evidence-PROD-MIX-01.json",
           "sha256": "6ec0490df12c2339948caaaf64039164c9487c7f55b53814b3a75665d764de61"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-01 --mode contract -- tests/execution/mixed-partitions.test.ts tests/execution/mixed/parent-plan.test.ts tests/acceptance/mixed-evidence.test.ts tests/acceptance/aws-mix03-port.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-MIX-01 contract suite at the release candidate c756d2d7: 193 passed, 0 failed, exit 0, over 4 test file(s) (tests/execution/mixed-partitions.test.ts, tests/execution/mixed/parent-plan.test.ts, tests/acceptance/mixed-evidence.test.ts, tests/acceptance/aws-mix03-port.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-contract-c756d2d7/release-evidence-PROD-MIX-01.json",
+          "sha256": "a96c4e34349d4eefb31b09c7c0f785b81139b4665adbb90a3eb62a87f208222c"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-01 --mode local -- tests/controlplane/mixed-parent-plans.test.ts tests/controlplane/mixed-child-admission.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-MIX-01 real-engine suite at the release candidate c756d2d7: 101 passed, 0 failed, exit 0, over 2 test file(s) (tests/controlplane/mixed-parent-plans.test.ts, tests/controlplane/mixed-child-admission.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-MIX-01.json",
+          "sha256": "e74bc4b89a503dd4cd13bd128131524153aabc8b9490758645b89ab6b2b3cbc0"
         }
       ],
       "requiredEvidence": [
@@ -4363,7 +4383,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; immutable_plans_and_worker_restart_resume_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_8888743f_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; immutable_plans_and_worker_restart_resume_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_8888743f_2026-11-04; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -4409,6 +4429,38 @@
           "logs": "docs/build/production/evidence/PROD-MIX-02/2026-11-04-operational-rehearsal-live-aws-41835860881/",
           "artifact": "docs/build/production/evidence/PROD-MIX-02/2026-11-04-operational-rehearsal-live-aws-41835860881/release-evidence-PROD-MIX-02.json",
           "sha256": "3355a3dd31323b2762591389d900d7098fa55dc9b856b379b4bb77cced3a1992"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-02 --mode contract -- tests/execution/mixed/parent-plan.test.ts tests/execution/mixed-partitions.test.ts tests/execution/mixed-orchestration.test.ts tests/execution/mixed-orchestration-join.test.ts tests/controlplane/mixed-parent-plans.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-MIX-02/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-MIX-02 contract suite at the release candidate c756d2d7: 261 passed, 0 failed, exit 0, over 5 test file(s) (tests/execution/mixed/parent-plan.test.ts, tests/execution/mixed-partitions.test.ts, tests/execution/mixed-orchestration.test.ts, tests/execution/mixed-orchestration-join.test.ts, tests/controlplane/mixed-parent-plans.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-02/2026-11-05-contract-c756d2d7/release-evidence-PROD-MIX-02.json",
+          "sha256": "8cc25382284a98776014faef798223ca8d139af07837ffefb90e81f20b07d449"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-02 --mode local -- tests/controlplane/mixed-parent-plans.test.ts tests/controlplane/mixed-child-admission.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-MIX-02/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-MIX-02 real-engine suite at the release candidate c756d2d7: 101 passed, 0 failed, exit 0, over 2 test file(s) (tests/controlplane/mixed-parent-plans.test.ts, tests/controlplane/mixed-child-admission.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-02/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-MIX-02.json",
+          "sha256": "f90ad5ac33da8b0e277aa26b5dad144255aac3752bab3ea92bdc1d07ae1ecbbc"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42015362302,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42015362302",
+          "command": "GitHub Actions live-acceptance.yml, scenario mix-03, run id zlive-202611051100-9339; plan sha256 b9156d8f5c456f7969c807155a84abf9b745666b86ab789c88067576b083c7fa (workflow_dispatch, run_id zlive-202611051100-9339)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 3964ed4d39b69efb4374221cd874122c34b2733f543609539d770bf457fbfbc4; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). PROD-MIX-02 proven on the live sandbox: the stored parent plan put the producer (S3 bucket) before the consumer (Lambda function) that depends on it, with one approved parent operation; its parent, desired and child-set digests, each child's subplan, semantics and effect digests and all 2 stable resource addresses were identical after the proposal, before the execution worker was stopped and at the end; the worker was stopped with the producer done and the consumer waiting for its review, the review was approved while it was down (263 s from stop to healthy) and the parent resumed after the restart; both durable receipts link their child operations, bind the semantics each child ran and re-derive from their own fields; the producer receipt was unchanged across the restart and AWS held the same one producer bucket before and after",
+          "logs": "docs/build/production/evidence/PROD-MIX-02/2026-11-05-live-aws-42015362302/",
+          "artifact": "docs/build/production/evidence/PROD-MIX-02/2026-11-05-live-aws-42015362302/release-evidence-PROD-MIX-02.json",
+          "sha256": "426ce14019baf07260eb17978192ac81eba3ad2e5d82170cd5914bb787fff16f"
         }
       ],
       "requiredEvidence": [
@@ -4437,7 +4489,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; review_path_and_one_use_preauthorization_proven_live_sandbox_2026-10-31; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_8888743f_2026-11-04",
+      "implementationStatus": "implementation_complete_verification_pending; review_path_and_one_use_preauthorization_proven_live_sandbox_2026-10-31; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_8888743f_2026-11-04; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -4493,6 +4545,38 @@
           "logs": "docs/build/production/evidence/PROD-MIX-03/2026-11-04-operational-rehearsal-live-aws-41835860881/",
           "artifact": "docs/build/production/evidence/PROD-MIX-03/2026-11-04-operational-rehearsal-live-aws-41835860881/release-evidence-PROD-MIX-03.json",
           "sha256": "701a10b5dc02ba3a2c50fc3b47e7f33a534308270c5b2c8235532645f1d4e646"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-03 --mode contract -- tests/execution/mixed/typed-delivery.test.ts tests/execution/mixed/typed-inputs-activities.test.ts tests/execution/mixed/typed-substitution.test.ts tests/execution/mixed/output-reader.test.ts tests/execution/mixed/reference-readback.test.ts tests/execution/mixed-orchestration.test.ts tests/execution/mixed-orchestration-service.test.ts tests/controlplane/mixed-follow-up.test.ts tests/controlplane/mixed-runs.test.ts tests/acceptance/aws-mix03-driver.test.ts tests/acceptance/aws-mix03-port.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-MIX-03/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-MIX-03 contract suite at the release candidate c756d2d7: 358 passed, 0 failed, exit 0, over 11 test file(s) (tests/execution/mixed/typed-delivery.test.ts, tests/execution/mixed/typed-inputs-activities.test.ts, tests/execution/mixed/typed-substitution.test.ts, tests/execution/mixed/output-reader.test.ts, tests/execution/mixed/reference-readback.test.ts, tests/execution/mixed-orchestration.test.ts, tests/execution/mixed-orchestration-service.test.ts, tests/controlplane/mixed-follow-up.test.ts, tests/controlplane/mixed-runs.test.ts, tests/acceptance/aws-mix03-driver.test.ts, tests/acceptance/aws-mix03-port.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-03/2026-11-05-contract-c756d2d7/release-evidence-PROD-MIX-03.json",
+          "sha256": "d03a213dfd5c555659aa6389d5d1b7010622aeff0c3807f31bdd7d6b15b830f6"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-03 --mode local -- tests/controlplane/mixed-follow-up.test.ts tests/controlplane/mixed-runs.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-MIX-03/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-MIX-03 real-engine suite at the release candidate c756d2d7: 96 passed, 0 failed, exit 0, over 2 test file(s) (tests/controlplane/mixed-follow-up.test.ts, tests/controlplane/mixed-runs.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-03/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-MIX-03.json",
+          "sha256": "3595c1129cf5571b3e179bd2713c5e6f0e1c42acd63f178d53e47765cff61084"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42015362302,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42015362302",
+          "command": "GitHub Actions live-acceptance.yml, scenario mix-03, run id zlive-202611051100-9339; plan sha256 b9156d8f5c456f7969c807155a84abf9b745666b86ab789c88067576b083c7fa (workflow_dispatch, run_id zlive-202611051100-9339)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 3964ed4d39b69efb4374221cd874122c34b2733f543609539d770bf457fbfbc4; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). PROD-MIX-03 proven on the live AWS sandbox: the trust change touched only the ExternalId of both sandbox roles and was restored; connection.verifyAws passed. Review path: the producer (S3 bucket) finished before the consumer (Lambda function) started; the producer's newly materialized output changed the consumer's effect, so the parent workflow opened a review binding the new parent digest (previous b662af52b221, required 432207eae634) and the consumer waited until a person approved it; both receipts link their child operations; the consumer's deployed PRODUCER_BUCKET_ARN equals the producer bucket ARN by independent readback. Preauthorized path: a second parent on the same connection had its one reference precisely preauthorized (parent operation, reference, contract, both subplan digests, desired digest, value type; one use, 15 minutes) before it started; its consumer started with no review, the preauthorization's one use was spent (1 of 1) and the product no longer lists it as able to cover a use; the second consumer's PRODUCER_BUCKET_ARN equals its own producer bucket ARN by independent readback. Approvals by an automated test approver through the browser path. A second use of the same grant is refused by the reservation (uses < max_uses), shown here as the grant no longer listed active, not by attempting a second materialization",
+          "logs": "docs/build/production/evidence/PROD-MIX-03/2026-11-05-live-aws-42015362302/",
+          "artifact": "docs/build/production/evidence/PROD-MIX-03/2026-11-05-live-aws-42015362302/release-evidence-PROD-MIX-03.json",
+          "sha256": "66b41e08ca675647f76c63f32831d89cc5c7e800240688ac4cf5a3f511825a0c"
         }
       ],
       "requiredEvidence": [
@@ -4521,7 +4605,7 @@
         "PROD-LIFE-03",
         "PROD-LIFE-07"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; teardown_after_deploy_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_3e05bb2b_2026-11-05",
+      "implementationStatus": "implementation_complete_verification_pending; teardown_after_deploy_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; operational_rehearsal_receipt_at_3e05bb2b_2026-11-05; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -4567,6 +4651,38 @@
           "logs": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-operational-rehearsal-live-aws-41980774835/",
           "artifact": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-operational-rehearsal-live-aws-41980774835/release-evidence-PROD-MIX-04.json",
           "sha256": "5c4bdab19ca1c2f786c641bd1106ca6c804f4def1c7d7bc6ec040d4c3201a3e5"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-04 --mode contract -- tests/execution/mixed-orchestration.test.ts tests/execution/mixed-orchestration-service.test.ts tests/execution/mixed-orchestration-signals.test.ts tests/execution/mixed-orchestration-join.test.ts tests/execution/mixed-partitions.test.ts tests/acceptance/mixed-failure-scenarios.test.ts tests/controlplane/mixed-runs.test.ts tests/controlplane/mixed-follow-up.test.ts tests/controlplane/mixed-parent-plans.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-MIX-04 contract suite at the release candidate c756d2d7: 335 passed, 0 failed, exit 0, over 9 test file(s) (tests/execution/mixed-orchestration.test.ts, tests/execution/mixed-orchestration-service.test.ts, tests/execution/mixed-orchestration-signals.test.ts, tests/execution/mixed-orchestration-join.test.ts, tests/execution/mixed-partitions.test.ts, tests/acceptance/mixed-failure-scenarios.test.ts, tests/controlplane/mixed-runs.test.ts, tests/controlplane/mixed-follow-up.test.ts, tests/controlplane/mixed-parent-plans.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-contract-c756d2d7/release-evidence-PROD-MIX-04.json",
+          "sha256": "53c3584d3598578bc0446c9750aae24f29ea5dffdff8409cec0c0999b99380aa"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-MIX-04 --mode local -- tests/execution/mixed-run-store.test.ts tests/controlplane/mixed-runs.test.ts tests/controlplane/mixed-follow-up.test.ts tests/controlplane/mixed-parent-plans.test.ts tests/controlplane/mixed-child-admission.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-MIX-04 real-engine suite at the release candidate c756d2d7: 209 passed, 0 failed, exit 0, over 5 test file(s) (tests/execution/mixed-run-store.test.ts, tests/controlplane/mixed-runs.test.ts, tests/controlplane/mixed-follow-up.test.ts, tests/controlplane/mixed-parent-plans.test.ts, tests/controlplane/mixed-child-admission.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-MIX-04.json",
+          "sha256": "c424034d72e1151322e4c2ccae78e07c217bbe51e2c2c80d5362cb10ee4c13cb"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42031630380,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42031630380",
+          "command": "GitHub Actions live-acceptance.yml, scenario teardown-01, run id zlive-202611051258-60b5; plan sha256 9c0fec64efaee02826f71ea792f322093276fa7e36b87c5370a342960bbc0ea9 (workflow_dispatch, run_id zlive-202611051258-60b5)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 e63f0133b4343c3ec21895099ab8bfa90d17378451dbe38ba591afaa6651d86e; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). TEARDOWN-01 teardown after deploy proven on AWS: one managed S3 bucket deployed with two-person browser approval and read back from the recorded state and the tagging inventory; the teardown review was refused for unsettled deploy activity right after the deploy and became available 84 minutes after it, once the execution worker had settled every earlier writer; the destroy was reviewed and approved in the browser and succeeded; the recorded state is empty and no resource tagged with the environment remains",
+          "logs": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-live-aws-42031630380/",
+          "artifact": "docs/build/production/evidence/PROD-MIX-04/2026-11-05-live-aws-42031630380/release-evidence-PROD-MIX-04.json",
+          "sha256": "9f2417fbaf039db004f89f48da8ed4e6bd04bdf16c7732ae2d00417b15d8ea8c"
         }
       ],
       "requiredEvidence": [
@@ -7552,7 +7668,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; slo_targets_measured_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; contract_local_engine_and_operational_rehearsal_receipts_at_91548e4e_2026-11-04; live_sandbox_receipt_at_91548e4e_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; slo_targets_measured_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; contract_local_engine_and_operational_rehearsal_receipts_at_91548e4e_2026-11-04; live_sandbox_receipt_at_91548e4e_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-BUSINESS (service levels) approved 2026-10-13 as engineering targets: control-plane availability 99.9% (lower of request-based and external probe), new managed_runtime_availability objective 99.9%, dispatch latency measured from the last required approval, restore targets default to the approved RPO/RTO. Not a contractual SLA.",
       "evidence": [
         {
@@ -7658,6 +7774,48 @@
           "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-03-live-aws-41730841659/",
           "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-03-live-aws-41730841659/release-evidence-PROD-OPS-01.json",
           "sha256": "c0caa64fe921df37988a679efd450126a0d63a6f050be85e9965ceb6170e4485"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-01 --mode contract -- tests/slo/definitions.test.ts tests/slo/sli-budget.test.ts tests/slo/slo-artifacts.test.ts tests/slo/restore-sink.test.ts tests/slo/slo.engine.test.ts tests/acceptance/ops01-measure.test.ts tests/ops/recovery-manifest.test.ts tests/ops/recovery-health.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-01 contract suite at the release candidate c756d2d7: 129 passed, 0 failed, exit 0, over 8 test file(s) (tests/slo/definitions.test.ts, tests/slo/sli-budget.test.ts, tests/slo/slo-artifacts.test.ts, tests/slo/restore-sink.test.ts, tests/slo/slo.engine.test.ts, tests/acceptance/ops01-measure.test.ts, tests/ops/recovery-manifest.test.ts, tests/ops/recovery-health.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-01.json",
+          "sha256": "d6353dfdc785ca76a87b360498c03001a87e07e0307914850fa305ed3ba18f07"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-01 --mode local -- tests/slo/slo.engine.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-01 real-engine suite at the release candidate c756d2d7: 54 passed, 0 failed, exit 0, over 1 test file(s) (tests/slo/slo.engine.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-01.json",
+          "sha256": "e044171faec3488a8bd75e27770d2ffdb1ff4e449c31390bb36a508937a3ba61"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_DEFAULT_MAILPIT_URL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_LOCAL_OPS_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-01 --mode local -- tests/acceptance/ops01-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-01 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops01-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-01.json",
+          "sha256": "5a4d6d760b690f3cbb8c2080fef5a366fc9ae58a080caf122a3eb6b78236b95b"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42017368115,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42017368115",
+          "command": "GitHub Actions live-acceptance.yml, scenario ops-04, run id zlive-202611051114-c636; plan sha256 79f3a4480ee25c1e3f422c583ea85734cc3f9382ef9b638285e67c7850b28c69 (workflow_dispatch, run_id zlive-202611051114-c636)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 d242aaf20243a4764ce619a4c8fae8f879f496aaf6864ed104a0031000678233; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). OPS-01 objectives measured on the live sandbox run: control-plane availability 6454/6454 probes non-5xx (100.00%, 95% lower bound 99.95% vs target 99.90%: demonstrated) from runner-local probes of the API readiness route every 100 ms, paused only for the deliberate database loss (13 s, measured as RTO); API latency p50 13 ms, p95 27 ms, p99 108 ms, 99.98% within 500 ms (lower bound 99.93% vs 95.00%: demonstrated); capacity 30.0 req/s served of 30 offered for 60 s, p95 303 ms, errors 0.00% (targets >= 25 req/s, p95 <= 500 ms, errors <= 0.50%: within_target); RPO 203.956 s of 900 and RTO 20.306 s of 14400 (one restore observation each: within_target, within_target); target file 2026-10-13.1 (approved_targets), measurement label provisional; not evaluated: managed_runtime_availability, dispatch_latency, workflow_completion, scheduler_health",
+          "logs": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-live-aws-42017368115/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-01/2026-11-05-live-aws-42017368115/release-evidence-PROD-OPS-01.json",
+          "sha256": "d4a4104cecee48e388e5d9dc384c2d3b7de5a90e5dea441034d7c3eef93e74b9"
         }
       ],
       "requiredEvidence": [
@@ -7683,7 +7841,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; tenant_fairness_alerting_and_control_plane_outage_proven_live_sandbox_2026-10-31; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; tenant_fairness_alerting_and_control_plane_outage_proven_live_sandbox_2026-10-31; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "J11: gated local Grafana/Prometheus/OTel import and offline contracts; Docker import, fairness and outage rehearsal remain pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7765,6 +7923,48 @@
           "logs": "docs/build/production/evidence/PROD-OPS-02/2026-11-03-live-aws-41700399946/",
           "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-03-live-aws-41700399946/release-evidence-PROD-OPS-02.json",
           "sha256": "049e40144514b680557f220c4460475d358fc0d648e13d8b03279a616fec2988"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-02 --mode contract -- tests/ops/admission.test.ts tests/ops/fair-queue.test.ts tests/ops/token-bucket.test.ts tests/ops/maintenance.test.ts tests/ops/sampler-bound.test.ts tests/ops/data-plane-independence.test.ts tests/ops/telemetry.test.ts tests/ops/observability-artifacts.test.ts tests/ops/route-wiring.test.ts tests/ops/admin-routes.test.ts tests/agent-control-rate-limit.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-02 contract suite at the release candidate c756d2d7: 136 passed, 0 failed, exit 0, over 11 test file(s) (tests/ops/admission.test.ts, tests/ops/fair-queue.test.ts, tests/ops/token-bucket.test.ts, tests/ops/maintenance.test.ts, tests/ops/sampler-bound.test.ts, tests/ops/data-plane-independence.test.ts, tests/ops/telemetry.test.ts, tests/ops/observability-artifacts.test.ts, tests/ops/route-wiring.test.ts, tests/ops/admin-routes.test.ts, tests/agent-control-rate-limit.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-02.json",
+          "sha256": "8b9735cafd08ad878fa7720a08a2acc5151581f074520643da05daed774c5cf3"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_OPS_EXCLUSIVE_PG ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-02 --mode local -- tests/ops/store.engine.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_OPS_EXCLUSIVE_PG",
+          "logs": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-02 real-engine suite at the release candidate c756d2d7: 34 passed, 0 failed, exit 0, over 1 test file(s) (tests/ops/store.engine.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-02.json",
+          "sha256": "d72158076f962fcf2ad93ac7e16f23f269ed569b854092c0f77b8ccbac4c3985"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_DEFAULT_MAILPIT_URL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_LOCAL_OPS_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-02 --mode local -- tests/acceptance/ops02-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-02 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops02-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-02.json",
+          "sha256": "16cb1b95dfb93dd7eb68d3ef50a8e69724ff3643ce6cbe2a481558be609621a8"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42020675493,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42020675493",
+          "command": "GitHub Actions live-acceptance.yml, scenario ops-02, run id zlive-202611051138-c7ae; plan sha256 b58267e8e162859c63b7804d1d8feeffdce307cd21ad865be9b38a430f7c1850 (workflow_dispatch, run_id zlive-202611051138-c7ae)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 bb76db5f880472206dba0feb77112eb5689ad1c84275a9bc54c7a2ee0674aee4; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). OPS-02 proven on AWS: with the repository's alert rules loaded into Prometheus scraping the API's metrics, one tenant sent 600 requests 40 at a time and was refused 148 times (HTTP 429) while a second tenant's 20 concurrent requests were all served (p95 5568 ms); the dashboard's tenant-filtered refusal panel showed 124 refusals for the flooding tenant and none for the quiet one; public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66 on ECS Fargate behind an ALB served all 248 HTTP probes (one a second) through a 302 s control-plane outage: the control store stopped (ZenithControlStoreDown fired after 150 s), then the API and worker stopped too for 60 s; after the restart the store reported up and the tenant was served again. Not covered: traces in a trace backend, worker-side metrics, Grafana UI import (proven locally by the import harness), Temporal-backed fairness",
+          "logs": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-live-aws-42020675493/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-02/2026-11-05-live-aws-42020675493/release-evidence-PROD-OPS-02.json",
+          "sha256": "b4d64a0cd2e5fccfdfd6511e32d64afca7bc3f2e65ac0649feb17b1e49c5afbc"
         }
       ],
       "requiredEvidence": [
@@ -7787,7 +7987,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; rolling_upgrade_and_rollback_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; rolling_upgrade_and_rollback_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "J11: real-digest resolver and fixture-activated history replay manifest lane; registry pins, recorded histories and rollout/rollback acceptance pending on Mac. Integration: the verifier's frozen current-source histories and replay evidence below are retained; previous-release compatibility and rollout/rollback acceptance remain pending. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -7882,6 +8082,38 @@
           "result": "PROD-OPS-03 operational rehearsal (ROLLING-UPGRADES.md checklist) at the commit of its live_sandbox receipt, on a fresh owned lean J1 stack with a J2 kind target and real browser identities: upgrade to same-source candidate images with an in-flight browser review, compatibility gates, injected API failure, rollback and approved-execution readback, owned cleanup. 1 passed, 0 failed, 0 skipped, exit 0; the operated receipt (upgrade-engine-receipt.json) records all 10 checks passed. Scripted local rehearsal on the owner's Mac; lean profile, one API and one worker, no high availability claim. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-03-operational-rehearsal-d788ff92/release-evidence-PROD-OPS-03.json",
           "sha256": "59dcc6c942c58820b4ba3083f55d4b213f88ca536b0c444f6403f141a3bf3428"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-03 --mode contract -- tests/ops/rolling-upgrade.test.ts tests/controlplane/migration-compat.test.ts tests/controlplane/wave5-compat.test.ts tests/runners/protocol-window.test.ts tests/hosted/acceptance/gate-08-compatible-update.test.ts tests/hosted/release/rollback.test.ts tests/resources/upgrade.test.ts tests/hosted/build/recipe-worker-child-compatibility.test.ts tests/acceptance/aws-ops03-port.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-03 contract suite at the release candidate c756d2d7: 99 passed, 0 failed, exit 0, over 9 test file(s) (tests/ops/rolling-upgrade.test.ts, tests/controlplane/migration-compat.test.ts, tests/controlplane/wave5-compat.test.ts, tests/runners/protocol-window.test.ts, tests/hosted/acceptance/gate-08-compatible-update.test.ts, tests/hosted/release/rollback.test.ts, tests/resources/upgrade.test.ts, tests/hosted/build/recipe-worker-child-compatibility.test.ts, tests/acceptance/aws-ops03-port.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-03.json",
+          "sha256": "aa0be09c178b99ffdb773e9dcd7dd5103e1811dd3892458983d7fc2cb15c8f7a"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_REPLAY_LANE ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_TEMPORAL ZENITH_TEST_TEMPORAL_CLI node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-03 --mode local -- tests/workflows/upgrade-rehearsal.test.ts tests/workflows/replay.test.ts tests/workflows/history-replay.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_TEMPORAL ZENITH_TEST_TEMPORAL_CLI ZENITH_REPLAY_LANE; Temporal CLI 1.9.1 and OpenTofu 1.12.5 official darwin_arm64 builds, release checksums verified",
+          "logs": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-03 real-engine suite at the release candidate c756d2d7: 39 passed, 0 failed, exit 0, over 3 test file(s) (tests/workflows/upgrade-rehearsal.test.ts, tests/workflows/replay.test.ts, tests/workflows/history-replay.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-03.json",
+          "sha256": "6db26f7f50e8ddf74e926a87d2d89abe0fc450d43eb9c64f2cae1c40bf08b08e"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42025340884,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42025340884",
+          "command": "GitHub Actions live-acceptance.yml, scenario ops-03, run id zlive-202611051213-4338; plan sha256 431146b86c33542ee93b7de2d590af48867f3d95d588160ae137f12d98411738 (workflow_dispatch, run_id zlive-202611051213-4338)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 6841d29d066687cb0a7d4180646b18dd73e21163537b96ed0c256c76ff4ab84c; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). OPS-03 rolling upgrade and rollback proven on AWS: candidate API, worker and migration images were built and pushed to the stack's own registry; a deploy was approved and planned and its workflow waited in flight for the apply approval; the stack was upgraded in runbook order (expand migration, worker, then API, each healthy on its new image) while that workflow kept the same run and its review; the apply was approved on the candidate release and the same run completed with one bucket in AWS; the stack was rolled back (API, then worker, schema not downgraded) and a second deploy on the rolled-back release added the second bucket (2 tagged buckets). Candidates are rebuilt from the same source: replacement and rollback, not a released N-1/N matrix",
+          "logs": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-live-aws-42025340884/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-03/2026-11-05-live-aws-42025340884/release-evidence-PROD-OPS-03.json",
+          "sha256": "84367d220966464529b0a6d11363bef360f05ede31773d722d80cc8220027ea3"
         }
       ],
       "requiredEvidence": [
@@ -7904,7 +8136,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; restore_with_aws_state_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03; contract_local_engine_and_operational_rehearsal_receipts_at_91548e4e_2026-11-04; live_sandbox_receipt_at_91548e4e_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; restore_with_aws_state_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipt_at_live_commit_2026-11-03; contract_local_engine_and_operational_rehearsal_receipts_at_91548e4e_2026-11-04; live_sandbox_receipt_at_91548e4e_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -8010,6 +8242,48 @@
           "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-live-aws-41730841659/",
           "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-03-live-aws-41730841659/release-evidence-PROD-OPS-04.json",
           "sha256": "357aec4277e47972b044c5f7b4f9507d44851cbe71d70c2912f4228b272ea6ab"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode contract -- tests/controlplane/recovery-epoch.test.ts tests/controlplane/state-backend-recovery.test.ts tests/ops/recovery-manifest.test.ts tests/ops/recovery-health.test.ts tests/platform/recovery-service.test.ts tests/hosted/backup/create-restore.test.ts tests/hosted/backup/reconcile.test.ts tests/hosted/backup/reopen.test.ts tests/hosted/backup/targets.test.ts tests/hosted/authority/backup.test.ts tests/hosted/acceptance/gate-10-restore.test.ts tests/acceptance/aws-ops04-port.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-04 contract suite at the release candidate c756d2d7: 127 passed, 0 failed, exit 0, over 12 test file(s) (tests/controlplane/recovery-epoch.test.ts, tests/controlplane/state-backend-recovery.test.ts, tests/ops/recovery-manifest.test.ts, tests/ops/recovery-health.test.ts, tests/platform/recovery-service.test.ts, tests/hosted/backup/create-restore.test.ts, tests/hosted/backup/reconcile.test.ts, tests/hosted/backup/reopen.test.ts, tests/hosted/backup/targets.test.ts, tests/hosted/authority/backup.test.ts, tests/hosted/acceptance/gate-10-restore.test.ts, tests/acceptance/aws-ops04-port.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-04.json",
+          "sha256": "30fbbc4fbca9da187baaab8f626733d51ac6837855d7a0ff0db2742c3bb90cf7"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode local -- tests/controlplane/recovery-epoch.test.ts tests/controlplane/state-backend-recovery.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-04 real-engine suite at the release candidate c756d2d7: 58 passed, 0 failed, exit 0, over 2 test file(s) (tests/controlplane/recovery-epoch.test.ts, tests/controlplane/state-backend-recovery.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-04.json",
+          "sha256": "b9864eca21f78f69f852af766487f106e0c12fc0eb43bb68e55e3eb608114bc3"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PG_DUMP_BIN ZENITH_TEST_PG_RESTORE_BIN ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_RECOVERY_REQUIRED=1 ZENITH_TEST_TEMPORAL=1 node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-04 --mode local -- tests/ops/recovery-rehearsal.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, removed afterwards; pg_dump/pg_restore 16 (Homebrew postgresql@16); Temporal CLI 1.9.1 dev server (release checksum verified); runbook rehearsal docs/platform/operations/RESTORE-RUNBOOK.md 'Rehearse it'; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_PG_DUMP_BIN ZENITH_TEST_PG_RESTORE_BIN ZENITH_TEST_RECOVERY_REQUIRED=1 ZENITH_TEST_TEMPORAL=1",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-04 operational rehearsal (mode local) at the release candidate c756d2d7: 10 passed, 0 failed, exit 0, over 1 test file(s) (tests/ops/recovery-rehearsal.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-04.json",
+          "sha256": "fc28878a1130520b88896e77ea0b83dfd740e746be005fdff50144c02bd9a902"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42017368115,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42017368115",
+          "command": "GitHub Actions live-acceptance.yml, scenario ops-04, run id zlive-202611051114-c636; plan sha256 79f3a4480ee25c1e3f422c583ea85734cc3f9382ef9b638285e67c7850b28c69 (workflow_dispatch, run_id zlive-202611051114-c636)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 d242aaf20243a4764ce619a4c8fae8f879f496aaf6864ed104a0031000678233; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). OPS-04 restore proven on AWS: a deploy waiting for its approval was captured in the backup and approved and applied after it; the stores were lost from the control-plane database and restored into it at recovery epoch 1; the restored proposal was fenced (an approval was refused: journey:browser-human-approval), did not execute on its own for 120 s, and came back only through a recovery resume (a stale binding was refused) and a fresh approval; applying it again left AWS unchanged (2 buckets, 16 recorded resources). Measured RPO 204 s (target 900) and RTO 20.3 s (target 14400)",
+          "logs": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-live-aws-42017368115/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-04/2026-11-05-live-aws-42017368115/release-evidence-PROD-OPS-04.json",
+          "sha256": "01374d96a53e71e05e143132228996746e9cc6a5df5a722e2f4e4dd9bc3fbcdb"
         }
       ],
       "requiredEvidence": [
@@ -8035,7 +8309,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; key_rotation_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; key_rotation_proven_live_sandbox_2026-10-30; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -8117,6 +8391,48 @@
           "logs": "docs/build/production/evidence/PROD-OPS-05/2026-11-03-live-aws-41706229278/",
           "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-03-live-aws-41706229278/release-evidence-PROD-OPS-05.json",
           "sha256": "f73d3e9fb3d959eac1785411e2c92e7b54d330252ef784b0d636e95aa4c87b7a"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-05 --mode contract -- tests/keycustody/registry.test.ts tests/keycustody/rewrap-job.test.ts tests/keycustody/diagnostics-cli.test.ts tests/retention/key-purpose.test.ts tests/audit-export/purpose.test.ts tests/acceptance/aws-ops05-port.test.ts tests/acceptance/maintenance-temporal-codec.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-05 contract suite at the release candidate c756d2d7: 60 passed, 0 failed, exit 0, over 7 test file(s) (tests/keycustody/registry.test.ts, tests/keycustody/rewrap-job.test.ts, tests/keycustody/diagnostics-cli.test.ts, tests/retention/key-purpose.test.ts, tests/audit-export/purpose.test.ts, tests/acceptance/aws-ops05-port.test.ts, tests/acceptance/maintenance-temporal-codec.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-05.json",
+          "sha256": "2a492f99906164b7e7e83e1c07863cb1160e8be7bd0125d4bec5f49dfb3c5221"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-05 --mode local -- tests/secrets/rewrap.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-05 real-engine suite at the release candidate c756d2d7: 57 passed, 0 failed, exit 0, over 1 test file(s) (tests/secrets/rewrap.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-05.json",
+          "sha256": "7ed4c5840a8c3320de6b122a8cf43bd06b242ed8ffeeb5fa018d30d8e7c1f9e9"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_DEFAULT_MAILPIT_URL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_LOCAL_OPS_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-05 --mode local -- tests/acceptance/ops05-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-05 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops05-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-05.json",
+          "sha256": "d13c2b8d91c00fca98dde0020e7b70b3c4eb345264df2babf27e1835be53c0fc"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42028813573,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42028813573",
+          "command": "GitHub Actions live-acceptance.yml, scenario ops-05, run id zlive-202611051237-ccf0; plan sha256 0f6a7acc2b3dae0cc6d387753917567a7093d63c36488c78926f591cd38959d7 (workflow_dispatch, run_id zlive-202611051237-ccf0)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 0d377374f0071d7ef850db33955a69c038aa0eb52e9031f323a89dd209bd9df1; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). OPS-05 key custody proven on AWS: one vault secret and one managed S3 bucket under the first keys; every generated key rotated (7 purposes) and the API and worker recreated together; diagnose showed a new current key per purpose with the old one decrypt-only or verify-only, no error finding, and Temporal and results on their own roots; the first deploy's history (123 payloads) needed only the decrypt-only Temporal key and decrypted (123 ok); the AWS connection verified and a second bucket deployed under the new keys (history on the new key only); the vault re-wrap completed (1 re-sealed); no operator output contained key material",
+          "logs": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-live-aws-42028813573/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-05/2026-11-05-live-aws-42028813573/release-evidence-PROD-OPS-05.json",
+          "sha256": "3e92f85a7236556fbc0903efe6d09c277a75b6727a354cdc5361d293a1a83303"
         }
       ],
       "requiredEvidence": [
@@ -8139,7 +8455,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: the payload minimizer now requires an approved retention policy plus ZENITH_DATA_MINIMIZE_APPLY=1, defaults to the approved 72 hours, and skips results under a legal hold.",
       "evidence": [
         {
@@ -8221,6 +8537,48 @@
           "logs": "docs/build/production/evidence/PROD-OPS-06/2026-11-03-live-aws-41695907211/",
           "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-03-live-aws-41695907211/release-evidence-PROD-OPS-06.json",
           "sha256": "95cd7bddff098b8f4406ae50fbd8b39d15f489058070ab119c45c31039701fea"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-06 --mode contract -- tests/sensitivedata/minimize.test.ts tests/security/sensitive-inventory.test.ts tests/security/redaction-coverage.test.ts tests/security/persistence-leaks.test.ts tests/security/store-value-boundaries.test.ts tests/security/result-sanitizer.test.ts tests/security/request-error-logging.test.ts tests/credentials/redact.test.ts tests/observability/redact.test.ts tests/api/bootstrap-redaction.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-06 contract suite at the release candidate c756d2d7: 124 passed, 0 failed, exit 0, over 10 test file(s) (tests/sensitivedata/minimize.test.ts, tests/security/sensitive-inventory.test.ts, tests/security/redaction-coverage.test.ts, tests/security/persistence-leaks.test.ts, tests/security/store-value-boundaries.test.ts, tests/security/result-sanitizer.test.ts, tests/security/request-error-logging.test.ts, tests/credentials/redact.test.ts, tests/observability/redact.test.ts, tests/api/bootstrap-redaction.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-06.json",
+          "sha256": "10d679e3c2af2cf6178dda9312e4ea8d3d6d83bfc9f416739a04347035d0b609"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_TOFU_NETWORK node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-06 --mode local -- tests/security/plan-artifact-secrecy.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_TOFU_NETWORK; OpenTofu 1.12.5 official darwin_arm64 build, release checksum verified",
+          "logs": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-06 real-engine suite at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/security/plan-artifact-secrecy.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-06.json",
+          "sha256": "cd76400bc74d7678448e38470be4e471ef0264fecb6772cfbdbbe9b4a017e697"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_DEFAULT_MAILPIT_URL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_LOCAL_OPS_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-06 --mode local -- tests/acceptance/ops06-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-06 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops06-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-06.json",
+          "sha256": "1d858332942bb8dbd26ec835e16e717d6b150a8fba9ebd73474f556de3595218"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42021492134,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42021492134",
+          "command": "GitHub Actions live-acceptance.yml, scenario ops-06, run id zlive-202611051144-7176; plan sha256 86e5c1441db8656b8349ec64ab413f42e06af747ab4c1e40b04f7356cc8fe84c (workflow_dispatch, run_id zlive-202611051144-7176)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 6dd013d2edb4b0139815817c181fc0530db705debf3aa00520069563636c9f62; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). OPS-06 proven on AWS: ZENITH_OPS06_CANARY was set through system.setSecret and deployed to ECS Fargate behind an ALB with two-person approval, served HTTP 200; the recorded OpenTofu state holds only the Secrets Manager reference and no copy of the value; a raw-byte scan of Docker's data root (container logs, volumes, written files), the runner temp and the checkout found the value only in its own control file",
+          "logs": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-live-aws-42021492134/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-06/2026-11-05-live-aws-42021492134/release-evidence-PROD-OPS-06.json",
+          "sha256": "b5d89a27eab9342c5ff9ebc369a9c5d2ab17a8748bf7d1a2da9cc15a893040d1"
         }
       ],
       "requiredEvidence": [
@@ -8243,7 +8601,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; contract_local_engine_and_operational_rehearsal_receipts_at_3b7fc395_2026-11-04; live_sandbox_receipt_at_3b7fc395_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed. DEC-RETENTION approved 2026-10-13: default policy ships logs at 30 days with a built-in approval; audit-evidence classes cannot be pruned before 365 days; legal holds now stop archive copies (the watermark never passes a held row); the job pages through workspaces so held workspaces cannot starve others. Deletion still needs ZENITH_RETENTION_APPLY=1.",
       "evidence": [
         {
@@ -8327,6 +8685,48 @@
           "logs": "docs/build/production/evidence/PROD-OPS-07/2026-11-03-live-aws-41695859666/",
           "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-03-live-aws-41695859666/release-evidence-PROD-OPS-07.json",
           "sha256": "1eea53d77341f736cad8cb9d88f3ad0de18080231b0d9d4cdd2311b46bafa249"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-07 --mode contract -- tests/retention/retention.test.ts tests/retention/restore-destination.test.ts tests/retention/admin-routes.test.ts tests/retention/key-purpose.test.ts tests/retention/data-retention-failure-kind.test.ts tests/acceptance/aws-retention-port.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-07 contract suite at the release candidate c756d2d7: 68 passed, 0 failed, exit 0, over 6 test file(s) (tests/retention/retention.test.ts, tests/retention/restore-destination.test.ts, tests/retention/admin-routes.test.ts, tests/retention/key-purpose.test.ts, tests/retention/data-retention-failure-kind.test.ts, tests/acceptance/aws-retention-port.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-07.json",
+          "sha256": "72747ca91977ee4a37a163238725a13ac10ceb8f0d4d2247a43b99f6f601cf2e"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_RETENTION_PG node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-07 --mode local -- tests/retention/retention.test.ts tests/retention/restore-destination.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_RETENTION_PG",
+          "logs": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-07 real-engine suite at the release candidate c756d2d7: 43 passed, 0 failed, exit 0, over 2 test file(s) (tests/retention/retention.test.ts, tests/retention/restore-destination.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-07.json",
+          "sha256": "b5f87629ce2339d4b833abff68ca46a089926deba7c98fa44794ea39116d4418"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_DEFAULT_MAILPIT_URL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_LOCAL_OPS_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-07 --mode local -- tests/acceptance/ops07-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-07 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops07-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-07.json",
+          "sha256": "c101c1917f475c6af3023c44063205de8760bc50012af9b31685b097122f528d"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42015012621,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42015012621",
+          "command": "GitHub Actions live-acceptance.yml, scenario retention-s3, run id zlive-202611051057-bfc0; plan sha256 a7fb24a81fbd585967f8acd6fbc24935b5fd425b1893830c45aa009b6b81626d (workflow_dispatch, run_id zlive-202611051057-bfc0)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 04f1dc572f06148b658261e5b890d2d2a386ae1999b0197eaaf745a001c2b313; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). PROD-OPS-07 proven by independent readback: sealed objects are listed under retention/zlive-202611051057-bfc0/ for both classes and match their archive records; verify passes with the archive key and refuses a wrong key; the staging restore returns the unheld out-of-window ids; with ZENITH_RETENTION_APPLY unset nothing is removed; with it set, 6 archived unheld rows removed; 1 legal-hold row and 4 in-window rows kept; audit and receipt row counts are unchanged. Gates: built-in DEC-RETENTION baseline (approval recorded for Arnav Bule), the apply switch, and one legal hold. No in-product proposal or approval was used in this flow.",
+          "logs": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-live-aws-42015012621/",
+          "artifact": "docs/build/production/evidence/PROD-OPS-07/2026-11-05-live-aws-42015012621/release-evidence-PROD-OPS-07.json",
+          "sha256": "0c7f2cad6bf3ade8cd94392e0e372d4cf2d654f0f506d339304f74796d7613ee"
         }
       ],
       "requiredEvidence": [
@@ -8353,7 +8753,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -8365,6 +8765,26 @@
           "result": "PROD-OPS-08 contract lane at 16dbc60c: 238 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-contract-16dbc60c/release-evidence-PROD-OPS-08.json",
           "sha256": "815641379540e124910367164c21c22e22db45205c54e94f281694d2c459b756"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-08 --mode contract -- tests/adversarial/approvals-forgery.test.ts tests/adversarial/build-exfiltration.test.ts tests/adversarial/cross-tenant.test.ts tests/adversarial/integration-compromise.test.ts tests/adversarial/malicious-archives.test.ts tests/adversarial/prompt-injection.test.ts tests/adversarial/residual-hardening.test.ts tests/adversarial/role-escalation.test.ts tests/adversarial/ssrf-rebinding.test.ts tests/adversarial/token-forgery.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-08 contract suite at the release candidate c756d2d7: 238 passed, 0 failed, exit 0, over 10 test file(s) (tests/adversarial/approvals-forgery.test.ts, tests/adversarial/build-exfiltration.test.ts, tests/adversarial/cross-tenant.test.ts, tests/adversarial/integration-compromise.test.ts, tests/adversarial/malicious-archives.test.ts, tests/adversarial/prompt-injection.test.ts, tests/adversarial/residual-hardening.test.ts, tests/adversarial/role-escalation.test.ts, tests/adversarial/ssrf-rebinding.test.ts, tests/adversarial/token-forgery.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-08.json",
+          "sha256": "7946d22fa8384da0987a49c423e65119a1dd32cec4db167b6484b115b60e944d"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_PLATFORM_PG_URL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-08 --mode local -- tests/adversarial/cross-tenant.test.ts tests/adversarial/approvals-forgery.test.ts tests/adversarial/role-escalation.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+          "logs": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-08 real-engine suite at the release candidate c756d2d7: 89 passed, 0 failed, exit 0, over 3 test file(s) (tests/adversarial/cross-tenant.test.ts, tests/adversarial/approvals-forgery.test.ts, tests/adversarial/role-escalation.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-08.json",
+          "sha256": "cf8d0c2da0180d8eac8e646c0fef10207ef34904cac07245ae4c8e8dbd29fd39"
         }
       ],
       "requiredEvidence": [
@@ -8398,7 +8818,7 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05; local_engine_receipt_at_16dbc60c_2026-11-05",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05; local_engine_receipt_at_16dbc60c_2026-11-05; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -8420,6 +8840,36 @@
           "result": "PROD-OPS-09 local_engine lane at 16dbc60c: the real Go toolchain builds go/cmd/zenith-release and the test reads the binary's build info (module, dependencies, VCS revision) for the SBOM; 16 passed, 0 failed, 0 skipped, exit 0. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-local-engine-16dbc60c/release-evidence-PROD-OPS-09.json",
           "sha256": "be6ae62b1a589233395f7b60cba45aadf1e54d8b1420ba15bf4018b3f77c3009"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-09 --mode contract -- tests/supply-chain/release.test.ts tests/ci/release-workflow.test.ts tests/ci/vulnerability-triage.test.ts tests/ci/security-audit.test.ts tests/audit-export/audit-export.test.ts tests/audit-export/purpose.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-OPS-09 contract suite at the release candidate c756d2d7: 128 passed, 0 failed, exit 0, over 6 test file(s) (tests/supply-chain/release.test.ts, tests/ci/release-workflow.test.ts, tests/ci/vulnerability-triage.test.ts, tests/ci/security-audit.test.ts, tests/audit-export/audit-export.test.ts, tests/audit-export/purpose.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-contract-c756d2d7/release-evidence-PROD-OPS-09.json",
+          "sha256": "4f1085b59bd203f1a09f9d6a069a8bce9ef7f9fe62db0c59ac2a0dd1637daa14"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_TEST_GO node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-09 --mode local -- tests/supply-chain/sbom.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); real Go toolchain go1.27.3 darwin/arm64 (Homebrew) with GOTOOLCHAIN=local builds go/cmd/zenith-release; gate ZENITH_TEST_GO; no network",
+          "logs": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-OPS-09 real-engine suite at the release candidate c756d2d7: 16 passed, 0 failed, exit 0, over 1 test file(s) (tests/supply-chain/sbom.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-OPS-09.json",
+          "sha256": "b0b841cf2a250ed8199bcd59344f652d2f1211d48f686e95c7014db35721745f"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LOCAL_OPS09_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-09 --mode local -- tests/acceptance/ops09-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2 with buildx (docker-container driver), Go go1.27.1 fetched by GOTOOLCHAIN; the build, SBOM, triage, updater-signing, signing and self-verify steps of .github/workflows/release.yml run verbatim with a throwaway zenith-release keygen key and a local prerelease tag; nothing uploaded or published; gate ZENITH_LOCAL_OPS09_REHEARSAL",
+          "logs": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-OPS-09 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/ops09-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-OPS-09.json",
+          "sha256": "4408bba9ddca262d01ba29bec9e9aebb67b0ae71e7b455664382e7c46db24a98"
         }
       ],
       "requiredEvidence": [
@@ -8942,7 +9392,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipts_at_live_commit_2026-11-03",
+      "implementationStatus": "implementation_complete_verification_pending; contract_and_local_engine_receipts_at_live_commit_2026-11-01; local_operational_rehearsal_receipts_at_live_commit_2026-11-03; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "J15 local targets and strict receipts built; J1/J2/J4 driver joins and Mac engine/browser verification pending; live acceptance deferred. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -9084,6 +9534,38 @@
           "result": "PROD-REL-01 operational rehearsal, operated scenario update-rollback, at the commit of its live_sandbox receipt, on a fresh owned lean J1 stack with a J2 kind target and real browser identities: 1 passed, 0 failed, 0 skipped, exit 0; the operated receipt records 8 checks (baseline, compatible update, real failed rollout, browser-approved rollback, independent release readback, owned cleanup, source unchanged), all passed. Scripted local rehearsal on the owner's Mac; one of five operated scenarios run (two-tenants, export and private-source not run; see verify/PROD-REL-01.md). Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-REL-01/2026-11-03-operational-rehearsal-f436e3db-update-rollback/release-evidence-PROD-REL-01.json",
           "sha256": "8011b6ae0bc409be485109da1665b801818c9c702e53a7a11b11585a66bc6833"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-01 --mode contract -- tests/release/orchestrator.test.ts tests/release/dossier.test.ts tests/release/status.test.ts tests/release/acceptance-scenarios.test.ts tests/release/local-targets.test.ts tests/release/drivers-d2.test.ts tests/release/operated-drivers.test.ts tests/acceptance/evidence.test.ts tests/ci/release-gates.test.ts tests/ci/lane-report.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-REL-01/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-REL-01 contract suite at the release candidate c756d2d7: 318 passed, 0 failed, exit 0, over 10 test file(s) (tests/release/orchestrator.test.ts, tests/release/dossier.test.ts, tests/release/status.test.ts, tests/release/acceptance-scenarios.test.ts, tests/release/local-targets.test.ts, tests/release/drivers-d2.test.ts, tests/release/operated-drivers.test.ts, tests/acceptance/evidence.test.ts, tests/ci/release-gates.test.ts, tests/ci/lane-report.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-01/2026-11-05-contract-c756d2d7/release-evidence-PROD-REL-01.json",
+          "sha256": "9609e6e337c55929ee35061affae85d9f99ef05e33833320fc2c05ba10d2361b"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_REPLAY_LANE ZENITH_TEST_NETWORK ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_POSTGRES_URL ZENITH_TEST_TEMPORAL ZENITH_TEST_TEMPORAL_CLI ZENITH_TEST_TEMPORAL_DOWNLOAD node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-01 --mode local -- --no-file-parallelism --maxWorkers=1 over the 60 test files listed in files",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_TEMPORAL ZENITH_TEST_TEMPORAL_CLI ZENITH_TEST_TEMPORAL_DOWNLOAD ZENITH_REPLAY_LANE ZENITH_TEST_NETWORK; Temporal CLI 1.9.1 official darwin_arm64 build, release checksum verified; Temporal SDK time-skipping test server downloaded by the SDK (ZENITH_TEST_TEMPORAL_DOWNLOAD); the release orchestrator local_engine lane files of scripts/release/scenarios.ts except tests/runners/late-effect-receipts.test.ts (per-lane structural skips) and tests/portability/postgres-engine.test.ts (its opt-in ZENITH_TEST_POSTGRES_URL lane is not run by CI and failed here)",
+          "logs": "docs/build/production/evidence/PROD-REL-01/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-REL-01 real-engine suite at the release candidate c756d2d7: 1033 passed, 0 failed, exit 0, over 60 test file(s) (tests/execution/approved-source.test.ts, tests/controlplane/approved-source-snapshots.test.ts, tests/sources/github-app.test.ts, tests/sources/github-lifecycle.test.ts, tests/release/drivers/drv1.test.ts, tests/execution/ledger-approval.test.ts, tests/controlplane/approvals.test.ts, tests/platform/plan-approval.test.ts, tests/workflows/approval-time.test.ts, tests/acceptance/mixed-traffic.test.ts, tests/acceptance/mixed-live-run.test.ts, tests/execution/journey.test.ts, tests/acceptance/sample-app.test.ts, tests/execution/release.test.ts, tests/execution/release-safety.test.ts, tests/release-safety/pipeline.test.ts, tests/execution/manifest-release.test.ts, tests/hosted/acceptance/gate-08-compatible-update.test.ts, tests/machines/runbooks.test.ts, tests/machines/dispatcher.test.ts, tests/workflows/critical-schedule.test.ts, tests/workflows/reconcile-schedule.test.ts, tests/drift/compute.test.ts, tests/repair/lifecycle.test.ts, tests/reconcile/repair.test.ts, tests/reconcile/pass.test.ts, tests/connections/lifecycle.test.ts, tests/credentials/grants.test.ts, tests/controlplane/grants.test.ts, tests/workflows/destroy-replay.test.ts, tests/workflows/history-replay.test.ts, tests/ops/data-plane-independence.test.ts, tests/controlplane/leases.test.ts, tests/controlplane/lease-hang.test.ts, tests/acceptance/mixed-live-recovery.test.ts, tests/keycustody/rewrap-job.test.ts, tests/keycustody/registry.test.ts, tests/connections/rotations-repo.test.ts, tests/controlplane/plan-custody.test.ts, tests/ops/rolling-upgrade.test.ts, tests/controlplane/migration-compat.test.ts, tests/workflows/codec-replay.test.ts, tests/hosted/backup/create-restore.test.ts, tests/hosted/backup/reopen.test.ts, tests/controlplane/state-backend-recovery.test.ts, tests/controlplane/tenancy.test.ts, tests/security/controlplane-sql-scoping.test.ts, tests/security/mcp-v2-tenant-isolation.test.ts, tests/hosted/acceptance/gate-02-second-identity.test.ts, tests/release/drivers/d4.test.ts, tests/hosted/export/roundtrip.test.ts, tests/portability/store.test.ts, tests/release/drivers/export-data.test.ts, tests/release/drivers/export-data-postgres.test.ts, tests/release/drivers/export-data-mysql.test.ts, tests/release/drivers/export-data-objects.test.ts, tests/execution/destroy.test.ts, tests/execution/destroy-review.test.ts, tests/workflows/destroy.test.ts, tests/execution/mixed-orchestration-service.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-01/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-REL-01.json",
+          "sha256": "a792a2699722f83698708c0b81d87aec08f2204315f594295628c10c83a7f9c5"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42026183803,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42026183803",
+          "command": "GitHub Actions live-acceptance.yml, scenario deploy-01, run id zlive-202611051219-ed11; plan sha256 d30086638a8851a373ccf0718d91ac82bf8a7e327fc9ba8fae0a5b917c1e30e8 (workflow_dispatch, run_id zlive-202611051219-ed11)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 f2eff20488efbe4ed7e4f32210bc0f1a4c5d8fc5ce94047ba1e0a6659116c129; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). DEPLOY-01 proven: connection verified on the sandbox roles; public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66 deployed to ECS Fargate behind an ALB with two-person approval and served HTTP 200; updated to public.ecr.aws/nginx/nginx@sha256:4aad0a9f6622a58402a3d37d7a92d67903ffae86498f6bac79155ec3760f8500 and rolled back to public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66, each read back from the recorded state and over HTTP",
+          "logs": "docs/build/production/evidence/PROD-REL-01/2026-11-05-live-aws-42026183803/",
+          "artifact": "docs/build/production/evidence/PROD-REL-01/2026-11-05-live-aws-42026183803/release-evidence-PROD-REL-01.json",
+          "sha256": "53c65a711102d2ba7f8178f1946e69287df3e8ccd96c16648ab7d2d404d6a383"
         }
       ],
       "requiredEvidence": [
@@ -9107,7 +9589,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "J12: dossier validates real file/hash/source bindings and coherent evidence; historical, skipped and unperformed results remain visible. RC verification pending; see verify/REL-02.md. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -9119,6 +9601,48 @@
           "result": "PROD-REL-02 contract lane at 16dbc60c: 95 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-REL-02/2026-11-05-contract-16dbc60c/release-evidence-PROD-REL-02.json",
           "sha256": "ddc2ac881921de86d7949628d1036370dd27afe80eccdf46f1e8ab61977b1eba"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-02 --mode contract -- tests/release/checkpoint.test.ts tests/release/dossier.test.ts tests/release/scope.test.ts tests/release/status.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-REL-02/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-REL-02 contract suite at the release candidate c756d2d7: 96 passed, 0 failed, exit 0, over 4 test file(s) (tests/release/checkpoint.test.ts, tests/release/dossier.test.ts, tests/release/scope.test.ts, tests/release/status.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-02/2026-11-05-contract-c756d2d7/release-evidence-PROD-REL-02.json",
+          "sha256": "27fcb3c92750802e5f1f29e5b7b09c09e6083ef496cede1c0d39cbada5b2b5df"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-02 --mode local -- tests/acceptance/verify-release-dossier.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); the release tooling (dossier, release status, evidence receipts) run over the repository's real recorded evidence: a committed live AWS run (PROD-MIX-01, run 41617473729) and the real ledger; no database or cloud engine applies to the release tooling; no network",
+          "logs": "docs/build/production/evidence/PROD-REL-02/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-REL-02 real-engine suite at the release candidate c756d2d7: 2 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/verify-release-dossier.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-02/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-REL-02.json",
+          "sha256": "01acac821e5e501f934dad739d56501651a8aacc5d063c175a3da08ad14a1f5d"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LOCAL_REL0203_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-02 --mode local -- tests/acceptance/rel0203-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (dossier CLI, signoff-cli) on a private copy of docs/build/production, with this commit as a release candidate scoped to the 17 AWS beta requirements; no cloud, no stack, nothing written to the repository; gate ZENITH_LOCAL_REL0203_REHEARSAL",
+          "logs": "docs/build/production/evidence/PROD-REL-02/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-REL-02 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/rel0203-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-02/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-REL-02.json",
+          "sha256": "c5cb2ddb529cadee5e5390bd4b196cf4941038f142e65930d880472dbf919f23"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42015362302,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42015362302",
+          "command": "GitHub Actions live-acceptance.yml, scenario mix-03, run id zlive-202611051100-9339; plan sha256 b9156d8f5c456f7969c807155a84abf9b745666b86ab789c88067576b083c7fa; dossier and release gates re-derived offline by verify-release-dossier.ts (workflow_dispatch, run_id zlive-202611051100-9339)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 3964ed4d39b69efb4374221cd874122c34b2733f543609539d770bf457fbfbc4; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). Release sources of run zlive-202611051100-9339 (PROD-MIX-02, PROD-MIX-03) built receipts that the dossier, with commit c756d2d7 as a candidate scoped to the run's requirements, reads live_sandbox performed with the run's environment; requirements the run did not pass stayed not performed, rows outside the scope were flagged, and a changed source byte undid the row.",
+          "logs": "docs/build/production/evidence/PROD-REL-02/2026-11-05-live-aws-42015362302/",
+          "artifact": "docs/build/production/evidence/PROD-REL-02/2026-11-05-live-aws-42015362302/release-evidence-PROD-REL-02.json",
+          "sha256": "4b0ceba7fbaa9e9b24a7d2d0f547b727a7766dad06cb50eea26d8d440875cd4a"
         }
       ],
       "requiredEvidence": [
@@ -9145,7 +9669,7 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "J12: separate candidate evidence gates and accountable Ed25519 sign-off with external identity/key pins. Live/operational evidence and human sign-off pending; see verify/REL-03.md. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -9157,6 +9681,48 @@
           "result": "PROD-REL-03 contract lane at 16dbc60c: 48 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-REL-03/2026-11-05-contract-16dbc60c/release-evidence-PROD-REL-03.json",
           "sha256": "0528eadbd3ab01dcbc7e584be113e396af61101b77534360e31473cf72780cae"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-03 --mode contract -- tests/release/dossier.test.ts tests/release/status.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-REL-03/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-REL-03 contract suite at the release candidate c756d2d7: 49 passed, 0 failed, exit 0, over 2 test file(s) (tests/release/dossier.test.ts, tests/release/status.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-03/2026-11-05-contract-c756d2d7/release-evidence-PROD-REL-03.json",
+          "sha256": "c1f2368ff6f560e8a6f3b02f6e7d9ac9e54e92cb14b3d03e4b27cf94c4d88987"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-03 --mode local -- tests/acceptance/verify-release-dossier.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); the release tooling (dossier, release status, evidence receipts) run over the repository's real recorded evidence: a committed live AWS run (PROD-MIX-01, run 41617473729) and the real ledger; no database or cloud engine applies to the release tooling; no network",
+          "logs": "docs/build/production/evidence/PROD-REL-03/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-REL-03 real-engine suite at the release candidate c756d2d7: 2 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/verify-release-dossier.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-03/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-REL-03.json",
+          "sha256": "42b345a0adef66e53ddf5aa8df54b1db44c53cca9a31924ea06ae243e892ceda"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LOCAL_REL0203_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-03 --mode local -- tests/acceptance/rel0203-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (dossier CLI, signoff-cli) on a private copy of docs/build/production, with this commit as a release candidate scoped to the 17 AWS beta requirements; no cloud, no stack, nothing written to the repository; gate ZENITH_LOCAL_REL0203_REHEARSAL",
+          "logs": "docs/build/production/evidence/PROD-REL-03/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-REL-03 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/rel0203-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-03/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-REL-03.json",
+          "sha256": "8cff1be3a9aacf08dd8aebef52d1ea592a16886aa88b42ef88f2e1563596f6f8"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42015362302,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42015362302",
+          "command": "GitHub Actions live-acceptance.yml, scenario mix-03, run id zlive-202611051100-9339; plan sha256 b9156d8f5c456f7969c807155a84abf9b745666b86ab789c88067576b083c7fa; dossier and release gates re-derived offline by verify-release-dossier.ts (workflow_dispatch, run_id zlive-202611051100-9339)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 3964ed4d39b69efb4374221cd874122c34b2733f543609539d770bf457fbfbc4; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). On the same candidate: all-false status needed nothing, implementationComplete alone asked for no evidence, sandboxVerified was refused for exactly the levels the dossier shows unperformed, pilotReady required sandboxVerified, and productionApproved was refused for a scoped candidate and without an accountable sign-off.",
+          "logs": "docs/build/production/evidence/PROD-REL-03/2026-11-05-live-aws-42015362302/",
+          "artifact": "docs/build/production/evidence/PROD-REL-03/2026-11-05-live-aws-42015362302/release-evidence-PROD-REL-03.json",
+          "sha256": "8ba89e571210527aa500fe4c930fc0f21db9dd5f6b2dac708a8e9d4ddbdaf583"
         }
       ],
       "requiredEvidence": [
@@ -9181,7 +9747,7 @@
       ],
       "state": "planned",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending; contract_receipts_at_live_commit_2026-11-01; contract_and_local_engine_receipts_at_c4653f94_2026-11-02; contract_local_engine_and_live_receipts_at_85a9b254_2026-11-03; operational_rehearsal_receipt_at_09711b10_2026-11-05",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipts_at_live_commit_2026-11-01; contract_and_local_engine_receipts_at_c4653f94_2026-11-02; contract_local_engine_and_live_receipts_at_85a9b254_2026-11-03; operational_rehearsal_receipt_at_09711b10_2026-11-05; release_candidate_receipts_at_c756d2d7_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
       "evidence": [
         {
@@ -9323,6 +9889,48 @@
           "result": "PROD-REL-04 operational rehearsal at 09711b10 (mode local), following LIVE-ACCEPTANCE.md 'Budget, cleanup and evidence limits' and verify/PROD-REL-04.md: on a private copy of the owner-approved scope manifest, permissions-cli check passes; a release acceptance run is SIGKILLed (whole process group) while its second lane runs; the checkpoint shows the first lane done, the second in progress, unattendedClaims false, no report and exactly one next command, the exact resume command; that command run verbatim does not repeat the finished lane (attempts 1, same evidence digest), reruns the interrupted one (attempts 2) and leaves no next command; a live run under the approved copy defers its live lane on its own gates; after the operator raises a budget, permissions-cli check is refused (approval_stale) and the recorded resume is refused (scope changed) before any lane runs. 1 passed, 0 failed, 0 skipped, exit 0. Scripted local rehearsal on the owner's Mac; no cloud, no stack, no approval written. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-05-operational-rehearsal-09711b10/release-evidence-PROD-REL-04.json",
           "sha256": "51d242df6f1019367c8b83ea9f12518fe0f10fdc510b19f125cc9778a42dc8be"
+        },
+        {
+          "level": "contract",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LIVE_* ZENITH_TEST_* node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-04 --mode contract -- tests/release/scope.test.ts tests/release/checkpoint.test.ts tests/release/orchestrator.test.ts tests/release/live-scope-coverage.test.ts tests/acceptance/aws-production.test.ts tests/acceptance/aws-rel04-drill.test.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-shared.test.ts tests/acceptance/safety.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-05-contract-c756d2d7/",
+          "result": "PROD-REL-04 contract suite at the release candidate c756d2d7: 347 passed, 0 failed, exit 0, over 9 test file(s) (tests/release/scope.test.ts, tests/release/checkpoint.test.ts, tests/release/orchestrator.test.ts, tests/release/live-scope-coverage.test.ts, tests/acceptance/aws-production.test.ts, tests/acceptance/aws-rel04-drill.test.ts, tests/acceptance/live-managed.test.ts, tests/acceptance/live-shared.test.ts, tests/acceptance/safety.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-05-contract-c756d2d7/release-evidence-PROD-REL-04.json",
+          "sha256": "5148d39e05f8bfd5abe607f242be09850938a4f0bb695658de12ca0877eb9c5a"
+        },
+        {
+          "level": "local_engine",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LOCAL_PROFILE=mixed ZENITH_LOCAL_ROOT ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_TARGETS node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-04 --mode local -- tests/acceptance/local-targets.engine.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, kind v0.33.0 (release checksum verified); local-target-runner profile mixed with the pinned compose fixtures of deploy/acceptance/local-targets, torn down afterwards; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_PROFILE=mixed ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-05-local-engine-c756d2d7/",
+          "result": "PROD-REL-04 real-engine suite at the release candidate c756d2d7: 2 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/local-targets.engine.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-REL-04.json",
+          "sha256": "7f3dd070fd28749320d1a6567f0b59c8580eab2fd61fd5cc7f929341dd34155c"
+        },
+        {
+          "level": "operational_rehearsal",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "command": "ZENITH_LOCAL_REL04_REHEARSAL node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-04 --mode local -- tests/acceptance/rel04-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (acceptance-orchestrator, permissions-cli) on a private copy of the owner-approved scope manifest; no cloud, no stack, no approval written; gate ZENITH_LOCAL_REL04_REHEARSAL",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-05-operational-rehearsal-c756d2d7/",
+          "result": "PROD-REL-04 operational rehearsal (mode local) at the release candidate c756d2d7: 1 passed, 0 failed, exit 0, over 1 test file(s) (tests/acceptance/rel04-rehearsal.operated.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-05-operational-rehearsal-c756d2d7/release-evidence-PROD-REL-04.json",
+          "sha256": "a7557807aa949d7e47d4fd5c70efaff15ff919975c85590570548539ab2ee548"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42017037166,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42017037166",
+          "command": "GitHub Actions live-acceptance.yml, scenario rel-04, run id zlive-202611051112-547e; plan sha256 cafefaac8bef85ce2293fff4296463270de75440728557a382638bd044550815; drill scripts/acceptance/live/drill/rel-04.ts, verified offline by verify-rel-04.ts (workflow_dispatch, run_id zlive-202611051112-547e)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 2d0d3a267b112b97d26057f55581e8886804a81b71e88d94c2dc7363243789f5; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). PROD-REL-04 crash, resume and replay drill passed on the live sandbox and the offline verifier re-derived every step from disk. A: all assertions hold; B: all assertions hold; C: all assertions hold; D: all assertions hold",
+          "logs": "docs/build/production/evidence/PROD-REL-04/2026-11-05-live-aws-42017037166/",
+          "artifact": "docs/build/production/evidence/PROD-REL-04/2026-11-05-live-aws-42017037166/release-evidence-PROD-REL-04.json",
+          "sha256": "b74e5e7589ac75ca7e8b39b8c34c923476272ad985f6d4cdfe69f3b3a93ca2a2"
         }
       ],
       "requiredEvidence": [
@@ -12154,5 +12762,27 @@
     "report": "docs/build/production/verify/FINAL-INTEGRATION.md",
     "commandReceipts": "docs/build/production/verify/FINAL-INTEGRATION-COMMANDS.json",
     "releaseStatusUnchanged": true
+  },
+  "releaseCandidate": {
+    "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+    "requirements": [
+      "PROD-MIX-01",
+      "PROD-MIX-02",
+      "PROD-MIX-03",
+      "PROD-MIX-04",
+      "PROD-OPS-01",
+      "PROD-OPS-02",
+      "PROD-OPS-03",
+      "PROD-OPS-04",
+      "PROD-OPS-05",
+      "PROD-OPS-06",
+      "PROD-OPS-07",
+      "PROD-OPS-08",
+      "PROD-OPS-09",
+      "PROD-REL-01",
+      "PROD-REL-02",
+      "PROD-REL-03",
+      "PROD-REL-04"
+    ]
   }
 }

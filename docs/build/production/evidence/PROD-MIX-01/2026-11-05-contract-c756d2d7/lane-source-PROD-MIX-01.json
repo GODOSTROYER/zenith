@@ -1,0 +1,35 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-MIX-01"
+  ],
+  "mode": "contract",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 193,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/execution/mixed-partitions.test.ts tests/execution/mixed/parent-plan.test.ts tests/acceptance/mixed-evidence.test.ts tests/acceptance/aws-mix03-port.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/execution/mixed-partitions.test.ts",
+      "sha256": "457efd26027aa3b499863142ee0bf4e23b164f9c8ca9197a98cf8217a14f5560"
+    },
+    {
+      "path": "tests/execution/mixed/parent-plan.test.ts",
+      "sha256": "ab5f13cc9ef47a619ed0dc93e512021bf19eaa1d36fb546cf596903d575f760d"
+    },
+    {
+      "path": "tests/acceptance/mixed-evidence.test.ts",
+      "sha256": "96ad54f39b9ad650e9e64c384ae43134bf24b9e05336c0e4a49a7092a3906cf9"
+    },
+    {
+      "path": "tests/acceptance/aws-mix03-port.test.ts",
+      "sha256": "3d8fafe08fdf8fe9eb1fd3b9312bbc4a9779b091e47323144dd7fdcbdafcd82f"
+    }
+  ]
+}

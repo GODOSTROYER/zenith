@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-01",
+  "level": "contract",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/release/orchestrator.test.ts tests/release/dossier.test.ts tests/release/status.test.ts tests/release/acceptance-scenarios.test.ts tests/release/local-targets.test.ts tests/release/drivers-d2.test.ts tests/release/operated-drivers.test.ts tests/acceptance/evidence.test.ts tests/ci/release-gates.test.ts tests/ci/lane-report.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "contract",
+  "status": "passed",
+  "passed": 318,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-01/2026-11-05-contract-c756d2d7/lane-source-PROD-REL-01.json",
+      "sha256": "03a67ba657e9bedee37a7bcf0f95547fef5a4909eb0949019720f48a6178f9e8"
+    }
+  ]
+}

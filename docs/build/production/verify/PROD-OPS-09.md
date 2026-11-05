@@ -183,3 +183,11 @@ release blockers: `go/build.sh` was not executable in git (the workflow's `./bui
 the vendored minimatch link entry without its target's version, so a correct bundle failed the lockfile comparison (since
 03fcdb5d). All release base images are now digest-pinned, so `--strict` verifies; the earlier tag-only notes above are historical.
 The real signing key and a tag release remain the live level (owner decision). The audit export is not part of this rehearsal.
+
+## Live level: a published signed release (2026-11-05)
+
+After the owner's key is in the protected `release` environment and a version tag's `release.yml` run publishes, download the
+bundle (`gh release download TAG -p 'zenith-*-bundle.tar'`), extract it, and run
+`node scripts/supply-chain/published-release-source.mjs --bundle DIR --tag TAG --repository OWNER/REPO --run-url URL --keys PINNED_KEYS.json --lock package-lock.json --out release-source-PROD-OPS-09.json`.
+It writes a live source only when the bundle verifies with `--strict` against the pinned keys and names the same tag and
+repository; bind it with `scripts/release/evidence-cli.mjs --level live_sandbox --mode live`. Tests: `tests/supply-chain/release.test.ts`.

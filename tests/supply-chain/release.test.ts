@@ -11,6 +11,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { buildProvenance, buildManifest, ociArchive, privateKeyFromSeed, publicKeyEntry, signManifest, verifyRelease, ENVELOPE_FILE, PROVENANCE_FILE, SBOM_FILE, main as releaseMain } from "../../scripts/supply-chain/release.mjs";
 import { buildSbom } from "../../scripts/supply-chain/sbom.mjs";
 import { main as verifyMain } from "../../scripts/supply-chain/zenith-verify-release.mjs";
+import { publishedReleaseSource } from "../../scripts/supply-chain/published-release-source.mjs";
+import { sourceOutcome } from "../../scripts/release/status.mjs";
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-release-"));
 afterAll(() => fs.rmSync(scratch, { recursive: true, force: true }));
@@ -263,5 +265,24 @@ describe("key handling", () => {
     const reference = generateKeyPairSync("ed25519");
     expect(privateKeyFromSeed(seed()).asymmetricKeyType).toBe(reference.privateKey.asymmetricKeyType);
     expect(() => privateKeyFromSeed(Buffer.alloc(5))).toThrow();
+  });
+});
+
+describe("published release source (OPS-09 live)", () => {
+  const RUN_URL = `https://github.com/${REPO}/actions/runs/123`;
+  it("writes a live source only for a strictly verified bundle of the named tag and repository", () => {
+    const b = makeBundle("t-published");
+    const { errors, source } = publishedReleaseSource({ bundle: b.dir, tag: "v1.2.3", repository: REPO, runUrl: RUN_URL, keys: b.keys, lock: b.lock, now: NOW });
+    expect(errors).toEqual([]);
+    expect(sourceOutcome(source as never)).toMatchObject({ passed: 1, failed: 0, skipped: 0, exitCode: 0, mode: "live", commit: COMMIT, requirements: ["PROD-OPS-09"] });
+    expect(source!.environment).toContain(RUN_URL);
+  });
+  it("refuses another tag, repository, run URL or an unpinned key", () => {
+    const b = makeBundle("t-published-bad");
+    const run = (over: Record<string, unknown>) => publishedReleaseSource({ bundle: b.dir, tag: "v1.2.3", repository: REPO, runUrl: RUN_URL, keys: b.keys, lock: b.lock, now: NOW, ...over }).errors.join();
+    expect(run({ tag: "v9.9.9" })).toContain("different tag");
+    expect(run({ repository: "someone/else" })).toContain("different repository");
+    expect(run({ runUrl: "https://example.com/run" })).toContain("--run-url");
+    expect(run({ keys: [publicKeyEntry("release-2026-10", seed())] })).toContain("does not verify against any pinned release key");
   });
 });

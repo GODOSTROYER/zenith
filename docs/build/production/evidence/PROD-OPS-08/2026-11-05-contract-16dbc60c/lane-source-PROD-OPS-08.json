@@ -1,0 +1,59 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-OPS-08"
+  ],
+  "mode": "contract",
+  "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 238,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/adversarial/approvals-forgery.test.ts tests/adversarial/build-exfiltration.test.ts tests/adversarial/cross-tenant.test.ts tests/adversarial/integration-compromise.test.ts tests/adversarial/malicious-archives.test.ts tests/adversarial/prompt-injection.test.ts tests/adversarial/residual-hardening.test.ts tests/adversarial/role-escalation.test.ts tests/adversarial/ssrf-rebinding.test.ts tests/adversarial/token-forgery.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/adversarial/approvals-forgery.test.ts",
+      "sha256": "99ce241a3ca2f9a12266bd4004a2f22265d75739164b179a6e1b0e8ca222ec79"
+    },
+    {
+      "path": "tests/adversarial/build-exfiltration.test.ts",
+      "sha256": "b7498a5f045579ac2ad59a6700edf55312411467e74b136bec07856fe56f5cbe"
+    },
+    {
+      "path": "tests/adversarial/cross-tenant.test.ts",
+      "sha256": "849aba7aea1d3d984103ae5e112656c97b18c5c063340f30276b561e56ce6cf5"
+    },
+    {
+      "path": "tests/adversarial/integration-compromise.test.ts",
+      "sha256": "bb418e3bc8c34fc54d6ec99d070f1167768caf05d042c3a598a83c150e4f9375"
+    },
+    {
+      "path": "tests/adversarial/malicious-archives.test.ts",
+      "sha256": "fb47bac376220c201447dcac6ff05ad52d4bef9c77f7c816988a8554c874a238"
+    },
+    {
+      "path": "tests/adversarial/prompt-injection.test.ts",
+      "sha256": "145bdac0c2cea861f0ed2921d6407f2d86fc33f77c851fc643697bcab21a1e07"
+    },
+    {
+      "path": "tests/adversarial/residual-hardening.test.ts",
+      "sha256": "f116804a733b41cdc7cb980207920ff716b6bb8a35ddf6b9ab5bdd9b67f7a7aa"
+    },
+    {
+      "path": "tests/adversarial/role-escalation.test.ts",
+      "sha256": "7a27c364227da12dde5eb90d4ed37dcaffe2ccae789d8324c33a396a244fc754"
+    },
+    {
+      "path": "tests/adversarial/ssrf-rebinding.test.ts",
+      "sha256": "47b126b699c272233d1f3c27fbda0aea370b1bcaa9222ee94565e1ff6a96cd97"
+    },
+    {
+      "path": "tests/adversarial/token-forgery.test.ts",
+      "sha256": "8856dd13cec3b82616458cd572032fe9ea7bfeed5c06735f21ba7843c706b6ce"
+    }
+  ]
+}

@@ -8341,9 +8341,20 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05",
       "implementationNote": "L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-08 --mode contract -- tests/adversarial/approvals-forgery.test.ts tests/adversarial/build-exfiltration.test.ts tests/adversarial/cross-tenant.test.ts tests/adversarial/integration-compromise.test.ts tests/adversarial/malicious-archives.test.ts tests/adversarial/prompt-injection.test.ts tests/adversarial/residual-hardening.test.ts tests/adversarial/role-escalation.test.ts tests/adversarial/ssrf-rebinding.test.ts tests/adversarial/token-forgery.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-contract-16dbc60c/",
+          "result": "PROD-OPS-08 contract lane at 16dbc60c: 238 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-08/2026-11-05-contract-16dbc60c/release-evidence-PROD-OPS-08.json",
+          "sha256": "815641379540e124910367164c21c22e22db45205c54e94f281694d2c459b756"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine",
@@ -8375,9 +8386,30 @@
       "dependencies": [
         "PROD-CI-09"
       ],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05; local_engine_receipt_at_16dbc60c_2026-11-05",
       "implementationNote": "J11: owned base-image inventory/resolver and reused Node pin; remaining real digests and Wave 5 supply-chain acceptance pending. Integration: committed upstream base/observability digests and the Cilium 1.20.2 chart pin are retained; API, worker and migrate release-image digests remain unresolved. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-09 --mode contract -- tests/supply-chain/release.test.ts tests/ci/release-workflow.test.ts tests/ci/vulnerability-triage.test.ts tests/ci/security-audit.test.ts tests/audit-export/audit-export.test.ts tests/audit-export/purpose.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-contract-16dbc60c/",
+          "result": "PROD-OPS-09 contract lane at 16dbc60c: 124 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-contract-16dbc60c/release-evidence-PROD-OPS-09.json",
+          "sha256": "90c38a4fecd7f5aac34647d0517d013c399452131b2fa6d3961ac9590f47dce9"
+        },
+        {
+          "level": "local_engine",
+          "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-OPS-09 --mode local -- tests/supply-chain/sbom.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); real Go toolchain go1.27.3 darwin/arm64 (Homebrew) with GOTOOLCHAIN=local builds go/cmd/zenith-release; gate ZENITH_TEST_GO; no network",
+          "logs": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-local-engine-16dbc60c/",
+          "result": "PROD-OPS-09 local_engine lane at 16dbc60c: the real Go toolchain builds go/cmd/zenith-release and the test reads the binary's build info (module, dependencies, VCS revision) for the SBOM; 16 passed, 0 failed, 0 skipped, exit 0. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-OPS-09/2026-11-05-local-engine-16dbc60c/release-evidence-PROD-OPS-09.json",
+          "sha256": "be6ae62b1a589233395f7b60cba45aadf1e54d8b1420ba15bf4018b3f77c3009"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine",
@@ -9063,9 +9095,20 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05",
       "implementationNote": "J12: dossier validates real file/hash/source bindings and coherent evidence; historical, skipped and unperformed results remain visible. RC verification pending; see verify/REL-02.md. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-02 --mode contract -- tests/release/checkpoint.test.ts tests/release/dossier.test.ts tests/release/scope.test.ts tests/release/status.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-REL-02/2026-11-05-contract-16dbc60c/",
+          "result": "PROD-REL-02 contract lane at 16dbc60c: 95 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-02/2026-11-05-contract-16dbc60c/release-evidence-PROD-REL-02.json",
+          "sha256": "ddc2ac881921de86d7949628d1036370dd27afe80eccdf46f1e8ab61977b1eba"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine",
@@ -9090,9 +9133,20 @@
       ],
       "state": "in_progress",
       "dependencies": [],
-      "implementationStatus": "implementation_complete_verification_pending",
+      "implementationStatus": "implementation_complete_verification_pending; contract_receipt_at_16dbc60c_2026-11-05",
       "implementationNote": "J12: separate candidate evidence gates and accountable Ed25519 sign-off with external identity/key pins. Live/operational evidence and human sign-off pending; see verify/REL-03.md. L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.",
-      "evidence": [],
+      "evidence": [
+        {
+          "level": "contract",
+          "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+          "command": "node scripts/release/lane-source.mjs --root <clean checkout of the commit> --requirement PROD-REL-03 --mode contract -- tests/release/dossier.test.ts tests/release/status.test.ts --no-file-parallelism --maxWorkers=1",
+          "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+          "logs": "docs/build/production/evidence/PROD-REL-03/2026-11-05-contract-16dbc60c/",
+          "result": "PROD-REL-03 contract lane at 16dbc60c: 48 passed, 0 failed, 0 skipped, exit 0. Offline Vitest. Not a promotion.",
+          "artifact": "docs/build/production/evidence/PROD-REL-03/2026-11-05-contract-16dbc60c/release-evidence-PROD-REL-03.json",
+          "sha256": "0528eadbd3ab01dcbc7e584be113e396af61101b77534360e31473cf72780cae"
+        }
+      ],
       "requiredEvidence": [
         "contract",
         "local_engine",

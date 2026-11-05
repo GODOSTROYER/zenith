@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
-import { canonical, releaseSnapshotDigest, selectReleaseEvidence, sha256, SIGNOFF_FORMAT, signSignoff } from "./status.mjs";
+import { candidateScope, canonical, releaseSnapshotDigest, selectReleaseEvidence, sha256, SIGNOFF_FORMAT, signSignoff } from "./status.mjs";
 
 export async function main(argv, root = process.cwd()) {
   const [command, ...args] = argv;
@@ -11,6 +11,7 @@ export async function main(argv, root = process.cwd()) {
   try {
     if (!value("--out")) throw new Error("--out is required");
     const ledger = JSON.parse(readFileSync(`${root}/docs/build/production/ledger.json`, "utf8"));
+    if (!candidateScope(ledger).full) throw new Error("Production sign-off needs a release candidate covering every requirement");
     const selection = selectReleaseEvidence(ledger, { root });
     if (selection.errors.length) throw new Error(selection.errors.join("\n"));
     if (command === "prepare") {

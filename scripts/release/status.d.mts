@@ -3,7 +3,7 @@ export interface ReleaseEvidence { level: string; commit?: string; artifact?: st
 export interface ReleaseLedger {
   requirements: { id: string; implementationStatus: string; requiredEvidence: string[]; evidence: ReleaseEvidence[] }[];
   releaseStatus?: Record<string, boolean>;
-  releaseCandidate?: { commit: string };
+  releaseCandidate?: { commit: string; requirements?: string[] };
   releaseSignoffs?: string[];
 }
 export interface EvidenceReference { requirementId: string; level: string; path: string; sha256: string }
@@ -33,3 +33,4 @@ export function selectReleaseEvidence(ledger: ReleaseLedger, options?: StatusOpt
 export function signSignoff(body: Omit<SignoffRecord, "signature">, seed: Buffer, kid: string): SignoffRecord;
 export function verifySignoff(record: unknown, ledger: ReleaseLedger, refs: EvidenceReference[], keys: SignoffKey[], now?: Date): boolean;
 export function validateReleaseStatus(ledger: ReleaseLedger, options?: StatusOptions): string[];
+export function candidateScope(ledger: { requirements?: { id: string }[]; releaseCandidate?: { commit: string; requirements?: string[] } }): { ids: string[]; full: boolean; errors: string[] };

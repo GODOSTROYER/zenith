@@ -121,12 +121,28 @@ export function inspectEvidence(requirementId, evidence, options = {}) {
   return result;
 }
 
+/** The candidate's requirements: every ledger requirement, or the subset `releaseCandidate.requirements` declares (a scoped pilot). */
+export function candidateScope(ledger) {
+  const all = (ledger.requirements ?? []).map((r) => r.id);
+  const declared = ledger.releaseCandidate?.requirements;
+  if (declared === undefined) return { ids: all, full: true, errors: [] };
+  const errors = [];
+  if (!Array.isArray(declared) || declared.length === 0) errors.push("releaseCandidate.requirements must be a nonempty list when present");
+  else {
+    if (new Set(declared).size !== declared.length) errors.push("releaseCandidate.requirements has duplicates");
+    for (const id of declared) if (!all.includes(id)) errors.push(`releaseCandidate.requirements names an unknown requirement: ${id}`);
+  }
+  const ids = Array.isArray(declared) ? all.filter((id) => declared.includes(id)) : [];
+  return { ids, full: errors.length === 0 && ids.length === all.length, errors };
+}
+
 export function selectReleaseEvidence(ledger, options = {}, includeRehearsals = true) {
   const commit = ledger.releaseCandidate?.commit;
-  const errors = [];
+  const scope = candidateScope(ledger);
+  const errors = [...scope.errors];
   const refs = [];
   if (!Commit.safeParse(commit).success) errors.push("releaseCandidate.commit must be a full release candidate SHA");
-  for (const req of ledger.requirements) {
+  for (const req of ledger.requirements.filter((r) => scope.ids.includes(r.id))) {
     const levels = req.requiredEvidence.filter((level) => level !== "production_signoff" && (includeRehearsals || level !== "operational_rehearsal"));
     if (new Set(req.requiredEvidence).size !== req.requiredEvidence.length || req.requiredEvidence.some((l) => l !== "production_signoff" && !Levels.safeParse(l).success)) errors.push(`${req.id}: invalid required evidence inventory`);
     if (levels.length === 0) errors.push(`${req.id}: no required execution evidence`);
@@ -171,12 +187,14 @@ export function validateReleaseStatus(ledger, options = {}) {
   const names = ["implementationComplete", "sandboxVerified", "pilotReady", "productionApproved"];
   for (const name of names) if (typeof status[name] !== "boolean") errors.push(`releaseStatus.${name} must be boolean`);
   if (!Array.isArray(ledger.requirements) || ledger.requirements.length === 0) return ["release requires a nonempty requirement inventory"];
-  if (status.implementationComplete && ledger.requirements.some((r) => !/^(complete$|implementation_complete(?:_|$)|verified(?:_|$)|local_verified(?:_|$))/.test(r.implementationStatus))) errors.push("implementationComplete requires every implementation to be complete");
+  const scope = candidateScope(ledger);
+  if (status.implementationComplete && ledger.requirements.filter((r) => scope.ids.includes(r.id)).some((r) => !/^(complete$|implementation_complete(?:_|$)|verified(?:_|$)|local_verified(?:_|$))/.test(r.implementationStatus))) errors.push("implementationComplete requires every implementation to be complete");
   for (let i = 1; i < names.length; i++) if (status[names[i]] && !status[names[i - 1]]) errors.push(`${names[i]} requires ${names[i - 1]}`);
   if (status.sandboxVerified || status.pilotReady || status.productionApproved) {
     const selection = selectReleaseEvidence(ledger, options, status.pilotReady || status.productionApproved);
     errors.push(...selection.errors);
     if (status.productionApproved) {
+      if (!scope.full) errors.push("productionApproved requires a release candidate covering every requirement");
       const records = ledger.releaseSignoffs ?? [];
       const read = options.readEvidence ?? ((relative) => readRepositoryFile(options.root, relative));
       const valid = records.some((file) => {

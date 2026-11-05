@@ -73,6 +73,25 @@ describe("separate release status gates", () => {
     f.ledger.requirements[0]!.evidence = f.ledger.requirements[0]!.evidence.filter((e) => e.level !== "live_sandbox");
     expect(validateReleaseStatus(f.ledger, f.options).join()).toContain("live_sandbox");
   });
+  it("a scoped candidate gates pilot on its own requirements only; production still needs every requirement", () => {
+    const f = fixture();
+    f.ledger.requirements.push({ ...f.ledger.requirements[0]!, id: "PROD-OPS-01", evidence: [] });
+    expect(validateReleaseStatus(f.ledger, f.options)).toContain("PROD-OPS-01: missing passing contract evidence at the release candidate");
+    f.ledger.releaseCandidate = { commit, requirements: ["PROD-REL-03"] };
+    expect(validateReleaseStatus(f.ledger, f.options)).toEqual([]);
+    f.ledger.releaseStatus!.productionApproved = true;
+    expect(validateReleaseStatus(f.ledger, f.options)).toContain("productionApproved requires a release candidate covering every requirement");
+    f.ledger.releaseStatus!.productionApproved = false;
+    for (const requirements of [[], ["PROD-REL-03", "PROD-REL-03"], ["PROD-REL-03", "PROD-NOPE-01"]]) {
+      f.ledger.releaseCandidate = { commit, requirements };
+      expect(validateReleaseStatus(f.ledger, f.options).join(), JSON.stringify(requirements)).toMatch(/releaseCandidate\.requirements/);
+    }
+    const out = { ...f.ledger, releaseCandidate: { commit, requirements: ["PROD-REL-03"] }, requirements: [f.ledger.requirements[0]!, { ...f.ledger.requirements[0]!, id: "PROD-OPS-01", evidence: f.ledger.requirements[0]!.evidence.map((e) => ({ ...e })) }] };
+    out.requirements[1]!.evidence.forEach((e) => { e.commit = "b".repeat(40); });
+    const rows = buildDossier({ ledger: out, verifyDocs: [], evidenceFiles: [], readEvidence: f.options.readEvidence, keys: f.keys }).rows;
+    expect(rows.find((r) => r.id === "PROD-REL-03")!.flags).not.toContain("outside the release candidate's requirement scope");
+    expect(rows.find((r) => r.id === "PROD-OPS-01")!.flags).toContain("outside the release candidate's requirement scope");
+  });
   it("refuses later flags without their prerequisites and rejects nonbooleans", () => {
     const f = fixture(); f.ledger.releaseStatus!.sandboxVerified = false;
     expect(validateReleaseStatus(f.ledger, f.options).join()).toContain("pilotReady requires sandboxVerified");

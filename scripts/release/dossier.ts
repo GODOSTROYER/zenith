@@ -30,7 +30,7 @@ type LedgerEvidence = ReleaseEvidence;
 interface LedgerRequirement {
   id: string; title: string; acceptance: string[]; state: string; dependencies: string[]; implementationStatus: string; evidence: LedgerEvidence[]; requiredEvidence: string[]; owner: string | null; testPaths: string[];
 }
-export interface Ledger { requirements: LedgerRequirement[]; releaseStatus?: Record<string, boolean>; releaseCandidate?: { commit: string }; releaseSignoffs?: string[]; evidenceLevels?: string[]; baseline?: { commit?: string } }
+export interface Ledger { requirements: LedgerRequirement[]; releaseStatus?: Record<string, boolean>; releaseCandidate?: { commit: string; requirements?: string[] }; releaseSignoffs?: string[]; evidenceLevels?: string[]; baseline?: { commit?: string } }
 
 export interface VerifyDoc { file: string; text: string }
 export interface EvidenceFile { requirement: string; file: string; json?: Record<string, unknown>; bytes?: Buffer }
@@ -61,6 +61,7 @@ export interface Dossier {
   generatedAt: string;
   ledgerBaseline: string | null;
   releaseCandidate: string | null;
+  releaseCandidateRequirements: string[] | null;
   releaseStatus: Record<string, boolean>;
   releaseStatusErrors: string[];
   rows: DossierRow[];
@@ -131,7 +132,9 @@ export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly Verif
     const named = [...new Set(docs.flatMap((d) => testsNamedIn(d.text)))].sort();
     const declared = [...req.testPaths].sort();
     const levels: Record<string, LevelState> = {};
-    const assessments = req.evidence.map((e) => inspectEvidence(req.id, e, { readEvidence, ...(input.ledger.releaseCandidate ? { commit: input.ledger.releaseCandidate.commit } : {}) }));
+    const candidate = input.ledger.releaseCandidate;
+    const inCandidate = !!candidate && (!candidate.requirements || candidate.requirements.includes(req.id));
+    const assessments = req.evidence.map((e) => inspectEvidence(req.id, e, { readEvidence, ...(inCandidate ? { commit: candidate!.commit } : {}) }));
     for (const level of req.requiredEvidence) {
       const candidates = assessments.filter((_, i) => req.evidence[i]!.level === level);
       levels[level] = candidates.some((a) => a.valid) ? "performed"
@@ -152,6 +155,7 @@ export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly Verif
     });
     const flags: string[] = [];
     if (!docs.length) flags.push("no verification document names this requirement");
+    if (candidate?.requirements && !inCandidate) flags.push("outside the release candidate's requirement scope");
     const missing = [...new Set([...declared, ...named])].filter((t) => !exists(t));
     if (missing.length) flags.push(`${missing.length} named test file(s) do not exist on disk`);
     if (req.evidence.some((e) => /skip/i.test(e.result ?? ""))) flags.push("evidence mentions skipped tests");
@@ -176,7 +180,7 @@ export function buildDossier(input: { ledger: Ledger; verifyDocs: readonly Verif
     for (const state of Object.values(r.levels)) { if (state === "unperformed") unperformed += 1; if (state === "pending") pending += 1; }
   }
   return {
-    schema: 1, generatedAt: (input.now ?? (() => new Date()))().toISOString(), ledgerBaseline: input.ledger.baseline?.commit ?? null, releaseCandidate: input.ledger.releaseCandidate?.commit ?? null,
+    schema: 1, generatedAt: (input.now ?? (() => new Date()))().toISOString(), ledgerBaseline: input.ledger.baseline?.commit ?? null, releaseCandidate: input.ledger.releaseCandidate?.commit ?? null, releaseCandidateRequirements: input.ledger.releaseCandidate?.requirements ?? null,
     releaseStatus: { ...(input.ledger.releaseStatus ?? {}) }, rows,
     releaseStatusErrors,
     summary: { total: rows.length, byStatus, unperformedLevels: unperformed, pendingLevels: pending, flagged: rows.filter((r) => r.flags.length > 0).length },
@@ -196,7 +200,7 @@ export function renderMarkdown(d: Dossier): string {
     "## Summary", "", `- Requirements: ${d.summary.total}`, ...Object.entries(d.summary.byStatus).map(([k, v]) => `- ${k}: ${v}`),
     `- Required evidence levels unperformed (deferred or never run): ${d.summary.unperformedLevels}`, `- Required evidence levels pending: ${d.summary.pendingLevels}`, `- Rows with flags: ${d.summary.flagged}`, ""];
   if (d.acceptance) out.push("## Acceptance orchestrator run", "", `Run ${d.acceptance.runId} at ${d.acceptance.generatedAt}${d.acceptance.sourceCommit ? ` on ${short(d.acceptance.sourceCommit)}` : ""}: ${JSON.stringify(d.acceptance.summary)}`, "");
-  out.push(`Release candidate: ${d.releaseCandidate ?? "not declared"}.`, "");
+  out.push(`Release candidate: ${d.releaseCandidate ?? "not declared"}${d.releaseCandidateRequirements ? `, scoped to ${d.releaseCandidateRequirements.length} requirement(s): ${d.releaseCandidateRequirements.join(", ")}` : ""}.`, "");
   if (d.releaseStatusErrors.length) out.push("Release status validation errors:", ...d.releaseStatusErrors.map((e) => `- ${e}`), "");
   out.push("## Requirement to evidence", "", "| Requirement | Status | Implementation | Tests | Environment | Commit(s) | Evidence by required level |", "| --- | --- | --- | --- | --- | --- | --- |");
   for (const r of d.rows) {

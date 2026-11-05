@@ -114,6 +114,18 @@
       "Resource": "*"
     },
     {
+      "Sid": "ReadZenithFunctions",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunction",
+        "lambda:GetFunctionCodeSigningConfig"
+      ],
+      "Resource": [
+        "arn:${partition}:lambda:*:${account_id}:function:zenith-*",
+        "arn:${partition}:lambda:*:${account_id}:function:zenith-*:*"
+      ]
+    },
+    {
       "Sid": "ReadZenithBuckets",
       "Effect": "Allow",
       "Action": [

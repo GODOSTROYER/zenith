@@ -167,8 +167,10 @@ it("adds the exact bootstrap version read statement and preserves the reviewed r
   // ELB-forwarded ec2:GetSecurityGroupsForVpc read, role instance-profile listing and EIP disassociation for destroy
   // (DEPLOY-01 live denials, 2026-10-26), then lambda:GetFunctionCodeSigningConfig, which the AWS provider reads after every
   // Zip function create and refresh (MIX-03 live denial, 2026-10-28), then secretsmanager:GetResourcePolicy (observe), which
-  // the AWS provider reads for every managed secret container on create, refresh and destroy (OPS-06 live denial, 2026-10-29).
-  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("17c3da155f32260f67535d71cd3d3dff2798b6549bc25303181066a011fb3f6e");
+  // the AWS provider reads for every managed secret container on create, refresh and destroy (OPS-06 live denial, 2026-10-29),
+  // then lambda:GetFunction and lambda:GetFunctionCodeSigningConfig (observe), which a teardown review's refresh of a Zip
+  // function needs (MIX-04 rehearsal denial, run 41946370857, 2026-11-05).
+  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("ee4efedeb6298afbd01ceb4ebb605825b75174e54e83e4e48c7a81ac939b3ba1");
 });
 
 describe.each(["aws", "aws-cn", "aws-us-gov"])("exact bootstrap boundary reads in %s", (partition) => {

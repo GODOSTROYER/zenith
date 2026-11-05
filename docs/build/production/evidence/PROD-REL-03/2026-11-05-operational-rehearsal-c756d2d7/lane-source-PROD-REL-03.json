@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-REL-03"
+  ],
+  "mode": "local",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (dossier CLI, signoff-cli) on a private copy of docs/build/production, with this commit as a release candidate scoped to the 17 AWS beta requirements; no cloud, no stack, nothing written to the repository; gate ZENITH_LOCAL_REL0203_REHEARSAL",
+  "command": "vitest run tests/acceptance/rel0203-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/acceptance/rel0203-rehearsal.operated.test.ts",
+      "sha256": "1b5e27c7afbdebe428d2eadb20c59935d5a827eab47ca2a6a196fb5e62a67930"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-02"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario mix-03, run id zlive-202611051100-9339; plan sha256 b9156d8f5c456f7969c807155a84abf9b745666b86ab789c88067576b083c7fa",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 3964ed4d39b69efb4374221cd874122c34b2733f543609539d770bf457fbfbc4; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611051100-9339",
+    "file": "evidence.json",
+    "sha256": "0c05972a9431c80688518fd5c824a601ff6d7354ab7b2a138a43e1b28c63ffeb",
+    "packetSha256": "ee9d999cace38f3b4b013e41b49be8a6a45ea52521babf88693dac77a1f5f7ab"
+  },
+  "result": "PROD-MIX-02 proven on the live sandbox: the stored parent plan put the producer (S3 bucket) before the consumer (Lambda function) that depends on it, with one approved parent operation; its parent, desired and child-set digests, each child's subplan, semantics and effect digests and all 2 stable resource addresses were identical after the proposal, before the execution worker was stopped and at the end; the worker was stopped with the producer done and the consumer waiting for its review, the review was approved while it was down (263 s from stop to healthy) and the parent resumed after the restart; both durable receipts link their child operations, bind the semantics each child ran and re-derive from their own fields; the producer receipt was unchanged across the restart and AWS held the same one producer bucket before and after"
+}

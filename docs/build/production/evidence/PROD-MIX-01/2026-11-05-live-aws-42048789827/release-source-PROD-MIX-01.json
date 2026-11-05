@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-01"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario mix-01, run id zlive-202611051449-e5d6; plan sha256 35abfdfe100aea94d0e11f03e51f28f4969b9263cdec4f9ef6f37f70695196eb",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 817c84162ebe520820d18171277d8f70f8ee3d059a7d395116595d1056f94179; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611051449-e5d6",
+    "file": "evidence.json",
+    "sha256": "9fffbdaba54637326a2c659b1b05bc24ca8520e9491870cc526d23302908dfed",
+    "packetSha256": "db39109917de1e9a76492d6ec7abcbcba498921ce79b923c74a24eb2cfa07984"
+  },
+  "result": "PROD-MIX-01 proven on the live AWS sandbox: one tenant created two AWS connections on the two connection stacks of one account (-live, -live2); the trust change touched only the ExternalId of each stack's observe and deploy roles and was restored; connection.verifyAws passed for both. The stored parent plan put one child on each connection (one S3 bucket each) in two separate, independent partitions; both children succeeded and both receipts link their child operations. By independent readback each environment holds exactly one tagged bucket of its own, and each child's OpenTofu state object exists in its own connection's state bucket and not in the other's. A dependency between partitions on different connections is refused by the product unless protected connectivity is declared (PROD-MIX-05), as live run 41611302755 showed. Approvals by an automated test approver through the browser path. One AWS account and provider: separate accounts and cross-provider partitions are outside this run"
+}

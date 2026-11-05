@@ -1,0 +1,30 @@
+{
+  "format": "zenith.run-checkpoint.v1",
+  "runId": "zlive-202611051112-547e",
+  "harness": "aws-live",
+  "scopeDigest": "804c6aaf7ac08aa72b28b2112a1b1862079fe23dff87d36fabce076013efa1fd",
+  "createdAt": "2026-11-05T11:13:04.873Z",
+  "updatedAt": "2026-11-05T11:13:08.603Z",
+  "unattendedClaims": false,
+  "steps": [
+    {
+      "id": "run",
+      "status": "in_progress",
+      "startedAt": "2026-11-05T11:13:05.065Z",
+      "endedAt": null,
+      "note": null,
+      "evidenceDigest": null,
+      "attempts": 1
+    }
+  ],
+  "decisions": [
+    {
+      "at": "2026-11-05T11:13:04.873Z",
+      "by": "automation (delegated by Saivedant Hava on 2026-10-26)",
+      "text": "plan=cafefaac8bef85ce2293fff4296463270de75440728557a382638bd044550815 permission=2d0d3a267b112b97d26057f55581e8886804a81b71e88d94c2dc7363243789f5 commit=c756d2d76bc69e2f2f9ffab71a34674d6264b585 budgetUsd=0.4 scenario=rel-04 approval=awsLive:zenith-aws-permissions.json root:zenith-live-scope.json"
+    }
+  ],
+  "nextCommands": [
+    "cd '/home/runner/work/zenith/zenith' && ZENITH_LIVE_AWS=1 ZENITH_LIVE_AWS_BUDGET_USD=0.4 ZENITH_LIVE_SCOPE_FILE='/home/runner/work/_temp/zenith-live-scope.json' ZENITH_LIVE_AWS_SESSION_FILE='<absolute-session-file>' npx tsx scripts/acceptance/aws-live.ts --permissions '/home/runner/work/_temp/zenith-aws-permissions.json' --cleanup '/home/runner/work/_temp/zenith-aws-production/zlive-202611051112-547e/journal.json'"
+  ]
+}

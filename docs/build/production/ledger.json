@@ -4355,6 +4355,18 @@
           "result": "PROD-MIX-01 real-engine suite at the release candidate c756d2d7: 101 passed, 0 failed, exit 0, over 2 test file(s) (tests/controlplane/mixed-parent-plans.test.ts, tests/controlplane/mixed-child-admission.test.ts). Run on a clean detached checkout of that commit by scripts/release/lane-source.mjs; the Vitest JSON report was not kept, only its counts. Not a promotion.",
           "artifact": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-local-engine-c756d2d7/release-evidence-PROD-MIX-01.json",
           "sha256": "e74bc4b89a503dd4cd13bd128131524153aabc8b9490758645b89ab6b2b3cbc0"
+        },
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "runId": 42048789827,
+          "url": "https://github.com/saivedant169/zenith/actions/runs/42048789827",
+          "command": "GitHub Actions live-acceptance.yml, scenario mix-01, run id zlive-202611051449-e5d6; plan sha256 35abfdfe100aea94d0e11f03e51f28f4969b9263cdec4f9ef6f37f70695196eb (workflow_dispatch, run_id zlive-202611051449-e5d6)",
+          "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 817c84162ebe520820d18171277d8f70f8ee3d059a7d395116595d1056f94179; cleanup complete; approvals awsLive zenith-aws-permissions.json and root zenith-live-scope.json, approvedBy automation (delegated by Saivedant Hava on 2026-10-26)",
+          "result": "Live AWS sandbox run at the release candidate c756d2d7 (mode live). PROD-MIX-01 proven on the live AWS sandbox: one tenant created two AWS connections on the two connection stacks of one account (-live, -live2); the trust change touched only the ExternalId of each stack's observe and deploy roles and was restored; connection.verifyAws passed for both. The stored parent plan put one child on each connection (one S3 bucket each) in two separate, independent partitions; both children succeeded and both receipts link their child operations. By independent readback each environment holds exactly one tagged bucket of its own, and each child's OpenTofu state object exists in its own connection's state bucket and not in the other's. A dependency between partitions on different connections is refused by the product unless protected connectivity is declared (PROD-MIX-05), as live run 41611302755 showed. Approvals by an automated test approver through the browser path. One AWS account and provider: separate accounts and cross-provider partitions are outside this run",
+          "logs": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-live-aws-42048789827/",
+          "artifact": "docs/build/production/evidence/PROD-MIX-01/2026-11-05-live-aws-42048789827/release-evidence-PROD-MIX-01.json",
+          "sha256": "a01a6cef5e55d3f265039a0a8bc0c58785f45a7c518b242ac55589c730368c85"
         }
       ],
       "requiredEvidence": [

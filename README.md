@@ -151,7 +151,3 @@ The three images at the top are real captures of the public site, dated **5 Octo
 Zenith should never claim more than it can verify. Sandbox health and costs are simulated; AWS is plan/export Preview; LocalStack verification covers its supported subset. The local store requires one writer, and the hosted subsystem runs only where you configure and operate it.
 
 Consult [LIMITATIONS.md](docs/LIMITATIONS.md) before relying on a provider, a verification result or a deployment mode. This repository currently has no license file.
-
----
-
-Built by **[Arnav Bule](https://www.arnavbule.in)** · [GitHub](https://github.com/GODOSTROYER)

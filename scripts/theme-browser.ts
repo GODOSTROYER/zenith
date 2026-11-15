@@ -21,25 +21,27 @@ const COLORS = {
   amoled: { chrome: "rgb(8, 9, 8)", panel: "rgb(17, 19, 15)", ink: "rgb(230, 230, 223)", accent: "rgb(255, 136, 108)" },
 };
 const VIEWPORTS = { desktop: { width: 1440, height: 1000 }, mobile: { width: 390, height: 844 } };
+const MISSING_ROUTE = "/__theme-verification-missing-page";
 const ROUTES = ["/overview", "/p/atlas", "/p/atlas/source", "/p/atlas/observe", "/p/atlas/navigator",
   "/p/atlas/deploys", "/p/atlas/revisions", "/p/atlas/security", "/p/atlas/activity", "/p/atlas/settings",
   "/integrations", "/apps", "/apps/new", "/account", "/workspace", "/guide", "/invite",
-  "/onboarding", "/login", "/signup", "/forgot-password", "/reset-password", "/", "/waitlist", "/privacy", "/terms", "/admin"];
+  "/onboarding", "/login", "/signup", "/forgot-password", "/reset-password", "/", "/waitlist", "/privacy", "/terms", "/admin", MISSING_ROUTE];
 const SHOTS = new Set(["/overview", "/p/atlas", "/p/atlas/source", "/p/atlas/observe", "/p/atlas/navigator",
-  "/p/atlas/settings", "/integrations", "/invite", "/onboarding", "/login", "/", "/waitlist", "/privacy", "/admin"]);
+  "/p/atlas/settings", "/integrations", "/invite", "/onboarding", "/login", "/", "/waitlist", "/privacy", "/admin", MISSING_ROUTE]);
 const results: { name: string; ok: boolean; detail?: string; screenshot?: string }[] = [];
-const consoleLog: { page: string; level: string; text: string; source?: string; expectedDemoRefusal?: boolean }[] = [];
+const consoleLog: { page: string; level: string; text: string; source?: string; expectedHttpError?: boolean }[] = [];
 const errors = new WeakMap<Page, string[]>();
 let base = "";
 const filename = (name: string) => name.replace(/[^a-z0-9_-]+/gi, "-");
 
-// These two real API refusals are the demo's designed error states, not a
-// successful authenticated integration. Their visible explanations are asserted
-// below. Only the exact endpoint and status are exempt from console failures.
-function expectedDemoRefusal(source: string, message: string): boolean {
+// The real demo refusals and deliberately missing page are expected error
+// states. Their visible explanations are asserted below. Only each exact URL
+// and status is exempt from console failures, and every entry stays in the log.
+function expectedHttpError(source: string, message: string): boolean {
   if (!source.startsWith(base + "/")) return false;
-  const expected = ({ "/api/integrations/agent": 503, "/api/workspace/invitations": 401 } as Record<string, number>)[new URL(source).pathname];
-  return !!expected && message === `Failed to load resource: the server responded with a status of ${expected} (${expected === 503 ? "Service Unavailable" : "Unauthorized"})`;
+  const expected = ({ "/api/integrations/agent": 503, "/api/workspace/invitations": 401, [MISSING_ROUTE]: 404 } as Record<string, number>)[new URL(source).pathname];
+  const reason = ({ 503: "Service Unavailable", 401: "Unauthorized", 404: "Not Found" } as Record<number, string>)[expected];
+  return !!expected && message === `Failed to load resource: the server responded with a status of ${expected} (${reason})`;
 }
 
 function observe(page: Page) {
@@ -49,8 +51,8 @@ function observe(page: Page) {
   page.on("console", (msg) => {
     if (!["error", "warning"].includes(msg.type())) return;
     const source = msg.location().url;
-    const expected = msg.type() === "error" && expectedDemoRefusal(source, msg.text());
-    consoleLog.push({ page: page.url(), level: msg.type(), text: msg.text(), source, ...(expected ? { expectedDemoRefusal: true } : {}) });
+    const expected = msg.type() === "error" && expectedHttpError(source, msg.text());
+    consoleLog.push({ page: page.url(), level: msg.type(), text: msg.text(), source, ...(expected ? { expectedHttpError: true } : {}) });
     if (msg.type() === "error" && !expected) errors.get(page)!.push(msg.text());
   });
   page.on("pageerror", (error) => {
@@ -82,7 +84,7 @@ async function check(name: string, page: Page, run: () => Promise<void>, screens
 
 async function rendered(page: Page, route: string) {
   const response = await page.goto(base + route, { waitUntil: "domcontentloaded" });
-  assert.equal(response?.status(), 200, `${route} must render normally`);
+  assert.equal(response?.status(), route === MISSING_ROUTE ? 404 : 200, `${route} must return its expected HTTP status`);
   assert.equal(new URL(page.url()).pathname, new URL(base + route).pathname, "Unexpected navigation or auth redirect");
   assert.match(await page.title(), /Zenith/);
   await page.waitForFunction(() => (document.querySelector("main")?.textContent?.trim().length ?? 0) > 25);
@@ -100,6 +102,11 @@ async function rendered(page: Page, route: string) {
   if (route === "/invite") {
     await page.getByText("Invitations could not be loaded", { exact: true }).waitFor();
     await page.getByText("This changes your account, and nobody is signed in.", { exact: true }).waitFor();
+  }
+  if (route === MISSING_ROUTE) {
+    await page.getByRole("heading", { name: "404", exact: true }).waitFor();
+    await page.getByText("This page could not be found.", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("link", { name: "Return to Zenith", exact: true }).getAttribute("href"), "/");
   }
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "Document overflows horizontally");
 }

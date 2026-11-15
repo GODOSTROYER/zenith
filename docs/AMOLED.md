@@ -86,7 +86,7 @@ success/warning/error/info colors retain Dark values. Native controls receive
 | Landing and interactive examples | Semantic aliases preserve original fallback colors in Light/Dark; AMOLED maps surfaces, text, lines, animated pills/tiles and glass |
 | Waitlist page and native dialog | Local field, control, status and overlay tokens; AMOLED root propagation through the top layer |
 | Admin console and portaled panels | Black neutral surfaces with existing purple admin identity |
-| Skeletons, boot splash, navigation curtains, route errors | Semantic tokens/AMOLED loading override; standalone root error has a minimal independent fallback |
+| Skeletons, boot splash, navigation curtains, route errors and 404 | Semantic tokens/AMOLED loading override; standalone root error has a minimal independent fallback; token-based not-found page replaces Next's OS-only body-color override |
 
 Actual provider logos and decorative sky/Gimbal/3D materials keep their artwork
 colors. A small neutral plate preserves the dark lettering in the AWS logo.
@@ -118,6 +118,8 @@ Integrations and invitations deliberately verify the demo's unavailable and
 signed-out callouts. Their exact API endpoints' expected 503/401 resource errors
 are retained in the console report and excluded from unexpected-error failures;
 other console errors and all uncaught page errors still fail the gate.
+A deliberately missing URL verifies the actual HTTP 404 page and its recovery
+link in every theme/viewport, including its expected 404 resource-console entry.
 Read the produced results and PR verification record for what actually passed;
 the existence of a script does not establish a successful run.
 

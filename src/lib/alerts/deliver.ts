@@ -439,8 +439,12 @@ async function requestPinned(
         // SNI and certificate validation stay on the hostname; only the
         // address the socket connects to is pinned.
         ...(insecure ? {} : { servername: target.url.hostname }),
-        lookup: (_hostname, _options, callback) => {
-          callback(null, target.address, target.address.includes(":") ? 6 : 4);
+        // Node 20+ connects with autoSelectFamily and asks for `all: true`, which expects an array; answering with a
+        // single address then fails every delivery with ERR_INVALID_IP_ADDRESS (OPS-08 F5).
+        lookup: (_hostname, options, callback) => {
+          const family = target.address.includes(":") ? 6 : 4;
+          if ((options as { all?: boolean } | undefined)?.all) (callback as unknown as (e: null, a: { address: string; family: number }[]) => void)(null, [{ address: target.address, family }]);
+          else callback(null, target.address, family);
         },
       },
       (incoming) => {
@@ -450,10 +454,17 @@ async function requestPinned(
           if (value !== undefined) responseHeaders.set(name, Array.isArray(value) ? value.join(", ") : value);
         }
         settled = true;
-        resolve(new Response(stream, {
-          status: incoming.statusCode ?? 0,
-          headers: responseHeaders,
-        }));
+        const status = incoming.statusCode ?? 0;
+        // The Response constructor throws for a body on a null-body status (a 204 receiver is common), and a throw here
+        // escapes the promise; drain the socket and hand back an empty response instead.
+        const nullBody = [101, 103, 204, 205, 304].includes(status);
+        if (nullBody) incoming.resume();
+        try {
+          resolve(new Response(nullBody ? null : stream, { status, headers: responseHeaders }));
+        } catch (error) {
+          request.destroy(error as Error);
+          reject(error);
+        }
       }
     );
 

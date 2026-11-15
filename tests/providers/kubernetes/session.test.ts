@@ -2,7 +2,7 @@ import { inspect } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { KubernetesConnectionConfig } from "@/lib/credentials/types";
 import { createK8sClient, toK8sError } from "@/lib/providers/kubernetes/client";
-import { createKubernetesSession, sessionNamespaces, validateServerUrl } from "@/lib/providers/kubernetes/session";
+import { allowPrivateServersFromEnv, assertTenantServer, createKubernetesSession, sessionNamespaces, tenantServerRefused, validateServerUrl } from "@/lib/providers/kubernetes/session";
 import { K8sError } from "@/lib/providers/kubernetes/types";
 import { startFakeK8s, type FakeK8s } from "./fake-api";
 import { ENV_ID, NS, OTHER_ENV, config, sessionFor } from "./helpers";
@@ -36,6 +36,33 @@ describe("server URL policy", () => {
     expect(() => validateServerUrl("https://user:pw@kube.example.com")).toThrow(/credentials/);
     expect(() => validateServerUrl("ftp://kube.example.com")).toThrow(/https/);
     expect(() => validateServerUrl("not a url")).toThrow(/valid URL/);
+  });
+
+  // OPS-08 F3: a tenant server saved as 100.100.100.200, loopback, private or an IPv4-smuggling IPv6 form was accepted.
+  const hostile = ["https://100.100.100.200", "https://[fd00:ec2::254]", "https://[::ffff:169.254.169.254]", "https://[64:ff9b::7f00:1]",
+    "https://0.0.0.0", "https://224.0.0.1", "https://[fe80::1]"];
+  const internal = ["https://127.0.0.1:9999", "https://2130706433", "https://0x7f.1", "https://10.0.0.1", "https://[::1]", "https://[::ffff:127.0.0.1]", "https://172.16.0.1", "https://kube.localhost"];
+  it("refuses metadata, special-purpose and smuggled tenant servers even when private servers are allowed", async () => {
+    for (const s of hostile) {
+      expect(tenantServerRefused(s, true), s).toBe(true);
+      await expect(assertTenantServer(s, { allowPrivate: true }), s).rejects.toThrow(/refused/);
+    }
+  });
+  it("refuses loopback and private tenant servers unless the operator allows them", async () => {
+    for (const s of internal) {
+      expect(tenantServerRefused(s, false), s).toBe(true);
+      expect(tenantServerRefused(s, true), s).toBe(false);
+    }
+    expect(tenantServerRefused("https://kube.example.com:6443", false)).toBe(false);
+    expect(allowPrivateServersFromEnv({ ZENITH_KUBERNETES_ALLOW_PRIVATE_SERVERS: "1" })).toBe(true);
+    expect(allowPrivateServersFromEnv({})).toBe(false);
+  });
+  it("refuses a name that resolves to a refused address, and allows a public one", async () => {
+    const lookup = (map: Record<string, string[]>) => async (h: string) => map[h] ?? [];
+    await expect(assertTenantServer("https://meta.example.com", { allowPrivate: true, lookup: lookup({ "meta.example.com": ["93.184.216.34", "169.254.169.254"] }) })).rejects.toThrow(/refused/);
+    await expect(assertTenantServer("https://in.example.com", { allowPrivate: false, lookup: lookup({ "in.example.com": ["10.1.2.3"] }) })).rejects.toThrow(/refused/);
+    await expect(assertTenantServer("https://in.example.com", { allowPrivate: true, lookup: lookup({ "in.example.com": ["10.1.2.3"] }) })).resolves.toBeUndefined();
+    await expect(assertTenantServer("https://kube.example.com", { allowPrivate: false, lookup: lookup({ "kube.example.com": ["93.184.216.34"] }) })).resolves.toBeUndefined();
   });
 });
 

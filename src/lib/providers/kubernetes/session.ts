@@ -30,10 +30,13 @@
  * call can enforce it (`client.ts`). A plain `KubernetesSession` without one is
  * treated as "no namespaces": only Zenith-created, labeled namespaces pass.
  */
+import { lookup as dnsLookup } from "node:dns/promises";
+import net from "node:net";
 import { inspect } from "node:util";
 import { load as yamlLoad } from "js-yaml";
 import { KubeConfig } from "@kubernetes/client-node";
 import type { KubernetesConnectionConfig, KubernetesSession } from "@/lib/credentials/types";
+import { classifyAddress, NAME_REFUSED, type HostLookup } from "@/lib/portability/net";
 import { K8sError } from "./types";
 
 export interface KubernetesSessionDeps {
@@ -94,6 +97,47 @@ export function validateServerUrl(server: string, allowInsecureLoopback = false)
   url.search = "";
   url.hash = "";
   return url.toString().replace(/\/+$/, "");
+}
+
+/* --------------------------- tenant server policy --------------------------- */
+
+/**
+ * A tenant's API server URL is attacker-influenced input to a process inside Zenith's network. Beyond the floor in
+ * `validateServerUrl`, it gets the same address classes as portability targets: metadata, link-local, special-purpose and
+ * IPv4-smuggling IPv6 forms are always refused; loopback and private ranges only when the operator opts in
+ * (`ZENITH_KUBERNETES_ALLOW_PRIVATE_SERVERS=1`, for a worker inside the tenant's network or a local kind cluster).
+ * Operator-configured substrate clusters do not pass through here.
+ */
+export function allowPrivateServersFromEnv(env: Record<string, string | undefined> = process.env): boolean {
+  return env.ZENITH_KUBERNETES_ALLOW_PRIVATE_SERVERS === "1";
+}
+
+function refusedAddress(address: string, allowPrivate: boolean): boolean {
+  const kind = classifyAddress(address);
+  return kind === "never" || ((kind === "private" || kind === "loopback") && !allowPrivate);
+}
+
+/** Save-time check without DNS: IP literals (the URL parser normalizes decimal and hex IPv4) and reserved names. */
+export function tenantServerRefused(server: string, allowPrivate = allowPrivateServersFromEnv()): boolean {
+  let host: string;
+  try { host = new URL(server).hostname.replace(/^\[|\]$/g, ""); } catch { return true; }
+  if (net.isIP(host)) return refusedAddress(host, allowPrivate);
+  return !allowPrivate && NAME_REFUSED.test(host);
+}
+
+/** Connect-time check: every address the server name resolves to must pass. */
+export async function assertTenantServer(server: string, opts: { allowPrivate?: boolean; lookup?: HostLookup } = {}): Promise<void> {
+  const allowPrivate = opts.allowPrivate ?? allowPrivateServersFromEnv();
+  const refuse = (): never => { throw new K8sError("session_invalid", "Kubernetes server address is refused (metadata, link-local and special-purpose addresses always; loopback and private unless the operator allows them)."); };
+  if (tenantServerRefused(server, allowPrivate)) refuse();
+  const host = new URL(server).hostname.replace(/^\[|\]$/g, "");
+  if (net.isIP(host)) return;
+  let addresses: string[];
+  // shortcut: a name that does not resolve here is left to the client, which resolves it again and fails the same way;
+  // the client does not pin these answers, so a rebinding DNS server can still race this check. Pin addresses in the
+  // client's HTTPS agent if tenant clusters ever run outside an egress-filtered worker network.
+  try { addresses = await (opts.lookup ?? (async (h) => (await dnsLookup(h, { all: true })).map((r) => r.address)))(host); } catch { return; }
+  if (addresses.some((a) => refusedAddress(a, allowPrivate))) refuse();
 }
 
 /* ------------------------------- credentials ------------------------------- */

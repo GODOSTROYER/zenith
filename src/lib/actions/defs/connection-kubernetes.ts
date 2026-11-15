@@ -8,14 +8,14 @@ import { currentProductRoleResolver } from "@/lib/capabilities/current-product-r
 import { findSecret } from "@/lib/capabilities/secret-guard";
 import { digest } from "@/lib/controlplane/digest";
 import { bridgeDeps } from "@/lib/bridge/deps";
-import { validateServerUrl } from "@/lib/providers/kubernetes/session";
+import { tenantServerRefused, validateServerUrl } from "@/lib/providers/kubernetes/session";
 import { isDnsLabel } from "@/lib/providers/kubernetes/naming";
 import { requireConnection } from "./_shared";
 
 function validServer(value: string): boolean {
   try {
     const parsed = new URL(value);
-    return !parsed.search && !parsed.hash && !/[\s\x00-\x1f\x7f]/.test(value) && !!validateServerUrl(value);
+    return !parsed.search && !parsed.hash && !/[\s\x00-\x1f\x7f]/.test(value) && !!validateServerUrl(value) && !tenantServerRefused(value);
   } catch { return false; }
 }
 function validCa(value: string): boolean {

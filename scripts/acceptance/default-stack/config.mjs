@@ -172,8 +172,9 @@ export function stackComposition(config, directory, profile, gatewayImage, peer)
     service.mem_limit = `${limit}m`; service.cpus = 1;
     service.volumes = [...(service.volumes ?? []), `${path.join(directory, '../tls/ca.crt')}:/run/zenith-ca.crt:ro`, ...(name === 'platform-migrate' ? [] : temporalClient)];
     // The runtime image sets no heap size; Node's default left the lean API about half its container.
+    // The local kind cluster joins the stack network on a private address, so tenant Kubernetes servers may be private here.
     service.environment = { NODE_EXTRA_CA_CERTS: '/run/zenith-ca.crt',
-      ...(name === 'platform-migrate' ? {} : { NODE_OPTIONS: `--max-old-space-size=${Math.floor(limit * 3 / 4)}` }) };
+      ...(name === 'platform-migrate' ? {} : { NODE_OPTIONS: `--max-old-space-size=${Math.floor(limit * 3 / 4)}`, ZENITH_KUBERNETES_ALLOW_PRIVATE_SERVERS: '1' }) };
   }
   // Live AWS scenarios only: Zenith's own default credential chain (aws_assume_role connections) reads a shared credentials
   // file that the workflow writes after its OIDC step. The directory is empty while the stack starts, so no credential exists then.

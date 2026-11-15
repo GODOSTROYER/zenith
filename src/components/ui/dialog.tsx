@@ -46,7 +46,9 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
-        style={{ width, maxWidth: "100%" }}
+        // A percentage can resolve against the grid's intrinsic track, which
+        // grows to `width`. Clamp against the viewport and its 16px gutters.
+        style={{ width, maxWidth: "calc(100vw - 2rem)" }}
         className={cx(
           "relative flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col overflow-hidden rounded-card border border-line bg-bg3 shadow-overlay outline-none",
           "transition-[opacity,transform] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",

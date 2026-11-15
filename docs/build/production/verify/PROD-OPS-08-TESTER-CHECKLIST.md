@@ -66,7 +66,7 @@ Setup and deviations, all test-only and local:
 - ARC-3, BLD-1, BLD-2 validators, CMP-2, CMP-3 formatter, REB-3 and SSR-3 guard ran the real product code in process, from a clean checkout of feabd5a4.
 - REB-2 and REB-3 used public rbndr and httpbin endpoints, as in the previous pass.
 
-**Release candidate pass attestation:** ☐ pending. The tester and the CTO have not reviewed the feabd5a4 results yet.
+**Release candidate pass attestation:** ☑ Arnav Bule (CTO) reviewed and attested the feabd5a4 results (37 of 37) on 2026-11-16, stated in the owner's session. He reviewed results the agent executed; he did not run the probes himself.
 
 Status key: `[x]` = PASS. `[ ]` = any other state, shown in the Status line under each probe.
 

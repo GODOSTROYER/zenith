@@ -316,6 +316,7 @@ policy is enabled or approved; such a policy requires separate operator approval
 | `ZENITH_PLUGIN_TRUSTED_PUBLISHERS` | unset | JSON `{ "<publisher>": [{ "keyId": "...", "publicKey": "<base64 raw ed25519>" }] }`. Plugin registrations whose signed provenance does not verify under a listed key are not auto-trusted; unset, no publisher is trusted. Web app only. |
 | `ZENITH_STORE` (worker) | `file` | Set `postgres` on the execution worker (with the Supabase keys) when it should run the engine, alert and outbox passes of `zenith-critical-maintenance-v1`. Without it those jobs record `failing` in `/api/internal/tick/status`. |
 | `ZENITH_PORTABILITY_ALLOW_PRIVATE_HOSTS` | unset | Test and local development only: lets portability export/import connect to loopback or private addresses. Never set in production. |
+| `ZENITH_KUBERNETES_ALLOW_PRIVATE_SERVERS` | unset | Test and local development only: `1` lets a tenant Kubernetes connection name a cluster `server` on a loopback, private, link-local or metadata address. Unset, the server is refused when its literal address or any DNS answer for its name is one of those. Never set in production. |
 
 Behaviour changes to plan for:
 

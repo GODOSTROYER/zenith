@@ -205,20 +205,22 @@ async function choose(page: Page, label: string) {
   await menu.waitFor({ state: "hidden" });
 }
 
+async function closeMobileNavigation(page: Page) {
+  const close = page.getByRole("button", { name: "Close panel", exact: true, includeHidden: true });
+  if (!(await close.isVisible())) return;
+  await close.click();
+  // Closing makes the drawer inert before its exit transition unmounts it.
+  // Wait for removal so the next menu lookup cannot find its departing trigger.
+  await close.waitFor({ state: "detached" });
+}
+
 async function liveSwitch(page: Page, theme: Theme, surface: Locator, verify: (theme: Theme) => Promise<void>) {
   const mounted = await surface.elementHandle();
   assert(mounted);
   try {
     for (const next of [theme === "amoled" ? "light" : "amoled", theme] as Theme[]) {
       await choose(page, THEMES[next]);
-      const close = page.getByRole("button", { name: "Close panel", exact: true });
-      if (await close.isVisible()) {
-        await close.click();
-        // The closing drawer remains mounted and inert through its exit.
-        // Do not mistake its departing theme button for an available control
-        // when the next iteration opens the mobile navigation again.
-        await close.waitFor({ state: "hidden" });
-      }
+      await closeMobileNavigation(page);
       await themeApplied(page, next);
       assert(await mounted.evaluate((el) => el.isConnected), "Theme changes must retain the mounted interface");
       await verify(next);
@@ -320,7 +322,7 @@ async function interactions(page: Page, theme: Theme, label: string, mobile: boo
     await menu.waitFor({ state: "hidden" });
     if (mobile) {
       assert.equal(await page.getByRole("dialog").count(), 1, "Closing nested menu must keep its drawer open");
-      await page.getByRole("button", { name: "Close panel", exact: true }).click();
+      await closeMobileNavigation(page);
     }
     await themeApplied(page, theme);
     await page.getByRole("button", { name: "Search screens and actions", exact: true }).click();

@@ -108,6 +108,16 @@ screenshots and machine-readable results as `theme-browser-evidence` for 14 days
 The browser check is intended to cover real theme selection, mobile nested
 menus, persistence/refresh, System/cross-tab propagation, pre-hydration paint,
 portals and representative product/public screens in Light, Dark and AMOLED.
+Mounted map, source-editor and log/chart checks switch themes through the real
+menu and preserve graph zoom, unsaved text and log filtering while checking
+computed colors. Below-fold landing bento and native waitlist-dialog screenshots
+cover the public surfaces. Because local demo identity normally replaces the
+waitlist CTA, the dialog case holds and then releases the real `/api/me` response
+to exercise the existing visitor/loading state; it does not replace auth data.
+Integrations and invitations deliberately verify the demo's unavailable and
+signed-out callouts. Their exact API endpoints' expected 503/401 resource errors
+are retained in the console report and excluded from unexpected-error failures;
+other console errors and all uncaught page errors still fail the gate.
 Read the produced results and PR verification record for what actually passed;
 the existence of a script does not establish a successful run.
 

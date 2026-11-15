@@ -241,6 +241,7 @@ const DropdownSelect = forwardRef<HTMLSelectElement, SelectProps>(function Dropd
         {...visualProps}
         ref={trigger}
         id={controlId}
+        data-select-trigger=""
         type="button"
         role="combobox"
         aria-haspopup="listbox"

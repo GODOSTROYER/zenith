@@ -315,6 +315,14 @@ async function interactions(page: Page, theme: Theme, label: string, mobile: boo
     await page.getByRole("combobox", { name: "Search screens and actions", exact: true }).fill("Source");
     await page.getByRole("option").first().waitFor();
   }, true);
+  await check(`${label}/command-palette-dismiss`, page, async () => {
+    const search = page.getByRole("combobox", { name: "Search screens and actions", exact: true });
+    await search.waitFor();
+    await search.press("Escape");
+    await page.getByRole("dialog", { name: "Go to a screen, or to the screen that owns an action", exact: true }).waitFor({ state: "hidden" });
+    const trigger = page.getByRole("button", { name: "Search screens and actions", exact: true });
+    assert(await trigger.evaluate((el) => document.activeElement === el), "Escape must dismiss the search palette and restore its trigger focus");
+  });
   await check(`${label}/map-and-import-dialog`, page, async () => {
     await rendered(page, "/p/atlas");
     await page.locator(".react-flow__node").first().waitFor();

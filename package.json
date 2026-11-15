@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:themes": "node --import tsx scripts/theme-browser.ts",
     "verify": "npm run typecheck && npm run lint && npm test && npm run smoke && npm run gimbal:verify",
     "gimbal:build": "node scripts/gimbal-build.mjs",
     "gimbal:verify": "node scripts/gimbal-verify.mjs",

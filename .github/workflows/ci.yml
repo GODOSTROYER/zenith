@@ -6,7 +6,8 @@ on:
     branches: ["**"]
   pull_request:
 
-# All jobs only read source; none publish artifacts or change the repository.
+# Jobs only read source. The build retains theme screenshots as workflow
+# artifacts; no job deploys or changes the repository.
 permissions:
   contents: read
 
@@ -313,7 +314,7 @@ jobs:
   # Fonts ship in public/fonts, so this gate has no Google Fonts dependency.
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -329,6 +330,19 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify themes in a real browser
+        run: npm run test:themes
+
+      - name: Save theme screenshots and verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: theme-browser-evidence
+          path: .data-theme-evidence/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
 
   # Proves the image still assembles: `output: "standalone"` is easy to break
   # from the outside (a new asset that nothing traces, a dependency that needs

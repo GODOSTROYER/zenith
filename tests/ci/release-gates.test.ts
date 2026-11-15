@@ -73,7 +73,7 @@ const requiredCommands: Record<string, string[]> = {
     "npm run smoke",
     "npm run gimbal:verify",
   ],
-  build: [INSTALL, "npm run build"],
+  build: [INSTALL, "npm run build", "npm run test:themes"],
   docker: ["docker build -t zenith:ci ."],
   hosted: [
     INSTALL,
@@ -122,7 +122,7 @@ describe("release gate policy", () => {
     const actions = Object.values(workflow.jobs).flatMap((job) => job.steps).filter((step) => step.uses);
     expect(actions.length).toBeGreaterThan(0);
     for (const step of actions) {
-      expect(step.uses).toMatch(/^actions\/(checkout|setup-node)@[a-f0-9]{40}$/);
+      expect(step.uses).toMatch(/^actions\/(checkout|setup-node|upload-artifact)@[a-f0-9]{40}$/);
     }
   });
 

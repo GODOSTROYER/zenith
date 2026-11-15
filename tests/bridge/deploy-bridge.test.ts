@@ -11,7 +11,7 @@ const { db, q, readEvents, readAudit } = await import("@/lib/db/store");
 const { runAction } = await import("@/lib/actions/core");
 const { ensureEngine } = await import("@/lib/engine/engine");
 const { setBridgeDepsForTests } = await import("@/lib/bridge/deps");
-const { beginWorkflow, approveWorkflowDeployment } = await import("@/lib/bridge/lifecycle");
+const { beginWorkflow, approveWorkflowDeployment, deliverPlanApproval } = await import("@/lib/bridge/lifecycle");
 const { createBroker, setPlatformBrokerForTests } = await import("@/lib/capabilities/platform");
 const { productRoleResolver, productScopeResolver } = await import("@/lib/capabilities/product-adapters");
 const { BrokerError } = await import("@/lib/capabilities/errors");
@@ -122,6 +122,16 @@ describe("approval and cancellation", () => {
     await exec("deploy.apply"); const d = latest(); expect(d.status).toBe("awaiting_approval"); expect(gateway.startDeploy).not.toHaveBeenCalled();
     browser(); const p = await plan("deploy.approve", { deploymentId: d.id }, browserCtx); expect(p.details.join(" ")).toMatch(/digest.*[a-f0-9]/); expect(p.details.join(" ")).toContain("real change");
     expect((await exec("deploy.approve", { deploymentId: d.id }, browserCtx)).ok).toBe(true); expect(gateway.startDeploy).toHaveBeenCalledTimes(1); expect(d.workflowStartedAt).toBeTruthy();
+  });
+  it("a platform-page approval of a parked deploy starts its workflow instead of leaving it approved", async () => {
+    h.setEngine(scriptedEngine("approval", () => requireApproval(1)));
+    await exec("deploy.apply"); const d = latest(); expect(gateway.startDeploy).not.toHaveBeenCalled(); browser();
+    const op = (await h.store.getOperation(ctx.workspaceId, d.operationId!))!;
+    const approver = { kind: "user" as const, id: browserCtx.actor.id, name: browserCtx.actor.name };
+    const outcome = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, approver, session: { method: "browser_session", subject: approver.id, verifiedAtMs: Date.now() } });
+    expect(outcome.operation.status).toBe("approved");
+    expect(await deliverPlanApproval(outcome.operation, approver)).toEqual({ delivered: true });
+    expect(gateway.startDeploy).toHaveBeenCalledTimes(1); expect(d.workflowStartedAt).toBeTruthy();
   });
   it("browser approval uses the real broker before startup", async () => {
     h.setEngine(scriptedEngine("approval", () => requireApproval(1, "admin", true))); await exec("deploy.apply");

@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-07"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario retention-s3, run id zlive-202611151747-27a9; plan sha256 c19327eae6beb69e071925c51377e6eaf86253a5b76d8e56ab8119278938a068",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 320a5a574ac281bad6dc3adeac12e449f89c07ed10162275c3f579f78d325af5; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611151747-27a9",
+    "file": "evidence.json",
+    "sha256": "bea06c9f71fe5a8531b65e7c88654a8d6a154f2404d734341204f29bbe2119b2",
+    "packetSha256": "b363e5926ff060fa244b56655c31ef9e446306ebae287037f24150ef44518ecd"
+  },
+  "result": "PROD-OPS-07 proven by independent readback: sealed objects are listed under retention/zlive-202611151747-27a9/ for both classes and match their archive records; verify passes with the archive key and refuses a wrong key; the staging restore returns the unheld out-of-window ids; with ZENITH_RETENTION_APPLY unset nothing is removed; with it set, 6 archived unheld rows removed; 1 legal-hold row and 4 in-window rows kept; audit and receipt row counts are unchanged. Gates: built-in DEC-RETENTION baseline (approval recorded for Arnav Bule), the apply switch, and one legal hold. No in-product proposal or approval was used in this flow."
+}

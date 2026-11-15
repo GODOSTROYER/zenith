@@ -1,0 +1,21 @@
+{
+ "format": "zenith.ops08-tester-rehearsal.v1",
+ "requirements": [
+  "PROD-OPS-08"
+ ],
+ "mode": "local",
+ "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+ "exitCode": 0,
+ "status": "passed",
+ "counts": {
+  "passed": 37,
+  "failed": 0,
+  "skipped": 0
+ },
+ "command": "PROD-OPS-08 independent tester checklist (docs/build/production/verify/PROD-OPS-08-TESTER-CHECKLIST.md), all 37 probes, scripted by the agent on the tester's instruction against the operated local stack; one result line per probe in probe-results.txt",
+ "environment": "Mac mini, Darwin arm64, Node v22.23.3; fresh default-profile local stack (2 APIs, 2 workers) built from a clean checkout of feabd5a4 plus a scratch-only test-env patch (never merged), readiness 19/0/0; local mock GitHub/Slack signed by the stack CA; local kind cluster zenith-j2 for APR-3; in-process runs of the real product code from a clean checkout of feabd5a4 where marked; test values only; deviations listed in the checklist's release candidate pass section",
+ "results": {
+  "file": "probe-results.txt",
+  "sha256": "674ea459e45c7f7c3fb8712226f5712d35ab88d5eb99fa264dd90b76642033c0"
+ }
+}

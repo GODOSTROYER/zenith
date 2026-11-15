@@ -125,7 +125,7 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     for (const value of ['capability: "infrastructure.plan"', "loadDestroyPlan(broker.deps, scope, ref)", 'via: "ui", destroyPlan: ref, session', "await broker.beginExecution(", "await deps.workflows.startDestroy("]) expect(bridge).toContain(value);
     const approve = source("src/app/api/platform/v1/operations/[id]/approve/route.ts");
     expect(approve).toContain("await assertBrowserSession(req)");
-    expect(approve).toContain("await deliverPlanApproval(outcome.operation)");
+    expect(approve).toContain("await deliverPlanApproval(outcome.operation, caller.principal)");
     expect(source("src/lib/bridge/lifecycle.ts")).toContain('import("./destroy")).startApprovedDestroy(op)');
     expect(teardown).toContain("requires an **admin**");
     expect(teardown).toContain("env.reviewTeardown");

@@ -9,7 +9,8 @@ import { principalFromAction } from "@/lib/capabilities/action-bridge";
 import { isBrokerError } from "@/lib/capabilities/errors";
 import type { OperationView } from "@/lib/capabilities/types";
 import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
-import { q, revisionManifestAsync, save } from "@/lib/db/store";
+import type { Principal } from "@/lib/controlplane/types";
+import { db, q, revisionManifestAsync, save } from "@/lib/db/store";
 import type { Deployment } from "@/lib/domain/types";
 import { isBackpressureError } from "@/lib/ops/errors";
 import { InvalidWorkflowInputError } from "@/lib/workflows/client";
@@ -163,7 +164,10 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
     // The worker's recorded plan round proves an existing workflow gate even
     // when this caller never received its start acknowledgement.
     const planGate = approvalRoundOf(op) > 0 && ["awaiting_approval", "approved", "queued"].includes(op.status);
-    if (d.status !== "awaiting_approval" && !planGate) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
+    // A start deferred before its claim (pause, quota, billing standing) leaves the projection at planning with the
+    // operation still approved and no workflow: approving again must retry the start, as the deferral message says.
+    const deferredStart = !d.workflowStartedAt && approvalRoundOf(op) === 0 && ["approved", "queued"].includes(op.status) && d.status === "planning";
+    if (d.status !== "awaiting_approval" && !planGate && !deferredStart) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
     if (op.status === "awaiting_approval") {
       const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: reviewedPlanDigest, semanticsDigest: reviewedSemanticsDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
       op = approved.operation;
@@ -180,10 +184,27 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
   } catch (error) { return bridgeFailure(error); }
 }
 
+/**
+ * A deployment parked at its proposal-level approval (round 0) has no workflow yet: the product approval starts it,
+ * so the platform approval must start it too, or it stays approved forever.
+ */
+async function startParkedDeployment(op: OperationView, approver: Principal): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" } | undefined> {
+  const d = db().deployments.find((x) => x.operationId === op.id);
+  if (!d) return { delivered: false, reason: "not_found" };
+  // Same guards as the product approval: an already-started workflow is not started again.
+  if (d.workflowStartedAt) return { delivered: true };
+  setProjectedStatus(d, "planning");
+  const started = await beginWorkflow({ workspaceId: op.workspaceId, actor: { type: "user", id: approver.id, name: approver.name } }, d);
+  return started.ok ? { delivered: true } : { delivered: false, reason: "unavailable" };
+}
+
 /** Signalling only wakes the workflow; a failed delivery does not undo the decision. */
-export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" | "pending" } | undefined> {
+export async function deliverPlanApproval(op: OperationView, approver?: Principal): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" | "pending" } | undefined> {
   if (op.capability === "infrastructure.destroy" && !approvalRoundOf(op) && ["approved", "queued"].includes(op.status)) {
     return (await import("./destroy")).startApprovedDestroy(op);
+  }
+  if (approver && (op.capability === "deployment.deploy" || op.capability === "deployment.rollback") && !approvalRoundOf(op) && ["approved", "queued"].includes(op.status)) {
+    return startParkedDeployment(op, approver);
   }
   if (!op.planDigest || !approvalRoundOf(op) || !["approved", "rejected"].includes(op.status)) return undefined;
   try { return await bridgeDeps().workflows.signalApproval(op.id, op.workspaceId); }

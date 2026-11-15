@@ -254,19 +254,20 @@ async function interactions(page: Page, theme: Theme, label: string, mobile: boo
     const contrast = await list.evaluate((el) => {
       const canvas = document.createElement("canvas"); canvas.width = canvas.height = 1;
       const context = canvas.getContext("2d")!;
-      const luminance = (color: string, background: string) => {
-        context.clearRect(0, 0, 1, 1);
-        context.fillStyle = background; context.fillRect(0, 0, 1, 1);
-        context.fillStyle = color; context.fillRect(0, 0, 1, 1);
-        const channels = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
-          const channel = value / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
-        });
-        return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
-      };
       const background = getComputedStyle(el).backgroundColor;
       return [...el.querySelectorAll('[role="option"]:not([aria-disabled="true"])')].map((option) => {
         const style = getComputedStyle(option);
-        const ink = luminance(style.color, background), surface = luminance(style.backgroundColor, background);
+        // Keep callbacks anonymous: tsx's named-function helper lives in Node,
+        // while this callback is serialized and evaluated in the browser.
+        const [ink, surface] = [style.color, style.backgroundColor].map((color) => {
+          context.clearRect(0, 0, 1, 1);
+          context.fillStyle = background; context.fillRect(0, 0, 1, 1);
+          context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+          const channels = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
+            const channel = value / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+          });
+          return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+        });
         return (Math.max(ink, surface) + .05) / (Math.min(ink, surface) + .05);
       });
     });
@@ -406,7 +407,9 @@ async function loadingChecks(page: Page, theme: Theme, label: string, mobile: bo
     }, true);
   } finally {
     release();
-    await page.unroute(projectRequests);
+    // Drain active handlers before removing them; removing a held handler can
+    // otherwise auto-continue a route just before our continuation resumes.
+    await page.unrouteAll({ behavior: "wait" });
   }
   await check(`${label}/uninterrupted-tab-navigation`, page, async () => {
     await page.getByRole("radio", { name: "Edit", exact: true }).waitFor();
@@ -422,19 +425,28 @@ async function loadingChecks(page: Page, theme: Theme, label: string, mobile: bo
       state.observer.observe(document.body, { childList: true, subtree: true });
       (window as typeof window & { __themeNavigation?: typeof state }).__themeNavigation = state;
     });
-    for (const [name, route] of [["Observe", "/p/atlas/observe"], ["Navigator", "/p/atlas/navigator"]]) {
-      if (mobile) await page.getByRole("button", { name: "Open navigation", exact: true }).click();
-      await page.getByRole("navigation", { name: "Main navigation", exact: true }).filter({ visible: true }).getByRole("link", { name, exact: true }).click();
-      await page.waitForURL((url) => url.pathname === route);
-      assert(await header.evaluate((el) => el.isConnected), "Tab changes must preserve the shell header");
+    try {
+      for (const [name, route] of [["Observe", "/p/atlas/observe"], ["Navigator", "/p/atlas/navigator"]]) {
+        if (mobile) await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+        await page.getByRole("navigation", { name: "Main navigation", exact: true }).filter({ visible: true }).getByRole("link", { name, exact: true }).click();
+        await page.waitForURL((url) => url.pathname === route);
+        if (name === "Observe") await page.getByRole("log").first().waitFor();
+        else await page.getByRole("textbox", { name: "Goal for the Navigator", exact: true }).waitFor();
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        assert(await header.evaluate((el) => el.isConnected), "Tab changes must preserve the shell header");
+      }
+      const sawCurtain = await page.evaluate(() =>
+        (window as typeof window & { __themeNavigation?: { seen: boolean } }).__themeNavigation!.seen);
+      assert.equal(sawCurtain, false, "Internal tabs must never mount the logo curtain, including with normal motion");
+      await themeApplied(page, theme);
+    } finally {
+      await page.evaluate(() => {
+        const scope = window as typeof window & { __themeNavigation?: { observer: MutationObserver } };
+        scope.__themeNavigation?.observer.disconnect(); delete scope.__themeNavigation;
+      });
+      await header.dispose();
+      await page.emulateMedia({ reducedMotion: "reduce" });
     }
-    const sawCurtain = await page.evaluate(() => {
-      const scope = window as typeof window & { __themeNavigation?: { seen: boolean; observer: MutationObserver } };
-      const state = scope.__themeNavigation!; state.observer.disconnect(); delete scope.__themeNavigation; return state.seen;
-    });
-    assert.equal(sawCurtain, false, "Internal tabs must never mount the logo curtain, including with normal motion");
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await themeApplied(page, theme);
   });
 }
 

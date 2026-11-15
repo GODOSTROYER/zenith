@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-03"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario ops-03, run id zlive-202611151911-a0ba; plan sha256 db8523970d5e9a2135c750e7dccefbccf82d461fc945127f86036d8f2e97bd29",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 d71cbf6929eff55beedc87c8ac7d31e9c59bcc187cc3fcb3aeb8b7c2ab6b3e49; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611151911-a0ba",
+    "file": "evidence.json",
+    "sha256": "5961bb02ab959e02efb51c30401427a16f8f640d4d1f27f3c351aaa2e6702aae",
+    "packetSha256": "01b704514cb4baf4ba0588124cc69ee925ad20c22640d3d0d1bb28fdc222ae9e"
+  },
+  "result": "OPS-03 rolling upgrade and rollback proven on AWS: candidate API, worker and migration images were built and pushed to the stack's own registry; a deploy was approved and planned and its workflow waited in flight for the apply approval; the stack was upgraded in runbook order (expand migration, worker, then API, each healthy on its new image) while that workflow kept the same run and its review; the apply was approved on the candidate release and the same run completed with one bucket in AWS; the stack was rolled back (API, then worker, schema not downgraded) and a second deploy on the rolled-back release added the second bucket (2 tagged buckets). Candidates are rebuilt from the same source: replacement and rollback, not a released N-1/N matrix"
+}

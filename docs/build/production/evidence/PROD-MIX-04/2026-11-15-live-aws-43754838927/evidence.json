@@ -1,0 +1,240 @@
+{
+  "schema": 1,
+  "provenance": "live_sandbox",
+  "runId": "zlive-202611151952-b091",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "scenario": "teardown-01",
+  "scope": [
+    "PROD-MIX-04"
+  ],
+  "accountId": "361646636162",
+  "region": "ap-south-1",
+  "startedAt": "2026-11-15T20:07:37.568Z",
+  "finishedAt": "2026-11-15T21:41:19.463Z",
+  "planSha256": "382d795c1a86f9c5fcb8a99b2a8b9258f37f6a23e9c433cfbfced63c14c234f9",
+  "permissionSha256": "718584884b14953a4804e2eedd2cc873ed3e5c34de9836c0f03186793499f1ee",
+  "estimatedUsd": 1.225,
+  "costProvisional": true,
+  "billingMeasured": false,
+  "cleanupComplete": true,
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "pending": 0
+  },
+  "verdict": "passed",
+  "checks": [
+    {
+      "id": "PROD-MIX-04",
+      "status": "passed",
+      "scope": "product_requirement",
+      "reason": "TEARDOWN-01 teardown after deploy proven on AWS: one managed S3 bucket deployed with two-person browser approval and read back from the recorded state and the tagging inventory; the teardown review was refused for unsettled deploy activity right after the deploy and became available 86 minutes after it, once the execution worker had settled every earlier writer; the destroy was reviewed and approved in the browser and succeeded; the recorded state is empty and no resource tagged with the environment remains"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "PROD-MIX-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-04",
+      "requiredLevel": "live_sandbox",
+      "status": "passed",
+      "reason": "TEARDOWN-01 teardown after deploy proven on AWS: one managed S3 bucket deployed with two-person browser approval and read back from the recorded state and the tagging inventory; the teardown review was refused for unsettled deploy activity right after the deploy and became available 86 minutes after it, once the execution worker had settled every earlier writer; the destroy was reviewed and approved in the browser and succeeded; the recorded state is empty and no resource tagged with the environment remains",
+      "evidence": [
+        {
+          "level": "live_sandbox",
+          "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+          "result": "TEARDOWN-01 teardown after deploy proven on AWS: one managed S3 bucket deployed with two-person browser approval and read back from the recorded state and the tagging inventory; the teardown review was refused for unsettled deploy activity right after the deploy and became available 86 minutes after it, once the execution worker had settled every earlier writer; the destroy was reviewed and approved in the browser and succeeded; the recorded state is empty and no resource tagged with the environment remains",
+          "artifact": "zlive-202611151952-b091/evidence.json",
+          "planSha256": "382d795c1a86f9c5fcb8a99b2a8b9258f37f6a23e9c433cfbfced63c14c234f9"
+        }
+      ]
+    },
+    {
+      "id": "PROD-MIX-05",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-06",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-07",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-05",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-06",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-07",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-05",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-06",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-07",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-08",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-09",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    }
+  ],
+  "releaseStatus": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  },
+  "sha256": "ed75bfd78efe3e64ce7e6bcfb87d028337d16187916f676d2605472f7aeeb81e"
+}

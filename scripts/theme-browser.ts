@@ -240,6 +240,10 @@ async function prepaint(context: BrowserContext, theme: Theme, label: string) {
     const before = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
     release();
     await page.waitForLoadState("domcontentloaded");
+    // Next scripts are async: DOMContentLoaded can precede hydration. This
+    // control appears only after the shell's client bootstrap has committed,
+    // so the one theme-menu click cannot be lost on an inert SSR button.
+    await page.getByRole("link", { name: "Share Kepler Labs", exact: true }).waitFor();
     await openThemeMenu(page); // proves the client actually hydrated
     assert.equal(await page.evaluate(() => document.documentElement.getAttribute("data-theme")), before);
     await themeApplied(page, theme);

@@ -212,7 +212,13 @@ async function liveSwitch(page: Page, theme: Theme, surface: Locator, verify: (t
     for (const next of [theme === "amoled" ? "light" : "amoled", theme] as Theme[]) {
       await choose(page, THEMES[next]);
       const close = page.getByRole("button", { name: "Close panel", exact: true });
-      if (await close.isVisible()) await close.click(); // close the mobile navigation drawer
+      if (await close.isVisible()) {
+        await close.click();
+        // The closing drawer remains mounted and inert through its exit.
+        // Do not mistake its departing theme button for an available control
+        // when the next iteration opens the mobile navigation again.
+        await close.waitFor({ state: "hidden" });
+      }
       await themeApplied(page, next);
       assert(await mounted.evaluate((el) => el.isConnected), "Theme changes must retain the mounted interface");
       await verify(next);

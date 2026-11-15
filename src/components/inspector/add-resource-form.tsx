@@ -73,7 +73,6 @@ export function AddResourceForm({ onCreated }: AddResourceFormProps) {
         help="Optional — connecting now injects the configuration into that service straight away."
       >
         <Select
-          placeholder="Nothing yet"
           value={bindTo}
           onChange={(e) => setBindTo(e.target.value)}
           options={[

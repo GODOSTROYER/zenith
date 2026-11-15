@@ -25,3 +25,12 @@ document theme also owns body portals. Dialogs and drawers share nested focus,
 Escape and scroll-lock ownership; popovers portal outside clipping ancestors
 and clamp to the visual viewport. Keep all existing control APIs and persisted
 theme keys compatible.
+
+`Select` is a themed select-only combobox: its visible button owns the Field ID,
+and its listbox portals to the body. Keep callers on the existing `options`,
+`value` and `onChange(event.target.value)` API. The hidden native select preserves
+forms, reset, required validation and forwarded refs; it is not the visible
+interaction target. UI tests should open the combobox and choose an option.
+`Skeleton` uses semantic colors and a quiet opacity pulse, with motion disabled
+under `prefers-reduced-motion`. Route placeholders belong inside content, leaving
+the loaded shell available.

@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { NavigationTransitions } from "@/components/brand/navigation-transitions";
-import { BootSplash } from "@/components/brand/boot-splash";
 import { ThemeSync } from "@/components/ui/theme-sync";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./fonts.css";
@@ -41,8 +39,6 @@ FIRST VIEWPORT: Monumental editorial headline and real CTA on the left; the appl
 FORM: Eight chapters over one shared presentation state; no demonstration may contradict another.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, DESIGN.md, docs/zenith-landing-direction.md and the verification notes
 -->` }} />
-        <BootSplash />
-        <NavigationTransitions />
         {children}
       </body>
     </html>

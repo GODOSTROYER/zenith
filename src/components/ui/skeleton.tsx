@@ -1,4 +1,5 @@
 import { cx } from "@/lib/format";
+import styles from "./skeleton.module.css";
 
 export interface SkeletonProps {
   className?: string;
@@ -9,16 +10,17 @@ export interface SkeletonProps {
   round?: boolean;
 }
 
-/** Loading placeholder. Subtle opacity pulse, no shimmer sweep. */
+/** A quiet, theme-aware placeholder. Motion is decorative and entirely optional. */
 export function Skeleton({ className, width, height, round = false }: SkeletonProps) {
   return (
     <span
       aria-hidden="true"
+      data-skeleton=""
       style={{ width, height }}
       className={cx(
-        "status-pulse block bg-bg3",
+        styles.placeholder,
         round ? "rounded-full" : "rounded-ctl",
-        !height && "h-4",
+        height === undefined && "h-4",
         className
       )}
     />

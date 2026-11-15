@@ -569,36 +569,8 @@ input, textarea { caret-color: var(--signal); }
 @keyframes zl-sheen { 0%, 12% { transform: translateX(0) skewX(-24deg); opacity: 0; } 16% { opacity: .62; } 48% { transform: translateX(52px) skewX(-24deg); opacity: .62; } 52%, 100% { transform: translateX(52px) skewX(-24deg); opacity: 0; } }
 @keyframes zl-star { 0%, 14% { transform: scale(0) rotate(-45deg); opacity: 0; } 26% { transform: scale(1.25) rotate(0deg); opacity: 1; } 40% { transform: scale(.9); opacity: 1; } 70% { transform: scale(1); opacity: .9; } 100% { transform: scale(0) rotate(30deg); opacity: 0; } }
 
-/* The boot splash: ink ground, a vermilion breath of light under the mark; it lifts away like a sheet. */
-.zenith-boot {
-  position: fixed; inset: 0; z-index: 2147483001; display: grid; place-items: center;
-  background: radial-gradient(ellipse 55% 42% at 50% 56%, rgba(230, 83, 50, .16), transparent 70%), #08090d;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, .45);
-  /* Without JavaScript it steps aside on its own. */
-  animation: zenith-boot-away 520ms ease 4.5s forwards;
-}
-.zenith-boot[data-phase="lift"] { pointer-events: none; animation: zenith-boot-lift 760ms cubic-bezier(.7, 0, .2, 1) forwards; }
-.zenith-boot[data-phase="lift"] .zl { animation: zenith-boot-mark 460ms cubic-bezier(.4, 0, .2, 1) forwards; }
-@keyframes zenith-boot-lift { from { transform: none; border-radius: 0; } to { transform: translateY(-104%); border-radius: 0 0 48px 48px; } }
-@keyframes zenith-boot-mark { to { transform: translateY(-36px) scale(.86); opacity: 0; } }
-@keyframes zenith-boot-away { to { opacity: 0; visibility: hidden; } }
-
-/* The product's loading screen: the mark over the skeleton. */
-.zenith-screen-loading { position: relative; }
-.zenith-screen-loading > .zenith-screen-mark { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); z-index: 1; }
-
 @media (prefers-reduced-motion: reduce) {
   .zl-bar, .zl-stroke, .zl-sheen, .zl-star { animation: none; }
   .zl-star, .zl-sheen { opacity: 0; }
-  .zl { animation: zl-calm 1800ms ease-in-out infinite alternate; }
-  .zenith-boot[data-phase="lift"] { animation: zenith-boot-away 240ms ease forwards; }
-}
-@keyframes zl-calm { from { opacity: .55; } to { opacity: 1; } }
-
-.zenith-route-loading { position: fixed; inset: 0; z-index: 2147482999; display: grid; place-items: center; background: #08090d; }
-
-/* Loading is part of the selected theme, including before hydration. */
-[data-theme="amoled"] .zenith-boot,
-[data-theme="amoled"] .zenith-route-loading {
-  background: var(--bg0);
+  .zl { animation: none; }
 }

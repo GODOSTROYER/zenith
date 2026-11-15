@@ -86,7 +86,8 @@ success/warning/error/info colors retain Dark values. Native controls receive
 | Landing and interactive examples | Semantic aliases preserve original fallback colors in Light/Dark; AMOLED maps surfaces, text, lines, animated pills/tiles and glass |
 | Waitlist page and native dialog | Local field, control, status and overlay tokens; AMOLED root propagation through the top layer |
 | Admin console and portaled panels | Black neutral surfaces with existing purple admin identity |
-| Skeletons, boot splash, navigation curtains, route errors and 404 | Semantic tokens/AMOLED loading override; standalone root error has a minimal independent fallback; token-based not-found page replaces Next's OS-only body-color override |
+| Dropdown menus | All 43 shared Select controls across 27 application files use themed, portaled listboxes with keyboard and touch support |
+| Skeletons, route errors and 404 | Contextual loading inside the content area; standalone root error has a minimal independent fallback; token-based not-found page replaces Next’s OS-only body-color override |
 
 Actual provider logos and decorative sky/Gimbal/3D materials keep their artwork
 colors. A small neutral plate preserves the dark lettering in the AWS logo.
@@ -96,6 +97,31 @@ they own their appearance and do not share the Zenith-origin preference store.
 This master does not contain GitHub OAuth/repository import UI. The integrations
 route manages agent access; hosted source inputs are fixture/archive based.
 There is no GitHub workflow to claim as visually verified in this change.
+
+## Dropdown and loading follow-up
+
+Single-value Select controls render a visible combobox button and a listbox on
+the themed body. Menus use the existing surface, ink, signal and control-border
+tokens; clamp to the visual viewport; and provide 44px choices on touch devices.
+Arrow keys, Home/End, PageUp/PageDown, typeahead, Enter/Space, Escape and normal
+Tab order work without opening an operating-system popup. An expanded select
+owns its first Escape inside a dialog; closing it leaves the containing dialog
+open. A hidden native select preserves form data, required validation, reset,
+refs and the existing change-event contract. There are no production callers of
+the retained native multi-row/multiple listbox compatibility mode.
+
+The audit covers Zenith application source and public controls. Independently
+packaged customer fixture applications keep their own UI. Date inputs retain
+their semantic calendar control; they are not option dropdowns.
+
+Product navigation no longer intercepts internal links to play a logo curtain,
+and the root boot splash no longer imposes a minimum display duration. Actual
+pending routes/data use overview, card, canvas, list, editor, settings or
+conversation skeletons inside the content area. The loaded shell remains
+available. Placeholders have one polite loading announcement, decorative shapes
+hidden from assistive technology, a restrained opacity pulse, and no animation
+when reduced motion is requested. The landing page's deliberate exit transition
+remains local to the landing page; it does not run on product tabs.
 
 ## Verification
 
@@ -114,10 +140,13 @@ computed colors. Below-fold landing bento and native waitlist-dialog screenshots
 cover the public surfaces. Because local demo identity normally replaces the
 waitlist CTA, the dialog case holds and then releases the real `/api/me` response
 to exercise the existing visitor/loading state; it does not replace auth data.
-Integrations and invitations deliberately verify the demo's unavailable and
-signed-out callouts. Their exact API endpoints' expected 503/401 resource errors
-are retained in the console report and excluded from unexpected-error failures;
-other console errors and all uncaught page errors still fail the gate.
+It also opens real Select menus, checks text contrast and mobile bounds, exercises
+selection/cancel/focus, holds real project GET/SSE responses to inspect skeletons,
+and observes ordinary tab navigation for transient blocking curtains. Both normal
+and reduced-motion states are checked. The unauthenticated integrations and
+invitation routes assert their exact protected API refusal and recovery UI;
+only the matching, validated resource-error log is classified as expected. All
+other resource errors and every uncaught page error remain failures.
 A deliberately missing URL verifies the actual HTTP 404 page and its recovery
 link in every theme/viewport, including its expected 404 resource-console entry.
 Read the produced results and PR verification record for what actually passed;
@@ -127,6 +156,8 @@ Focused unit/DOM tests execute the exact bootstrap script and exercise menu
 activation, radio semantics, keyboard focus restoration, simultaneous selectors,
 storage failures, invalid values, System changes and lifecycle cleanup. Contrast
 tests check text on all surfaces/tints and AMOLED control/focus/graph boundaries.
+Select regressions additionally cover forms/reset/required fields, asynchronous
+options, disabled choices, nested dialogs/popovers and real pointer sequences.
 
 The implementation environment initially could not launch Chromium because its
 required local socket was denied. The cloud browser also could not reach the

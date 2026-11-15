@@ -69,6 +69,9 @@ export function useModal(open: boolean, onClose: () => void) {
     const onKey = (e: KeyboardEvent) => {
       if (overlays.at(-1) !== panel) return;
       if (e.key === "Escape") {
+        // A select-only combobox keeps DOM focus on its trigger. Its listbox
+        // consumes the first Escape before the containing modal can close.
+        if (e.target instanceof Element && e.target.closest('[role="combobox"][aria-expanded="true"]')) return;
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();

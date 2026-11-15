@@ -29,20 +29,11 @@ const ROUTES = ["/overview", "/p/atlas", "/p/atlas/source", "/p/atlas/observe", 
 const SHOTS = new Set(["/overview", "/p/atlas", "/p/atlas/source", "/p/atlas/observe", "/p/atlas/navigator",
   "/p/atlas/settings", "/integrations", "/invite", "/onboarding", "/login", "/", "/waitlist", "/privacy", "/admin", MISSING_ROUTE]);
 const results: { name: string; ok: boolean; detail?: string; screenshot?: string }[] = [];
-const consoleLog: { page: string; level: string; text: string; source?: string; expectedHttpError?: boolean }[] = [];
-const errors = new WeakMap<Page, string[]>();
+type BrowserLog = { page: string; level: string; text: string; url?: string; stack?: string; expected?: string };
+const consoleLog: BrowserLog[] = [];
+const errors = new WeakMap<Page, BrowserLog[]>();
 let base = "";
 const filename = (name: string) => name.replace(/[^a-z0-9_-]+/gi, "-");
-
-// The real demo refusals and deliberately missing page are expected error
-// states. Their visible explanations are asserted below. Only each exact URL
-// and status is exempt from console failures, and every entry stays in the log.
-function expectedHttpError(source: string, message: string): boolean {
-  if (!source.startsWith(base + "/")) return false;
-  const expected = ({ "/api/integrations/agent": 503, "/api/workspace/invitations": 401, [MISSING_ROUTE]: 404 } as Record<string, number>)[new URL(source).pathname];
-  const reason = ({ 503: "Service Unavailable", 401: "Unauthorized", 404: "Not Found" } as Record<number, string>)[expected];
-  return !!expected && message === `Failed to load resource: the server responded with a status of ${expected} (${reason})`;
-}
 
 function observe(page: Page) {
   errors.set(page, []);
@@ -50,23 +41,25 @@ function observe(page: Page) {
   page.setDefaultNavigationTimeout(45_000);
   page.on("console", (msg) => {
     if (!["error", "warning"].includes(msg.type())) return;
-    const source = msg.location().url;
-    const expected = msg.type() === "error" && expectedHttpError(source, msg.text());
-    consoleLog.push({ page: page.url(), level: msg.type(), text: msg.text(), source, ...(expected ? { expectedHttpError: true } : {}) });
-    if (msg.type() === "error" && !expected) errors.get(page)!.push(msg.text());
+    const entry = { page: page.url(), level: msg.type(), text: msg.text(), url: msg.location().url };
+    consoleLog.push(entry);
+    if (msg.type() === "error") errors.get(page)!.push(entry);
   });
   page.on("pageerror", (error) => {
-    consoleLog.push({ page: page.url(), level: "pageerror", text: error.message });
-    errors.get(page)!.push(error.message);
+    const entry = { page: page.url(), level: "pageerror", text: error.message, stack: error.stack };
+    consoleLog.push(entry);
+    errors.get(page)!.push(entry);
   });
 }
+
+const unexpected = (page: Page, start = 0) => (errors.get(page) ?? []).slice(start).filter((entry) => !entry.expected);
 
 async function check(name: string, page: Page, run: () => Promise<void>, screenshot = false) {
   const start = errors.get(page)?.length ?? 0;
   let shot: string | undefined;
   try {
     await run();
-    assert.deepEqual(errors.get(page)?.slice(start), [], "Browser console or page error");
+    assert.deepEqual(unexpected(page, start), [], "Unexpected browser console or page error");
     if (screenshot) {
       shot = `${filename(name)}.png`;
       await page.screenshot({ path: path.join(OUT, shot), fullPage: false });
@@ -83,36 +76,36 @@ async function check(name: string, page: Page, run: () => Promise<void>, screens
 }
 
 async function rendered(page: Page, route: string) {
+  const errorStart = errors.get(page)!.length;
   const response = await page.goto(base + route, { waitUntil: "domcontentloaded" });
   assert.equal(response?.status(), route === MISSING_ROUTE ? 404 : 200, `${route} must return its expected HTTP status`);
   assert.equal(new URL(page.url()).pathname, new URL(base + route).pathname, "Unexpected navigation or auth redirect");
   assert.match(await page.title(), /Zenith/);
   await page.waitForFunction(() => (document.querySelector("main")?.textContent?.trim().length ?? 0) > 25);
-  await page.locator(".zenith-boot").waitFor({ state: "hidden" });
+  assert.equal(await page.locator(".zenith-boot, .zenith-route-loading").count(), 0, "Page loads must not mount a blocking logo splash");
   await page.evaluate(async () => {
     await document.fonts.ready;
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   });
   assert.equal(await page.locator("[data-nextjs-dialog], nextjs-portal").count(), 0);
   assert.equal(await page.getByRole("heading", { name: /Zenith could not start|This screen could not be rendered|This screen stopped rendering/ }).count(), 0);
-  if (route === "/integrations") {
-    await page.getByText("This workspace's integrations could not be read", { exact: true }).waitFor();
-    await page.getByText(/Agent control is not enabled on this deployment/).waitFor();
-  }
-  if (route === "/invite") {
-    await page.getByText("Invitations could not be loaded", { exact: true }).waitFor();
-    await page.getByText("This changes your account, and nobody is signed in.", { exact: true }).waitFor();
-  }
   if (route === MISSING_ROUTE) {
     await page.getByRole("heading", { name: "404", exact: true }).waitFor();
     await page.getByText("This page could not be found.", { exact: true }).waitFor();
     assert.equal(await page.getByRole("link", { name: "Return to Zenith", exact: true }).getAttribute("href"), "/");
+    for (const entry of errors.get(page)!.slice(errorStart)) {
+      if (entry.level === "error" && entry.url === base + MISSING_ROUTE &&
+        entry.text === "Failed to load resource: the server responded with a status of 404 (Not Found)")
+        entry.expected = "Validated missing-page HTTP 404 and recovery link";
+    }
   }
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "Document overflows horizontally");
 }
 
 async function themeApplied(page: Page, theme: Theme) {
   const expectedBody = new URL(page.url()).pathname === "/" && theme !== "amoled" ? "rgb(8, 9, 13)" : GROUNDS[theme];
+  // Observe the resolved preference and actual paint together: background tabs
+  // can expose the new attribute before their computed colors catch up.
   try {
     await page.waitForFunction(({ theme, expectedBody }) =>
       (document.documentElement.dataset.theme ?? "dark") === theme && getComputedStyle(document.body).backgroundColor === expectedBody,
@@ -134,6 +127,44 @@ async function themeApplied(page: Page, theme: Theme) {
       return "transparent";
     });
     assert.equal(ground, GROUNDS.amoled, "The visible primary surface must be true black");
+  }
+}
+
+/** These protected operations deliberately refuse the unauthenticated demo.
+ * Validate the exact refusal AND recovery UI before classifying its resource
+ * console entry. Unexpected endpoints/statuses and every pageerror still fail.
+ */
+async function unavailableDemoRoute(page: Page, route: "/integrations" | "/invite") {
+  const integration = route === "/integrations";
+  const endpoint = base + (integration ? "/api/integrations/agent" : "/api/workspace/invitations");
+  const status = integration ? 503 : 401;
+  const start = errors.get(page)!.length;
+  const responsePromise = page.waitForResponse((response) => response.url() === endpoint && response.request().method() === "GET");
+  const consolePromise = page.waitForEvent("console", { predicate: (message) => message.type() === "error" &&
+    message.location().url === endpoint && message.text().startsWith("Failed to load resource:") &&
+    message.text().includes(`status of ${status}`) });
+  await rendered(page, route);
+  const [response] = await Promise.all([responsePromise, consolePromise]);
+  assert.equal(response.status(), status);
+  const payload = await response.json();
+  if (integration) {
+    assert.equal(payload.error.code, "control_disabled");
+    assert.match(payload.error.message, /Agent control is not enabled on this deployment/);
+    await page.getByText("This workspace's integrations could not be read", { exact: true }).waitFor();
+    await page.getByText(/Agent control is not enabled on this deployment/).waitFor();
+    assert.equal(await page.getByRole("button", { name: /Authorize client|Approve proposal/ }).count(), 0);
+  } else {
+    assert.equal(payload.error.message, "This changes your account, and nobody is signed in.");
+    assert.match(payload.error.fix, /This server runs in local demo mode/);
+    await page.getByText("Invitations could not be loaded", { exact: true }).waitFor();
+    await page.getByText(payload.error.message, { exact: true }).waitFor();
+    await page.getByText(/This server runs in local demo mode/).waitFor();
+    assert.equal(await page.getByRole("button", { name: /^Accept invitation/ }).count(), 0);
+  }
+  await page.getByRole("button", { name: "Try again", exact: true }).waitFor();
+  for (const entry of errors.get(page)!.slice(start)) {
+    if (entry.level === "error" && entry.url === endpoint && entry.text.startsWith("Failed to load resource:") && entry.text.includes(`status of ${status}`))
+      entry.expected = `${route}: validated ${status} unavailable state in local demo`;
   }
 }
 
@@ -211,6 +242,50 @@ async function prepaint(context: BrowserContext, theme: Theme, label: string) {
 }
 
 async function interactions(page: Page, theme: Theme, label: string, mobile: boolean) {
+  await check(`${label}/themed-select`, page, async () => {
+    await rendered(page, "/p/atlas/source?env=env-staging");
+    const select = page.getByRole("combobox", { name: "Environment", exact: true });
+    await select.click();
+    const list = page.getByRole("listbox", { name: "Environment", exact: true });
+    await list.waitFor(); await withinViewport(list);
+    assert(await list.evaluate((el) => el.parentElement === document.body), "Select options must escape clipping containers");
+    assert.equal(await select.evaluate((el) => el.tagName), "BUTTON", "The visible trigger must not open a system select");
+    const contrast = await list.evaluate((el) => {
+      const canvas = document.createElement("canvas"); canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d")!;
+      const luminance = (color: string, background: string) => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = background; context.fillRect(0, 0, 1, 1);
+        context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+        const channels = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
+          const channel = value / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+        });
+        return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+      };
+      const background = getComputedStyle(el).backgroundColor;
+      return [...el.querySelectorAll('[role="option"]:not([aria-disabled="true"])')].map((option) => {
+        const style = getComputedStyle(option);
+        const ink = luminance(style.color, background), surface = luminance(style.backgroundColor, background);
+        return (Math.max(ink, surface) + .05) / (Math.min(ink, surface) + .05);
+      });
+    });
+    assert(contrast.length > 0 && contrast.every((ratio) => ratio >= 4.5), `Dropdown text contrast: ${contrast.join(", ")}`);
+    if (mobile) assert(await list.getByRole("option").evaluateAll((items) => items.every((el) => el.getBoundingClientRect().height >= 44)), "Select options need 44px touch targets");
+    await list.getByRole("option", { name: "production", exact: true }).click();
+    await list.waitFor({ state: "hidden" });
+    assert.match(await select.innerText(), /production/);
+    await select.press("ArrowDown");
+    await select.press("Home");
+    await select.press("Enter");
+    assert.match(await select.innerText(), /staging/);
+    await select.click();
+    await select.press("End");
+    await select.press("Escape");
+    assert.match(await select.innerText(), /staging/, "Escape must cancel the highlighted change");
+    assert(await select.evaluate((el) => document.activeElement === el), "Focus must remain on the dropdown trigger");
+    await select.click(); // retain the actual menu in the evidence screenshot
+    await themeApplied(page, theme);
+  }, true);
   await check(`${label}/keyboard-and-portals`, page, async () => {
     await rendered(page, "/overview");
     const menu = await openThemeMenu(page);
@@ -299,6 +374,67 @@ async function interactions(page: Page, theme: Theme, label: string, mobile: boo
     await page.getByRole("log").first().scrollIntoViewIfNeeded();
     await themeApplied(page, theme);
   }, true);
+  await loadingChecks(page, theme, label, mobile);
+}
+
+async function loadingChecks(page: Page, theme: Theme, label: string, mobile: boolean) {
+  // Hold real project responses, not fabricated data. Both the GET and SSE
+  // transport must wait so the actual initial-data fallback is observable.
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const projectRequests = /\/api\/projects\/atlas(?:\/stream)?(?:\?.*)?$/;
+  await page.route(projectRequests, async (route) => { await gate; await route.continue(); });
+  try {
+    await check(`${label}/contextual-skeleton`, page, async () => {
+      await rendered(page, "/p/atlas/source");
+      const loading = page.locator('[data-screen-loading="canvas"]');
+      await loading.waitFor();
+      assert.equal(await loading.getByRole("status").count(), 1);
+      assert.equal(await loading.locator('[aria-busy="true"]').count(), 1);
+      assert.equal(await loading.evaluate((el) => getComputedStyle(el).position), "static");
+      await page.locator(".workbench-context-bar").waitFor();
+      if (mobile) assert(await page.getByRole("button", { name: "Open navigation", exact: true }).isEnabled());
+      else assert(await page.getByRole("navigation", { name: "Main navigation", exact: true }).isVisible());
+      const skeleton = loading.locator("[data-skeleton]").first();
+      assert.equal(await skeleton.evaluate((el) => getComputedStyle(el).animationName), "none");
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.waitForFunction(() => getComputedStyle(document.querySelector("[data-skeleton]")!).animationName !== "none");
+      await themeApplied(page, theme);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      assert.equal(await page.locator('[data-page-curtain], .zenith-boot, .zenith-route-loading, .zl').count(), 0);
+    }, true);
+  } finally {
+    release();
+    await page.unroute(projectRequests);
+  }
+  await check(`${label}/uninterrupted-tab-navigation`, page, async () => {
+    await page.getByRole("radio", { name: "Edit", exact: true }).waitFor();
+    const header = await page.locator(".workbench-context-bar").elementHandle();
+    assert(header);
+    // Observe the entire navigation, including short-lived overlays which a
+    // screenshot taken after the destination settles would otherwise miss.
+    await page.evaluate(() => {
+      const selector = '[data-page-curtain], .zenith-boot, .zenith-route-loading';
+      const state = { seen: Boolean(document.querySelector(selector)), observer: new MutationObserver(() => {
+        if (document.querySelector(selector)) state.seen = true;
+      }) };
+      state.observer.observe(document.body, { childList: true, subtree: true });
+      (window as typeof window & { __themeNavigation?: typeof state }).__themeNavigation = state;
+    });
+    for (const [name, route] of [["Observe", "/p/atlas/observe"], ["Navigator", "/p/atlas/navigator"]]) {
+      if (mobile) await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+      await page.getByRole("navigation", { name: "Main navigation", exact: true }).filter({ visible: true }).getByRole("link", { name, exact: true }).click();
+      await page.waitForURL((url) => url.pathname === route);
+      assert(await header.evaluate((el) => el.isConnected), "Tab changes must preserve the shell header");
+    }
+    const sawCurtain = await page.evaluate(() => {
+      const scope = window as typeof window & { __themeNavigation?: { seen: boolean; observer: MutationObserver } };
+      const state = scope.__themeNavigation!; state.observer.disconnect(); delete scope.__themeNavigation; return state.seen;
+    });
+    assert.equal(sawCurtain, false, "Internal tabs must never mount the logo curtain, including with normal motion");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await themeApplied(page, theme);
+  });
 }
 
 async function landingChecks(page: Page, theme: Theme, label: string) {
@@ -358,7 +494,7 @@ async function syncChecks(context: BrowserContext) {
     await page.reload({ waitUntil: "domcontentloaded" }); await themeApplied(page, "amoled");
     await page.evaluate(() => localStorage.setItem("zenith-theme", "invalid-old-value"));
     await rendered(page, "/overview"); await themeApplied(page, "dark");
-    assert.deepEqual(errors.get(peer), [], "Peer page must have no console errors");
+    assert.deepEqual(unexpected(peer), [], "Peer page must have no console errors");
   });
   await page.close(); await peer.close();
 }
@@ -430,13 +566,16 @@ async function main() {
       });
       await prepaint(context, theme, label);
       for (const route of ROUTES) await check(`${label}/${route === "/" ? "landing" : route.slice(1)}`, page, async () => {
-        await rendered(page, route); await themeApplied(page, theme);
+        if (route === "/integrations" || route === "/invite") await unavailableDemoRoute(page, route);
+        else await rendered(page, route);
+        await themeApplied(page, theme);
+        assert.equal(await page.locator("select:not([data-select-native]):visible").count(), 0, "Application dropdowns must use the themed UI");
       }, SHOTS.has(route));
       await interactions(page, theme, label, device === "mobile");
       await landingChecks(page, theme, label);
       if (device === "desktop" && theme === "amoled") await syncChecks(context);
-      const pageErrors = errors.get(page) ?? [];
-      results.push({ name: `${label}/console-health`, ok: pageErrors.length === 0, detail: pageErrors.join("\n") || undefined });
+      const pageErrors = unexpected(page);
+      results.push({ name: `${label}/console-health`, ok: pageErrors.length === 0, detail: pageErrors.map((entry) => `${entry.text} ${entry.url ?? entry.stack ?? ""}`).join("\n") || undefined });
       await context.close();
     }
   } catch (error) {

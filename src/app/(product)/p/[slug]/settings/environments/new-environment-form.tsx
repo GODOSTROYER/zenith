@@ -75,15 +75,17 @@ export function NewEnvironmentForm({
           <Select
             value={connectionId}
             onChange={(e) => setConnectionId(e.target.value)}
-            placeholder="Sandbox (default)"
-            options={connections.map((c) => {
-              const why = unusableReason(c, providerById);
-              return {
-                value: c.id,
-                label: why ? `${c.label} · ${c.provider} — ${why}` : `${c.label} · ${c.provider}`,
-                disabled: !!why,
-              };
-            })}
+            options={[
+              { value: "", label: "Sandbox (default)" },
+              ...connections.map((c) => {
+                const why = unusableReason(c, providerById);
+                return {
+                  value: c.id,
+                  label: why ? `${c.label} · ${c.provider} — ${why}` : `${c.label} · ${c.provider}`,
+                  disabled: !!why,
+                };
+              }),
+            ]}
           />
         </Field>
       </div>

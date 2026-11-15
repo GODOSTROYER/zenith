@@ -37,7 +37,9 @@ export function Dialog({
   if (!present) return null;
 
   return createPortal(
-    <div inert={!open} className="fixed inset-0 z-50 grid place-items-center p-4">
+    // A bounded grid track lets the panel's max-width resolve against the
+    // viewport; an implicit auto track can grow to the desktop panel width.
+    <div inert={!open} className="fixed inset-0 z-50 grid grid-cols-1 place-items-center p-4">
       <ModalOverlay onClose={onClose} shown={shown} />
       <div
         ref={ref}

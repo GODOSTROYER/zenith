@@ -47,7 +47,7 @@ export function Switch({
         aria-hidden="true"
         className={cx(
           "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
-          checked ? "border-transparent bg-signal" : "border-line bg-bg3"
+          checked ? "border-transparent bg-signal" : "border-control-line bg-bg3"
         )}
       >
         <span className={cx(

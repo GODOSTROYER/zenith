@@ -279,7 +279,7 @@ export function WorkingTab({
               since a soft-wrapped line would take two rows in the textarea and
               one in the gutter. Height follows the viewport (S14).
             */}
-            <div className="overflow-hidden rounded-card border border-line bg-bg2 focus-within:border-signal">
+            <div className="ui-source-editor overflow-hidden rounded-card border border-control-line bg-bg2 focus-within:border-signal">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-bg1 px-4 py-2.5">
                 <span className="font-mono text-[12px] text-ink-mute">zenith.manifest.json</span>
                 <span role="status" className={`flex items-center gap-1.5 text-[12px] ${dirty ? "text-warn" : "text-ok"}`}>{dirty ? <><span aria-hidden="true">●</span> Unsaved text</> : <><Check className="h-3.5 w-3.5" aria-hidden="true" /> Saved working copy</>}</span>

@@ -4,7 +4,7 @@
 
 /* ============================================================
    Zenith application tokens — The Revision Object workbench.
-   Dark-first, with an equally considered light theme.
+   Dark-first, with Light and AMOLED as first-class themes.
    All component styling flows through these tokens; never hardcode
    a color in a component. See docs/DESIGN.md.
    ============================================================ */
@@ -17,6 +17,8 @@
   --bg3: #35382f; /* overlay surface */
   --line: #494c42;
   --line-strong: #818575;
+  /* Controls need stronger edges than decorative dividers on true black. */
+  --control-line: var(--line);
 
   --ink: #f2f1e9;
   --ink-mute: #b4b7ab;
@@ -113,6 +115,25 @@
   color-scheme: light;
 }
 
+/* AMOLED inherits Dark's brand and semantic colors. Only the surface system,
+   reading white and elevation change, so status meaning stays consistent. */
+[data-theme="amoled"] {
+  --bg0: #000000;
+  --bg1: #080908;
+  --bg2: #11130f;
+  --bg3: #1a1d17;
+  --line: #30352d;
+  --line-strong: #818575;
+  --control-line: #747b6c;
+  --ink: #e6e6df;
+
+  /* The hairline keeps detached panels legible when a black shadow cannot. */
+  --shadow-1: 0 0 0 1px rgba(230,230,223,0.05), 0 8px 24px rgba(0,0,0,0.65);
+  --shadow-2: 0 0 0 1px rgba(230,230,223,0.08), 0 16px 48px rgba(0,0,0,0.8);
+
+  color-scheme: dark;
+}
+
 @theme inline {
   --color-bg0: var(--bg0);
   --color-bg1: var(--bg1);
@@ -120,6 +141,7 @@
   --color-bg3: var(--bg3);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-control-line: var(--control-line);
   --color-ink: var(--ink);
   --color-ink-mute: var(--ink-mute);
   --color-ink-faint: var(--ink-faint);
@@ -213,7 +235,7 @@ input, textarea { caret-color: var(--signal); }
 @media (pointer: coarse) {
   .ui-button, .ui-input, .ui-select, .ui-segments > button,
   .product-chrome button, .project-navigation a, .settings-navigation a,
-  [role="tab"], [role="menuitem"], th button { min-height: 44px; }
+  [role="tab"], [role="menuitem"], [role="menuitemradio"], th button { min-height: 44px; }
   .ui-button:has(> span:empty) { min-width: 44px; }
 }
 
@@ -221,6 +243,20 @@ input, textarea { caret-color: var(--signal); }
   outline: 2px solid var(--signal);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* A surface-level change alone is too subtle for keyboard focus on black. */
+[data-theme="amoled"] .ui-menu-item:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: -3px;
+}
+[data-theme="amoled"] .ui-source-editor:focus-within {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+[data-theme="amoled"] .ui-nav-input:focus-within {
+  outline: 2px solid var(--nav-accent);
+  outline-offset: 2px;
 }
 
 /* scrollbars that match the surface */
@@ -560,3 +596,9 @@ input, textarea { caret-color: var(--signal); }
 @keyframes zl-calm { from { opacity: .55; } to { opacity: 1; } }
 
 .zenith-route-loading { position: fixed; inset: 0; z-index: 2147482999; display: grid; place-items: center; background: #08090d; }
+
+/* Loading is part of the selected theme, including before hydration. */
+[data-theme="amoled"] .zenith-boot,
+[data-theme="amoled"] .zenith-route-loading {
+  background: var(--bg0);
+}

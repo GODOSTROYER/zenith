@@ -35,7 +35,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         className={cx(
           "ui-select h-9 w-full appearance-none rounded-ctl border bg-bg1 pr-8 pl-3 text-[13px] text-ink focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2",
           "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
-          f.invalid ? "border-err" : "border-line hover:border-line-strong focus:border-signal",
+          f.invalid ? "border-err" : "border-control-line hover:border-line-strong focus:border-signal",
           rest.disabled && "cursor-not-allowed opacity-55"
         )}
       >

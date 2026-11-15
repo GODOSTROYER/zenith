@@ -52,7 +52,7 @@ export function CommandBar({
       <label htmlFor="navigator-request" className="mb-2 block text-[13px] font-semibold text-ink">Your request</label>
       <div
         className={cx(
-          "flex flex-wrap items-start gap-3 rounded-card border border-line-strong bg-bg2 px-4 py-4",
+          "ui-nav-input flex flex-wrap items-start gap-3 rounded-card border border-line-strong bg-bg2 px-4 py-4",
           "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
           "focus-within:border-nav-accent/60"
         )}

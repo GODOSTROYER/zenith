@@ -456,7 +456,7 @@ export function ImportDialog({
           ]}
         />
         {format !== "live" && (
-        <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[120ms] hover:border-line-strong hover:text-ink">
+        <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-ctl border border-control-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[120ms] hover:border-line-strong hover:text-ink focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal">
           <Upload className="h-3.5 w-3.5" aria-hidden="true" />
           Choose a file
           <input
@@ -494,8 +494,8 @@ export function ImportDialog({
         placeholder={spec.sample}
         aria-label={`${spec.label} contents`}
         className={cx(
-          "mt-2 w-full resize-y rounded-ctl border border-line bg-bg1 p-3 font-mono text-[12.5px] text-ink",
-          "outline-none placeholder:text-ink-faint focus:border-signal",
+          "ui-textarea mt-2 w-full resize-y rounded-ctl border border-control-line bg-bg1 p-3 font-mono text-[12.5px] text-ink",
+          "placeholder:text-ink-faint focus:border-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal",
           "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]"
         )}
       />

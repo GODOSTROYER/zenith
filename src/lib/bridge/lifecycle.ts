@@ -188,6 +188,9 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
 async function startParkedDeployment(op: OperationView, approver: Principal): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" } | undefined> {
   const d = db().deployments.find((x) => x.operationId === op.id);
   if (!d) return { delivered: false, reason: "not_found" };
+  // Same guards as the product approval: an already-started workflow is not started again.
+  if (d.workflowStartedAt) return { delivered: true };
+  setProjectedStatus(d, "planning");
   const started = await beginWorkflow({ workspaceId: op.workspaceId, actor: { type: "user", id: approver.id, name: approver.name } }, d);
   return started.ok ? { delivered: true } : { delivered: false, reason: "unavailable" };
 }

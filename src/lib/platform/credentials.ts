@@ -26,7 +26,7 @@ import { K8sError } from "@/lib/providers/kubernetes/types";
 import { DeployerCredentialError, verifyDeployerCredential, deployerScopeOf } from "@/lib/providers/kubernetes/deployer";
 import { GuestCredentialError, assertGuestNamespace, buildGuestKubeConfig, createGuestClusterPort, mintGuestCredential, revokeGuestBindings, verifyGuestMinter, type GuestRevocationOutcome } from "@/lib/providers/kubernetes/guest";
 import { createGuestStore } from "@/lib/providers/kubernetes/guest-store";
-import type { KubernetesSessionDeps } from "@/lib/providers/kubernetes/session";
+import { assertTenantServer, type KubernetesSessionDeps } from "@/lib/providers/kubernetes/session";
 import { GcpAuthError, GcpSessionError } from "@/lib/providers/gcp/errors";
 import { AzureTokenError, AzureRequestRefusedError } from "@/lib/providers/azure/credentials";
 import { ApiException } from "@kubernetes/client-node";
@@ -176,6 +176,7 @@ async function kubernetesVaultSession(connection: ProviderConnection, config: Ku
     if (config.mode !== "scoped_guest" || !config.deployerCredentialRef || config.deployerCredentialRef === config.credentialRef) throw new DeployerCredentialError("not_configured");
     config = { ...config, mode: "kubeconfig_ref", credentialRef: config.deployerCredentialRef, deployerCredentialRef: undefined };
   }
+  await assertTenantServer(config.server);
   return createKubernetesSession(config, { ...deps, now, ttlSec, resolveCredential: async (ref) => {
     if (!isVaultRef(ref)) throw new K8sError("session_invalid", "Only Zenith vault references are supported.");
     const value = await readSecretValueAsync(connection.workspaceId, ref);

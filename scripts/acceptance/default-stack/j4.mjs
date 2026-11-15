@@ -148,7 +148,7 @@ export function prepareJ4Ownership(state, config, compositionBytes, j4 = {}, def
   const worker = { ...generated['worker.env'], ZENITH_SERVERLESS: '1', ZENITH_BILLING: 'managed', ZENITH_PLATFORM_DB_MAX: '2',
     ZENITH_TEMPORAL_NAMESPACE: j4.namespace, ZENITH_TEMPORAL_ADDRESS: `127.0.0.1:${j4.temporalPort}`, ...hostTemporalTls(state.directory),
     ZENITH_DATA: j4Data, HOME: j4Home, ZENITH_WORKER_PLAN_DIR: j4PlanDirectory, ZENITH_J4_API_ORIGIN: config.environment.NEXT_PUBLIC_SITE_URL,
-    ZENITH_J4_CRON_SECRET_FILE: path.join(dir, 'cron.secret') };
+    ZENITH_J4_CRON_SECRET_FILE: path.join(dir, 'cron.secret'), ZENITH_KUBERNETES_ALLOW_PRIVATE_SERVERS: '1' };
   for (const directory of [worker.ZENITH_DATA, worker.HOME, worker.ZENITH_WORKER_PLAN_DIR]) fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   for (const directory of [worker.ZENITH_DATA, worker.HOME, worker.ZENITH_WORKER_PLAN_DIR]) assertPrivate(directory, true);
   privateFile(path.join(dir, 'api.env'), envText(api)); privateFile(path.join(dir, 'worker.env'), envText(worker));

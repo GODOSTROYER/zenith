@@ -324,6 +324,8 @@ const REVIEWED: Record<string, Review> = {
   "src/lib/execution/prober.ts": "guarded",
   "src/lib/portability/connect.ts": "guarded",
   "src/lib/portability/net.ts": "guarded",
+  // Tenant Kubernetes API server: resolves the name only to classify every answer (OPS-08 F3).
+  "src/lib/providers/kubernetes/session.ts": "guarded",
   "src/lib/portability/engines/mysql-inprocess.ts": "guarded",
   "src/lib/portability/engines/s3.ts": "guarded",
   "src/lib/observability/sources/http.ts": "operator-config",

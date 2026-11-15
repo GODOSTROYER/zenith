@@ -92,7 +92,7 @@ export function classifyAddress(address: string): "public" | "private" | "loopba
   return "never";
 }
 
-const NAME_REFUSED = /(^|\.)(localhost|internal|local|localdomain)$/i;
+export const NAME_REFUSED = /(^|\.)(localhost|internal|local|localdomain)$/i;
 
 /** Refuse a host the worker must not connect to. Never echoes a resolved address. */
 export async function resolveConnectableHost(host: string, opts: { allowPrivate?: boolean; lookup?: HostLookup } = {}): Promise<readonly { address: string; family: 4 | 6 }[]> {

@@ -88,6 +88,12 @@ async function rendered(page: Page, route: string, options: { allowLoading?: boo
     await document.fonts.ready;
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   });
+  if (!options.allowLoading) {
+    // Route screenshots and assertions must inspect the loaded screen. The
+    // intentionally delayed skeleton check opts in to its pending state.
+    await page.waitForFunction(() => [...document.querySelectorAll("main [data-screen-loading]")]
+      .every((element) => element.getClientRects().length === 0));
+  }
   assert.equal(await page.locator("[data-nextjs-dialog], nextjs-portal").count(), 0);
   assert.equal(await page.getByRole("heading", { name: /Zenith could not start|This screen could not be rendered|This screen stopped rendering/ }).count(), 0);
   if (route === MISSING_ROUTE) {

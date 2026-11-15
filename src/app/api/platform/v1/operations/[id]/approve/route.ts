@@ -38,6 +38,6 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
       session: caller.session,
       reason: body.reason,
     });
-  const signal = await deliverPlanApproval(outcome.operation);
+  const signal = await deliverPlanApproval(outcome.operation, caller.principal);
   return { body: { ...outcome, ...(signal ? { signal } : {}) } };
 });

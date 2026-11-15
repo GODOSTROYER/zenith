@@ -1,15 +1,15 @@
 .dialog { position: fixed; inset: var(--waitlist-top,0px) 0 auto; margin: 0; width: 100%; max-width: none; height: var(--waitlist-viewport,100dvh); max-height: none; border: 0; padding: 24px; background: transparent; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .dialog[open] { display: flex; align-items: safe center; justify-content: center; }
-.dialog::backdrop { background: #090b14a8; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: dim 300ms ease both; }
-.window { width: min(100%,490px); flex-shrink: 0; margin-block: auto; border: 1px solid #ffffff73; border-radius: 28px; background: #f7f5eff5; overflow: hidden; box-shadow: 0 40px 120px #0005,0 4px 16px #0002,inset 0 1px 0 #fff; transform-origin: 80% 90%; animation: open 460ms cubic-bezier(.2,.75,.25,1) both; }
-.windowTop { display: flex; align-items: center; gap: 10px; padding: 18px 22px 0; color: #1b1b20; }
-.windowTop > span { font-size: 9px; font-weight: 650; letter-spacing: .14em; color: #77736e; }
-.close { width: 38px; height: 38px; display: grid; place-items: center; margin-left: auto; border: 1px solid #1b1b2012; border-radius: 50%; background: transparent; color: #67615e; cursor: pointer; transition: background 180ms ease,transform 220ms ease; }
-.close:hover { background: #1b1b2007; transform: rotate(90deg); }
+.dialog::backdrop { background: var(--waitlist-backdrop, #090b14a8); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: dim 300ms ease both; }
+.window { width: min(100%,490px); flex-shrink: 0; margin-block: auto; border: 1px solid var(--waitlist-line, #ffffff73); border-radius: 28px; background: var(--waitlist-window, #f7f5eff5); overflow: hidden; box-shadow: var(--waitlist-shadow, 0 40px 120px #0005,0 4px 16px #0002,inset 0 1px 0 #fff); transform-origin: 80% 90%; animation: open 460ms cubic-bezier(.2,.75,.25,1) both; }
+.windowTop { display: flex; align-items: center; gap: 10px; padding: 18px 22px 0; color: var(--waitlist-ink, #1b1b20); }
+.windowTop > span { font-size: 9px; font-weight: 650; letter-spacing: .14em; color: var(--waitlist-secondary, #77736e); }
+.close { width: 38px; height: 38px; display: grid; place-items: center; margin-left: auto; border: 1px solid var(--waitlist-control-line, #1b1b2012); border-radius: 50%; background: transparent; color: var(--waitlist-secondary, #67615e); cursor: pointer; transition: background 180ms ease,transform 220ms ease; }
+.close:hover { background: var(--waitlist-readonly, #1b1b2007); transform: rotate(90deg); }
 .windowBody { padding: 26px 36px 30px; }
 .dialog[data-closing]::backdrop { animation: undim 220ms ease both; }
 .dialog[data-closing] .window { animation: close 220ms cubic-bezier(.4,0,1,1) both; }
-@keyframes dim { from { background: #090b1400; backdrop-filter: blur(0); } to { background: #090b14a8; backdrop-filter: blur(12px); } }
+@keyframes dim { from { background: #090b1400; backdrop-filter: blur(0); } to { background: var(--waitlist-backdrop, #090b14a8); backdrop-filter: blur(12px); } }
 @keyframes undim { to { background: #090b1400; backdrop-filter: blur(0); } }
 @keyframes open { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes close { to { opacity: 0; transform: translateY(16px) scale(.985); } }
@@ -17,3 +17,6 @@
 @keyframes mobile-open { from { opacity: 0; transform: translateY(22px) scale(.975); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 360px) { .windowBody { padding-inline: 20px; } }
 @media (prefers-reduced-motion: reduce) { .dialog, .dialog *, .dialog::backdrop { animation: none !important; transition: none !important; } }
+
+/* ::backdrop does not inherit the dialog's custom properties. */
+:global(html[data-theme="amoled"]) .dialog::backdrop { --waitlist-backdrop: rgba(0, 0, 0, .78); }

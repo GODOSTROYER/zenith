@@ -22,7 +22,9 @@ export function NavigationTransitions() {
       const href = url.pathname + url.search + url.hash;
       router.prefetch(href);
       curtainNavigate(href, to => router.push(to), {
-        color: url.pathname === "/waitlist" ? "#f7f5ef" : url.pathname === "/" ? "#08090d" : productGround(),
+        color: document.documentElement.dataset.theme === "amoled"
+          ? productGround()
+          : url.pathname === "/waitlist" ? "#f7f5ef" : url.pathname === "/" ? "#08090d" : productGround(),
       });
     };
     document.addEventListener("click", onClick, true);

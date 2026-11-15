@@ -3,17 +3,19 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NavigationTransitions } from "@/components/brand/navigation-transitions";
 import Loading from "@/app/loading";
-const mocks = vi.hoisted(() => ({ push: vi.fn(), prefetch: vi.fn(), curtain: vi.fn() }));
+const mocks = vi.hoisted(() => ({ push: vi.fn(), prefetch: vi.fn(), curtain: vi.fn(), ground: vi.fn(() => "#22241f") }));
 vi.mock("next/navigation", () => ({ useRouter: () => mocks }));
-vi.mock("@/lib/client/page-curtain", () => ({ curtainNavigate: mocks.curtain, productGround: () => "#22241f" }));
+vi.mock("@/lib/client/page-curtain", () => ({ curtainNavigate: mocks.curtain, productGround: mocks.ground }));
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let host: HTMLDivElement, root: Root;
 beforeEach(async () => {
   vi.clearAllMocks();
+  mocks.ground.mockReturnValue("#22241f");
+  document.documentElement.removeAttribute("data-theme");
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   await act(async () => root.render(<NavigationTransitions />));
 });
-afterEach(() => { act(() => root.unmount()); host.remove(); });
+afterEach(() => { act(() => root.unmount()); host.remove(); document.documentElement.removeAttribute("data-theme"); window.history.replaceState(null, "", "/"); });
 function click(href: string, options: MouseEventInit = {}, attrs = "", wrapper = "") {
   const container = document.createElement("div"); container.className = wrapper;
   container.innerHTML = '<a href="' + href + '" ' + attrs + '><span>Join the waitlist</span></a>';
@@ -56,4 +58,21 @@ it("preserves navigation link side effects such as closing mobile menus", () => 
   click("/overview");
   expect(onNavigate).toHaveBeenCalledOnce();
   expect(mocks.curtain).toHaveBeenCalledOnce();
+});
+
+
+it.each([
+  ["light", "/waitlist", "#f7f5ef"],
+  ["dark", "/waitlist", "#f7f5ef"],
+  ["light", "/", "#08090d"],
+  ["dark", "/", "#08090d"],
+  ["amoled", "/waitlist", "#000000"],
+  ["amoled", "/", "#000000"],
+  ["amoled", "/overview", "#000000"],
+])("uses the correct %s curtain while navigating to %s", (theme, href, color) => {
+  window.history.replaceState(null, "", "/account");
+  document.documentElement.dataset.theme = theme;
+  mocks.ground.mockReturnValue(theme === "amoled" ? "#000000" : "#22241f");
+  click(href);
+  expect(mocks.curtain).toHaveBeenCalledWith(href, expect.any(Function), { color });
 });

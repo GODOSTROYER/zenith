@@ -75,13 +75,14 @@ async function check(name: string, page: Page, run: () => Promise<void>, screens
   }
 }
 
-async function rendered(page: Page, route: string) {
+async function rendered(page: Page, route: string, options: { allowLoading?: boolean } = {}) {
   const errorStart = errors.get(page)!.length;
   const response = await page.goto(base + route, { waitUntil: "domcontentloaded" });
   assert.equal(response?.status(), route === MISSING_ROUTE ? 404 : 200, `${route} must return its expected HTTP status`);
   assert.equal(new URL(page.url()).pathname, new URL(base + route).pathname, "Unexpected navigation or auth redirect");
   assert.match(await page.title(), /Zenith/);
-  await page.waitForFunction(() => (document.querySelector("main")?.textContent?.trim().length ?? 0) > 25);
+  await page.waitForFunction((allowLoading) => (document.querySelector("main")?.textContent?.trim().length ?? 0) > 25 ||
+    (allowLoading && !!document.querySelector("main [data-screen-loading]")), options.allowLoading ?? false);
   assert.equal(await page.locator(".zenith-boot, .zenith-route-loading").count(), 0, "Page loads must not mount a blocking logo splash");
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -386,7 +387,7 @@ async function loadingChecks(page: Page, theme: Theme, label: string, mobile: bo
   await page.route(projectRequests, async (route) => { await gate; await route.continue(); });
   try {
     await check(`${label}/contextual-skeleton`, page, async () => {
-      await rendered(page, "/p/atlas/source");
+      await rendered(page, "/p/atlas/source", { allowLoading: true });
       const loading = page.locator('[data-screen-loading="canvas"]');
       await loading.waitFor();
       assert.equal(await loading.getByRole("status").count(), 1);

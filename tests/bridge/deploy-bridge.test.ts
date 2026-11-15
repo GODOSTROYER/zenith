@@ -133,6 +133,19 @@ describe("approval and cancellation", () => {
     expect(await deliverPlanApproval(outcome.operation, approver)).toEqual({ delivered: true });
     expect(gateway.startDeploy).toHaveBeenCalledTimes(1); expect(d.workflowStartedAt).toBeTruthy();
   });
+  it("a start deferred by a dispatch pause can be retried by approving again (OPS-08 F4)", async () => {
+    q.environment(ctx.environmentId!)!.policies.approvalRequired = true;
+    await exec("deploy.apply"); const d = latest(); browser();
+    const { opsRuntime } = await import("@/lib/ops/runtime");
+    const limits = opsRuntime().limits as { maintenanceOverride?: { mode: "dispatch_paused" | "read_only"; reason: string } };
+    limits.maintenanceOverride = { mode: "dispatch_paused", reason: "test pause" };
+    try {
+      const deferred = await exec("deploy.approve", { deploymentId: d.id }, browserCtx);
+      expect(deferred.ok).toBe(false); expect(deferred.summary).toBe("Workflow start is deferred."); expect(gateway.startDeploy).not.toHaveBeenCalled();
+    } finally { delete limits.maintenanceOverride; }
+    expect((await exec("deploy.approve", { deploymentId: d.id }, browserCtx)).ok).toBe(true);
+    expect(gateway.startDeploy).toHaveBeenCalledTimes(1); expect(d.workflowStartedAt).toBeTruthy();
+  });
   it("browser approval uses the real broker before startup", async () => {
     h.setEngine(scriptedEngine("approval", () => requireApproval(1, "admin", true))); await exec("deploy.apply");
     const approve = vi.spyOn(broker, "approve"); browser();

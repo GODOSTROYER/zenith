@@ -164,7 +164,10 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
     // The worker's recorded plan round proves an existing workflow gate even
     // when this caller never received its start acknowledgement.
     const planGate = approvalRoundOf(op) > 0 && ["awaiting_approval", "approved", "queued"].includes(op.status);
-    if (d.status !== "awaiting_approval" && !planGate) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
+    // A start deferred before its claim (pause, quota, billing standing) leaves the projection at planning with the
+    // operation still approved and no workflow: approving again must retry the start, as the deferral message says.
+    const deferredStart = !d.workflowStartedAt && approvalRoundOf(op) === 0 && ["approved", "queued"].includes(op.status) && d.status === "planning";
+    if (d.status !== "awaiting_approval" && !planGate && !deferredStart) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
     if (op.status === "awaiting_approval") {
       const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: reviewedPlanDigest, semanticsDigest: reviewedSemanticsDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
       op = approved.operation;

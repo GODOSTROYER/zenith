@@ -10,6 +10,7 @@
  */
 import { actionRegistry, type Risk } from "@/lib/actions/core";
 import { registerAllActions } from "@/lib/actions/defs";
+import { v1View } from "@/lib/resources/upgrade";
 import {
   id,
   type Environment,
@@ -577,7 +578,7 @@ export function parseGoal(
 ): NavigatorStep[] {
   registerAllActions();
   const ctx: Ctx = {
-    manifest: project.workingManifest,
+    manifest: v1View(project.workingManifest),
     envs: environments,
     findings: findings.filter((f) => f.status === "open"),
     pending: [],

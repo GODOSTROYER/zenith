@@ -1,0 +1,66 @@
+# W5 managed-platform joins
+
+Implementation status: `implementation_complete_verification_pending` for the safe joins below. MAN-01 automatic onboarding and per-tenant builds remain incomplete, not verified. No live API, cloud credential, deployment or spend was used.
+
+## Implemented joins
+
+- `platform/execution.ts` passes its SQL store to the default managed substrate and the same substrate to reconciliation.
+- `platform/zenith-managed.ts`, provider `managed-port.ts`, `managed-substrate.ts` and `session.ts` compose current verified/retired domains, scoped storage key stores, IAM-admin access and vault sinks. Generated storage references are bound to the reviewed resource addresses; ordinary read sessions cannot write generated credentials. Workload sessions use the per-tenant operator reference; the separate gateway-only session uses the platform credential.
+- `execution/direct-zenith.ts` renders the same domains and tier-constrained autoscalers at planning and apply, includes storage intents and retired domains in the reviewed digest, checks storage availability before approval and passes the scoped storage sink to apply.
+- `execution/graph.ts` recognizes the dedicated managed object-store realization instead of requiring a Kubernetes renderer. A registered native driver is still required; foreign placement and missing external-reference refusals remain. Actual rendering/planning still requires configured storage administration, the tier's store allowance and scoped runtime ports. Journey contracts cover reviewed provisioning and both missing-admin and missing-port refusals before writes.
+- `execution/semantics/zenith.ts` binds the rendered declarative configuration, substrate, tenant/tier, storage and isolation intents, custom-domain proof result and retirements to the reviewed executable semantics. Plan, final plan, apply, build, rollout and migration dispatch use it. The verifier's `direct-kubernetes.ts` implementation is untouched.
+- `platform/app.ts` wires the same managed adapter into application observation and drift callers; `platform/reconcile.ts` observes managed environments through the capability broker and composed managed substrate, with registered environment, verified saved connection, immutable request, tenant/session and graph checks. The verifier AWS snapshot guards remain.
+- Managed Deployment observation and verification honor only the renderer's declared HPA replica ownership (managed container services with multiple replicas on an autoscaling tier). Actual counts remain in runtime/native diagnostics; image, resource, port, health and ownership checks remain delegated to the native verifier. Free-tier, single-replica and referenced workloads keep replica comparisons. HTTPRoute drift compares its full declared spec through the same native Ingress renderer and managed route translation as apply, including matches, backend targets/ports/namespaces, filters and extra rules; API-defaulted fields are normalized.
+- `managed-serving/access.ts` enforces project restrictions and integration read grants for domain reads, in addition to existing workspace/environment membership.
+- `platform/zenith-onboarding.ts` reuses the isolation provisioner's exact readback and operator-access checks. Default managed sessions require a per-tenant operator credential and the complete prepared isolation baseline before any workload caller receives a session. Bootstrap access is internal and read-only; no apply, token mint, credential store or privileged fallback is performed by session opening.
+
+## Explicit remaining limitations
+
+1. **Automatic onboarding is refused.** `createTenantIsolationProvisioner` binds approval to its private isolation plan digest; the managed deploy binds a different composite plan digest. The provisioner currently uses digest-exact object validation as a custody stand-in and does not record the deploy's DUR-B executable semantics or DUR-C plan custody. Calling `provision()` from session opening would authorize bootstrap/RBAC mutations with the wrong approval. A dedicated broker-approved onboarding operation, semantics/custody binding and durable short-lived token rotation are still required. The default composition only admits separately provisioned tenants after full readback and tenant RBAC probes.
+2. **Default source builds are unavailable.** The existing builder uses a shared namespace and platform operator. Per-tenant build namespaces, least-authority credentials and verified node-pool/runtime placement are not represented by an approved provisioning operation. The default composition refuses source hand-off and build dispatch before writes, even with a pinned builder configured. Explicit injected provider contract ports retain their existing build behavior; those contracts do not establish default production build acceptance.
+3. **First deploy requires prepared isolation.** Kubernetes dry-run cannot validate namespaced resources before the namespace exists without writing the namespace. Default sessions now refuse absent or mismatched isolation, so they cannot dispatch an unvalidated first deploy. The low-level injected substrate contract retains its existing explicitly warned first-plan behavior. The remaining first-deploy bootstrap must use the separately approved onboarding operation above.
+4. **Readback is configuration evidence.** It does not prove CNI enforcement, node-kernel isolation, actual autoscaler metrics, ACME issuance or hosted operation. Tenant observe/deploy still share one tenant-scoped operator identity. Gateway TLS uses a separately namespace-scoped platform session.
+5. **Isolation changes require explicit provisioning.** Readback derives managed-DB egress from persisted desired managed Postgres resources. An isolation bundle differing from that desired state refuses until independently approved provisioning updates it. Custom tenant egress configuration and durable operator-token renewal are not automatically orchestrated.
+6. The original `scripts/k8s/managed-substrate-acceptance.sh` tests shared default builds and automatic baseline creation. It cannot pass the strengthened default isolation boundary without a successor onboarding/build implementation. Preserve its assertions and record this as a blocker, not a skipped acceptance or a passing injected-port replacement.
+
+## Verification commands
+
+Use Node 22. On this shared PC, run groups serially with no other heavy workload:
+
+```bash
+npx vitest run tests/providers/zenith/managed-substrate.test.ts tests/platform/zenith-managed-composition.test.ts tests/execution/zenith-semantics.test.ts tests/platform/zenith-onboarding.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/platform/managed-reconcile.test.ts tests/reconcile/platform.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/managed-serving/domain-routes.test.ts tests/managed-serving/integration-readiness.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/execution/zenith-managed-journey.test.ts tests/execution/tenant-isolation.test.ts --no-file-parallelism --maxWorkers=2
+npx vitest run tests/providers/zenith/drivers.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+The domain routes use real HTTP wrappers, broker scope/role resolution and PGlite; external identity/DNS ports are controlled contract inputs. The onboarding helper tests use contract sessions/readbacks. Neither proves Kubernetes enforcement.
+
+Mac real-kind readiness commands, private credential setup, two mandatory missing/prepared-namespace cases and cleanup are specified in [W5-ASSEMBLY-ONBOARDING.md](./W5-ASSEMBLY-ONBOARDING.md). Its exact test command is:
+
+```bash
+ZENITH_TEST_MANAGED_ONBOARDING=1 KUBECONFIG="$ZENITH_K8S_WORKDIR/kubeconfig" npx vitest run tests/isolation/managed-onboarding-readiness.test.ts --no-file-parallelism --maxWorkers=2
+```
+
+Needs Docker, kind, kubectl and a disposable `kind-zenith-life07*` cluster. Not run here. Existing managed-serving kind/emulator acceptance remains in `PROD-MAN-02-03.md`; it needs those real services and is not passed by these contracts.
+
+## Executed evidence and fixture changes
+
+- `npx eslint` over the serving/composition/semantics files passed with 0 errors and 0 warnings; final source lint is reported by the assembler.
+- New onboarding helper: 8 passed / 0 failed / 0 skipped before final strict policy-comparison hardening. The final file contains 11 tests awaiting a successor run. Its four changed TypeScript files linted clean after the final edits.
+- Managed reconcile plus existing platform reconcile initial run: 89 passed / 0 failed / 0 skipped. Later expiry/route refinements require a successor run.
+- Domain routes initial run: 0 passed / 26 skipped; 1 suite failed during PGlite `beforeAll` at the existing 60-second timeout under shared machine load. No assertion or timeout was changed. Its two files linted clean.
+- Isolation regression initial run: 10 passed / 16 skipped; 1 suite failed during PGlite `beforeAll` at the existing 60-second timeout. Fourteen unexecuted provisioner cases and two expected gated kind cases are not passed. No assertion or gate was changed.
+- The old composition test expecting shared platform credentials to open a tenant session was replaced with an explicit shared-credential refusal and zero credential-read assertion because per-tenant fail-closed onboarding is the assembly requirement. Its missing-credential test now configures the required per-tenant prefix and asserts readiness refusal. The source-wiring pin now includes the SQL store argument. These are intentional stale-expectation corrections, not gate relaxation.
+- Integrated-run fixture corrections preserve every existing failure assertion: isolation RBAC answers now distinguish the tenant namespace from `kube-system` (the previous fake incorrectly granted both); the missing-build-egress case passes `null` to its fixture because `undefined` selected its default policy; the managed journey releases its literal manifest digest for the passing case and separately asserts configuration drift for a different digest, matching the verifier's native Kubernetes journey. The storage-render note now states the shared-bucket prefix relationship contiguously while retaining its actual prefix value. Final reruns are owned by the assembler.
+- Further integration corrections: the destroy inventory fixture now declares deletion in V2 `policies.deletion` instead of ignored resource configuration; V1 upgrades correctly default to approval. The autoscaling contract checks every submitted Deployment SSA body omits replicas and separately checks the API's live default of one. The file-authority services route fixture now uses actual loopback origin and Host. Emulator substrate and IAM-port construction moved into gated `beforeAll`, keeping all gates and assertions. The managed acceptance script's failure message says `pinned image` while preserving its digest regex.
+- Referenced Zenith DNS-zone nodes now use the existing platform-wildcard classification; they are not provisioned, and foreign-provider/reference-data guards remain. Unpublished migration 0050 expresses the vault-reference suffix bound as character length plus an unbounded character-class regex, preserving the exact 1..300 range within PostgreSQL's regex limits. Storage tests now cover both accepted boundaries and their immediately rejected neighbours. The assembler regenerates aggregate 0026 and its checksum.
+- The durable managed-serving job's sticky IAM fixture now snapshots every pending revocation and lists its real keys per principal. Earlier scoped-key coverage leaves another legitimate pending row in the shared database; the old fake listed only the job's example key and incorrectly represented that other key as deleted. The zero-revoked and blocked-count assertions remain unchanged. The claims-case timeout observed under shared load remains unchanged as well.
+- Managed driver drift regressions add six HPA ownership scenarios and eight HTTPRoute projection scenarios. The positive route fixture now includes its required declared rules/backends, rather than an incomplete host/parent-only object. Native Kubernetes behavior is unchanged and explicitly checked against the same scaled observation. No pre-existing assertion is removed. Root owns their test run and the final typecheck.
+
+Root assembly owns the final serial verification, final compiler run, manifest lane/count updates, global LIMITATIONS and ledger. Keep all unresolved live/engine acceptance pending.
+
+## Final root successor results
+
+The assembler's current receipts supersede earlier setup failures: onboarding11/0/0, managed reconcile36/0/0, existing reconcile58/0/0, domain routes26/0/0, isolation24/0/2 gated kind skips, managed journey11/0/0, graph6/0/0, serving contract6/0/0, domain-store16/0/0, and managed drivers86/0/0. All use --no-file-parallelism --maxWorkers=2. Full invocation text and failures are in W5-ASSEMBLY-RESULTS.md. The incomplete-ingress observation now preserves partial facts as diagnostics while publishing unknown configuration, so it cannot clear drift. These are controlled contract/PGlite outcomes; enforcing kind/IAM/CNI and cloud acceptance remain pending.

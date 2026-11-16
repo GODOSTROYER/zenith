@@ -31,6 +31,7 @@
  * if that ever gets noisy.
  */
 import { monthlyCostUsd } from "@/lib/cost/pricing";
+import { v1View } from "@/lib/resources/upgrade";
 import { db, q, save } from "@/lib/db/store";
 import {
   id,
@@ -262,7 +263,7 @@ function budgetCondition(rule: AlertRule, env: Environment): AlertCondition {
       detail: "The project this environment belongs to no longer exists.",
     };
 
-  const cost = monthlyCostUsd(manifest);
+  const cost = monthlyCostUsd(v1View(manifest));
   const at = Math.round((cost / budget) * 100);
   const threshold = thresholdOf(rule)!;
   const what = running

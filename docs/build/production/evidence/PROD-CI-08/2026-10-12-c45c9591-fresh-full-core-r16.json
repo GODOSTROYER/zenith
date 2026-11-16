@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45c9591_fresh_full_core_terminal_evidence",
+  "acceptance": false,
+  "milestonePromotion": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "sourceCount": 5960,
+    "beforeAfterStable": true,
+    "sourceFreezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7"
+  },
+  "execution": {
+    "wrapperExitCode": 0,
+    "runExitCode": 0,
+    "durationSeconds": 511.429,
+    "status": "passed",
+    "executionReceiptSha256": "e3e60859ddfa20901e5acf6390e33e0ffcc1862708d85b8f62849ee698e3257b",
+    "summarySha256": "e3ac9af824f2b53ad2b109faaca1e395001968fa17236eca090325375e3a12ab"
+  },
+  "tests": {
+    "collected": 26518,
+    "completed": 26518,
+    "passed": 24575,
+    "skipped": 1943,
+    "failed": 0,
+    "todo": 0,
+    "node": 25453,
+    "dom": 1065,
+    "exactIdentityStatusMultisetMatched": true,
+    "staticSkipModeCollected": 1723,
+    "runModeSkips": 220
+  },
+  "custody": {
+    "pendingObservationsResolvedAbsent": 14,
+    "captureRecords": 24,
+    "captureMeaning": "ESRCH absence observations",
+    "livePendingProcesses": 0,
+    "quarantine": 0,
+    "droppedEvents": 0,
+    "truncation": 0,
+    "terminalSnapshotsComplete": true,
+    "finalAbsenceProven": true,
+    "minimumFreeBytes": 269208088576,
+    "diskFloorBytes": 23622320128,
+    "ownedIgnoredDataCleanup": "completed"
+  },
+  "scope": "full core terminal artifacts only; no native witness, J1/J4, browser, or milestone acceptance claim"
+}

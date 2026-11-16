@@ -10,6 +10,8 @@
  * than changing the meaning of an existing one.
  */
 import { z } from "zod";
+import type { AnyManifest } from "@/lib/resources/manifest-v2";
+export type { AnyManifest } from "@/lib/resources/manifest-v2";
 
 /* --------------------------- ids and fingerprints ------------------------- */
 
@@ -72,8 +74,12 @@ export const ServiceSource = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("git"),
     repo: z.string().min(1),
-    ref: z.string().default("main"),
+    ref: z.string().prefault("main"),
     dockerfile: z.string().optional(),
+    /** build context subdirectory (monorepo root); honored only with the `contextDigest` from source inspection */
+    contextDir: z.string().max(200).optional(),
+    /** digest returned by source inspection for exactly this repo, commit, context and Dockerfile; build admission re-derives it */
+    contextDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   }),
   z.object({ type: z.literal("blueprint"), blueprint: z.string() }),
 ]);
@@ -86,15 +92,15 @@ export const Service = z.object({
     .regex(/^[a-z][a-z0-9-]{1,30}$/, "lowercase letters, digits, dashes"),
   kind: ServiceKind,
   source: ServiceSource,
-  size: ServiceSize.default("small"),
+  size: ServiceSize.prefault("small"),
   /** Explicit, visible default — cost implications are shown before deploy. */
-  replicas: z.number().int().min(0).max(10).default(1),
+  replicas: z.number().int().min(0).max(10).prefault(1),
   port: z.number().int().min(1).max(65535).optional(),
   healthPath: z.string().optional(),
   /** cron services only */
   schedule: z.string().optional(),
-  env: z.array(EnvVar).default([]),
-  ownership: Ownership.default("managed"),
+  env: z.array(EnvVar).max(500).prefault([]),
+  ownership: Ownership.prefault("managed"),
 });
 export type Service = z.infer<typeof Service>;
 
@@ -103,9 +109,9 @@ export const Resource = z.object({
   name: z.string().regex(/^[a-z][a-z0-9-]{1,30}$/),
   kind: ResourceKind,
   /** kind-specific settings, validated by the catalog */
-  config: z.record(z.union([z.string(), z.number(), z.boolean()])).default({}),
-  size: ServiceSize.default("small"),
-  ownership: Ownership.default("managed"),
+  config: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).prefault({}),
+  size: ServiceSize.prefault("small"),
+  ownership: Ownership.prefault("managed"),
   /** for `referenced` resources: the provider-side identifier */
   externalRef: z.string().optional(),
 });
@@ -132,10 +138,10 @@ export const Route = z.object({
   pathPrefix: z
     .string()
     .regex(PATH_PREFIX, "Path prefix must start with / and use letters, digits, - . _ ~ only.")
-    .default("/"),
-  tls: z.boolean().default(true),
+    .prefault("/"),
+  tls: z.boolean().prefault(true),
   /** auto = Zenith-assigned host on the environment's base domain */
-  managedDns: z.boolean().default(true),
+  managedDns: z.boolean().prefault(true),
 });
 export type Route = z.infer<typeof Route>;
 
@@ -156,10 +162,10 @@ export type Binding = z.infer<typeof Binding>;
 
 export const ManifestPolicies = z.object({
   /** deploys to this environment require explicit human approval */
-  approvalRequired: z.boolean().default(false),
+  approvalRequired: z.boolean().prefault(false),
   budgetUsdMonthly: z.number().positive().optional(),
   /** the Navigator may not delete stateful resources, ever, unless true */
-  allowStatefulDeletion: z.boolean().default(false),
+  allowStatefulDeletion: z.boolean().prefault(false),
 });
 export type ManifestPolicies = z.infer<typeof ManifestPolicies>;
 
@@ -167,10 +173,10 @@ export type ManifestPolicies = z.infer<typeof ManifestPolicies>;
 
 export const Manifest = z.object({
   version: z.literal(1),
-  services: z.array(Service).default([]),
-  resources: z.array(Resource).default([]),
-  routes: z.array(Route).default([]),
-  bindings: z.array(Binding).default([]),
+  services: z.array(Service).max(500).prefault([]),
+  resources: z.array(Resource).max(500).prefault([]),
+  routes: z.array(Route).max(500).prefault([]),
+  bindings: z.array(Binding).max(500).prefault([]),
 });
 export type Manifest = z.infer<typeof Manifest>;
 
@@ -194,6 +200,7 @@ export const ProviderId = z.enum([
   "kubernetes",
   "gcp",
   "azure",
+  "zenith",
 ]);
 export type ProviderId = z.infer<typeof ProviderId>;
 
@@ -248,6 +255,17 @@ export interface CloudConnection {
   declaredPermissions?: string[];
   createdAt: string;
   lastCheckedAt?: string;
+  /**
+   * The platform control store's `ProviderConnection` this record extends
+   * (`platform.provider_connections`), when the account is connected keylessly
+   * (ADR-0006). Absent for sandbox/LocalStack and for legacy Preview AWS
+   * connections. The platform record carries the role ARNs and verification
+   * state; this record stays what the product screens render. A pointer only:
+   * never a credential.
+   */
+  platformConnectionId?: string;
+  /** Set when an administrator revoked the platform connection (PROD-LIFE-01). Revocation is terminal. */
+  revokedAt?: string;
 }
 
 export interface Project {
@@ -256,7 +274,7 @@ export interface Project {
   name: string;
   slug: string;
   /** the editable working copy */
-  workingManifest: Manifest;
+  workingManifest: AnyManifest;
   createdAt: string;
   /** how this project came to exist — shown in UI, used by importer */
   origin:
@@ -292,7 +310,7 @@ export interface Revision {
   projectId: string;
   /** monotonically increasing per project */
   number: number;
-  manifest: Manifest;
+  manifest: AnyManifest;
   message: string;
   author: Actor;
   createdAt: string;
@@ -368,6 +386,18 @@ export interface Deployment {
   error?: string;
   /** revision live before this deployment; rollback target */
   previousRevisionId?: string;
+  /**
+   * Who executes this deployment. Absent means `"engine"`: the in-process state
+   * machine (`engine/engine.ts`) that runs sandbox and LocalStack. `"workflow"`
+   * means a Temporal workflow owns it (ADR-0001, ADR-0009): the engine's
+   * ticker, resume pass and lease logic must never touch it; the execution
+   * worker projects step progress onto this record.
+   */
+  executor?: "engine" | "workflow";
+  /** The platform operation (`platform.operations`) this deployment projects; set when `executor` is `"workflow"`. */
+  operationId?: string;
+  /** When the Temporal workflow was started for this deployment (absent while it is still waiting for an approval). */
+  workflowStartedAt?: string;
 }
 
 /* --------------------------------- events --------------------------------- */
@@ -410,8 +440,8 @@ export type ChangeOp = "create" | "update" | "delete";
 
 export interface ChangeItem {
   op: ChangeOp;
-  /** "service" | "resource" | "route" | "binding" */
-  nodeType: "service" | "resource" | "route" | "binding";
+  /** Whole-document V2 settings use "manifest" rather than a fabricated node. */
+  nodeType: "service" | "resource" | "route" | "binding" | "manifest";
   nodeId: string;
   nodeName: string;
   /** field-level detail for updates */

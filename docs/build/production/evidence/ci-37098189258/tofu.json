@@ -1,0 +1,522 @@
+{
+  "schemaVersion": 1,
+  "lane": "tofu",
+  "validatedAt": "2026-10-03T05:00:18.708Z",
+  "verdict": "passed",
+  "provenance": {
+    "commit": "746e4eef8dde0c94cf4850ac0222a20b5b07205c",
+    "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedContentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "worktreeDirty": false,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "511acebec7e472b5aa99eae6368b7182b354cebd70c7733043445f9efe767a25",
+      "inventorySha256": "c894485ee8cfe6cfb614a9c0a73ca615ac1c2adfc8af13ae356e5ba3d48a3822",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "f009e56e975d6ca3f1765d3d628ed2036f4104bd944da22165e5e1c477f836ff",
+  "manifestSha256": "f95b9936104f192d54642e4fff3c10ab2fd66433d0395d1dac76faed20f7852d",
+  "expectedTools": {
+    "node": "22.23.3",
+    "tofu": "1.12.5"
+  },
+  "counts": {
+    "total": 3900,
+    "passed": 3900,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "tofu:tests/tofu/network.test.ts:744a088ae671",
+      "file": "tests/tofu/network.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/tofu/network.test.ts:0f78af001951",
+      "file": "tests/tofu/network.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/tofu/backends.test.ts:0f743fbef9ad",
+      "file": "tests/tofu/backends.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/tofu/destroy-real.test.ts:ceb4c16e2744",
+      "file": "tests/tofu/destroy-real.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/aws/drivers/compute/assemble.test.ts:80c709c27b1b",
+      "file": "tests/providers/aws/drivers/compute/assemble.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/aws/drivers/data/assemble.test.ts:aeb78afc816b",
+      "file": "tests/providers/aws/drivers/data/assemble.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/aws/drivers/messaging/assemble.test.ts:4b4c8fd91ca4",
+      "file": "tests/providers/aws/drivers/messaging/assemble.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/aws/drivers/network/compile-graph.test.ts:e68c9c1b341d",
+      "file": "tests/providers/aws/drivers/network/compile-graph.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/aws/drivers/e2e-compile.test.ts:ffc38cdfe7a6",
+      "file": "tests/providers/aws/drivers/e2e-compile.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/aws/identity/trust.test.ts:73f0f76f8f9b",
+      "file": "tests/providers/aws/identity/trust.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/gcp/tofu-validate.test.ts:cb09ecb33176",
+      "file": "tests/providers/gcp/tofu-validate.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/gcp/bootstrap.test.ts:34b8ce9b36d5",
+      "file": "tests/providers/gcp/bootstrap.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/gcp/identity/trust.test.ts:517e35ec3712",
+      "file": "tests/providers/gcp/identity/trust.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/azure/validate.test.ts:fd17a919fe48",
+      "file": "tests/providers/azure/validate.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/azure/deploy.test.ts:29283123dd58",
+      "file": "tests/providers/azure/deploy.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/azure/identity/trust.test.ts:23bfb0e3d5eb",
+      "file": "tests/providers/azure/identity/trust.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/oci/validate.test.ts:fc9542558d40",
+      "file": "tests/providers/oci/validate.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/oci/validate.test.ts:7d3754548d21",
+      "file": "tests/providers/oci/validate.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/execution/compile-refs-providers.test.ts:4c730c7a915a",
+      "file": "tests/execution/compile-refs-providers.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/security/tofu-secrets.test.ts:90e06e5ae146",
+      "file": "tests/security/tofu-secrets.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/security/tofu-runner-env.test.ts:f625b401642a",
+      "file": "tests/security/tofu-runner-env.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/security/tofu-workspace-injection.test.ts:b211f462ae66",
+      "file": "tests/security/tofu-workspace-injection.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/execution/journey.test.ts:7995f890caa9",
+      "file": "tests/execution/journey.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/tofu/ephemeral-network.test.ts:437ae1ea73bb",
+      "file": "tests/tofu/ephemeral-network.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/azure/mysql.test.ts:41217ec8ff09",
+      "file": "tests/providers/azure/mysql.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/providers/oci/mysql.test.ts:fda1806f81af",
+      "file": "tests/providers/oci/mysql.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "tofu:tests/tofu/runner.test.ts:4ee93ed6c454",
+      "file": "tests/tofu/runner.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 19,
+        "passed": 19,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "validation": {
+    "failureCount": 0,
+    "complete": true,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": 0,
+    "termination": "exit",
+    "signal": null,
+    "observed": true,
+    "binding": "matched",
+    "receiptSha256": "d809ec192d54d18ac1ac96401498de2960e954b0ae1e316e72b23d956f457fd4",
+    "originReceipt": {
+      "schemaVersion": 2,
+      "lane": "tofu",
+      "reportSha256": "f009e56e975d6ca3f1765d3d628ed2036f4104bd944da22165e5e1c477f836ff",
+      "manifestSha256": "f95b9936104f192d54642e4fff3c10ab2fd66433d0395d1dac76faed20f7852d",
+      "sourceSha256": "e456bc1b0f24a1225243bd4923e3e21f6d542ed6ab479edfc63b457728e378ee",
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": "511acebec7e472b5aa99eae6368b7182b354cebd70c7733043445f9efe767a25",
+      "environmentInventorySha256": "c894485ee8cfe6cfb614a9c0a73ca615ac1c2adfc8af13ae356e5ba3d48a3822",
+      "shellContextSha256": "3f6cd0cb09ee8508a4e403933a7efd1c8751ae273998fdd540eecb5f09362954",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "67a38ac5943bf3c4b5c254687ae3bf23bd690b1d72fee866e0f62cd2b2722f3b",
+      "runtimeSha256": "4256bb807777bd14f06dd2c7ffb08a901449b8317eb1db0a3722a63844b63fa8",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null
+    },
+    "checks": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "c894485ee8cfe6cfb614a9c0a73ca615ac1c2adfc8af13ae356e5ba3d48a3822",
+      "counts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    }
+  },
+  "externalAcceptance": []
+}

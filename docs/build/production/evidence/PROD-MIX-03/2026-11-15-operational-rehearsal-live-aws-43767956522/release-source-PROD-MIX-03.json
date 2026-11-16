@@ -1,0 +1,25 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-03"
+  ],
+  "level": "operational_rehearsal",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, operational rehearsal (live) of the operator runbook, scenario mix-rehearsal, run id zlive-202611152212-4a79; plan sha256 af9aa7abcd864d9452f1ea36de1562ceb5fbf98acccf62cc63828abb1c70801a",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 44dc79904ba7d6ae63cda0e8822a79688fdf8370d21490f240a7459ac4bf16cf; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611152212-4a79",
+    "file": "evidence.json",
+    "sha256": "df7957800ce4b69f4ca84645067b52c7ca3b7483a5fe47029b8914c5a2d31470",
+    "packetSha256": "47c7ee9314622ab026a2d27d8bf8da9a100d3283a8b5daa06f694c3e928ac692"
+  },
+  "result": "PROD-MIX-03 operational rehearsal (live AWS sandbox, operator runbook MIXED-PARTITIONS.md and MIXED-RECOVERY.md sections 1 and 4) passed: the producer's newly materialized output changed the consumer's effect, so the consumer waited for a review binding the new parent digest (previous fa4af3df5ac0, required bdcb3ff231ad); after a person approved it the consumer ran with the typed output, and by independent readback its deployed PRODUCER_BUCKET_ARN equals the producer bucket ARN, the only tagged bucket of the parent (provenance). Approvals by an automated test approver through the browser path"
+}

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "testedCommit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+  "sourceFixes": [
+    {
+      "id": "PROD-MACH-03",
+      "commit": "196e6e444458f4911e13cbc5c8f76a10e93e945a",
+      "path": "tests/machines/runbook-routes.test.ts",
+      "sha256": "d7a249370dbf49bdf0e4430c8449f36a3a06877cf6e91150e71af632e421c322",
+      "counts": {
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "PROD-OBS-02",
+      "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+      "path": "tests/observability/local-telemetry-engine.test.ts",
+      "sha256": "bdaf43d9021dcee41f16ec9f0b49dbbe1456b380b414f55caa234459cd5b235c",
+      "counts": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "combinedContractExecution": {
+    "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+    "exitCode": 0,
+    "counts": {
+      "numPassedTests": 48,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 48
+    },
+    "durationSeconds": 3.2520792484283447,
+    "scope": "Exact committed48 contract checks: controlled routeidentity/composition+realTCP protocolfixtures; not defaultAPI/broker/machine/liveprovider acceptance",
+    "ownedTmpResidualNamesBeforeRootCleanup": [
+      "zenith-runbook-routes-CZ7A0L"
+    ],
+    "ownedHandlesAbsent": true,
+    "ownedTmpEmptyAfterCleanup": true,
+    "trackedAndUntrackedTreeClean": true
+  },
+  "privateReceiptSha256": "d08de7b1911e90fb52baa7bbcce688998466ec6aa12d7564b0b13ceb8a761950",
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "platform": "macOS native ARM64",
+    "fixture": "owned TCP endpoints and controlled authentication/composition adapters"
+  },
+  "verification": {
+    "scopedLintExit": 0,
+    "compiler": {
+      "initialHeapMiB": 768,
+      "initialExit": -6,
+      "rootCause": "Node heap exhausted; insufficient root-selected compiler memory cap",
+      "retryHeapMiB": 4096,
+      "retryExit": 0,
+      "scope": "byte-identical reviewed two-file candidate before source commits"
+    },
+    "cleanup": "test-child cleanup left positively owned runbook/cache residuals; root independently checked handles and ownership, removed only owned attempt directories, verified absence"
+  },
+  "limits": [
+    "Contract tests only. No default API startup, registered guest delivery, scoped default broker, live telemetry engines, cloud operations or production approval.",
+    "No overlapping report sums; new48 are included together in exact committed focused invocation, not in historical9e CI.",
+    "Whole successor combined gate and pushed CI are pending."
+  ]
+}

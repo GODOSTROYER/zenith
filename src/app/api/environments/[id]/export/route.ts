@@ -4,6 +4,7 @@
  * (labelled, so the caller never mistakes one for the other).
  */
 import { db, inWorkspace, q } from "@/lib/db/store";
+import { v1View } from "@/lib/resources/upgrade";
 import { getProvider, providerRegistry } from "@/lib/providers/types";
 import { ApiError, notFound, requireWorkspace, route } from "@/lib/server/context";
 
@@ -40,7 +41,7 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
     throw notFound(`Project for environment "${env.name}"`, "Recreate the environment from a project.");
 
   const manifest = deployed?.manifest ?? project!.workingManifest;
-  const bundle = provider.exportBundle(env, manifest);
+  const bundle = provider.exportBundle(env, v1View(manifest));
 
   return {
     ...bundle,

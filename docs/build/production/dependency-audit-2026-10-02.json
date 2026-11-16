@@ -1,0 +1,1301 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-02",
+  "capturedAt": "2026-10-02T01:22:01.384Z",
+  "requirements": [
+    "PROD-CI-06",
+    "PROD-CI-07"
+  ],
+  "baseCommit": "37be734",
+  "clearance": false,
+  "status": "BLOCKED",
+  "runtime": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "platform": "darwin",
+    "arch": "arm64",
+    "supportedRange": ">=22.22.2 <23",
+    "ciPin": "22.23.3"
+  },
+  "snapshot": {
+    "packageLockSha256": "a5dd44c3a195a2e101278cbb780abcf496043a69c2fdd5df3b1b03347d733583",
+    "rawAuditSha256": "ada9affd6082a266a77ca343699931ed83b9e5f682a699e6340a52c78246ccfa",
+    "rawStoredOutsideRepository": true,
+    "auditExitCode": 1,
+    "advisoryFeed": "https://registry.npmjs.org",
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 4,
+        "high": 4,
+        "critical": 0,
+        "total": 8
+      },
+      "dependencies": {
+        "prod": 419,
+        "dev": 431,
+        "optional": 158,
+        "peer": 1,
+        "peerOptional": 0,
+        "total": 935
+      }
+    },
+    "uniqueAdvisoryCount": 24
+  },
+  "historicalComparison": {
+    "macInstall": {
+      "packagesAudited": 792,
+      "vulnerableEntries": 8,
+      "moderate": 4,
+      "high": 4
+    },
+    "linuxInstall": {
+      "packagesAudited": 800,
+      "vulnerableEntries": 7,
+      "moderate": 3,
+      "high": 4
+    },
+    "currentMacLockedAudit": 8,
+    "currentLinuxConfigLockedAudit": 8,
+    "linuxConfigIsActualLinuxExecution": false,
+    "explanation": "The historical logs contain only aggregate install audit counts, not advisory JSON. Installation package counts vary with native optional dependencies. No reported affected node has an OS/CPU constraint, and current same-lock Linux-configuration audit yields the same eight entries. The historical missing moderate entry cannot be identified from retained evidence; advisory feed/cache/install-tree differences remain hypotheses, not a demonstrated platform exemption.",
+    "remainingEvidenceNeeded": "Re-run on an actual clean Linux runner with retained complete audit JSON, npm version, lock hash and include/omit configuration; compare advisory IDs and nodes."
+  },
+  "gate": {
+    "command": "node scripts/ci/security-audit.mjs",
+    "policy": "Every unresolved finding blocks, including dev/build/optional/peer packages and every severity. Registry/spawn/timeout/JSON/schema/count/advisory resolution failures also block.",
+    "exceptions": [],
+    "ciIntegrated": false,
+    "existingInformationalAuditIsClearance": false
+  },
+  "findings": [
+    {
+      "package": "@vitest/mocker",
+      "severity": "moderate",
+      "isDirect": false,
+      "aggregateAffectedRange": "2.1.0 - 4.1.10",
+      "viaPackages": [],
+      "advisoryIds": [
+        "GHSA-82fw-gwwq-j7x9"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/@vitest/mocker",
+          "lockedVersion": "3.2.7",
+          "installedVersion": "3.2.7",
+          "dev": true,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/vitest",
+              "name": "vitest",
+              "version": "3.2.7",
+              "type": "prod",
+              "spec": "3.2.7"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "dev",
+          "test"
+        ],
+        "evidence": [
+          "vitest 3.2.7 dependency"
+        ],
+        "analysis": "Test/browser mocking middleware is the advisory surface. No exposed test server or successful exploit is proven; dev status does not grant clearance."
+      },
+      "npmFixAvailable": {
+        "name": "vitest",
+        "version": "5.0.3",
+        "isSemVerMajor": true
+      },
+      "status": "unresolved",
+      "directAdvisoryIds": [
+        "GHSA-82fw-gwwq-j7x9"
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "isDirect": false,
+      "aggregateAffectedRange": "<=1.1.20 || 4.0.0 - 5.0.11",
+      "viaPackages": [],
+      "advisoryIds": [
+        "GHSA-6j4f-fj2g-mc7p",
+        "GHSA-q2hr-2g5m-vwhr",
+        "GHSA-qhr7-859c-m2p7"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+          "lockedVersion": "5.0.9",
+          "installedVersion": "5.0.9",
+          "dev": true,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch",
+              "name": "minimatch",
+              "version": "10.2.6",
+              "type": "prod",
+              "spec": "^5.0.8"
+            }
+          ]
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "lockedVersion": "1.1.18",
+          "installedVersion": "1.1.18",
+          "dev": true,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/minimatch",
+              "name": "minimatch",
+              "version": "3.1.5",
+              "type": "prod",
+              "spec": "^1.1.7"
+            }
+          ]
+        },
+        {
+          "path": "node_modules/glob/node_modules/brace-expansion",
+          "lockedVersion": "5.0.9",
+          "installedVersion": "5.0.9",
+          "dev": false,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/glob/node_modules/minimatch",
+              "name": "minimatch",
+              "version": "10.2.6",
+              "type": "prod",
+              "spec": "^5.0.8"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "dev",
+          "build",
+          "production-dependency"
+        ],
+        "evidence": [
+          "e2b -> glob -> minimatch -> brace-expansion",
+          "eslint/typescript-estree -> minimatch -> brace-expansion"
+        ],
+        "analysis": "Both production E2B tooling and dev lint chains contain affected expansion parsers. Attacker influence over their glob strings is unproven; all findings remain blockers."
+      },
+      "npmFixAvailable": true,
+      "status": "unresolved",
+      "directAdvisoryIds": [
+        "GHSA-q2hr-2g5m-vwhr",
+        "GHSA-qhr7-859c-m2p7",
+        "GHSA-6j4f-fj2g-mc7p"
+      ]
+    },
+    {
+      "package": "e2b",
+      "severity": "moderate",
+      "isDirect": true,
+      "aggregateAffectedRange": "",
+      "viaPackages": [
+        "undici"
+      ],
+      "advisoryIds": [
+        "GHSA-2gqq-gqf2-x968",
+        "GHSA-2jfj-6hjv-fm6j",
+        "GHSA-3wwx-pv8p-q78v",
+        "GHSA-3xpg-4rpp-hhhm",
+        "GHSA-8436-99hf-9mmv",
+        "GHSA-pmjh-fq2x-6v4x",
+        "GHSA-r53p-7pc4-xj5r",
+        "GHSA-rfgv-xxqx-mfg5",
+        "GHSA-rx4f-c7p8-82vq",
+        "GHSA-vp8m-p9jh-q5pm",
+        "GHSA-w293-vg96-wgc3"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/e2b",
+          "lockedVersion": "2.46.1",
+          "installedVersion": "2.46.1",
+          "dev": false,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "<root>",
+              "name": "zenith",
+              "version": "0.1.0",
+              "type": "prod",
+              "spec": "2.46.1"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "production",
+          "build"
+        ],
+        "evidence": [
+          "src/lib/hosted/build/runner-e2b.ts:143",
+          "e2b/dist/index.js:481"
+        ],
+        "analysis": "Hosted build SDK loads on the E2B runner. Its exact optional undici8 alias is preferred for Node >=22.19.0, including every supported version."
+      },
+      "npmFixAvailable": true,
+      "status": "unresolved",
+      "directAdvisoryIds": []
+    },
+    {
+      "package": "next",
+      "severity": "moderate",
+      "isDirect": true,
+      "aggregateAffectedRange": "9.3.4-canary.0 - 16.3.0-preview.10",
+      "viaPackages": [
+        "postcss"
+      ],
+      "advisoryIds": [
+        "GHSA-6g55-p6wh-862q",
+        "GHSA-fxqj-rqcc-2cmp",
+        "GHSA-qx2v-qp2m-jg93",
+        "GHSA-r28c-9q8g-f849"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/next",
+          "lockedVersion": "15.5.24",
+          "installedVersion": "15.5.24",
+          "dev": false,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "<root>",
+              "name": "zenith",
+              "version": "0.1.0",
+              "type": "prod",
+              "spec": "15.5.24"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "production-dependency",
+          "build"
+        ],
+        "evidence": [
+          "package.json scripts.build",
+          "next -> postcss 8.4.31"
+        ],
+        "analysis": "Meta-vulnerability inherited from Next’s exact PostCSS child. Next’s direct entry is not a separate ninth advisory group."
+      },
+      "npmFixAvailable": {
+        "name": "next",
+        "version": "16.3.8",
+        "isSemVerMajor": true
+      },
+      "status": "unresolved",
+      "directAdvisoryIds": []
+    },
+    {
+      "package": "nodemailer",
+      "severity": "high",
+      "isDirect": true,
+      "aggregateAffectedRange": "<=10.0.8",
+      "viaPackages": [],
+      "advisoryIds": [
+        "GHSA-6vj9-mwq6-2f5v",
+        "GHSA-8vvx-rff5-p5rq",
+        "GHSA-g57g-f23g-4646",
+        "GHSA-prgh-xp8r-p3m5",
+        "GHSA-v53p-9fqp-m79j"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/nodemailer",
+          "lockedVersion": "9.1.1",
+          "installedVersion": "9.1.1",
+          "dev": false,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "<root>",
+              "name": "zenith",
+              "version": "0.1.0",
+              "type": "prod",
+              "spec": "^9.1.1"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "production"
+        ],
+        "evidence": [
+          "src/lib/alerts/deliver.ts:304",
+          "src/lib/hosted/access/mail.ts:114"
+        ],
+        "analysis": "Real alert and hosted-invitation SMTP paths create transports and parse recipient data. DNS-cache, structured-array and address parser exploit preconditions differ; no finding is waived without review."
+      },
+      "npmFixAvailable": {
+        "name": "nodemailer",
+        "version": "10.0.13",
+        "isSemVerMajor": true
+      },
+      "status": "unresolved",
+      "directAdvisoryIds": [
+        "GHSA-6vj9-mwq6-2f5v",
+        "GHSA-8vvx-rff5-p5rq",
+        "GHSA-g57g-f23g-4646",
+        "GHSA-v53p-9fqp-m79j",
+        "GHSA-prgh-xp8r-p3m5"
+      ]
+    },
+    {
+      "package": "postcss",
+      "severity": "high",
+      "isDirect": false,
+      "aggregateAffectedRange": "<=8.5.22",
+      "viaPackages": [],
+      "advisoryIds": [
+        "GHSA-6g55-p6wh-862q",
+        "GHSA-fxqj-rqcc-2cmp",
+        "GHSA-qx2v-qp2m-jg93",
+        "GHSA-r28c-9q8g-f849"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/next/node_modules/postcss",
+          "lockedVersion": "8.4.31",
+          "installedVersion": "8.4.31",
+          "dev": false,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/next",
+              "name": "next",
+              "version": "15.5.24",
+              "type": "prod",
+              "spec": "8.4.31"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "production-dependency",
+          "build"
+        ],
+        "evidence": [
+          "node_modules/next/package.json dependencies.postcss=8.4.31"
+        ],
+        "analysis": "Affected CSS/source-map parser ships in Next’s build chain. Submitted hosted frontends use a separate Vite recipe; do not assume its PostCSS is this nested instance. No input-path exemption is granted."
+      },
+      "npmFixAvailable": {
+        "name": "next",
+        "version": "16.3.8",
+        "isSemVerMajor": true
+      },
+      "status": "unresolved",
+      "directAdvisoryIds": [
+        "GHSA-qx2v-qp2m-jg93",
+        "GHSA-6g55-p6wh-862q",
+        "GHSA-fxqj-rqcc-2cmp",
+        "GHSA-r28c-9q8g-f849"
+      ]
+    },
+    {
+      "package": "undici",
+      "severity": "high",
+      "isDirect": false,
+      "aggregateAffectedRange": "8.0.0 - 8.10.1",
+      "viaPackages": [],
+      "advisoryIds": [
+        "GHSA-2gqq-gqf2-x968",
+        "GHSA-2jfj-6hjv-fm6j",
+        "GHSA-3wwx-pv8p-q78v",
+        "GHSA-3xpg-4rpp-hhhm",
+        "GHSA-8436-99hf-9mmv",
+        "GHSA-pmjh-fq2x-6v4x",
+        "GHSA-r53p-7pc4-xj5r",
+        "GHSA-rfgv-xxqx-mfg5",
+        "GHSA-rx4f-c7p8-82vq",
+        "GHSA-vp8m-p9jh-q5pm",
+        "GHSA-w293-vg96-wgc3"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/undici",
+          "lockedVersion": "8.10.1",
+          "installedVersion": "8.10.1",
+          "dev": false,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/@kubernetes/client-node",
+              "name": "@kubernetes/client-node",
+              "version": "2.0.0",
+              "type": "prod",
+              "spec": "^8.7.0"
+            },
+            {
+              "from": "node_modules/jsdom",
+              "name": "jsdom",
+              "version": "30.0.1",
+              "type": "prod",
+              "spec": "^8.9.0"
+            }
+          ]
+        },
+        {
+          "path": "node_modules/undici8",
+          "lockedVersion": "8.10.0",
+          "installedVersion": "8.10.0",
+          "dev": false,
+          "optional": true,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "node_modules/e2b",
+              "name": "e2b",
+              "version": "2.46.1",
+              "type": "optional",
+              "spec": "npm:undici@8.10.0"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "production",
+          "build",
+          "dev"
+        ],
+        "evidence": [
+          "@kubernetes/client-node -> undici",
+          "jsdom -> undici",
+          "e2b -> undici8"
+        ],
+        "analysis": "HTTP client code is available through Kubernetes, DOM tests and E2B; individual WebSocket/interceptor/Pool exploit preconditions were not experimentally demonstrated."
+      },
+      "npmFixAvailable": true,
+      "status": "unresolved",
+      "directAdvisoryIds": [
+        "GHSA-3wwx-pv8p-q78v",
+        "GHSA-pmjh-fq2x-6v4x",
+        "GHSA-r53p-7pc4-xj5r",
+        "GHSA-rfgv-xxqx-mfg5",
+        "GHSA-3xpg-4rpp-hhhm",
+        "GHSA-2jfj-6hjv-fm6j",
+        "GHSA-2gqq-gqf2-x968",
+        "GHSA-w293-vg96-wgc3",
+        "GHSA-8436-99hf-9mmv",
+        "GHSA-vp8m-p9jh-q5pm",
+        "GHSA-rx4f-c7p8-82vq"
+      ]
+    },
+    {
+      "package": "vitest",
+      "severity": "moderate",
+      "isDirect": true,
+      "aggregateAffectedRange": "2.1.0-beta.1 - 4.1.10",
+      "viaPackages": [
+        "@vitest/mocker"
+      ],
+      "advisoryIds": [
+        "GHSA-82fw-gwwq-j7x9"
+      ],
+      "nodes": [
+        {
+          "path": "node_modules/vitest",
+          "lockedVersion": "3.2.7",
+          "installedVersion": "3.2.7",
+          "dev": true,
+          "optional": false,
+          "os": null,
+          "cpu": null,
+          "incoming": [
+            {
+              "from": "<root>",
+              "name": "zenith",
+              "version": "0.1.0",
+              "type": "dev",
+              "spec": "^3.1.4"
+            }
+          ]
+        }
+      ],
+      "reachability": {
+        "surfaces": [
+          "dev",
+          "test"
+        ],
+        "evidence": [
+          "vitest.config.ts",
+          ".github/workflows/ci.yml"
+        ],
+        "analysis": "Used by the mandatory verification lane; vulnerable mock redirect middleware applies when the relevant server/mocking route is active."
+      },
+      "npmFixAvailable": {
+        "name": "vitest",
+        "version": "5.0.3",
+        "isSemVerMajor": true
+      },
+      "status": "unresolved",
+      "directAdvisoryIds": [
+        "GHSA-82fw-gwwq-j7x9"
+      ]
+    }
+  ],
+  "advisories": [
+    {
+      "id": "GHSA-2gqq-gqf2-x968",
+      "url": "https://github.com/advisories/GHSA-2gqq-gqf2-x968",
+      "severity": "low",
+      "summary": "undici vulnerable to response truncation via oversized chunked responses in the dump interceptor",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.1.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:18:51Z",
+      "upstreamUpdatedAt": "2026-09-29T18:18:52Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-2jfj-6hjv-fm6j",
+      "url": "https://github.com/advisories/GHSA-2jfj-6hjv-fm6j",
+      "severity": "moderate",
+      "summary": "undici vulnerable to cross-user cookie disclosure via Set-Cookie caching in shared caches",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.0.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:19:58Z",
+      "upstreamUpdatedAt": "2026-09-29T18:19:59Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-3wwx-pv8p-q78v",
+      "url": "https://github.com/advisories/GHSA-3wwx-pv8p-q78v",
+      "severity": "moderate",
+      "summary": "undici vulnerable to Denial of Service via unhandled error in WebSocket permessage-deflate decompression",
+      "npmAffectedRanges": [
+        ">=8.1.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 6.25.0, < 6.28.1",
+          "firstPatched": "6.28.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 7.28.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.1.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-28T21:42:37Z",
+      "upstreamUpdatedAt": "2026-09-28T21:42:38Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-3xpg-4rpp-hhhm",
+      "url": "https://github.com/advisories/GHSA-3xpg-4rpp-hhhm",
+      "severity": "moderate",
+      "summary": "undici vulnerable to Denial of Service via unbounded decompression of compressed responses",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.15.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:20:37Z",
+      "upstreamUpdatedAt": "2026-09-29T18:20:38Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-6g55-p6wh-862q",
+      "url": "https://github.com/advisories/GHSA-6g55-p6wh-862q",
+      "severity": "high",
+      "summary": "PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMappingURL in CSS comments",
+      "npmAffectedRanges": [
+        "<=8.5.11"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "postcss",
+          "range": "<= 8.5.11",
+          "firstPatched": "8.5.12"
+        }
+      ],
+      "upstreamPublishedAt": "2026-07-23T15:06:16Z",
+      "upstreamUpdatedAt": "2026-07-23T15:06:17Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+      "severity": "high",
+      "summary": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "npmAffectedRanges": [
+        "<1.1.19",
+        ">=4.0.0 <5.0.10"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "brace-expansion",
+          "range": ">= 4.0.0, < 5.0.10",
+          "firstPatched": "5.0.10"
+        },
+        {
+          "package": "brace-expansion",
+          "range": ">= 3.0.0, < 3.0.7",
+          "firstPatched": "3.0.7"
+        },
+        {
+          "package": "brace-expansion",
+          "range": ">= 2.0.0, < 2.1.5",
+          "firstPatched": "2.1.5"
+        },
+        {
+          "package": "brace-expansion",
+          "range": "< 1.1.19",
+          "firstPatched": "1.1.19"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T23:44:58Z",
+      "upstreamUpdatedAt": "2026-09-29T23:44:59Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-6vj9-mwq6-2f5v",
+      "url": "https://github.com/advisories/GHSA-6vj9-mwq6-2f5v",
+      "severity": "moderate",
+      "summary": "Nodemailer: Process-global DNS cache reuses TLS `servername` across transports, enabling cross-tenant SMTP credential disclosure",
+      "npmAffectedRanges": [
+        ">=5.0.0 <10.0.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "nodemailer",
+          "range": ">= 5.0.0, < 10.0.2",
+          "firstPatched": "10.0.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-28T21:56:05Z",
+      "upstreamUpdatedAt": "2026-09-28T21:57:00Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-82fw-gwwq-j7x9",
+      "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+      "severity": "moderate",
+      "summary": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+      "npmAffectedRanges": [
+        ">=2.1.0 <4.1.11"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "@vitest/mocker",
+          "range": ">= 2.1.0, < 4.1.11",
+          "firstPatched": "4.1.11"
+        },
+        {
+          "package": "vitest",
+          "range": ">= 2.1.0, < 4.1.11",
+          "firstPatched": "4.1.11"
+        },
+        {
+          "package": "vitest",
+          "range": ">= 5.0.0-beta.1, < 5.0.0-rc.2",
+          "firstPatched": "5.0.0-rc.2"
+        },
+        {
+          "package": "@vitest/mocker",
+          "range": ">= 5.0.0-beta.1, < 5.0.0-rc.2",
+          "firstPatched": "5.0.0-rc.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-08T20:46:45Z",
+      "upstreamUpdatedAt": "2026-09-08T20:46:47Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-8436-99hf-9mmv",
+      "url": "https://github.com/advisories/GHSA-8436-99hf-9mmv",
+      "severity": "low",
+      "summary": "undici vulnerable to caching and replay of unsafe HTTP method responses",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.0.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:16:28Z",
+      "upstreamUpdatedAt": "2026-09-29T18:16:29Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-8vvx-rff5-p5rq",
+      "url": "https://github.com/advisories/GHSA-8vvx-rff5-p5rq",
+      "severity": "moderate",
+      "summary": "Nodemailer: Nested structured recipient arrays bypass the parser depth limit and cause stack exhaustion DoS",
+      "npmAffectedRanges": [
+        "<10.0.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "nodemailer",
+          "range": "< 10.0.2",
+          "firstPatched": "10.0.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:23:50Z",
+      "upstreamUpdatedAt": "2026-09-29T18:25:05Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-fxqj-rqcc-2cmp",
+      "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+      "severity": "moderate",
+      "summary": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+      "npmAffectedRanges": [
+        "<=8.5.22"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "postcss",
+          "range": "<= 8.5.22",
+          "firstPatched": "8.5.23"
+        }
+      ],
+      "upstreamPublishedAt": "2026-08-03T17:11:39Z",
+      "upstreamUpdatedAt": "2026-08-03T17:11:40Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-g57g-f23g-4646",
+      "url": "https://github.com/advisories/GHSA-g57g-f23g-4646",
+      "severity": "moderate",
+      "summary": "Nodemailer: Quoted local-part can produce malformed envelope recipient through RFC 5322 comment parsing",
+      "npmAffectedRanges": [
+        ">=9.1.0 <10.0.9"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "nodemailer",
+          "range": ">= 9.1.0, < 10.0.9",
+          "firstPatched": "10.0.9"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T23:44:04Z",
+      "upstreamUpdatedAt": "2026-09-29T23:44:05Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-pmjh-fq2x-6v4x",
+      "url": "https://github.com/advisories/GHSA-pmjh-fq2x-6v4x",
+      "severity": "moderate",
+      "summary": "undici vulnerable to Denial of Service via orphaned RetryHandler response body",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.11.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:22:34Z",
+      "upstreamUpdatedAt": "2026-09-29T18:22:35Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-prgh-xp8r-p3m5",
+      "url": "https://github.com/advisories/GHSA-prgh-xp8r-p3m5",
+      "severity": "high",
+      "summary": "Nodemailer addressparser: O(n^2) on comment-joined addresses enables a remote DoS (reachable via mailparser)",
+      "npmAffectedRanges": [
+        ">=9.1.0 <=10.0.4"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "nodemailer",
+          "range": ">= 9.1.0, <= 10.0.4",
+          "firstPatched": "10.0.5"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-30T14:41:01Z",
+      "upstreamUpdatedAt": "2026-09-30T14:41:04Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+      "severity": "moderate",
+      "summary": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "npmAffectedRanges": [
+        "<1.1.21",
+        ">=4.0.0 <5.0.12"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "brace-expansion",
+          "range": ">= 4.0.0, < 5.0.12",
+          "firstPatched": "5.0.12"
+        },
+        {
+          "package": "brace-expansion",
+          "range": ">= 3.0.0, < 3.0.9",
+          "firstPatched": "3.0.9"
+        },
+        {
+          "package": "brace-expansion",
+          "range": ">= 2.0.0, < 2.1.7",
+          "firstPatched": "2.1.7"
+        },
+        {
+          "package": "brace-expansion",
+          "range": "< 1.1.21",
+          "firstPatched": "1.1.21"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T23:45:39Z",
+      "upstreamUpdatedAt": "2026-09-29T23:45:39Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+      "severity": "high",
+      "summary": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "npmAffectedRanges": [
+        "<1.1.20",
+        ">=4.0.0 <5.0.11"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "brace-expansion",
+          "range": ">= 4.0.0, < 5.0.11",
+          "firstPatched": "5.0.11"
+        },
+        {
+          "package": "brace-expansion",
+          "range": ">= 3.0.0, < 3.0.8",
+          "firstPatched": "3.0.8"
+        },
+        {
+          "package": "brace-expansion",
+          "range": ">= 2.0.0, < 2.1.6",
+          "firstPatched": "2.1.6"
+        },
+        {
+          "package": "brace-expansion",
+          "range": "< 1.1.20",
+          "firstPatched": "1.1.20"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T23:45:17Z",
+      "upstreamUpdatedAt": "2026-09-29T23:45:19Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-qx2v-qp2m-jg93",
+      "url": "https://github.com/advisories/GHSA-qx2v-qp2m-jg93",
+      "severity": "moderate",
+      "summary": "PostCSS has XSS via Unescaped </style> in its CSS Stringify Output",
+      "npmAffectedRanges": [
+        "<8.5.10"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "postcss",
+          "range": "< 8.5.10",
+          "firstPatched": "8.5.10"
+        }
+      ],
+      "upstreamPublishedAt": "2026-04-24T15:31:42Z",
+      "upstreamUpdatedAt": "2026-04-24T15:31:44Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-r28c-9q8g-f849",
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+      "severity": "high",
+      "summary": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+      "npmAffectedRanges": [
+        "<=8.5.17"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "postcss",
+          "range": "<= 8.5.17",
+          "firstPatched": "8.5.18"
+        }
+      ],
+      "upstreamPublishedAt": "2026-07-24T16:24:55Z",
+      "upstreamUpdatedAt": "2026-08-13T17:55:56Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-r53p-7pc4-xj5r",
+      "url": "https://github.com/advisories/GHSA-r53p-7pc4-xj5r",
+      "severity": "low",
+      "summary": "undici vulnerable to downstream response splitting via retry interceptor",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": "< 6.28.1",
+          "firstPatched": "6.28.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 7.0.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:22:07Z",
+      "upstreamUpdatedAt": "2026-09-29T18:22:08Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-rfgv-xxqx-mfg5",
+      "url": "https://github.com/advisories/GHSA-rfgv-xxqx-mfg5",
+      "severity": "high",
+      "summary": "undici vulnerable to Denial of Service via unrequested WebSocket subprotocol",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 6.7.0, < 6.28.1",
+          "firstPatched": "6.28.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 7.0.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:21:33Z",
+      "upstreamUpdatedAt": "2026-09-29T18:21:41Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-rx4f-c7p8-82vq",
+      "url": "https://github.com/advisories/GHSA-rx4f-c7p8-82vq",
+      "severity": "moderate",
+      "summary": "undici vulnerable to Denial of Service via WebSocketStream unclean close",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.0.0, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:10:32Z",
+      "upstreamUpdatedAt": "2026-09-29T18:10:33Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-v53p-9fqp-m79j",
+      "url": "https://github.com/advisories/GHSA-v53p-9fqp-m79j",
+      "severity": "high",
+      "summary": "Nodemailer: Quadratic backtracking in the addressparser free-text fallback allows remote denial of service",
+      "npmAffectedRanges": [
+        "<=10.0.5"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "nodemailer",
+          "range": "<= 10.0.5",
+          "firstPatched": "10.0.6"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T23:43:36Z",
+      "upstreamUpdatedAt": "2026-09-29T23:43:38Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-vp8m-p9jh-q5pm",
+      "url": "https://github.com/advisories/GHSA-vp8m-p9jh-q5pm",
+      "severity": "high",
+      "summary": "undici vulnerable to cross-origin cache poisoning via missing origin isolation in interceptors",
+      "npmAffectedRanges": [
+        ">=8.10.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 8.10.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:15:13Z",
+      "upstreamUpdatedAt": "2026-09-29T18:15:14Z",
+      "status": "unresolved"
+    },
+    {
+      "id": "GHSA-w293-vg96-wgc3",
+      "url": "https://github.com/advisories/GHSA-w293-vg96-wgc3",
+      "severity": "high",
+      "summary": "undici vulnerable to TLS certificate validation bypass via dropped connect options in BalancedPool",
+      "npmAffectedRanges": [
+        ">=8.0.0 <8.10.2"
+      ],
+      "upstreamAffectedRanges": [
+        {
+          "package": "undici",
+          "range": ">= 7.24.1, < 7.29.1",
+          "firstPatched": "7.29.1"
+        },
+        {
+          "package": "undici",
+          "range": ">= 8.0.0, < 8.10.2",
+          "firstPatched": "8.10.2"
+        }
+      ],
+      "upstreamPublishedAt": "2026-09-29T18:17:15Z",
+      "upstreamUpdatedAt": "2026-09-29T18:17:16Z",
+      "status": "unresolved"
+    }
+  ],
+  "proposedRemediations": [
+    {
+      "packages": [
+        "brace-expansion"
+      ],
+      "candidates": [
+        "1.1.21",
+        "5.0.12"
+      ],
+      "advisoryIds": [
+        "GHSA-q2hr-2g5m-vwhr",
+        "GHSA-qhr7-859c-m2p7",
+        "GHSA-6j4f-fj2g-mc7p"
+      ],
+      "compatibility": "Same-major versions satisfy existing ^1.1.7 and ^5.0.8 parent ranges. Refresh only these lock resolutions; verify parser/lint/build behavior.",
+      "status": "proposed-not-applied",
+      "approval": "none",
+      "exceptions": []
+    },
+    {
+      "packages": [
+        "undici",
+        "undici8"
+      ],
+      "candidates": [
+        "8.10.2",
+        "npm:undici@8.10.2"
+      ],
+      "advisoryIds": [
+        "GHSA-3wwx-pv8p-q78v",
+        "GHSA-pmjh-fq2x-6v4x",
+        "GHSA-r53p-7pc4-xj5r",
+        "GHSA-rfgv-xxqx-mfg5",
+        "GHSA-3xpg-4rpp-hhhm",
+        "GHSA-2jfj-6hjv-fm6j",
+        "GHSA-2gqq-gqf2-x968",
+        "GHSA-w293-vg96-wgc3",
+        "GHSA-8436-99hf-9mmv",
+        "GHSA-vp8m-p9jh-q5pm",
+        "GHSA-rx4f-c7p8-82vq"
+      ],
+      "compatibility": "Root undici can move within current ^8.7.0/^8.9.0 ranges. E2B pins undici8 exactly, requiring a reviewed scoped alias override or a vetted SDK upgrade. E2B 2.52.0 ships the fixed alias but changes other dependencies; do not broaden automatically.",
+      "status": "proposed-not-applied",
+      "approval": "none",
+      "exceptions": []
+    },
+    {
+      "packages": [
+        "postcss",
+        "next"
+      ],
+      "candidates": [
+        "postcss 8.5.23 under next 15.5.24"
+      ],
+      "advisoryIds": [
+        "GHSA-qx2v-qp2m-jg93",
+        "GHSA-6g55-p6wh-862q",
+        "GHSA-fxqj-rqcc-2cmp",
+        "GHSA-r28c-9q8g-f849"
+      ],
+      "compatibility": "Scoped override candidate changes an upstream exact pin despite same PostCSS major. Requires Next production build/CSS/source-map compatibility checks. Audit’s Next 16.3.8 major recommendation is not an automatic safe upgrade.",
+      "status": "proposed-not-applied",
+      "approval": "none",
+      "exceptions": []
+    },
+    {
+      "packages": [
+        "nodemailer"
+      ],
+      "candidates": [
+        "10.0.9"
+      ],
+      "advisoryIds": [
+        "GHSA-6vj9-mwq6-2f5v",
+        "GHSA-8vvx-rff5-p5rq",
+        "GHSA-g57g-f23g-4646",
+        "GHSA-v53p-9fqp-m79j",
+        "GHSA-prgh-xp8r-p3m5"
+      ],
+      "compatibility": "Major upgrade from 9.1.1; minimum patched release for all five current findings. Review SMTP recipient/transport behavior and types; test alert and hosted mail seams before adoption.",
+      "status": "proposed-not-applied",
+      "approval": "none",
+      "exceptions": []
+    },
+    {
+      "packages": [
+        "vitest",
+        "@vitest/mocker"
+      ],
+      "candidates": [
+        "4.1.11"
+      ],
+      "advisoryIds": [
+        "GHSA-82fw-gwwq-j7x9"
+      ],
+      "compatibility": "Major upgrade from 3.2.7. No patched 3.x is listed by upstream. Review project config, mocking APIs and reporter output, then run Node/DOM/replay/report gates. Do not independently override mocker across a mismatched Vitest major.",
+      "status": "proposed-not-applied",
+      "approval": "none",
+      "exceptions": []
+    }
+  ],
+  "verification": {
+    "ownedVitest": {
+      "files": 4,
+      "passed": 120,
+      "failed": 0,
+      "skipped": 0,
+      "filesAndCounts": [
+        {
+          "file": "ci/security-audit.test.ts",
+          "tests": 25
+        },
+        {
+          "file": "hosted/config.test.ts",
+          "tests": 17
+        },
+        {
+          "file": "scripts/runtime-admission.test.ts",
+          "tests": 26
+        },
+        {
+          "file": "hosted/source/validate.test.ts",
+          "tests": 52
+        }
+      ],
+      "description": "Frozen final owned-suite run on Node 22.23.3, Vitest 3.2.7, one worker; no services. Runtime mismatch cases simulate version strings; they do not execute unsupported Node binaries."
+    },
+    "lint": "passed on all ten owned code/test files",
+    "fullTypecheck": false,
+    "servicesStarted": false,
+    "dependencyEdits": false,
+    "diffCheck": "passed"
+  },
+  "outsideOwnedFollowups": [
+    "Root: independent security review and repeat targeted tests.",
+    "Root: review/authorize dependency candidates, regenerate exact lock and validate compatibility.",
+    "Root: integrate mandatory CI audit gate; current checked-out CI audit remains informational.",
+    "Root: verify recipe/container Node actual versions against policy and retain actual clean Linux audit."
+  ]
+}

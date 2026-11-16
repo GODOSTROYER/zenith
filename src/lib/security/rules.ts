@@ -8,10 +8,11 @@
  */
 import { db, q, save } from "@/lib/db/store";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
+import { v1View } from "@/lib/resources/upgrade";
 import {
   hash32,
   type Environment,
-  type Manifest,
+  type AnyManifest,
   type Project,
   type SecurityFinding,
 } from "@/lib/domain/types";
@@ -32,9 +33,9 @@ const stableId = (rule: string, target: string) => `sf_${rule}_${hash32(`${rule}
 export function analyze(
   project: Project,
   environments: Environment[],
-  manifest?: Manifest
+  manifest?: AnyManifest
 ): SecurityFinding[] {
-  const m = manifest ?? project.workingManifest;
+  const m = v1View(manifest ?? project.workingManifest);
   const createdAt = new Date().toISOString();
   const out: SecurityFinding[] = [];
   const prod = environments.filter((e) => e.class === "production");

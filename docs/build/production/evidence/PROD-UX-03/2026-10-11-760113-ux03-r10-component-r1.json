@@ -1,0 +1,50 @@
+{
+  "schema": "zenith.ux03-component-run.v1",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "source_freeze_sha256": "f6a65a481df07826f409970a41f79aee9e04d95538b7e7769fb04256a0032650",
+  "kind": "PROD-UX-03 Docker-local gated component proof",
+  "status": "prepared-run-passed",
+  "accepted_run_receipt": false,
+  "cases": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "case_ids": [
+      "wave6-804f49145d9c6b23",
+      "wave6-4de28b8c5378d1de",
+      "wave6-a5f94528790619de"
+    ],
+    "scope": [
+      "revoke",
+      "outage",
+      "cancel"
+    ]
+  },
+  "runner_sha256": "e58fe93de48489157f1af0efd9e23b949f0829f5d54941b8307f1eddb8853332",
+  "manifest_sha256": "52fa3434015cb43bf079aacbe7a94168a12e7f76d2c1eb0a600ec67966bd1039",
+  "execution_report_sha256": "58b3fdb52cc9953c43dbe9ea9c6a292f200a09892839f3842e539a201f37e35a",
+  "vitest_report_sha256": "de06e7f685d6566694b5dfb22d35fa86b3aee0906f05f4ecdec986e14d04a0d1",
+  "strict_held_commands": {
+    "count": 51,
+    "all_custody_and_closeouts_passed": true
+  },
+  "cleanup": {
+    "full_image_reference_baseline_restored": true,
+    "plugin_container_and_volume_baseline_restored": true,
+    "newly_acquired_image_removed_without_force_or_prune": true,
+    "complete": true
+  },
+  "floors": {
+    "host_passed": true,
+    "docker_vm_passed": true,
+    "docker_vm_minimum_free_bytes": 424277221376,
+    "docker_vm_samples": 6,
+    "host_floor_watcher_joined": true
+  },
+  "scope_limits": [
+    "not milestone acceptance",
+    "no MinIO claim",
+    "no cloud claim",
+    "no browser claim"
+  ]
+}

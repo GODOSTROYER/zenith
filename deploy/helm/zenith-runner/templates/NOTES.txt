@@ -1,0 +1,25 @@
+zenith-runner {{ .Chart.AppVersion }} installed as "{{ include "zenith-runner.fullname" . }}".
+
+Control plane : {{ .Values.controlPlane.url }}
+{{- if .Values.registration.existingSecret }}
+Registration  : token read from Secret "{{ .Values.registration.existingSecret }}" (key "{{ .Values.registration.secretKey }}") on first start.
+{{- else }}
+Registration  : NO token configured. Create a registration token in Zenith, store it in a
+                Secret and set registration.existingSecret, or register by hand with
+                "zenith-runner register --token-file ..." inside the pod.
+{{- end }}
+{{- if not .Values.persistence.enabled }}
+
+WARNING: persistence is disabled. The runner's identity lives in an emptyDir and is lost on
+every pod restart; the single-use registration token cannot be reused, so the runner will
+stop working after a restart until it is registered again.
+{{- end }}
+
+Check that it registered and is polling:
+  kubectl logs deploy/{{ include "zenith-runner.fullname" . }}
+
+Exit code 3 in the pod status means the control plane REVOKED this runner; it will not recover
+on its own. Delete the release (and its state volume) or register a new runner.
+
+Cloud identity: annotate the ServiceAccount (serviceAccount.annotations) for IRSA, GKE Workload
+Identity or Azure Workload Identity. See the comments in values.yaml.

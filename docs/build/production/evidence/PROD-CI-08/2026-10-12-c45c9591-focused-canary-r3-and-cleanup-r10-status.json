@@ -1,0 +1,169 @@
+{
+  "carrierCI": {
+    "cause": "raw za_ canary matched a generated base-36 fixture ID",
+    "commit": "1e3c4515f5f6db9ff0aa75e857c27ca608796699",
+    "failed": 1,
+    "failedJob": "platform-postgres",
+    "inventorySha256": "4da6ade9f7791e1bd6b4989e4d9316f76ff5132ec601424a34cc54b290210224",
+    "jobs": 32,
+    "mainFailed": 1,
+    "mainJobs": 28,
+    "mainSkipped": 8,
+    "mainSuccess": 19,
+    "reportSha256": "cda434c3047fd0337d73866efd2a0d0e2f8e12313245d636afdc9e18f5a1bbf1",
+    "skipped": 8,
+    "success": 23,
+    "terminal": true,
+    "verify": "passed in 28m49s",
+    "workflows": 3
+  },
+  "cleanupAdapterR4": {
+    "acceptance": false,
+    "diffSha256": "4426c082fb0bf1570024be04f2b339a756b7c4b38784db421cd224b51bcdf0fb",
+    "entrySha256": "3f8e7f7adba2a8f2845157618267edbdee39951010b477ee5474a101f4df9552",
+    "imageReferenceVectorProof": "24-vector proof pending",
+    "resumeCensusAndContext": "read-only R12 census/context proof pending",
+    "runtimeAdapterSha256": "702a6a1e99258c0d261c423a29f704666696063b53b90eb75be3a658906ead9a",
+    "status": "source-reviewed candidate; not integrated or executed"
+  },
+  "cleanupR10": {
+    "adapterSourceSha256": "be650e13d9118efc8381d937cca2e2be9ecb179ae8e303e733aa429d0663a811",
+    "custody": {
+      "absenceRecords": 107,
+      "complete": true,
+      "dropped": 0,
+      "events": 329,
+      "offRoot": 0,
+      "pendingLive": 0,
+      "quarantine": 0,
+      "rootAdmissionsReconstructed": false,
+      "telemetryErrors": 0,
+      "unreconstructedAdmissions": 150
+    },
+    "diagnosisSha256": "e33ba8e39b210da6789543be8d4262cfe5f96bc1058714804a407c926a2e7f3c",
+    "executedAgainstPrimary": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "failure": {
+      "adapter": "R3 line 265",
+      "childExitCode": 1,
+      "command": "004-canonicalOwnedStackDown",
+      "reason": "cleanup-image-disappeared-with-refs"
+    },
+    "imageTransitionDiagnosisSha256": "1c8650b3661753713c2f498dd176cd21bfbdfd2eb6bfc7b619cb0a6d2a7f7bfc",
+    "observerCloseoutSha256": "551b10ef191e25bc8ec251ab57a1877a7337912a0513587e71ac953c06f46d26",
+    "result": "failed partial cleanup; unaccepted",
+    "rootSession": {
+      "closed": true,
+      "exitCode": 1,
+      "id": 36511
+    },
+    "runtimeEvidenceHashes": {
+      "command004Custody": "ac6586c4bd38f2f497a936eaa99b072c65746d22f7b7eda04cd0d80d639929be",
+      "command004Stderr": "1e5f1d0736abe244088fcdba3e8f11fac93a635b445ed5e124fbc239cf1492aa",
+      "expectedManifest": "3fbbefb8989e29ed3e2ea4ee439d299231b62571dab8f9e7ddaac2d0444f9b6f",
+      "intent": "e406432d2a42a59957b0a2282fdfc88ba0d234e18f29568314117e455844172d",
+      "preInventory": "f100dd041b502f2e740b456bbc6531d5f201e743cfb57b7e8fba91f98bc28ea1",
+      "predeleteInventory": "4e559062d4ef7afc32933a03d7ee097cdb02f91869e570746fec960e9a97af12"
+    },
+    "state": {
+      "checkpointPresent": false,
+      "cleanupReceiptPresent": false,
+      "doNotReplayFailedDownStage": true,
+      "lockClearancePresent": false,
+      "lockRetained": true,
+      "partialDeletionOccurred": true,
+      "postinventoryPresent": false,
+      "protectedImageAfter": "unproven",
+      "protectedImageBefore": "passed",
+      "protectedImagePredelete": "passed"
+    }
+  },
+  "focusedCanaryR3": {
+    "assertions": {
+      "failed": 0,
+      "passed": 124,
+      "pending": 0,
+      "skipped": 0,
+      "todo": 0,
+      "uniqueIdentities": 124
+    },
+    "derivedSuitesPassed": 36,
+    "describeSuitesPassed": 34,
+    "fileSuitesPassed": 2,
+    "files": [
+      "tests/capabilities/broker.test.ts",
+      "tests/capabilities/store-contract.test.ts"
+    ],
+    "floorBytes": 12000000000,
+    "fullPostgresCI": false,
+    "heldCommands": {
+      "allCompleteReturnZeroCustodyClosed": true,
+      "total": 19
+    },
+    "identityContracts": {
+      "fixtureRegressionExactlyOnce": true,
+      "noPostgresLane": true,
+      "responseCanaryOncePerMemoryAndPGlite": true,
+      "sameChildSeed": "wggza",
+      "storeContractCasesPerLane": 28
+    },
+    "minimumFreeBytes": 267751731200,
+    "originalWrapperFailurePreserved": true,
+    "originalWrapperOutcome": "retained-focused-test-failure",
+    "producerReviewSha256": "2e23f2ae12a132aa4623fc0d574ad5dcc45abb1398051bc8408f66f9b3f0b023",
+    "producerReviewVerdict": "PASS_SOURCE_ONLY",
+    "productionAcceptance": false,
+    "rawTestReportSha256": "2f4fccc23ce70419dc4ed3351f1c5aefca810fa25602c43669e70f3f6d85646b",
+    "scope": "two-file memory/PGlite proof only",
+    "sourceProducerSha256": "968e986c90a1af2f405112ec544306e9282c128e6bae8b2c1f9fe100fc647631",
+    "sourceSnapshots": {
+      "beforeAfterEqual": true,
+      "candidateCommit": "1e3c4515f5f6db9ff0aa75e857c27ca608796699",
+      "candidateFreeze": "06ed6eaa1362f2dd7fd88f77ec1ee5fa9e42eee087f85fcd57ca3e249c6baa66",
+      "candidateTrackedCount": 5975,
+      "changedFiles": [
+        "tests/capabilities/broker.test.ts",
+        "tests/capabilities/support.ts"
+      ],
+      "primaryCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+      "primaryCount": 5960,
+      "primaryFreeze": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7"
+    },
+    "supplementChangesOriginalReceipt": false,
+    "supplementSha256": "a7d53330d602968d54dd900591a67d6471c6fe1aa07d656b8c0f431a009575a5",
+    "terminalSupplement": "PASS_FOCUSED_CANDIDATE_PROOF_SUPPLEMENT"
+  },
+  "frozenPrimary": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "files": 5960,
+    "freezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "fullCore": {
+      "failed": 0,
+      "identities": 26518,
+      "passed": 24575,
+      "skipped": 1943
+    },
+    "witnessAcceptanceInvocation": "pending",
+    "witnessImageBuild": "passed"
+  },
+  "kind": "cumulative-focused-canary-proof-and-cleanup-recovery-status",
+  "ledger": {
+    "inProgress": 66,
+    "planned": 2,
+    "releaseFlagsChanged": false,
+    "verified": 10
+  },
+  "observedDate": "2026-10-12",
+  "publishedDocsBase": {
+    "baseDocs": "published R13 postimages",
+    "carrierCommit": "1e3c4515f5f6db9ff0aa75e857c27ca608796699"
+  },
+  "sanitization": "Private runtime paths, user paths, raw outputs, and process IDs omitted; root session ID retained only as a session label.",
+  "schemaVersion": 1,
+  "successorBinding": {
+    "R15AndDirectConsumerRebindingRequired": true,
+    "freshR16R13Required": true,
+    "newSourceFreezeRequired": true,
+    "oldC45R16R13CertifiesChangedCandidate": false,
+    "sourceImpactReviewSha256": "84ebbe0c1df5d3967a8adbc7fea920e6e4503663766fd829484569fdef06b630"
+  }
+}

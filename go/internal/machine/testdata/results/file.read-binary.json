@@ -1,0 +1,21 @@
+{
+  "args": {
+    "maxBytes": 65536,
+    "path": "/srv/fixture.bin"
+  },
+  "operation": "file.read",
+  "result": {
+    "ok": true,
+    "data": {
+      "binary": true,
+      "bytesRead": 3,
+      "content": "",
+      "encoding": "utf8",
+      "path": "/srv/fixture.bin",
+      "redacted": false,
+      "sha256": "47ffa3ea45a70b8a41c2c0825df323c00a8b7a01c1ea06083cc41dddcc001123",
+      "sizeBytes": 3,
+      "truncated": false
+    }
+  }
+}

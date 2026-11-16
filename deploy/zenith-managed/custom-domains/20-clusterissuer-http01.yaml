@@ -1,0 +1,31 @@
+# ClusterIssuer for verified custom domains (HTTP-01): PLACEHOLDER (PROD-MAN-03).
+#
+# The name must equal ZENITH_MANAGED_HTTP_CLUSTER_ISSUER. Without that variable custom
+# domains are refused at render time, never half-served. HTTP-01 cannot issue wildcards;
+# each verified hostname gets its own Certificate. Use the ACME staging server until the
+# flow works end to end. The account key Secret is created by cert-manager; no credential
+# belongs in this file.
+#
+# The solver attaches cert-manager's temporary HTTPRoute to the platform ACME Gateway
+# (10-gateway-acme-http01.yaml), whose HTTP listener accepts routes from zenith-gateway only.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: zenith-letsencrypt-http01
+  annotations:
+    zenith.dev/placeholder: "true"
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: REPLACE-operator@example.com
+    privateKeySecretRef:
+      name: zenith-letsencrypt-http01-account-key
+    solvers:
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: zenith-acme-http01
+                namespace: zenith-gateway
+                sectionName: http

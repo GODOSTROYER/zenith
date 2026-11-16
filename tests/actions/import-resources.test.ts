@@ -12,7 +12,7 @@
  */
 import { describe, expect, it, beforeAll } from "vitest";
 import type { ActionContext } from "@/lib/actions/core";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-import-res-", { fast: true });
@@ -36,7 +36,7 @@ const exec = async (actionId: string, input: unknown, scope: Partial<ActionConte
 const plan = async (actionId: string, input: unknown, scope: Partial<ActionContext> = {}) =>
   (await runAction(actionId, { ...ctx, ...scope }, input, { mode: "plan" })).plan!;
 
-const working = (): Manifest => q.project(projectId)!.workingManifest;
+const working = (): AnyManifest => q.project(projectId)!.workingManifest;
 const referenced = () => working().resources.filter((r) => r.ownership === "referenced");
 
 beforeAll(async () => {

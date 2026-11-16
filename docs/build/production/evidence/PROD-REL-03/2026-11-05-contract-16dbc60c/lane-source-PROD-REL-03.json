@@ -1,0 +1,27 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-REL-03"
+  ],
+  "mode": "contract",
+  "commit": "16dbc60cff79c136c8be17c166e0b3ec4bd13ef8",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/release/dossier.test.ts tests/release/status.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/release/dossier.test.ts",
+      "sha256": "0f1ed03d57dc3ef506b893e8a864a86091e6d82878c647b89def7354222d42c3"
+    },
+    {
+      "path": "tests/release/status.test.ts",
+      "sha256": "94b411e6198b64b003124936738fd6bd71ba5dbb2f8f230184fc636b796d3579"
+    }
+  ]
+}

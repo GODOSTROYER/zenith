@@ -1,0 +1,134 @@
+{
+  "sourceCommit": "6bdf5adf1acd678e3df986fffbb210874c280839",
+  "status": "failed_combined_gate",
+  "receiptSha256": "e585ac4fc7fe4c39aef3d36f09b92f9c2254491cea8fe8319b92be3037c1da9c",
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "postgres": "16.15 native Linux ARM64 disposable Docker",
+    "temporalCli": "1.9.1",
+    "tofu": "1.12.5",
+    "host": "Darwin ARM64"
+  },
+  "native100": {
+    "passed": 99,
+    "failed": 1,
+    "skipped": 0,
+    "required": 100,
+    "strictValidatorExit": 1
+  },
+  "lanes": {
+    "platform-postgres": {
+      "exitCode": 1,
+      "validationExitCode": 1,
+      "counts": {
+        "passed": 3030,
+        "failed": 4,
+        "skipped": 8,
+        "total": 3042
+      },
+      "requiredCount": 1124,
+      "requiredIdsSha256": "80ecb42920413fac09c6c6b1abb2f211d8332f467dbe4ff9acde6e398c9afb1b",
+      "reportSha256": "aea4a3115a065d6090209fa9dac44ce7dba338b289a40d42d6da0bd2d4ef3d81"
+    },
+    "postgres": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "total": 322
+      },
+      "requiredCount": 80,
+      "requiredIdsSha256": "bcf0f03d13d9da5af22a00fbf3cadd8b972ddd2df0538d5166b7ab60b2a2a920",
+      "reportSha256": "69787d06f122acb19de2d9a6789e2cae8bda15b57d896b52b1ebe7ee3842d07f"
+    },
+    "workflows": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "total": 1273
+      },
+      "requiredCount": 60,
+      "requiredIdsSha256": "0bd6b090ef0f7802fd97c99d267614f334193ff13400aae17758daf3f24f723b",
+      "reportSha256": "84aa7772aa3eac6162675b948b25d537f68cdaa7b01eb91c07a7234b02b526fc"
+    },
+    "reconciliation": {
+      "exitCode": 0,
+      "validationExitCode": 0,
+      "counts": {
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "total": 38
+      },
+      "requiredCount": 26,
+      "requiredIdsSha256": "3238a001d119fd1c975d22ff1632ee9ca8ad68b142cd52999c1ffd0e80c83114",
+      "reportSha256": "31366ec6149e830abee7d84030082721af8ad3d5e3e70213a4c36bdc4cf2b468"
+    },
+    "workflow-intents": {
+      "exitCode": 1,
+      "validationExitCode": 1,
+      "counts": {
+        "passed": 154,
+        "failed": 2,
+        "skipped": 0,
+        "total": 156
+      },
+      "requiredCount": 141,
+      "requiredIdsSha256": "a4819888f0501d42d67a69491a99bdf10f02ee409191d2c3f0ddbbd54b0827b2",
+      "reportSha256": "cc4e97e3cbd5505debc40532bb5ea0b7f0712a957b321948a92af4cdf35361a3"
+    }
+  },
+  "ownershipPostgresCases": [
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] records and replays an exact human-approved transfer without immutable-column UPDATE privileges",
+      "status": "passed"
+    },
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] two independent service-role replay transactions preserve the original immutable receipt",
+      "status": "passed"
+    },
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] foreign, differently approved and revoked replays cannot rewrite or revive the stored transfer",
+      "status": "passed"
+    },
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] rechecks a revoked enabling transfer after the owning operation lock wait without consuming approval",
+      "status": "passed"
+    },
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] rechecks a transfer whose one-way revocation committed during the native transfer row wait",
+      "status": "passed"
+    },
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] rolls back approval consumption when the selected transfer expires during the real approval row wait",
+      "status": "passed"
+    },
+    {
+      "name": "ownership transfer immutable service-role custody [postgres] refuses final mutation grant insertion after transfer expiry behind the actual cleanup coordinator",
+      "status": "passed"
+    }
+  ],
+  "failureCauses": [
+    "Existing native100 fixture inserts mismatched grant capability; preserve current legal and historical restored rows in reviewed correction.",
+    "Closed tenancy matrix lacks new lockForOperation helper; reviewed explicit foreign-workspace negative control prepared.",
+    "Both migration12 workflow tombstone cases encounter static reference to migration18 ownership_transfers table in claim SQL despite private null ownership guard. Narrow fixed-literal compatibility repair under review."
+  ],
+  "cleanup": {
+    "ownedContainerAbsent": true,
+    "ownedVolumesAbsent": true,
+    "baselineImagesPreserved": true,
+    "newImageAbsent": true
+  },
+  "limits": [
+    "Candidate remains isolated, not integrated or published.",
+    "Seven native ownership cases passed, but combined platform and intents failed.",
+    "No requirement or release promotion; no provider writes, live cloud or default composition evidence.",
+    "Raw sensitive logs remain private; not retained in repository."
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-03",
+  "level": "operational_rehearsal",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (dossier CLI, signoff-cli) on a private copy of docs/build/production, with this commit as a release candidate scoped to the 17 AWS beta requirements; no cloud, no stack, nothing written to the repository; gate ZENITH_LOCAL_REL0203_REHEARSAL",
+  "command": "vitest run tests/acceptance/rel0203-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "local",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-03/2026-11-15-operational-rehearsal-feabd5a4/lane-source-PROD-REL-03.json",
+      "sha256": "b81b446f4e410afb4e024ab468b041253d1c05af0146cf6b2ad22b2eaeb059ff"
+    }
+  ]
+}

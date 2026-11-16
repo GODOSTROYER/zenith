@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "lane": "policy",
+  "validatedAt": "2026-10-02T02:37:37.458Z",
+  "verdict": "passed",
+  "provenance": {
+    "commit": "f36a98482d1379ae42b723d8fb6ebbc83deafa32",
+    "trackedChangesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedContentSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "worktreeDirty": false,
+    "sourceBindingComplete": true,
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "b3c6a010336bbdce651ee454fb659285c8e5c42f782160af49858b8e8951fed0"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "7d844639e9878f21b8d8c14d6f0f91482f3d712c0321702204d1ccbe7c8c3cd6"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "0c4624c520f3f35ae8ce7a5775e7495d76279bfe6137b674bf12bc38062415b8"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "a5dd44c3a195a2e101278cbb780abcf496043a69c2fdd5df3b1b03347d733583",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "3.2.7",
+        "installed": "3.2.7"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "1195a85fe1b694b8880fa34c9d2a644f0a6975a12a780f2d7cd1703b74e15eab",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE"
+      ],
+      "platform": "linux",
+      "architecture": "x64",
+      "node": "22.23.3"
+    }
+  },
+  "reportSha256": "6a92b2397dc23c00c294d381ee97cb0129f65031ceab7342272de629c61439bc",
+  "manifestSha256": "4c78a7b43e04eebd4ada7cf5bb912038b7957fac724da6f3887a9d62e7b7d8b3",
+  "expectedTools": {
+    "node": "22.23.3",
+    "opa": "1.19.1"
+  },
+  "counts": {
+    "total": 238,
+    "passed": 238,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "required": [
+    {
+      "id": "policy:tests/policy/bundle.test.ts:4ee93ed6c454",
+      "file": "tests/policy/bundle.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/defaults.test.ts:4ee93ed6c454",
+      "file": "tests/policy/defaults.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/delete.test.ts:4ee93ed6c454",
+      "file": "tests/policy/delete.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 21,
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/engine.test.ts:4ee93ed6c454",
+      "file": "tests/policy/engine.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 70,
+        "passed": 70,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/parity.test.ts:4ee93ed6c454",
+      "file": "tests/policy/parity.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/plan-facts.test.ts:4ee93ed6c454",
+      "file": "tests/policy/plan-facts.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 44,
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "policy:tests/policy/scenarios.test.ts:4ee93ed6c454",
+      "file": "tests/policy/scenarios.test.ts",
+      "backend": null,
+      "counts": {
+        "total": 72,
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "validation": {
+    "failureCount": 0,
+    "complete": true,
+    "caseIdentity": "not-exported-by-standard-vitest-json"
+  },
+  "execution": {
+    "exitCode": null,
+    "observed": false
+  },
+  "externalAcceptance": []
+}

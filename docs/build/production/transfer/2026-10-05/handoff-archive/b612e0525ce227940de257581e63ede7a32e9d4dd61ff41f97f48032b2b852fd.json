@@ -1,0 +1,258 @@
+[
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/aws-browser-contract",
+    "head": "ae0f8546aaac6cc0b6354b2eaa4590c5d22c19da",
+    "branch": "refs/heads/ws/prod-aws-browser-contract",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/aws-suffix",
+    "head": "b0ebac7708c7b5cc3e495ad33c26b512fdd697f2",
+    "branch": "refs/heads/ws/prod-aws-suffix",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/aws-ui-fixtures",
+    "head": "6d94c11a8122ee7a4d0d698736f16d3966d981e3",
+    "branch": "refs/heads/ws/prod-aws-ui-fixtures",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/canonical-repair",
+    "head": "8657abdf6678a963869262ebd38375c16e895cc4",
+    "branch": "refs/heads/ws/prod-canonical-repair",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/ci-review",
+    "head": "35d58a41f5c323a9c146800975f394f45305ee81",
+    "branch": "refs/heads/ws/prod-ci-review",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/ci-schema",
+    "head": "018c7446bcdf609ff267bbffe9ce539243a8991d",
+    "branch": "refs/heads/ws/prod-ci-schema",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/dependency-remediation",
+    "head": "d8e457fd5add185cc9df13f8bee38076e1c1d53f",
+    "branch": "refs/heads/ws/prod-dependency-remediation",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/ecs-replica-repair",
+    "head": "cb4f9decab10faa2cddf3f1113d36c40b904e7a3",
+    "branch": "refs/heads/ws/prod-ecs-replica-repair",
+    "headIntegrated": true,
+    "dirtyStatus": [
+      " M package-lock.json",
+      " M package.json",
+      " M src/lib/capabilities/evaluate.ts",
+      " M src/lib/capabilities/execution.ts",
+      " M src/lib/execution/apply.ts",
+      " M src/lib/execution/context.ts",
+      " M src/lib/execution/plan-evidence.ts",
+      " M src/lib/execution/plan.ts",
+      " M src/lib/platform/broker.ts",
+      " M src/lib/resources/index.ts",
+      " M src/lib/workflows/definitions/dayTwo.ts",
+      " M src/lib/workflows/definitions/runtime.ts",
+      "?? docs/platform/operations/ECS-REPLICA-REPAIR.md",
+      "?? src/lib/execution/ecs-replica-repair-binding.ts",
+      "?? src/lib/execution/ecs-replica-repair.ts",
+      "?? src/lib/providers/aws/drivers/compute/ecs-replica-repair-read.ts",
+      "?? src/lib/resources/repair-recipes.ts",
+      "?? src/lib/workflows/definitions/ecsReplicaRepair.ts",
+      "?? tests/execution/ecs-replica-repair.test.ts",
+      "?? tests/platform/ecs-replica-repair-grants.test.ts",
+      "?? tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+      "?? tests/workflows/ecs-replica-repair.test.ts",
+      "?? tests/workflows/fixtures/ecs-replica-cancellation.ts",
+      "?? tests/workflows/fixtures/legacy-day-two.ts"
+    ]
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/evidence-binding",
+    "head": "c464c067286daab2261719b6b640403f96103a1e",
+    "branch": "refs/heads/ws/prod-evidence-binding",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/fresh-baseline",
+    "head": "4a6bab7597ea3710875e19383d3a224409e902e4",
+    "branch": "refs/heads/ws/prod-fresh-baseline",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/gate-report",
+    "head": "c6f3631c2c4ca9592640d3a792a9429eba24a273",
+    "branch": "refs/heads/ws/prod-gate-report",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/installation",
+    "head": "a9fea8968d41e4639d4c2566eb238cec74ef957a",
+    "branch": "refs/heads/ws/prod-installation",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/integrated-ci",
+    "head": "3f7e522a5f0b09ee748e80587c9e80b8545d09d7",
+    "branch": "refs/heads/ws/prod-integrated-ci",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/pg-grant-clock",
+    "head": "88f6d99284612d6c2443ba80dba9ab67cfdede98",
+    "branch": "refs/heads/ws/prod-pg-grant-clock",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/runner-expiry",
+    "head": "e9ee01f4dd87f6dda2ad7c734e079fc444d09aed",
+    "branch": "refs/heads/ws/prod-runner-expiry",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/runtime-security",
+    "head": "5a82f26a95dba6fe448b8e48f57c1f0f4114f12a",
+    "branch": "refs/heads/ws/prod-runtime-security",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/start-uncertainty",
+    "head": "7d75b21d884da6f3beae2889740b0a52d9118eee",
+    "branch": "refs/heads/ws/prod-start-uncertainty",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/worker-startup",
+    "head": "bbf50fcfb0f4a785fde1ed9f103399bd147d1d76",
+    "branch": "refs/heads/ws/prod-worker-startup",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/workflows",
+    "head": "1b98f8e6650b9bde5eef853f96843821050b25a9",
+    "branch": "refs/heads/ws/prod-workflows",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/aws-boundary-split",
+    "head": "8421faec21017ec62df028b3611222167b569fd5",
+    "branch": "refs/heads/ws/aws-boundary-split",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/azure-source-wire",
+    "head": "a83cdbedd643d84f28bfd520b1bf9ba9d555a807",
+    "branch": "refs/heads/ws/azure-source-wire",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/destroy-review",
+    "head": "58843d5eed8f9f4323094d1df635cace5e7f49f9",
+    "branch": "refs/heads/ws/destroy-review",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/final-deploy-gate",
+    "head": "924e4f0bf1d538f9e24b0c2a51e914c2d0f03cae",
+    "branch": "refs/heads/ws/final-deploy-gate",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/final-ui-gate",
+    "head": "a4fc524ca48ea4f4388f991a93f524ac859cb1bf",
+    "branch": "refs/heads/ws/final-ui-gate",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/gate-deps",
+    "head": "007716e197ad58116216fdf8c45bee102638d47d",
+    "branch": "refs/heads/ws/gate-deps",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/gate-fixes",
+    "head": "d0137d6652264341979189797dd8644a57a674c0",
+    "branch": "refs/heads/ws/gate-fixes",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/gate-runtime",
+    "head": "d04346080b988e12eefbc7f5c8ac188a6db64ea1",
+    "branch": "refs/heads/ws/gate-runtime",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/github-migration",
+    "head": "c1bfcf46d3116c717e69ca70770d793e8580c871",
+    "branch": "refs/heads/ws/github-migration",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/kind-gates",
+    "head": "643708cfe30309cbcaa6eb0e40b27ff4f912524d",
+    "branch": "refs/heads/ws/kind-gates",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/machine-docs",
+    "head": "84ea407b063fa19f6c19c7ec9f9997dd02bfbb7b",
+    "branch": "refs/heads/ws/machine-docs",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/node-runtime",
+    "head": "2a6595610fbe08505543e4afe295fc6271e3ad86",
+    "branch": "refs/heads/ws/node-runtime",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/oci-cleanup",
+    "head": "898b61c587adb2135e0a80a7ce8989ee39268178",
+    "branch": "refs/heads/ws/oci-cleanup",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  },
+  {
+    "worktree": "/Users/saivedanthava/.codex/zenith-w8/worktrees/runner-contract",
+    "head": "36aa3904360679322e5b4d3079d7085b4e7a17b8",
+    "branch": "refs/heads/ws/runner-contract",
+    "headIntegrated": true,
+    "dirtyStatus": []
+  }
+]

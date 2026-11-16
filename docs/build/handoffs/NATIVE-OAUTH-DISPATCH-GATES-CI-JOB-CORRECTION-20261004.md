@@ -1,0 +1,9 @@
+# Native OAuth gate CI job correction, 2026-10-04
+
+Root executed the composed gate and SQL model suites and retained a failed result with 267 passes and one failure. The new native gate coverage case selected a nonexistent `platform` CI job. The actual mandatory job is `platform-postgres`. This packet replaces only the two job names in that case, so the existing helper verifies the real job, its unconditional execution, its exact canonical run command and its `always()` execution-bound validation command. The helper and every assertion remain unchanged.
+
+The prepared source is the exact root staged17 tree 0a79c6de on commit 09301572. Ownership is limited to tests/ci/platform-coverage.test.ts and this new handoff. The original gate4 freeze 0f3be98b and patch 2dd703a2 remain immutable. Removing the two literal replacements restores the entire original coverage file bytewise. The manifest, gate report matcher, required flags, all 906 platform identities, all 80 canonical PostgreSQL identities and all 22 native package check identities remain byte-exact. No fictional CI job, skipped check or relaxed helper is introduced.
+
+This source correction does not make the previous whole platform run successful. Root retained 2611 passes, 21 failures and eight declared skips, including separate current-grant fixtures and cluster-role migration fixture defects. The native OAuth95 and linked61 predecessor cohorts passed within that failed report, and their scopes are not promoted to whole-lane acceptance here. Canonical agent initialization in the actual platform CI job remains a separate required source follow-up.
+
+All project imports, tests, compiler, lint, services, databases, Docker, installs and commits are unrun by this author. A, B and root independently review the frozen source before root runs the scoped coverage and gate tests against the exact composed successor source. Root owns execution, integration and commits.

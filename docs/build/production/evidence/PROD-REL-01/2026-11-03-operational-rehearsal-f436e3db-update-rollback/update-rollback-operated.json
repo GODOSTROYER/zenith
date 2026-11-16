@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "evidenceLabel": "local_operated_rehearsal",
+  "scenarioId": "update-rollback",
+  "runId": "r1-update-rollback-0",
+  "sourceCommit": "f436e3dbeda2f40007301bd05d23048b10ec70b0",
+  "checks": [
+    {
+      "id": "preconditions",
+      "status": "passed"
+    },
+    {
+      "id": "baseline-readback",
+      "status": "passed"
+    },
+    {
+      "id": "compatible-update-readback",
+      "status": "passed"
+    },
+    {
+      "id": "failed-rollout-readback",
+      "status": "passed"
+    },
+    {
+      "id": "browser-rollback-readback",
+      "status": "passed"
+    },
+    {
+      "id": "independent-release-readback",
+      "status": "passed"
+    },
+    {
+      "id": "owned-cleanup",
+      "status": "passed"
+    },
+    {
+      "id": "source-unchanged",
+      "status": "passed"
+    }
+  ],
+  "limits": [
+    "Owned local operated rehearsal only; no live cloud or production acceptance.",
+    "Compatible image configuration and stateless witness behavior are rehearsed; data migration/restore safety remains a separate lane.",
+    "Failure injection uses the real witness process and Kubernetes controller. Local fixture cleanup uses an independent observer with exact owned UID preconditions.",
+    "Owned image references are removed; content-addressed registry/cache blobs remain until the borrowed J1/J2 targets are torn down by their owner."
+  ],
+  "sourceDigest": "903d3e8820c4bcd72bba9deb2ba507bb59b850042177e63ce860558d386fe26d",
+  "dirty": false
+}

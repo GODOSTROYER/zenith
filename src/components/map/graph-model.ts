@@ -4,7 +4,8 @@
  * call to `buildGraph` on the three keys below, so the graph is rebuilt when
  * the system changes and not when a node is selected, focused or hovered.
  */
-import type { ChangeItem, Manifest } from "@/lib/domain/types";
+import type { ChangeItem, AnyManifest } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 import { nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import type { BindingEdge } from "./edges";
 import type { Stratum } from "./layout";
@@ -25,6 +26,7 @@ const STRATUM_OF: Record<ChangeItem["nodeType"], Stratum | null> = {
   service: "service",
   resource: "resource",
   binding: null,
+  manifest: null,
 };
 
 export interface RawNode {
@@ -40,9 +42,9 @@ export interface GraphModel {
 }
 
 export interface BuildGraphInput {
-  manifest: Manifest;
+  manifest: AnyManifest;
   /** Exact configuration currently deployed to this environment. */
-  deployedManifest?: Manifest | null;
+  deployedManifest?: AnyManifest | null;
   changeset: { items: ChangeItem[] } | undefined;
   health: HealthPayload | undefined;
   deployed: boolean;
@@ -56,7 +58,7 @@ export interface BuildGraphInput {
  * render also hashed env vars, secret refs and resource config — none of which
  * the map reads — and the poll hands us a fresh object every 5s.
  */
-export function manifestKey(m: Manifest): string {
+export function manifestKey(m: AnyManifest): string {
   return [
     ...m.routes.map((r) => `R${r.id}:${r.host}:${r.pathPrefix}:${r.tls}`),
     ...m.services.map((s) => `S${s.id}:${s.name}:${s.kind}:${s.size}:${s.replicas}:${s.schedule ?? ""}:${s.ownership}`),
@@ -92,6 +94,7 @@ export function buildGraph({
   deployed,
   liveTargets,
 }: BuildGraphInput): GraphModel {
+  const costView = v1View(m);
   const diffOp = new Map<string, ChangeItem["op"]>();
   for (const i of changeset?.items ?? []) diffOp.set(i.nodeId, i.op);
 
@@ -116,7 +119,7 @@ export function buildGraph({
         name: r.host,
         stratum: "route",
         kind: "route",
-        costUsd: nodeMonthlyCostUsd(m, r.id),
+        costUsd: nodeMonthlyCostUsd(costView, r.id),
         tls: r.tls,
         diff: diffOp.get(r.id),
         live: liveTargets.includes(r.id),
@@ -139,7 +142,7 @@ export function buildGraph({
         stratum: "service",
         kind: s.kind,
         sub,
-        costUsd: nodeMonthlyCostUsd(m, s.id),
+        costUsd: nodeMonthlyCostUsd(costView, s.id),
         ownership: s.ownership,
         diff: diffOp.get(s.id),
         live: liveTargets.includes(s.id),
@@ -157,7 +160,7 @@ export function buildGraph({
         stratum: "resource",
         kind: r.kind,
         sub: r.ownership === "managed" ? r.size : `${r.size} · ${r.ownership}`,
-        costUsd: nodeMonthlyCostUsd(m, r.id),
+        costUsd: nodeMonthlyCostUsd(costView, r.id),
         ownership: r.ownership,
         diff: diffOp.get(r.id),
         live: liveTargets.includes(r.id),

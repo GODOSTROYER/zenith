@@ -1,0 +1,22 @@
+{
+  "schema": "zenith.published-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-09"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "gh release download v0.1.0-beta.2 -R saivedant169/zenith; node scripts/supply-chain/published-release-source.mjs (offline, --strict)",
+  "environment": "GitHub Actions release.yml run https://github.com/saivedant169/zenith/actions/runs/43746372501 in the protected release environment; published release v0.1.0-beta.2 of saivedant169/zenith; signed with pinned key release-2026-11",
+  "evidence": {
+    "manifestSha256": "51c7536f39f246cd1282217dd27875ae92d11b8ec3264d87dbb0db280967e133",
+    "artifacts": 12
+  },
+  "result": "Published release v0.1.0-beta.2 verified offline with --strict: signature by pinned key release-2026-11, 12 artifacts at their signed sha256 and size, nothing unlisted, CycloneDX SBOM exactly the lockfile's npm packages, OCI image digests and SLSA provenance subjects bound by the signed manifest, commit feabd5a4."
+}

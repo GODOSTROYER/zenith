@@ -1,0 +1,306 @@
+{
+  "sourceCommit": "e69eccaac2f833cdb43fcc2c8b1f848d12ba6a84",
+  "sourceTree": "148b6c84bf217a66481c74a81bb108ec28f78954",
+  "scriptSha256": "42d7f431a524fef43975aa28a7f51d9e1aea14991c5a2dd578f44d5e572908ee",
+  "node": "22.23.3",
+  "heapMiB": 3072,
+  "floorBytes": 23622320128,
+  "status": "passed",
+  "exitCode": 0,
+  "reason": null,
+  "diskBeforeBytes": 26303971328,
+  "diskMinBytes": 24526577664,
+  "diskAfterBytes": 25213972480,
+  "elapsedSeconds": 69.0,
+  "sourceBound": true,
+  "cleanupComplete": true,
+  "cleanupErrors": [],
+  "counts": {
+    "passed": 44,
+    "failed": 0,
+    "discovered": 44
+  },
+  "logSha256": "0892f7081bba7f4f305e02160a029f31bc83a616689ef7cab115bd8e7baa98da",
+  "scope": "Real Chrome original44 consent checks at1280/380; declared loopback identity-provider double, not default Supabase/operator375px accessibility acceptance.",
+  "allOwnedGroupsAbsent": true,
+  "requiredOriginalChecks": 44,
+  "diagnostics": [
+    {
+      "diagnostic": "agent-approval-request",
+      "viewport": "desktop",
+      "route": "/api/integrations/agent/link/approve",
+      "phase": "request",
+      "elapsedMs": 55
+    },
+    {
+      "diagnostic": "agent-approval-request",
+      "viewport": "desktop",
+      "route": "/api/integrations/agent/link/approve",
+      "phase": "response",
+      "status": 200,
+      "elapsedMs": 14495
+    },
+    {
+      "diagnostic": "agent-approval-request",
+      "viewport": "desktop",
+      "route": "/api/integrations/agent/link/approve",
+      "phase": "requestfinished",
+      "elapsedMs": 14496
+    },
+    {
+      "diagnostic": "agent-approval-request",
+      "viewport": "narrow",
+      "route": "/api/integrations/agent/link/approve",
+      "phase": "request",
+      "elapsedMs": 43
+    },
+    {
+      "diagnostic": "agent-approval-request",
+      "viewport": "narrow",
+      "route": "/api/integrations/agent/link/approve",
+      "phase": "response",
+      "status": 200,
+      "elapsedMs": 76
+    },
+    {
+      "diagnostic": "agent-approval-request",
+      "viewport": "narrow",
+      "route": "/api/integrations/agent/link/approve",
+      "phase": "requestfinished",
+      "elapsedMs": 76
+    },
+    {
+      "diagnostic": "agent-browser-server-final",
+      "server": {
+        "exitCode": null,
+        "signalCode": null,
+        "nodeOomObserved": false,
+        "devMemoryRestartCount": 0
+      }
+    }
+  ],
+  "integratedCommit": "74729261720aba23058dd6a4d43e042a43e978da",
+  "sourceParity": "git diff e69eccaac2f833cdb43fcc2c8b1f848d12ba6a84 74729261720aba23058dd6a4d43e042a43e978da contains only docs/build/production paths. Every runtime/config/dependency source byte unchanged.",
+  "executedCases": [
+    {
+      "viewport": "desktop 1280px",
+      "name": "signed out, the approval page redirects to /login",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "and the redirect carries the code, not only the path",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the screen shows the code the terminal is showing",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "it names what is being asked",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the client name is marked as unverified text a program supplied",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "it says approving is not deploying",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the workspace and the project are offered by name",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "read: on by default, and locked",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "plan: on by default",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "write: on by default",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "logs: off by default",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "export: off by default",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "publish: off by default",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the expiry defaults to 30 days",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the workspace picker is reachable from the keyboard and labelled",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "so is the project selection",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "and so are Approve and Deny",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the page does not scroll sideways",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "Approve confirms, and sends the person back to their terminal",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the terminal's poll completes with a credential",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "Deny is a real answer and the terminal is told which one",
+      "ok": true
+    },
+    {
+      "viewport": "desktop 1280px",
+      "name": "the screen logged no console errors",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "signed out, the approval page redirects to /login",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "and the redirect carries the code, not only the path",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the screen shows the code the terminal is showing",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "it names what is being asked",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the client name is marked as unverified text a program supplied",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "it says approving is not deploying",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the workspace and the project are offered by name",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "read: on by default, and locked",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "plan: on by default",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "write: on by default",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "logs: off by default",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "export: off by default",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "publish: off by default",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the expiry defaults to 30 days",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the workspace picker is reachable from the keyboard and labelled",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "so is the project selection",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "and so are Approve and Deny",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the page does not scroll sideways",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "Approve confirms, and sends the person back to their terminal",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the terminal's poll completes with a credential",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "Deny is a real answer and the terminal is told which one",
+      "ok": true
+    },
+    {
+      "viewport": "narrow 380px",
+      "name": "the screen logged no console errors",
+      "ok": true
+    }
+  ]
+}

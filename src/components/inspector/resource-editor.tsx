@@ -9,6 +9,7 @@ import { PlanFirst } from "./plan-first";
 import { BindingList } from "./binding-list";
 import { Facts, SizeField, StaleNotice, resourceCost, useUpstreamGuard } from "./editor-parts";
 import type { Resource, ServiceSize } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 
 const STATEFUL_KINDS = ["postgres", "redis", "object_store", "queue"];
 
@@ -25,7 +26,7 @@ export function ResourceEditor({ resource, onOpenBinding }: ResourceEditorProps)
 
   const managed = resource.ownership === "managed";
   const { current, projected } = useMemo(
-    () => resourceCost(project.workingManifest, resource.id, { size }),
+    () => resourceCost(v1View(project.workingManifest), resource.id, { size }),
     [project.workingManifest, resource.id, size]
   );
 

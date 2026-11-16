@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T04:35:55.524789+00:00",
+  "baseCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "status": "passed_local_actual_postgres_not_integrated",
+  "sourcePaths": 32,
+  "sourceFreezeSha256": "63eebf6959b49dc7320a4c558c978155de670c48959f466ca84ff0ece2f4e739",
+  "sourceSha256": {
+    "docs/build/production/security-exceptions.md": "916472c991f9ad0d42ce637d85ba9e08246aea98811f0c165b385d701b3f1dcd",
+    "scripts/ci/security-audit.mjs": "ba899f0c1a8759a33b0aad0401da63ed7dbc35ba0c0d3db913009a97ec70d941",
+    "scripts/ci/security-exceptions.json": "af779c1dea4c6b472330c33e22f55b6e880c3973478e0a3639ed3e4a9fa62ac4",
+    "scripts/ci/security-exceptions.mjs": "14c237e203b81aade75024c0d35bb62e0d05ddcb9423bee27ff6cdaed214730e",
+    "src/lib/controlplane/db/repos/plan-artifacts.ts": "12d991504d589c2667e5505220953ef325631facbd32097e612ba6cf2906d74e",
+    "src/lib/execution/plan.ts": "f3af3638d287dc40ad32711b2b29155c8f2397e52b257e585e8ace348d824b64",
+    "src/lib/platform/execution.ts": "935be3a9166e58b2cb3c14736ad3af2140f2792038d5c8cfb60b3bd3d6da7188",
+    "src/lib/tofu/engine.ts": "cff24238b8bc9d249fdd3f94c6d5fd5c220cff8e36b947cfaf33a5b486aaa5da",
+    "tests/ci/assert-lane-report.test.ts": "23c35b04959159b4b1bf9e3e0a6e62f64662e592ab6a1a51aa18c519dbbeb938",
+    "tests/ci/evidence-sanitizer.test.ts": "a68df94989f2a7d01a52dc311b5fccd7ae7bb9836ad9d02b77a2aa424bba2ffd",
+    "tests/ci/gate-manifest.test.ts": "acb3587769dd02c06f31be970354321b3ca1481c73688a5d3f940b811ad8fd2b",
+    "tests/ci/platform-coverage.test.ts": "584cc0233bd9c0317124827cdc5246c2b3eb43e1efe75f7604ffa29eed8f97f0",
+    "tests/ci/release-gates.test.ts": "1fbab671c967f36b53473b0e246195e933fa737471c21de0df12d5c7b1cb41ae",
+    "tests/ci/security-audit.test.ts": "bf3eeb01a1237fa3acd3e90bb55dbff99a0ba5ed5c7179b82cde4104b79419ba",
+    "tests/ci/security-exceptions.test.ts": "8e315e928eb8f021041e060a020eb0d445554ba45b696771f7b78ba78efa037e",
+    "tests/docs/operator-docs.test.ts": "1fef8d13cf98080dd7af95be14b2b66b25fc29d9ddb5bcf36cebafb23963e2d6",
+    "tests/execution/apply.test.ts": "3b0b12a3c6bccee331be1140073aa9ea413c6f3f7ebe4430721ad2c3284a9437",
+    "tests/execution/aws-bootstrap-context.test.ts": "4059eef6c1c641517f62d18e3340def3087c2b05d2ab6ff4c3bfebb871065df8",
+    "tests/execution/deletion-guards.test.ts": "451bab264b3e237336c772a169f8793dc23d676af4953f2f14a2614884b438bc",
+    "tests/execution/destroy-review-temporal.test.ts": "7b715fd9dfcefc752badd318c823312995498879ff7ec597d4fd49010fc7b8d1",
+    "tests/execution/ecs-replica-repair.test.ts": "ccd4fc6bd4f3b009a3622d5192c5119b73d979f7720406911b1f70161e434617",
+    "tests/execution/fakes/world.ts": "cce2ae0ff962e2db72adc3279eaeca10a42bb9e9d58fb0279de7b69510ebc21c",
+    "tests/platform/composition.test.ts": "93206d5650c8ea1704131a82db7c81fd48cec9fc64920aef1da9cfadf827d9a1",
+    "tests/platform/deploy-e2e.test.ts": "521827a2c3268818ae36c075cc6c2732c6bf5d44d8c7a7f193b1a9a840252bd2",
+    "tests/platform/source-bundle-composition.test.ts": "619438ff311d505d085ba1e5ddebae60976bf675a4a252b70b729794fec0731e",
+    "tests/security/plan-artifact-secrecy.test.ts": "6a013d1b5cf59a6b6acbeea8e96a8eda0c214c557d387f42703ec1fc904b2b08",
+    "tests/sources/github-migrations.test.ts": "ec3eb23aa05b132085d87183eb9b3031a956ce92effcf4907fea07b41010f92e",
+    "tests/tofu/destroy.test.ts": "799ec00bf1929894a2f8147f27d82a860551b581f0c2574bd8af2355ccd4c9d8",
+    "tests/tofu/plan-artifact-handoff.test.ts": "a2ea25484c9b8956c66507f2769700c29c6879e589d6061071fd02ba66fa154d",
+    "tests/tofu/runner.test.ts": "c7110f787ccb9fec0a2a34c987e61755ac24b1e08eaeee5857e7d69f3d81c94c",
+    "tests/workers/worker-health-wiring.test.ts": "0e046f8ecf7c0a93c1e49434acd4568585e3d9e479b8641ae1d8d1dc60e95aee",
+    "tests/workflows/codec-wiring.test.ts": "bd3a0e510cf1b30bd9e1d80a7133db6f8af68fc209ea084e0a406fafd2e8e3a1"
+  },
+  "counts": {
+    "total": 1532,
+    "passed": 1532,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "mandatoryGroups": 70,
+  "mandatoryGroupsPassed": 70,
+  "executionBindings": {
+    "lane": true,
+    "reportSha256": true,
+    "manifestSha256": true,
+    "sourceSha256": true,
+    "sourceBindingComplete": true,
+    "effectiveEnvironmentSha256": true,
+    "environmentInventorySha256": true,
+    "shellContextSha256": true,
+    "shellLevelSha256": true,
+    "shellCommandSha256": true,
+    "runtimeSha256": true,
+    "environmentInventoryIntegrity": true
+  },
+  "executionRevalidation": "passed",
+  "expectedTools": {
+    "node": "22.23.3",
+    "postgres": "16.15",
+    "tofu": "1.12.5"
+  },
+  "lockSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+  "gateSources": [
+    {
+      "file": "scripts/ci/gate-manifest.mjs",
+      "sha256": "e4948f86a46d652d266c70c76dda6083b4db6939ebbd853f3da9541fb225a000"
+    },
+    {
+      "file": "scripts/ci/run-gate.mjs",
+      "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+    },
+    {
+      "file": "scripts/ci/sanitize-evidence.mjs",
+      "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+    },
+    {
+      "file": "scripts/ci/lane-report.mjs",
+      "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+    },
+    {
+      "file": "tests/ci/assert-lane-report.mjs",
+      "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+    },
+    {
+      "file": "vitest.config.ts",
+      "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+    }
+  ],
+  "provenance": {
+    "commit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+    "trackedChangesSha256": "da8d01c162f82a919b7320689a5537275c30cc45c7dc5b2fd0eb79ca61c29a3b",
+    "untrackedContentSha256": "03cb6e8b668a96fcc09e23a299491b95db9447e1ce76735fc094e073b61377e5",
+    "worktreeDirty": true,
+    "sourceBindingComplete": true,
+    "index": {
+      "inventoryComplete": true,
+      "assumeUnchanged": 0,
+      "skipWorktree": 0,
+      "unmerged": 0
+    },
+    "gateSources": [
+      {
+        "file": "scripts/ci/gate-manifest.mjs",
+        "sha256": "e4948f86a46d652d266c70c76dda6083b4db6939ebbd853f3da9541fb225a000"
+      },
+      {
+        "file": "scripts/ci/run-gate.mjs",
+        "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f"
+      },
+      {
+        "file": "scripts/ci/sanitize-evidence.mjs",
+        "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba"
+      },
+      {
+        "file": "scripts/ci/lane-report.mjs",
+        "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8"
+      },
+      {
+        "file": "tests/ci/assert-lane-report.mjs",
+        "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b"
+      },
+      {
+        "file": "vitest.config.ts",
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+      }
+    ],
+    "lockfileSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+    "dependencies": [
+      {
+        "name": "vitest",
+        "locked": "4.1.11",
+        "installed": "4.1.11"
+      },
+      {
+        "name": "postgres",
+        "locked": "3.4.7",
+        "installed": "3.4.7"
+      },
+      {
+        "name": "@electric-sql/pglite",
+        "locked": "0.5.8",
+        "installed": "0.5.8"
+      },
+      {
+        "name": "@temporalio/worker",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@temporalio/testing",
+        "locked": "1.24.0",
+        "installed": "1.24.0"
+      },
+      {
+        "name": "@open-policy-agent/opa-wasm",
+        "locked": "1.10.0",
+        "installed": "1.10.0"
+      }
+    ],
+    "environment": {
+      "sha256": "ea3be8406216ab852bc3a797849d54c82d4643c771f3de2938f79e175a807f56",
+      "inventorySha256": "748eb4e0da83f929139c7ec483450b8ec5ed10d8a7955001b19ebb22974da344",
+      "shellContextSha256": "bcd24814f5c4b74643d1467cee7fd55b59b19e42cfdd8774b5efc041fe73885d",
+      "shellLevelSha256": "391552c099c101b131feaf24c5795a6a15bc8ec82015424e0d2b4274a369a0bf",
+      "shellCommandSha256": "0e451bfd86034f9d3a87c7d3ddec24134c6d85f3800af8eff2bac83feed1d09c",
+      "excludedKeys": [
+        "GITHUB_ACTION",
+        "GITHUB_ENV",
+        "GITHUB_PATH",
+        "GITHUB_OUTPUT",
+        "GITHUB_STEP_SUMMARY",
+        "GITHUB_STATE",
+        "GITHUB_ARTIFACTS",
+        "GITHUB_ARTIFACTS_LIST"
+      ],
+      "platform": "darwin",
+      "architecture": "arm64",
+      "node": "22.23.3"
+    }
+  },
+  "privateReportSha256": "8aaf83d4a1991c03dc173849c72f45bd25da87a89d9bb3c964d4e4dc331af295",
+  "privateEvidenceSha256": "8f80f6cd0b05251f6e0f13a8f8867db6b57cd00e61c04493a9464f745f40389f",
+  "manifestSha256": "bcc8dcedfe5835de5eec2ecdf873f3f18c8d9eb78c50faf453b52b77a810af5b",
+  "cleanup": {
+    "container": "zenith-prod-pg-01f85403",
+    "ownershipVerified": true,
+    "removed": true,
+    "absenceVerified": true,
+    "newImageRemoved": true,
+    "baselineImagesPreserved": true,
+    "hostFreeGiB": 26.44
+  },
+  "independentFinalFixtureReviewSha256": "a9420d6fdbf2018db328e54e16328c778024b8c04e14ade24eb6f08b747277f7",
+  "limitations": [
+    "Disposable local PostgreSQL and real OpenTofu only; no cloud/account or production hosted-lane acceptance.",
+    "Full combined regression, staged source integration and current dependency disposition remain required.",
+    "Earlier failed1527P5F0S report and source checkpoint retained separately."
+  ]
+}

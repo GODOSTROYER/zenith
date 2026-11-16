@@ -1,0 +1,136 @@
+{
+  "recordedAtUtc": "2026-10-05T18:39:56.750340+00:00",
+  "codeCandidate": "5f4713a7f3526a31a6a7de1438df4ce5e53a4ed2",
+  "completeCombinedGateStatus": "pending; fresh complete unit and exact pushed CI remain open",
+  "precedingActualDatabaseAttempt": {
+    "commit": "3616b02c93058533a13dec6879ba0b7a35725bc2",
+    "overallStatus": "failed",
+    "native100": {
+      "passed": 100,
+      "failed": 0,
+      "skipped": 0,
+      "strictValidationExit": 0
+    },
+    "lanes": {
+      "platform-postgres": {
+        "counts": {
+          "passed": 3016,
+          "failed": 0,
+          "skipped": 8,
+          "total": 3024
+        },
+        "requiredCount": 1124,
+        "runExit": 0,
+        "validationExit": 0,
+        "reportSha256": "2b18cf484c9c14a62c8a885ad99b0606e68e184999d3be528d1b8da86a0ac128"
+      },
+      "postgres": {
+        "counts": {
+          "passed": 322,
+          "failed": 0,
+          "skipped": 0,
+          "total": 322
+        },
+        "requiredCount": 80,
+        "runExit": 0,
+        "validationExit": 0,
+        "reportSha256": "1cd49727fa0ce1c352ee14425ee4ed822ef8a2befedf2d7b295122b96ec99a5c"
+      },
+      "workflows": {
+        "counts": {
+          "passed": 1273,
+          "failed": 0,
+          "skipped": 0,
+          "total": 1273
+        },
+        "requiredCount": 60,
+        "runExit": 0,
+        "validationExit": 0,
+        "reportSha256": "b7ceabb083b85d0312a386d45e6e400dccabc44e7a5d10b3ce95685fa6f80b43"
+      },
+      "reconciliation": {
+        "counts": {
+          "passed": 38,
+          "failed": 0,
+          "skipped": 0,
+          "total": 38
+        },
+        "requiredCount": 26,
+        "runExit": 0,
+        "validationExit": 0,
+        "reportSha256": "4bfe3aef333b852df8a37c6e9f9bcddbc3575e1d58441b24f9055cdb82bd79ab"
+      },
+      "workflow-intents": {
+        "counts": {
+          "passed": 156,
+          "failed": 0,
+          "skipped": 0,
+          "total": 156
+        },
+        "requiredCount": 141,
+        "runExit": 0,
+        "validationExit": 0,
+        "reportSha256": "b56a0de0b1fd083cb97331c967e2baf69715146b11e93e38bce56f6edb8629e4"
+      }
+    },
+    "supplementalPortability": {
+      "passed": 12,
+      "failed": 1,
+      "skipped": 0,
+      "sanitizedSqlstate": "22023"
+    },
+    "cleanup": {
+      "ownedContainerAbsent": true,
+      "ownedVolumesAbsent": true,
+      "baselineImagesPreserved": true,
+      "newImageAbsent": true
+    }
+  },
+  "newActualPortability": {
+    "commit": "5f4713a7f3526a31a6a7de1438df4ce5e53a4ed2",
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "total": 14,
+    "originalCases": 13,
+    "additionalNetworkRegressionCases": 1,
+    "strictValidationExit": 0,
+    "reportSha256": "3d4bd8f3c23b30ba521e84747f5b8f1a7b353a9f34d7c60703eba9f5cdd8e40d",
+    "architecture": "native macOS ARM64 client and disposable native Linux ARM64 PostgreSQL",
+    "scope": "Production connector, actual importer and independent database readback; no live cloud or hosted TLS acceptance"
+  },
+  "tools": {
+    "Node": "22.23.3",
+    "npm": "10.9.9",
+    "PostgreSQLImage": "postgres:16.15-alpine",
+    "PostgreSQLClient": "16.15",
+    "TemporalCLI": "1.9.1",
+    "OpenTofu": "1.12.5",
+    "postgresJs": "3.4.7"
+  },
+  "fixCommits": [
+    "1609505d",
+    "4fd35062",
+    "8863c430",
+    "2ec3f914",
+    "3616b02c",
+    "5f4713a7"
+  ],
+  "focusedChecks": {
+    "compilerExit": 0,
+    "affectedLintExit": 0,
+    "actionlintExit": 0,
+    "ciBudgetCases": {
+      "passed": 370,
+      "failed": 0,
+      "skipped": 0
+    },
+    "goParserAndProviderFixtures": {
+      "passed": 164,
+      "failed": 0,
+      "skipped": 49,
+      "scope": "Go parser161 and three non-PG cases; the 49 environment skips are not network acceptance"
+    }
+  },
+  "countRules": "Reports overlap. Never sum them into a project completion total."
+}

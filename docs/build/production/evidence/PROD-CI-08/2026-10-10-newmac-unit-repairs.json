@@ -1,0 +1,224 @@
+{
+  "schema": "zenith-targeted-unit-repairs/v1",
+  "observedAtUtc": "2026-10-10T13:51:22.332561+00:00",
+  "baseCommit": "de8079cdf6d6637e4e53eaea54a7aa700b50ec92",
+  "sourceBinding": "reviewed dirty candidate; per-file hashes below; complete clean-SHA full suite remains pending",
+  "architecture": "native darwin arm64",
+  "node": "22.23.3",
+  "sourceHashes": {
+    "src/app/api/platform/v1/_lib/http.ts": "fd0c46aefa1b6f93466e1dd5fab2f6c50a6ad8098510269f1bdc1b74bc4f2d9f",
+    "src/lib/auth/mfa.ts": "e028db312241981498c49012f06dfec418f0d51cef23d39db59217d3406de75b",
+    "src/lib/resources/expand-topology.ts": "6f495ced7d17c9cdb042744c71dc7e0a4d1d31de33bb3015fff8d5be0687c11f",
+    "src/lib/server/errors.ts": "2f11c5129881783954c36562b9d9277935e67560067bbfcbdf4f5acbd903936a",
+    "src/lib/server/request.ts": "3e8ab778b50a31450384ca9be81763e22aa819c06a5bbe6c0b235e6e9dc38e43",
+    "tests/acceptance/aws-production.test.ts": "6dba1a33f24c4c40f3c44a481e955b5d61af6eaf515d3f870bf1e29fa2345330",
+    "tests/acceptance/packaged-worker.test.ts": "9b803488208834836b3e05be7a2007171301c758c65370452399b9eb6d8e1367",
+    "tests/agent-journey.test.ts": "368f409afe1986638d51c39d7694a3660b8283d93177f6d70737d5648125b608",
+    "tests/agent-v3/route.test.ts": "50aa3cbb24364d70e864efe94b435abec2586af2851fb41717f78d49f2144187",
+    "tests/api/workspace-sharing.test.ts": "4851070e0bb2e0daf9e74131c8c369791107d5e84fb2c625ffbdcfa2dee5ad5e",
+    "tests/execution/approved-source.test.ts": "e15f0c767cbfb70cc58310174c03b32ef923872666524a4a77d734bffb90b282",
+    "tests/execution/build-egress-composition.test.ts": "e6185ed88ee10d052e071eed08942cc865bb88113e6e84b892c2aeb756ec240a",
+    "tests/execution/platform.test.ts": "8a010992fb4a6d1c8664cae4fbf183c8b381c7d88f255db0e6b6d1ace31a6203",
+    "tests/execution/zenith-first-deploy.test.ts": "c0356dafafdc1d2e0d4377dfd1bf0432cdb4d241a3147287ccfbcd8c97e88a0c",
+    "tests/machines/runbook-routes.test.ts": "9071d93cba7f9152950c2f1f5d3a35b139fa5e1547e232130168a6a68a49c9f9",
+    "tests/ops/admin-routes.test.ts": "40e111c88a92111edb59781cd3099dd375007bcf86d8ed83e7d21cf98e444428",
+    "tests/ops/data-plane-independence.test.ts": "95f9d73707839fe07f3bdd992e2ce104d423d68387d8f6d7ff80e033252fe53d",
+    "tests/ops/route-wiring.test.ts": "41a521553abba8ced4649dd23a5b4352a564b7eec37586593be0704edc6d8fdf",
+    "tests/placement/recommend-route.test.ts": "8295ca625b830fd67f12490633ae0a33522323c669eb4d122db5774f0e0be980",
+    "tests/plugins/service.test.ts": "44bfbd1853ff40f8c0fb3e85c83a0ac7cfd85ca5b73c6a782d8405a99d90c97d",
+    "tests/providers/kubernetes/drivers.test.ts": "6e43ba7d81598dfd34f73bf1997ebdfc4e7fcd8c0121ed3e9adebeade3ee1c8f",
+    "tests/resources/kubernetes-namespace.test.ts": "188d72b192f9cce8e8d199385ef48803d7201e6e4f0f2f5e1ce84ebe4d076f2c",
+    "tests/server/appwire-admission.test.ts": "df55d1f58293bc95e22b5f3a4eb787c79d9dc6e8465756476673d83fe75f50f4",
+    "tests/server/appwire-policy-bundle.test.ts": "27bc54cf75da3896bad7fc6af3d74cedf10f339bdf4eb93b62c0df6930a1250b",
+    "tests/sources/github-callback.test.ts": "ea6de8ecf4fde5fccaf775b31b7c3e2e5e6702fdd0bb64bc4d9180fd3312111a",
+    "tests/waitlist/api.test.ts": "099af99986da49b59d27ff39c5d4044813854dfed50e26abd7907e1832457351",
+    "tests/platform/error-boundary.test.ts": "2db200bd2df6231fe3624bc0c9686b13e808c0f20013eefc8ed362ebc3216514"
+  },
+  "targeted": {
+    "passed": 1019,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "durationSeconds": 40.68,
+    "sourceStable": true,
+    "minimumFreeBytes": 392753831936,
+    "floorBytes": 23622320128,
+    "reportSha256": "cfb67c8c8636537926341bca225dfcf8ac4f4552e03a9b7661a658895b8731fa",
+    "receiptSha256": "e33bd56b81d64d1b95f80df6388c4c99d00751214acd03be9dfea34551f8a06b",
+    "files": [
+      {
+        "path": "tests/agent-journey.test.ts",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/acceptance/aws-production.test.ts",
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/acceptance/packaged-worker.test.ts",
+        "passed": 411,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/agent-v3/route.test.ts",
+        "passed": 37,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/api/workspace-sharing.test.ts",
+        "passed": 59,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/auth/mfa.test.ts",
+        "passed": 57,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/execution/approved-source.test.ts",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/execution/build-egress-composition.test.ts",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/execution/platform.test.ts",
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/execution/zenith-first-deploy.test.ts",
+        "passed": 10,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/machines/runbook-routes.test.ts",
+        "passed": 42,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/ops/admin-routes.test.ts",
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/ops/data-plane-independence.test.ts",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/ops/route-wiring.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/placement/recommend-route.test.ts",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/plugins/service.test.ts",
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/platform/error-boundary.test.ts",
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/resources/kubernetes-namespace.test.ts",
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/resources/spec-conformance.test.ts",
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/server/appwire-admission.test.ts",
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/server/appwire-policy-bundle.test.ts",
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/sources/github-callback.test.ts",
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/waitlist/api.test.ts",
+        "passed": 67,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "path": "tests/providers/kubernetes/drivers.test.ts",
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "validation": {
+    "compiler": {
+      "heapMiB": 5120,
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "changedFileLint": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "independentReviews": [
+      "Luna review of synthetic authentication fixture diffs; real guard and negative controls retained",
+      "Sol 6.1 high review of five production paths, namespace regressions, platform error regressions, six remaining fixture repairs"
+    ]
+  },
+  "limitations": [
+    "Targeted suites overlap earlier proof and are not summed with it.",
+    "Synthetic provider fixtures test real guard logic, not genuine Supabase MFA or signed JWT verification.",
+    "No complete source-bound full-unit pass yet.",
+    "Actual SYS1 Linux PID1 setup remains failed before test execution.",
+    "J1/J2/default-stack and operated acceptance are still pending.",
+    "No acceptance criterion, required evidence level, milestone state or release flag is promoted."
+  ],
+  "ledger": {
+    "verified": 9,
+    "inProgress": 67,
+    "planned": 2,
+    "total": 78
+  }
+}

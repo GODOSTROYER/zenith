@@ -146,6 +146,45 @@ The three images at the top are real captures of the public site, dated **5 Octo
 | [Technical debt](docs/DEBT.md) | Deliberate limits and upgrade paths |
 | [Branding](docs/BRANDING.md) | Zenith identity and compatibility notes |
 
+## Platform control plane (in progress)
+
+Beside the product described above, a deterministic infrastructure control plane
+is composed in code: the capability broker behind `/api/platform/v1` uses the
+platform store and policy engine; product deploys and MCP v3 dispatch Temporal
+workflows; the worker registers execution activities through
+`src/lib/platform/execution.ts`. `src/lib/platform/drivers.ts` registers AWS,
+GCP, Azure, OCI, Kubernetes and Zenith-managed drivers. The platform pages,
+placement recommendations, CLI, scheduled reconcile tick and runner-job reaper
+are wired. **This is contract evidence, not live-cloud acceptance.** No live
+cloud run is recorded; non-AWS connection verification is contract-tested only
+(OCI checks runner registration), and OCI platform sessions run only through an
+active registered runner. The product's legacy AWS provider still
+has the Preview limits described below; the composed platform execution path
+is separate.
+
+Operator coverage includes [environment teardown](docs/platform/operations/TEARDOWN.md),
+[deletion approvals](docs/platform/operations/POLICY.md#deletion-approvals),
+[source builds](docs/platform/operations/BUILDS.md) and
+[OCI runner signal reads](docs/platform/operations/OCI-SIGNALS.md). Stateful/DNS
+deletions always require a human; teardown consumes trusted reviewed evidence.
+AWS CodeBuild receives ZIP; GCP Cloud Build and the Azure ACR adapters use tar.gz
+(Azure requires explicit source integration). Database credentials use
+passwordless/service-managed paths or ephemeral write-only sinks; OCI MySQL
+creation stays disabled. Temporal client/worker payload encryption and rotation,
+worker health/plan cleanup and leased housekeeping are documented in
+[DEPLOYING.md](docs/platform/operations/DEPLOYING.md).
+[MCP.md](docs/platform/MCP.md) covers the wired read/investigation hooks and OAuth
+protected-resource metadata/401 challenge. These features retain contract
+evidence; the guides list entry-point and live-verification gaps.
+
+Where to read: [docs/platform/ARCHITECTURE.md](docs/platform/ARCHITECTURE.md) (the
+design), [docs/platform/operations/](docs/platform/operations/README.md) (operator
+guides, each stating what was and was not verified) and the generated
+[capability matrix](docs/platform/CAPABILITY-MATRIX.md) (what each driver declares,
+and at what evidence level; nothing is `real`).
+
+---
+
 ## Honesty
 
 Zenith should never claim more than it can verify. Sandbox health and costs are simulated; AWS is plan/export Preview; LocalStack verification covers its supported subset. The local store requires one writer, and the hosted subsystem runs only where you configure and operate it.

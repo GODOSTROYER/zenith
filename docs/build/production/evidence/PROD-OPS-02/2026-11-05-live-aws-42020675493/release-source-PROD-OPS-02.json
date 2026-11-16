@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-02"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario ops-02, run id zlive-202611051138-c7ae; plan sha256 b58267e8e162859c63b7804d1d8feeffdce307cd21ad865be9b38a430f7c1850",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 bb76db5f880472206dba0feb77112eb5689ad1c84275a9bc54c7a2ee0674aee4; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611051138-c7ae",
+    "file": "evidence.json",
+    "sha256": "6ab2791a462c86dfc162f6d91f3f44356dc20a7b561464895589458e8b3a7107",
+    "packetSha256": "66c5f266058ca6b22b65eaaf71579583218134aa1bbe230619c5c2f224faaafc"
+  },
+  "result": "OPS-02 proven on AWS: with the repository's alert rules loaded into Prometheus scraping the API's metrics, one tenant sent 600 requests 40 at a time and was refused 148 times (HTTP 429) while a second tenant's 20 concurrent requests were all served (p95 5568 ms); the dashboard's tenant-filtered refusal panel showed 124 refusals for the flooding tenant and none for the quiet one; public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66 on ECS Fargate behind an ALB served all 248 HTTP probes (one a second) through a 302 s control-plane outage: the control store stopped (ZenithControlStoreDown fired after 150 s), then the API and worker stopped too for 60 s; after the restart the store reported up and the tenant was served again. Not covered: traces in a trace backend, worker-side metrics, Grafana UI import (proven locally by the import harness), Temporal-backed fairness"
+}

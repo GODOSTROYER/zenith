@@ -1,0 +1,131 @@
+{
+  "status": "ACCEPTED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "createdAtUtc": "2026-10-05T04:36:04.068118+00:00",
+  "reviewer": "C independent crypto/current-authority/descriptor source review",
+  "exactFreeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE-CORRECTED.json",
+    "sha256": "70e773273973550173e287ccc7d761610ef682db3b56e5495ea50af18ebeb2db"
+  },
+  "wholePatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/candidate.patch",
+    "sha256": "db722ac60eac6037d231d158c3a8042d324aaec78cf25fbd3b4bfd2b9d77e76c",
+    "bytes": 360283
+  },
+  "incrementalPatch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/incremental.patch",
+    "sha256": "da9be03a16b713612874fb0239a181aac1945d35cf97c4c2c922da3ef1fe28b4",
+    "bytes": 37891
+  },
+  "candidateTree": "09d8e9d2795eb34a128a5cf1af72868f32fd9c2a",
+  "wholePreparedTree": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+  "incrementalPreparedTree": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+  "mechanicalBinding": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/saved-plan-writer-settlement-r2-review-20261005/BINDING.json",
+    "sha256": "ef95c257fd4e61fe3675b99f92d96bfa43a45c5d6db9ef5c0f2b219cce54d561"
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/CASE-CONTRACT.json",
+    "sha256": "f54f4b81ff2a2e67ebe4c061db1136823a9bd2e9d792323c6abcf9b8b4249e9d",
+    "retained46": 46,
+    "r1Additive45": 45,
+    "r2Additive9": 9,
+    "total100": 100
+  },
+  "disposition": "No additional blocking source finding in the exact corrected R2 packet. R1 descriptor-accessor refusal is corrected at the checked known-run boundaries. Source acceptance does not establish native execution, provider settlement, hosted authority, or the unowned integration gates.",
+  "blockingFindings": [],
+  "correctedR1Finding": {
+    "knownRunEngineReads": "Finite producer/apply/readback callbacks repeat private registered run/workspace checks after init/plan/inspection/file waits and before each later engine member read.",
+    "knownRunInternalReads": "normalizedPlan captures original registered input before show await and repeats checkedRun before subsequent input/diagnostics reads. apply repeats checkedRun after plan hash, inspector, admission and final plan hash waits before command dispatch. read/install capture original work directory; output/state readback and public getters enter through checkedRun.",
+    "knownRunFinallyRead": "TofuRunner.run finally repeats checkedRun before evaluating dispose; substituted own/prototype accessor refuses before callback evaluation. Private original-root removal and post-wait cleanup origin checks are retained.",
+    "unknownIdentityScope": "originalRun returns on absent native WeakMap membership before own descriptor/key/prototype reads. The unknown-Proxy case establishes zero traps at the private finite entry comparator. checkedRun retains separate legacy disposal for an unknown handle; no blanket zero-trap or settlement claim is made about arbitrary unknown legacy finally or a compromised process."
+  },
+  "cryptoAuthorityTrace": [
+    {
+      "area": "Purpose and tuple separation",
+      "source": "src/lib/tofu/engine.ts:456",
+      "conclusion": "Settlement AAD has its own zenith.tofu.standalone-settlement.v1 domain plus the hash of the entire captured binding and the workspace-bound existing key path. Plan-artifact ciphertext cannot authenticate in this domain, including actual artifact iv/tag/ciphertext under the same key. All tenant/project/environment/operation/attempt/manifest/raw/backend/physical-target/holder/fence fields are compared; executable/config/lock/purpose/state hashes and the private path remain inside authenticated plaintext."
+    },
+    {
+      "area": "Private completion and non-replay",
+      "source": "src/lib/tofu/engine.ts:433",
+      "conclusion": "Produced/admitted/completed records originate in private WeakMaps tied to exact genuine plan/run/workspace identities. Taking completion removes it before sealing. Status DTOs, copied objects and SQL-inserted unauthenticated ciphertext cannot create completion or cleanup exclusion. Missing/retired key and copied binding tuples refuse; supported key overlap is authenticated, not a fallback."
+    },
+    {
+      "area": "Current source/product/member/grant and lease",
+      "source": "src/lib/controlplane/db/repos/plan-artifacts.ts:568",
+      "conclusion": "The terminal path reads the private paired completion, captures the original artifact/source/product authority, locks exact dispatched use and global physical backend ownership before the coordinator, recaptures current requirement, and repeats origin authentication after waits. The final single UPDATE/INSERT CTE retains exact live use, source, native product/member/approver/provider/approval/lease and physical backend predicates; zero changed rows refuse and no success receipt is fabricated."
+    },
+    {
+      "area": "Retained immutable exact-row exclusion",
+      "source": "src/lib/controlplane/db/repos/plan-artifacts.ts:56",
+      "conclusion": "Historical readback authenticates sealed receipts and original artifact, then the final native predicate matches exact immutable receipt ciphertext/tuple, terminal owning use, full artifact JSON and backend owner. Cleanup inventory excludes only those authenticated original delivery/use records. Unauthenticated retained SQL rows still block, and other workflow/build/runner/machine/grant history remains unresolved."
+    },
+    {
+      "area": "Native schema preservation",
+      "source": "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+      "conclusion": "Two immutable purpose-specific tables append migration16/emitted0018; prior migration15 and emitted0017 remain exact. Tenant receipt ownership and global physical-backend owner constraints are explicit. R2 keeps every SQL/cipher/migration path byte-exact to reviewed R1."
+    }
+  ],
+  "fixtureChallenge": {
+    "literalCases": 100,
+    "priorCasesRetained": 91,
+    "original46BodiesByteExact": true,
+    "newAccessorOriginControls": 9,
+    "fiveRoleWaits": "The old five identities now pause in the third genuine plan inspector callback. The fixture requires three actual inspections, actual accepted state and no surviving runtime work directories, then mutates current requester/approver/approval/provider rows independently. Earlier uncertainty/receipt/nonreplay assertions remain.",
+    "incompleteCleanupControl": "Fake dispose callback stays unentered (0) under earlier finally origin refusal; accepted state, no receipt, uncertainty and replay refusal remain asserted.",
+    "cryptoNegativeControls": "Constraint-valid unauthenticated SQL receipt from actual original native tuple is retained and blocks continuation. Actual original artifact ciphertext with the same key is rejected by settlement purpose AAD. Current vs historical state and overlap/retirement cases are preserved.",
+    "execution": "All 100 cases are authored native-PG/pinned-tool prerequisites and remain UNRUN by this reviewer."
+  },
+  "indexDisclosure": {
+    "path": "/Users/saivedanthava/Desktop/zenith/.git/worktrees/saved-plan-settlement-r2-20261005/index",
+    "frozenRawSha256": "bf88eab2ffc7f839bdae8b13acbaed9f8efa61265f1bb00d0da23dee39b14726",
+    "currentRawSha256BeforeReview": "efd8e1b528499eaf886326448714876b4b106946439c48636998295d151037dc",
+    "currentRawSha256AfterReview": "efd8e1b528499eaf886326448714876b4b106946439c48636998295d151037dc",
+    "currentRawEqualsFrozen": false,
+    "currentRawStableDuringThisReview": true,
+    "stageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "stageEntriesExactFrozen": true,
+    "stagedDiffEmpty": true,
+    "explanation": "Author post-freeze git status stat-cache refresh was explicitly disclosed by root/A/B. No restoration, index write, staged source change, or source change performed by this reviewer."
+  },
+  "outsideOwnedRequiredFollowups": [
+    "Independently reviewed mandatory registration must retain old1059 and register exact54 additional named cases; derive1113 only from current source discovery, preserve PostgreSQL80/guest127/packaged22/workflows58 and strict zero/failure/skip/malformed guards.",
+    "Schema49 and emitted0018 initializer/operator references, global-backend tenancy assertions, and private readStandaloneSettlements/finishStandalone API classification need bounded independent integration. Historical migration checksums stay immutable.",
+    "Final SQL AST composer/provenance registration must cover the completion CTE and settlement exact-row predicate without broad function exemptions or weakened hostile controls.",
+    "Root must execute compiler, emitter parity, all100 actual PostgreSQL cases and paired real OpenTofu source/runtime tests with current source/role/provider/lease waits. Hosted protocol/policy fixtures remain explicit models.",
+    "Owned physical backend alias/ancestry and same-scope actual state controls remain necessary; no claim about same-UID external filesystem CAS, external providers, delegated processes, arbitrary compromised runtime, default API, or installed service is made."
+  ],
+  "preservedHistory": [
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/saved-plan-writer-settlement-independent-review-r1.json",
+      "sha256": "133132a6798d33d5a70c3c34016bcdae691b3d0dd9d2162dea1eb20f848fc376",
+      "disposition": "CORRECTION_REQUIRED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/FROZEN-SOURCE.json",
+      "sha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85",
+      "liveAllSourceExact": true,
+      "rawIndexExact": true,
+      "sourceRejectionPreserved": true
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision2/FROZEN-SOURCE.json",
+      "sha256": "cfbf50fbe810c1a5ca2f9ceabb09c15207fff1cd59dba857ee3b2005614f596d",
+      "meaning": "Preliminary R2 metadata retained; final corrected freeze governs."
+    }
+  ],
+  "execution": {
+    "projectImports": "NOT_RUN",
+    "compiler": "NOT_RUN",
+    "tests": "NOT_RUN",
+    "OpenTofu": "NOT_RUN",
+    "database": "NOT_STARTED",
+    "services": "NOT_STARTED",
+    "Docker": "NOT_USED",
+    "sourceEdits": "NONE",
+    "realIndexWrites": "NONE",
+    "gitWrites": "NONE",
+    "runtimeAcceptance": false
+  }
+}

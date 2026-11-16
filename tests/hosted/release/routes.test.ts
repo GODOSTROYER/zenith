@@ -22,8 +22,22 @@ const DATA = isolatedDataDir("zenith-w7-routes-");
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 
+// Identity/policy transports are fixture adapters; the shipping MFA guard still verifies them.
+const stepUp = vi.hoisted(() => ({ aal: "aal2", policyAvailable: true }));
 const session = vi.hoisted(() => ({ user: null as SessionUser | null }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => session.user }));
+
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: session.user?.id, aal: stepUp.aal, exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: session.user?.id, email_confirmed_at: "2026-01-01T00:00:00.000Z", factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
+vi.mock("@/lib/auth/mfa-policy", async (original) => {
+  const policy = await original<typeof import("@/lib/auth/mfa-policy")>();
+  return { ...policy, workspaceMfaControl: async () => {
+    if (!stepUp.policyAvailable) { const { ApiError } = await import("@/lib/server/errors"); throw new ApiError("Workspace MFA controls could not be verified.", 503); }
+    return policy.DEFAULT_MFA_CONTROL;
+  } };
+});
 
 const { resetDb } = await import("@/lib/db/store");
 const { ensureBoot } = await import("@/lib/server/boot");
@@ -63,14 +77,15 @@ const call = (
   handler: unknown,
   url: string,
   params: Record<string, string> = {},
-  init: { method?: string; body?: unknown } = {}
+  init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}
 ): Promise<Response> =>
   (handler as Handler)(
     new NextRequest(`http://localhost${url}`, {
       method: init.method ?? "GET",
+      headers: { origin: "http://localhost", "sec-fetch-site": "same-origin", ...(init.body === undefined ? {} : { "content-type": "application/json" }), ...init.headers },
       ...(init.body === undefined
         ? {}
-        : { body: JSON.stringify(init.body), headers: { "content-type": "application/json" } }),
+        : { body: JSON.stringify(init.body) }),
     }),
     { params: Promise.resolve(params) as Promise<never> }
   );
@@ -119,6 +134,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  stepUp.aal = "aal2"; stepUp.policyAvailable = true;
   resetDb({ workspaces: [workspace], members: [member(owner, "admin"), member(editor, "editor")] });
   session.user = owner;
 });
@@ -138,6 +154,17 @@ afterAll(async () => {
 });
 
 describe("POST /api/hosted/apps", () => {
+  it("refuses unverified MFA before creating an app", async () => {
+    undo = await wire();
+    stepUp.aal = "aal1";
+    const res = await call(appsRoute.POST, "/api/hosted/apps", {}, { method: "POST", body: { name: "MFA refusal", slug: "mfa-refusal" } });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: { message: "Verify your authenticator before continuing with this privileged action." } });
+    stepUp.aal = "aal2";
+    expect((await call(appsRoute.POST, "/api/hosted/apps", {}, { method: "POST", headers: { origin: "http://evil.test" }, body: { name: "MFA refusal", slug: "mfa-refusal" } })).status).toBe(403);
+    expect(await authority.authority().repos.apps.getBySlug("mfa-refusal")).toBeNull();
+  });
+
   it("creates the app and answers 201 with it", async () => {
     undo = await wire();
     const res = await call(appsRoute.POST, "/api/hosted/apps", {}, { method: "POST", body: { name: "Tracker", slug: "tracker" } });

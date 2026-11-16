@@ -1,0 +1,49 @@
+{
+  "schema": "zenith.public.node-env-focused-repair.v1",
+  "baseCommit": "a58bb8ffe95f1c02d2372c6b42cb0f61da5f86a0",
+  "candidate": {
+    "path": "tests/release/local-target-module-compatibility.test.ts",
+    "postimageSha256": "d9d3515b59f038bea181b797906c125bd8a0c318d485f0bef309daa33ef238d8",
+    "patchSha256": "89719ad20d2900db95560825f445e96459d7b154a6016d991743c5c13094bbd7",
+    "change": "adds NODE_ENV=test to two explicit child ProcessEnv objects; inherited environment is not spread",
+    "committed": false
+  },
+  "recordedChecks": {
+    "typecheckWithCiHeap": {
+      "command": "NODE_OPTIONS=--max-old-space-size=5120 npm run typecheck",
+      "exitCode": 0,
+      "logSha256": "67bfbc2a439139104f888754cfda372370c2dcbeddb1689431dd3df637150145"
+    },
+    "focusedVitest": {
+      "command": "vitest run tests/release/local-target-module-compatibility.test.ts --no-file-parallelism --maxWorkers=1",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "logSha256": "720efb8e11006fe36339e2212eda6bf41e4a09064d6534bff5008520ad5cbb22"
+    },
+    "focusedEslint": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "defaultHeapTypecheck": {
+      "exitCode": 134,
+      "result": "Node heap OOM near 4 GB; no TypeScript diagnostics",
+      "logSha256": "f3b0e9967d55e620b8f6a12f880ccd9fe429f0de3ba15f1ab4242accb9b99f47"
+    }
+  },
+  "independentReview": {
+    "verdict": "PASS",
+    "reviewSha256": "cf1dceabff459c15e929d706f56a8eddd1b44e619158ebaebcc8bc65f2c1ea97",
+    "reviewJsonSha256": "422955fc9f7789fbcdbfc78e9fa509e380562af24237628e2ca4f150fae1dbcd",
+    "scope": "source review only; checks not rerun"
+  },
+  "limits": {
+    "freshCiRun": false,
+    "fullSuiteValidation": false,
+    "j1J4Acceptance": false,
+    "productionAcceptance": false
+  },
+  "acceptanceClaim": false,
+  "milestonePromoted": false
+}

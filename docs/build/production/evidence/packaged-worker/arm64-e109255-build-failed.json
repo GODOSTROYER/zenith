@@ -1,0 +1,56 @@
+{
+  "runId": "zenith-pkg-arm64-8f72dff0460a",
+  "platform": "linux/arm64",
+  "startedAt": "2026-10-02T21:21:43.557Z",
+  "status": "failed",
+  "checks": {},
+  "limitations": [
+    "Temporal CLI development server, not Temporal Cloud or production Temporal topology.",
+    "Product metadata uses an isolated file-store fixture; platform control store is real Postgres.",
+    "No deployed cloud resources: reconcile observes an empty environment; read operation safely refuses a missing target.",
+    "No cloud writes or browser approval are performed; plan files are retention sentinels, not executable plans.",
+    "Shutdown check drains an idle packaged worker; in-flight cloud activity drain remains outside this harness.",
+    "Source binding captures the live context before and after build; transient changes are not excluded by an immutable snapshot."
+  ],
+  "commit": "e1092550b80a90dc816721c952ed991ec9e9f1f2",
+  "dirty": false,
+  "sourceInputSha256": "97e945c6b418fd2ae726e5bec6e6e6e8c451d06b8eacc6f081aa07d57114d6be",
+  "acceptanceHarnessSha256": "44249e4e1e0a029c19af7a78b26acaa4dc63ccaa0136b49bf77dde4347972df2",
+  "lockedDependencies": {
+    "@temporalio/worker": "1.24.0",
+    "@temporalio/client": "1.24.0",
+    "postgres": "3.4.7",
+    "jose": "6.2.12"
+  },
+  "environment": {
+    "dockerServerOS": "linux",
+    "dockerServerArch": "arm64",
+    "dockerVersion": "29.1.3",
+    "emulated": false
+  },
+  "failurePhase": "fresh-image-build",
+  "failureCommand": {
+    "category": "command-exit",
+    "exitCode": 100,
+    "signal": null
+  },
+  "failureContainers": {},
+  "privateDiagnostics": {
+    "captured": false,
+    "files": 0
+  },
+  "cleanup": {
+    "privateFilesRemoved": true,
+    "allCreatedResourcesRemoved": true,
+    "resources": [
+      {
+        "kind": "image",
+        "role": "acceptance-image",
+        "removed": true,
+        "outcome": "already-absent",
+        "attempts": 0
+      }
+    ]
+  },
+  "finishedAt": "2026-10-02T21:22:43.720Z"
+}

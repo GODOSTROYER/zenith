@@ -12,6 +12,7 @@
  */
 import { z } from "zod";
 import { db, inWorkspace, q } from "@/lib/db/store";
+import { v1View } from "@/lib/resources/upgrade";
 import { getProvider, providerRegistry, type ProviderPlanStep } from "@/lib/providers/types";
 import type { DeploymentStep } from "@/lib/domain/types";
 import { ApiError, notFound, requireWorkspace, route } from "@/lib/server/context";
@@ -61,7 +62,7 @@ export const POST = route<{ id: string }>(async (req, { id }) => {
 
   let plan: ProviderPlanStep[];
   try {
-    plan = provider.planSteps(env, project.workingManifest, previous?.manifest);
+    plan = provider.planSteps(env, v1View(project.workingManifest), previous ? v1View(previous.manifest) : undefined);
   } catch (err) {
     // Planning is provider code and it is allowed to refuse. Same wording the
     // engine uses when start() hits this, minus the "deploy now" imperative.

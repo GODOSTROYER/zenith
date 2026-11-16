@@ -1,0 +1,24 @@
+{
+  "args": {
+    "argv": [
+      "/bin/echo",
+      "hello"
+    ],
+    "timeoutSec": 5
+  },
+  "operation": "machine.exec",
+  "result": {
+    "ok": false,
+    "data": {
+      "error": "command_failed",
+      "exitCode": 3,
+      "reason": "command exited 3"
+    },
+    "output": {
+      "stdout": "fixture output\n",
+      "stderr": "",
+      "exitCode": 3,
+      "truncated": false
+    }
+  }
+}

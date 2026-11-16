@@ -1,0 +1,2150 @@
+[
+  {
+    "lane": "platform-postgres",
+    "artifactId": 11268025080,
+    "artifactName": "canonical-platform-postgres-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "zipSha256": "f113d53fc18c1b267891807fafe0b6d617b653a6d6c8bf7f28fda03b6be27600",
+    "evidenceSha256": "ca6f57a670100abc70b565c161c3d49a936c44f8302458ff382f707eafa0cdd7",
+    "manifestSha256": "b99d5eb009fae421578b1e2694ec16e137789a0a6143b46c0355222a814a8fed",
+    "reportSha256": "30f1a050f7627525771a568efbb98d75bd82471c1652003f66f0c70592a8b679",
+    "receiptSha256": "c0cc861fe50cf50b11e9c25f4152137ad1ed6c7edf1152b2ef5d5006c25049bb",
+    "counts": {
+      "total": 1422,
+      "passed": 1422,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 45,
+    "independentChecks": {
+      "zipDigestMatchesMetadata": true,
+      "artifactRunAndHeadExact": true,
+      "archiveHasOnlyExpectedSanitizedEvidence": true,
+      "embeddedSourceExact": true,
+      "cleanIndexInventory": true,
+      "dependencyVersionsExact": true,
+      "manifestDigestExact": true,
+      "requirementIdsMetadataAlgorithmMatches": true,
+      "requiredInventoryExact": true,
+      "allRequiredFilesExistAtExactSource": true,
+      "allCountsPositiveAndPassed": true,
+      "allRequiredStatusesPassed": true,
+      "elevenReceiptBindingsMatch": true,
+      "twelfthInventoryFlagInternallyConsistent": true,
+      "allTwelveExportedChecksMatch": true,
+      "receiptPrettySerializationDigestMatches": true,
+      "observedZeroExitAndMatched": true,
+      "validSchemaAndVerdict": true,
+      "toolExpectationsMatchManifest": true
+    },
+    "elevenBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true
+    },
+    "exportedTwelveFlags": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "5e13e3094979e3110da1680ca4af2629692be1ffdc80b711e9ce2a9643259c51",
+      "counts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    },
+    "externalAcceptance": [],
+    "rawReportAvailable": false,
+    "privateEnvironmentInventoryAvailable": false,
+    "independentReplayLimit": "Eleven binding relationships and private-inventory flag consistency checked from sanitized artifacts. Raw assertions and original environment inventory were not uploaded, so raw report/manifest matching and inventory-value replay cannot be independently repeated.",
+    "required": [
+      {
+        "id": "platform-postgres:tests/controlplane/approvals.test.ts:6ddfd23d8015",
+        "file": "tests/controlplane/approvals.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 15,
+          "passed": 15,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/execution-ledger.test.ts:d3ed8a471fd3",
+        "file": "tests/controlplane/execution-ledger.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 16,
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/executor.test.ts:4888cff6ca72",
+        "file": "tests/controlplane/executor.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 17,
+          "passed": 17,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/executor.test.ts:d69df0758896",
+        "file": "tests/controlplane/executor.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/grants.test.ts:3d6d7d84146f",
+        "file": "tests/controlplane/grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 7,
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/leases.test.ts:6de269b022e6",
+        "file": "tests/controlplane/leases.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 13,
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/migrations.test.ts:29219ff1efa5",
+        "file": "tests/controlplane/migrations.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 9,
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/migrations.test.ts:37b8b5723812",
+        "file": "tests/controlplane/migrations.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/open.test.ts:0c007f0b8d15",
+        "file": "tests/controlplane/open.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/operations.test.ts:a01f112f6412",
+        "file": "tests/controlplane/operations.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 29,
+          "passed": 29,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/read-jobs.test.ts:5efbbf2bc497",
+        "file": "tests/controlplane/read-jobs.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 14,
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/runners.test.ts:339ae101d8f6",
+        "file": "tests/controlplane/runners.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 26,
+          "passed": 26,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/services.test.ts:00a3e30c0b02",
+        "file": "tests/controlplane/services.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 19,
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/state.test.ts:58a2ad6a3f2d",
+        "file": "tests/controlplane/state.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 26,
+          "passed": 26,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/controlplane/tenancy.test.ts:43f6b8c82d58",
+        "file": "tests/controlplane/tenancy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/action-bridge.test.ts:2fe1ac885e84",
+        "file": "tests/capabilities/action-bridge.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/approvals.test.ts:29d0664a29e4",
+        "file": "tests/capabilities/approvals.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 14,
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/approvals.test.ts:d848150e2f8b",
+        "file": "tests/capabilities/approvals.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/approvals.test.ts:8cd1a98d65be",
+        "file": "tests/capabilities/approvals.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/autonomy.test.ts:63669e2430ca",
+        "file": "tests/capabilities/autonomy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/autonomy.test.ts:57fd1bbf4abd",
+        "file": "tests/capabilities/autonomy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:0bd902a87c54",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 9,
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:c201238449a2",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:ab0d286c0f42",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 10,
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:d508a2c0e133",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:b00e430ff65c",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:f01db1989132",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/broker.test.ts:472c11957bd9",
+        "file": "tests/capabilities/broker.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:e30c89e9b970",
+        "file": "tests/capabilities/execution.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 13,
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:40d3fbed80d7",
+        "file": "tests/capabilities/execution.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 10,
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:eeffa47ee392",
+        "file": "tests/capabilities/execution.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/execution.test.ts:93339dc41876",
+        "file": "tests/capabilities/execution.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 7,
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/store-contract.test.ts:2ebeb5ebf5b7",
+        "file": "tests/capabilities/store-contract.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 28,
+          "passed": 28,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:a67e3c40e7a8",
+        "file": "tests/capabilities/tenancy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:d9a8309454d7",
+        "file": "tests/capabilities/tenancy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:f0d3f162c01e",
+        "file": "tests/capabilities/tenancy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:3171d6670c22",
+        "file": "tests/capabilities/tenancy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/capabilities/tenancy.test.ts:4fb2a01c6de4",
+        "file": "tests/capabilities/tenancy.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/reconcile/platform.test.ts:ebcdbbbe2264",
+        "file": "tests/reconcile/platform.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 58,
+          "passed": 58,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:0d8ff3f76036",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:4c41f432b9fa",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:fd0865a92c75",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:6dd542936245",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:c228bbfa6520",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "platform-postgres:tests/platform/ecs-replica-repair-grants.test.ts:af4c1b6a8582",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "lane": "policy",
+    "artifactId": 11267740182,
+    "artifactName": "canonical-policy-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "zipSha256": "e1324189a5dcfbf4343386273485432f45bee6b7de92dbee9d2e85d2ed84e137",
+    "evidenceSha256": "04d1c7a41060a3eef40e9eb33c04f316c2ce820e31ea6f40774d626b50eec389",
+    "manifestSha256": "4c78a7b43e04eebd4ada7cf5bb912038b7957fac724da6f3887a9d62e7b7d8b3",
+    "reportSha256": "07c0ab48061642259ae73a546926c2b36102d678a8c074703d80c42f36a254db",
+    "receiptSha256": "456e33e728c419e36b30d6390a5ed8e2ac4b241db5813b7ec7ec1aecbf4b9ff9",
+    "counts": {
+      "total": 238,
+      "passed": 238,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 7,
+    "independentChecks": {
+      "zipDigestMatchesMetadata": true,
+      "artifactRunAndHeadExact": true,
+      "archiveHasOnlyExpectedSanitizedEvidence": true,
+      "embeddedSourceExact": true,
+      "cleanIndexInventory": true,
+      "dependencyVersionsExact": true,
+      "manifestDigestExact": true,
+      "requirementIdsMetadataAlgorithmMatches": true,
+      "requiredInventoryExact": true,
+      "allRequiredFilesExistAtExactSource": true,
+      "allCountsPositiveAndPassed": true,
+      "allRequiredStatusesPassed": true,
+      "elevenReceiptBindingsMatch": true,
+      "twelfthInventoryFlagInternallyConsistent": true,
+      "allTwelveExportedChecksMatch": true,
+      "receiptPrettySerializationDigestMatches": true,
+      "observedZeroExitAndMatched": true,
+      "validSchemaAndVerdict": true,
+      "toolExpectationsMatchManifest": true
+    },
+    "elevenBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true
+    },
+    "exportedTwelveFlags": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "c6af084fbb69f5f59225e485cabd357c4c6ff8b1e85ceafa68fb16fb35acf74f",
+      "counts": {
+        "unchanged": 107,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    },
+    "externalAcceptance": [],
+    "rawReportAvailable": false,
+    "privateEnvironmentInventoryAvailable": false,
+    "independentReplayLimit": "Eleven binding relationships and private-inventory flag consistency checked from sanitized artifacts. Raw assertions and original environment inventory were not uploaded, so raw report/manifest matching and inventory-value replay cannot be independently repeated.",
+    "required": [
+      {
+        "id": "policy:tests/policy/bundle.test.ts:4ee93ed6c454",
+        "file": "tests/policy/bundle.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 8,
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "policy:tests/policy/defaults.test.ts:4ee93ed6c454",
+        "file": "tests/policy/defaults.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 22,
+          "passed": 22,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "policy:tests/policy/delete.test.ts:4ee93ed6c454",
+        "file": "tests/policy/delete.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 21,
+          "passed": 21,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "policy:tests/policy/engine.test.ts:4ee93ed6c454",
+        "file": "tests/policy/engine.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 70,
+          "passed": 70,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "policy:tests/policy/parity.test.ts:4ee93ed6c454",
+        "file": "tests/policy/parity.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "policy:tests/policy/plan-facts.test.ts:4ee93ed6c454",
+        "file": "tests/policy/plan-facts.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 44,
+          "passed": 44,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "policy:tests/policy/scenarios.test.ts:4ee93ed6c454",
+        "file": "tests/policy/scenarios.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 72,
+          "passed": 72,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "lane": "tofu",
+    "artifactId": 11267425856,
+    "artifactName": "canonical-tofu-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "zipSha256": "607fc0fc919b86ae63ad7b93e4995128752f065c0bdf7493cb91c1ca45f8a0eb",
+    "evidenceSha256": "6571fa6ed74e79d47cbb1899167c9d96c1da9eafdc6054e28df8d501b7b0044e",
+    "manifestSha256": "f95b9936104f192d54642e4fff3c10ab2fd66433d0395d1dac76faed20f7852d",
+    "reportSha256": "18513ca8f6a61d07719cc277cf72320b18f6712fbbc21777adf7d5ae0b73d73b",
+    "receiptSha256": "da8210dde314690a1f0838cedb5064704680ca58b2dd6c64bef29d1d08b9c893",
+    "counts": {
+      "total": 3900,
+      "passed": 3900,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 27,
+    "independentChecks": {
+      "zipDigestMatchesMetadata": true,
+      "artifactRunAndHeadExact": true,
+      "archiveHasOnlyExpectedSanitizedEvidence": true,
+      "embeddedSourceExact": true,
+      "cleanIndexInventory": true,
+      "dependencyVersionsExact": true,
+      "manifestDigestExact": true,
+      "requirementIdsMetadataAlgorithmMatches": true,
+      "requiredInventoryExact": true,
+      "allRequiredFilesExistAtExactSource": true,
+      "allCountsPositiveAndPassed": true,
+      "allRequiredStatusesPassed": true,
+      "elevenReceiptBindingsMatch": true,
+      "twelfthInventoryFlagInternallyConsistent": true,
+      "allTwelveExportedChecksMatch": true,
+      "receiptPrettySerializationDigestMatches": true,
+      "observedZeroExitAndMatched": true,
+      "validSchemaAndVerdict": true,
+      "toolExpectationsMatchManifest": true
+    },
+    "elevenBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true
+    },
+    "exportedTwelveFlags": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "3dba79d54a502b90393517bd26d207f1b7b94c2af15aaf33071437b78168190d",
+      "counts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    },
+    "externalAcceptance": [],
+    "rawReportAvailable": false,
+    "privateEnvironmentInventoryAvailable": false,
+    "independentReplayLimit": "Eleven binding relationships and private-inventory flag consistency checked from sanitized artifacts. Raw assertions and original environment inventory were not uploaded, so raw report/manifest matching and inventory-value replay cannot be independently repeated.",
+    "required": [
+      {
+        "id": "tofu:tests/tofu/network.test.ts:744a088ae671",
+        "file": "tests/tofu/network.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/tofu/network.test.ts:0f78af001951",
+        "file": "tests/tofu/network.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/tofu/backends.test.ts:0f743fbef9ad",
+        "file": "tests/tofu/backends.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/tofu/destroy-real.test.ts:ceb4c16e2744",
+        "file": "tests/tofu/destroy-real.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/aws/drivers/compute/assemble.test.ts:80c709c27b1b",
+        "file": "tests/providers/aws/drivers/compute/assemble.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/aws/drivers/data/assemble.test.ts:aeb78afc816b",
+        "file": "tests/providers/aws/drivers/data/assemble.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/aws/drivers/messaging/assemble.test.ts:4b4c8fd91ca4",
+        "file": "tests/providers/aws/drivers/messaging/assemble.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/aws/drivers/network/compile-graph.test.ts:e68c9c1b341d",
+        "file": "tests/providers/aws/drivers/network/compile-graph.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/aws/drivers/e2e-compile.test.ts:ffc38cdfe7a6",
+        "file": "tests/providers/aws/drivers/e2e-compile.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/aws/identity/trust.test.ts:73f0f76f8f9b",
+        "file": "tests/providers/aws/identity/trust.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/gcp/tofu-validate.test.ts:cb09ecb33176",
+        "file": "tests/providers/gcp/tofu-validate.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/gcp/bootstrap.test.ts:34b8ce9b36d5",
+        "file": "tests/providers/gcp/bootstrap.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/gcp/identity/trust.test.ts:517e35ec3712",
+        "file": "tests/providers/gcp/identity/trust.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/azure/validate.test.ts:fd17a919fe48",
+        "file": "tests/providers/azure/validate.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/azure/deploy.test.ts:29283123dd58",
+        "file": "tests/providers/azure/deploy.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/azure/identity/trust.test.ts:23bfb0e3d5eb",
+        "file": "tests/providers/azure/identity/trust.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/oci/validate.test.ts:fc9542558d40",
+        "file": "tests/providers/oci/validate.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/oci/validate.test.ts:7d3754548d21",
+        "file": "tests/providers/oci/validate.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/execution/compile-refs-providers.test.ts:4c730c7a915a",
+        "file": "tests/execution/compile-refs-providers.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/security/tofu-secrets.test.ts:90e06e5ae146",
+        "file": "tests/security/tofu-secrets.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/security/tofu-runner-env.test.ts:f625b401642a",
+        "file": "tests/security/tofu-runner-env.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/security/tofu-workspace-injection.test.ts:b211f462ae66",
+        "file": "tests/security/tofu-workspace-injection.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/execution/journey.test.ts:7995f890caa9",
+        "file": "tests/execution/journey.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/tofu/ephemeral-network.test.ts:437ae1ea73bb",
+        "file": "tests/tofu/ephemeral-network.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/azure/mysql.test.ts:41217ec8ff09",
+        "file": "tests/providers/azure/mysql.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/providers/oci/mysql.test.ts:fda1806f81af",
+        "file": "tests/providers/oci/mysql.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "tofu:tests/tofu/runner.test.ts:4ee93ed6c454",
+        "file": "tests/tofu/runner.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 19,
+          "passed": 19,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "lane": "workflows",
+    "artifactId": 11267186377,
+    "artifactName": "canonical-workflows-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "zipSha256": "7528b38241ef7928e3592b73be8e47a86ac7e0fb61cea6287b3c82cf44229d72",
+    "evidenceSha256": "a5f04f9f216656d8e653dfc8837ad20c889220763c9aabb6bd88a187684c27de",
+    "manifestSha256": "c860b1c2d3bab6ebc1461f139732d0fc300397fc666044dc226f02d94ada27b0",
+    "reportSha256": "532fab06ff187d5ce56c9f675301cda3265db0e3a882e9b7244c8b994c6516dc",
+    "receiptSha256": "910b0dad24973a0f166ba8f21b57aa420614ebbd3b95b0fc01366ce19f5f96d2",
+    "counts": {
+      "total": 982,
+      "passed": 982,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 44,
+    "independentChecks": {
+      "zipDigestMatchesMetadata": true,
+      "artifactRunAndHeadExact": true,
+      "archiveHasOnlyExpectedSanitizedEvidence": true,
+      "embeddedSourceExact": true,
+      "cleanIndexInventory": true,
+      "dependencyVersionsExact": true,
+      "manifestDigestExact": true,
+      "requirementIdsMetadataAlgorithmMatches": true,
+      "requiredInventoryExact": true,
+      "allRequiredFilesExistAtExactSource": true,
+      "allCountsPositiveAndPassed": true,
+      "allRequiredStatusesPassed": true,
+      "elevenReceiptBindingsMatch": true,
+      "twelfthInventoryFlagInternallyConsistent": true,
+      "allTwelveExportedChecksMatch": true,
+      "receiptPrettySerializationDigestMatches": true,
+      "observedZeroExitAndMatched": true,
+      "validSchemaAndVerdict": true,
+      "toolExpectationsMatchManifest": true
+    },
+    "elevenBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true
+    },
+    "exportedTwelveFlags": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "a02724e41d0615406a0f405fb4dbd25151f81f2951e6daa750ca1ee0e4e1357f",
+      "counts": {
+        "unchanged": 114,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    },
+    "externalAcceptance": [
+      {
+        "id": "external-temporal-mtls",
+        "file": "tests/workflows/mtls-live.test.ts",
+        "status": "unverified",
+        "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+      }
+    ],
+    "rawReportAvailable": false,
+    "privateEnvironmentInventoryAvailable": false,
+    "independentReplayLimit": "Eleven binding relationships and private-inventory flag consistency checked from sanitized artifacts. Raw assertions and original environment inventory were not uploaded, so raw report/manifest matching and inventory-value replay cannot be independently repeated.",
+    "required": [
+      {
+        "id": "workflows:tests/workflows/approval-time.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/approval-time.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/caller-payloads.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/caller-payloads.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/client.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/client.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 16,
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/codec-replay.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/codec-replay.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/codec-wiring.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/codec-wiring.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 24,
+          "passed": 24,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/codec.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/codec.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 45,
+          "passed": 45,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/config.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/config.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 28,
+          "passed": 28,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/deploy.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/deploy.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 38,
+          "passed": 38,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/destroy-replay.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/destroy-replay.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/destroy.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/destroy.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 11,
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/failures.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/failures.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 42,
+          "passed": 42,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/mtls-config.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/mtls-config.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 29,
+          "passed": 29,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/operations.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/operations.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 28,
+          "passed": 28,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/payload-boundary.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/payload-boundary.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 52,
+          "passed": 52,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/reconcile.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/reconcile.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/replay.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/replay.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 7,
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/sandbox.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/sandbox.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 52,
+          "passed": 52,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/worker.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/worker.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 16,
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/agent-ports.test.ts:4ee93ed6c454",
+        "file": "tests/platform/agent-ports.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 15,
+          "passed": 15,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/composition.test.ts:4ee93ed6c454",
+        "file": "tests/platform/composition.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 11,
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/credentials-verification.test.ts:4ee93ed6c454",
+        "file": "tests/platform/credentials-verification.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 78,
+          "passed": 78,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/deploy-e2e.test.ts:4ee93ed6c454",
+        "file": "tests/platform/deploy-e2e.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 16,
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/housekeeping.test.ts:4ee93ed6c454",
+        "file": "tests/platform/housekeeping.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 14,
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/machine-composition.test.ts:4ee93ed6c454",
+        "file": "tests/platform/machine-composition.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 6,
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/oci-sessions.test.ts:4ee93ed6c454",
+        "file": "tests/platform/oci-sessions.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 31,
+          "passed": 31,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/plan-approval-routes.test.ts:4ee93ed6c454",
+        "file": "tests/platform/plan-approval-routes.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 9,
+          "passed": 9,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/plan-approval.test.ts:4ee93ed6c454",
+        "file": "tests/platform/plan-approval.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 11,
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/release-multi.test.ts:4ee93ed6c454",
+        "file": "tests/platform/release-multi.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/release.test.ts:4ee93ed6c454",
+        "file": "tests/platform/release.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 8,
+          "passed": 8,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/secret-grants.test.ts:4ee93ed6c454",
+        "file": "tests/platform/secret-grants.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 14,
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle-azure.test.ts:4ee93ed6c454",
+        "file": "tests/platform/source-bundle-azure.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 10,
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle-composition.test.ts:4ee93ed6c454",
+        "file": "tests/platform/source-bundle-composition.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 7,
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle-github.test.ts:4ee93ed6c454",
+        "file": "tests/platform/source-bundle-github.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 4,
+          "passed": 4,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle.test.ts:382ab8a7f122",
+        "file": "tests/platform/source-bundle.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 56,
+          "passed": 56,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle.test.ts:fb1aa6d12b58",
+        "file": "tests/platform/source-bundle.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 16,
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle.test.ts:53e02775a33f",
+        "file": "tests/platform/source-bundle.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/source-bundle.test.ts:06370cdf74cb",
+        "file": "tests/platform/source-bundle.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/security/workflow-history.test.ts:4ee93ed6c454",
+        "file": "tests/security/workflow-history.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 10,
+          "passed": 10,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/execution/ecs-replica-repair.test.ts:85943f4d2884",
+        "file": "tests/execution/ecs-replica-repair.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 33,
+          "passed": 33,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/execution/ecs-replica-repair.test.ts:0e1394a4321c",
+        "file": "tests/execution/ecs-replica-repair.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 11,
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/execution/ecs-replica-repair.test.ts:9adbe8c32a4d",
+        "file": "tests/execution/ecs-replica-repair.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 13,
+          "passed": 13,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts:da371ce5aa6c",
+        "file": "tests/providers/aws/drivers/compute/ecs-replica-repair-read.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 26,
+          "passed": 26,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/platform/ecs-replica-repair-grants.test.ts:4ee93ed6c454",
+        "file": "tests/platform/ecs-replica-repair-grants.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 7,
+          "passed": 7,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "workflows:tests/workflows/ecs-replica-repair.test.ts:4ee93ed6c454",
+        "file": "tests/workflows/ecs-replica-repair.test.ts",
+        "backend": null,
+        "counts": {
+          "total": 11,
+          "passed": 11,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      }
+    ]
+  },
+  {
+    "lane": "postgres",
+    "artifactId": 11266119704,
+    "artifactName": "canonical-postgres-evidence-9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "zipSha256": "1c9acab6d648e96c3fe9556e161a730aaa099491cbb259fcd01a569d7b74f3f5",
+    "evidenceSha256": "564a0faec4f6d6b4e0ec7934126ef72726a2e34a10ff343673832ef1b3cc3058",
+    "manifestSha256": "9576cc4f9ab9107f986ab3a2a0df29074daedb44f11d7bd706fec96d24c636d8",
+    "reportSha256": "0921596a4a9ad8450fcfab3f2b4d2df22f7326fc298041f1fbe64ff3a4bad522",
+    "receiptSha256": "f8c7ed30d8b5e5c9caa144e608c15daee9bd9e0e8477a46a7f5e0ec8111fc246",
+    "counts": {
+      "total": 251,
+      "passed": 251,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 9,
+    "independentChecks": {
+      "zipDigestMatchesMetadata": true,
+      "artifactRunAndHeadExact": true,
+      "archiveHasOnlyExpectedSanitizedEvidence": true,
+      "embeddedSourceExact": true,
+      "cleanIndexInventory": true,
+      "dependencyVersionsExact": true,
+      "manifestDigestExact": true,
+      "requirementIdsMetadataAlgorithmMatches": true,
+      "requiredInventoryExact": true,
+      "allRequiredFilesExistAtExactSource": true,
+      "allCountsPositiveAndPassed": true,
+      "allRequiredStatusesPassed": true,
+      "elevenReceiptBindingsMatch": true,
+      "twelfthInventoryFlagInternallyConsistent": true,
+      "allTwelveExportedChecksMatch": true,
+      "receiptPrettySerializationDigestMatches": true,
+      "observedZeroExitAndMatched": true,
+      "validSchemaAndVerdict": true,
+      "toolExpectationsMatchManifest": true
+    },
+    "elevenBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true
+    },
+    "exportedTwelveFlags": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "environmentComparison": {
+      "complete": true,
+      "status": "matched",
+      "originSha256": "a8f9462e1bf6fdf7168f071519f1eba9e24b27d146035900c0203d3a39f7e63d",
+      "counts": {
+        "unchanged": 110,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "changes": [],
+      "truncated": false
+    },
+    "externalAcceptance": [],
+    "rawReportAvailable": false,
+    "privateEnvironmentInventoryAvailable": false,
+    "independentReplayLimit": "Eleven binding relationships and private-inventory flag consistency checked from sanitized artifacts. Raw assertions and original environment inventory were not uploaded, so raw report/manifest matching and inventory-value replay cannot be independently repeated.",
+    "required": [
+      {
+        "id": "postgres:tests/hosted/authority/contract/access.test.ts:34e3ff02f3af",
+        "file": "tests/hosted/authority/contract/access.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 17,
+          "passed": 17,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/hosted/authority/contract/contract.test.ts:34e3ff02f3af",
+        "file": "tests/hosted/authority/contract/contract.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 26,
+          "passed": 26,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/hosted/authority/contract/ledgers.test.ts:749ea47aebd3",
+        "file": "tests/hosted/authority/contract/ledgers.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 12,
+          "passed": 12,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/hosted/authority/contract/release.test.ts:34e3ff02f3af",
+        "file": "tests/hosted/authority/contract/release.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 18,
+          "passed": 18,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/scripts/migrate-hosted-to-postgres.test.ts:2b050f3ed9be",
+        "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 3,
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/agent-link/pg-contract.test.ts:5246000cb75e",
+        "file": "tests/agent-link/pg-contract.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 14,
+          "passed": 14,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/agent-control/pg-contract.test.ts:a22aa1702a27",
+        "file": "tests/agent-control/pg-contract.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 16,
+          "passed": 16,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/db/contract/workspace-sharing.test.ts:420737db2f8f",
+        "file": "tests/db/contract/workspace-sharing.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 22,
+          "passed": 22,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      {
+        "id": "postgres:tests/waitlist/pg-contract.test.ts:3d9c4f3951d7",
+        "file": "tests/waitlist/pg-contract.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 38,
+          "passed": 38,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      }
+    ]
+  }
+]

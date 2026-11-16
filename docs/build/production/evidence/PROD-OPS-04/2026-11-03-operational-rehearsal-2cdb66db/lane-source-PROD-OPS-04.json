@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-OPS-04"
+  ],
+  "mode": "local",
+  "commit": "2cdb66db6343469eebde92fb48e8ee0f808064d3",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, removed afterwards; pg_dump/pg_restore 16.15 (Homebrew postgresql@16); Temporal CLI 1.9.1 dev server (release checksum verified); runbook rehearsal docs/platform/operations/RESTORE-RUNBOOK.md 'Rehearse it'; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_PG_DUMP_BIN ZENITH_TEST_PG_RESTORE_BIN ZENITH_TEST_RECOVERY_REQUIRED=1 ZENITH_TEST_TEMPORAL=1",
+  "command": "vitest run tests/ops/recovery-rehearsal.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/ops/recovery-rehearsal.test.ts",
+      "sha256": "944a6f7cdfd5e74ba62382512d83cd5b98729a07d7a3e0467088293a4ef88bcd"
+    }
+  ]
+}

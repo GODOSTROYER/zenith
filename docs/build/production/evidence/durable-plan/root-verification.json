@@ -1,0 +1,503 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T03:36:17.790543+00:00",
+  "status": "full_regression_failed_not_integrated",
+  "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+  "baseCommit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+  "sourcePaths": 57,
+  "inventorySha256": "76e0d54820a0aa5915f62cecacf37e93574745cf4ceb8db8dac24653efd9ce6d",
+  "sourceEntries": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "545447704a96c1ae6acff05418a0cc5a61f02c336688c38d4dca1ace2ca378ca"
+    },
+    {
+      "path": "docker/worker.Dockerfile",
+      "sha256": "a1c82ba44e09954d0b32a81eb4497fa605374b1c990ad8757536bd838486a8d1"
+    },
+    {
+      "path": "docs/adr/0005-opentofu-hybrid.md",
+      "sha256": "275a86496be2e1d6a3863e47619bad24ab58db0889b5d78857779f4831b5d53f"
+    },
+    {
+      "path": "docs/platform/EXECUTION-WORKER.md",
+      "sha256": "e5101f2d01919e451047ef61fa7ad386b422c753201e43e323b22a0d28fe2f9b"
+    },
+    {
+      "path": "docs/platform/INSTALLATION.md",
+      "sha256": "6cfd618f1355c9b2decb3e5cec9a94bbebab1be437503fa7524fe39026f2c232"
+    },
+    {
+      "path": "docs/platform/operations/DEPLOYING.md",
+      "sha256": "4e107b1031a24643a38816e57bc4e6c62f5724cd1828cc305951a055e11a8c60"
+    },
+    {
+      "path": "scripts/acceptance/packaged-worker.mjs",
+      "sha256": "50b6fe3abf10e57b3f20341eabc7094bf0d621d4b0a45490b73d6c05f21001cc"
+    },
+    {
+      "path": "scripts/ci/gate-manifest.mjs",
+      "sha256": "e4948f86a46d652d266c70c76dda6083b4db6939ebbd853f3da9541fb225a000"
+    },
+    {
+      "path": "scripts/deploy/installation.mjs",
+      "sha256": "bd06eed7a0dc43ba271112a2ca89491a526593de4cd77f5e641ff9b1f9599400"
+    },
+    {
+      "path": "src/lib/capabilities/destroy-review.ts",
+      "sha256": "f038415273b1c5b5e610597da75ee81a86fd5cf1eea8ad785b731a4c75a67b64"
+    },
+    {
+      "path": "src/lib/capabilities/memory-store.ts",
+      "sha256": "6c166dc9a09028744c86864e4eb71838879c0c6726f72f15d3bc12541a53908d"
+    },
+    {
+      "path": "src/lib/capabilities/ports.ts",
+      "sha256": "6bd679fca055a23d26ffcb70de862bd37e428b0d07a924582a954b1e30f0d39f"
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/0007_plan_artifacts.ts",
+      "sha256": "0925215c5fdf0730c74569ebc4ebb108254ab8292d95608cbf4934c8914769d7"
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/emit.ts",
+      "sha256": "0902e5b5eaf4aa94cc6a4ede96c45473318a293ad4777375b3c9e7bad41bf1df"
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/index.ts",
+      "sha256": "41a2e3623af8547dccaaac8ed43e3f490bf5d634a521b4d82aad13a56962d2e0"
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/index.ts",
+      "sha256": "6dcd38c3a61751c09e14ea5af771b45c9c79aa3ccc106c05eb8e1da8ce2d82d3"
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/operations.ts",
+      "sha256": "43e177842b519830a9be1ddea1a6af5b74bfd92e3d06a6dc3762005fedd2612e"
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/plan-artifacts.ts",
+      "sha256": "994f366fb423e32e471d2357928f52e83e55fb912e1a050d6f2801fb14d0f8e7"
+    },
+    {
+      "path": "src/lib/controlplane/operations/index.ts",
+      "sha256": "5b02be30641e1a37e394f6f5fa3628810dbea1de993eca5bb2303b0d112aad58"
+    },
+    {
+      "path": "src/lib/controlplane/types.ts",
+      "sha256": "b1eb9a44adfaeee9fc3362b17ba38082c511cc69730fbfc007be45eb14551bd8"
+    },
+    {
+      "path": "src/lib/execution/apply.ts",
+      "sha256": "4ad13c08611d766a0f034ccd163df731a304a9d18bb7a84ea56709b746464565"
+    },
+    {
+      "path": "src/lib/execution/destroy.ts",
+      "sha256": "4311a9a3dab18588d8899b3b9a5fc76bef7269240e29cd12b8acd20bb112a595"
+    },
+    {
+      "path": "src/lib/execution/plan-janitor.ts",
+      "sha256": "cf32e9a34c9cbdce437c5e39463df0302e9f8af36e8f0c827711c79590721451"
+    },
+    {
+      "path": "src/lib/execution/plan.ts",
+      "sha256": "b7bce21275137db3f40774e8212b050768dded316439b9fa9266ef7fe5cfbd1d"
+    },
+    {
+      "path": "src/lib/execution/ports.ts",
+      "sha256": "cb212fed3c7b3b3ca224aa1210409796d2ee0ab113e4d69fd49410d4dd0b33dd"
+    },
+    {
+      "path": "src/lib/execution/runtime.ts",
+      "sha256": "91b51d661d7cebcf436beaef13c7b2861a9a69cecad8d6764b1906916875b920"
+    },
+    {
+      "path": "src/lib/platform/broker.ts",
+      "sha256": "f6b80c94a66375da7eed4a73de260e50c148ce1d62b6441af43365969bc3965f"
+    },
+    {
+      "path": "src/lib/platform/execution.ts",
+      "sha256": "7007f784b48fa3dffd45f84e61191cc9041b50db3a088e3bad5db95c26c855bb"
+    },
+    {
+      "path": "src/lib/platform/plan-artifacts.ts",
+      "sha256": "4904126a1d860521de1a258cb9e8973752aba68772fbad7b2298b785c9536f5d"
+    },
+    {
+      "path": "src/lib/tofu/binary.ts",
+      "sha256": "e66cd9e67bd64e7a2b7490328661d0364e78106dabd5a04d5793b900e427fc9b"
+    },
+    {
+      "path": "src/lib/tofu/engine.ts",
+      "sha256": "a7dcedd0f3d85461f19b8160491f56fd34cd3f0125f93240c770b089c2a9a31e"
+    },
+    {
+      "path": "src/lib/tofu/runner.ts",
+      "sha256": "e7eb9d0e86eff2be0ae3c23fd87d57ee0f58aff8d6ba24948d524ed5c87b8ca0"
+    },
+    {
+      "path": "src/lib/tofu/types.ts",
+      "sha256": "c0a4dde4ff3c70c86e841c38198756944acb7dc8bef997074a220a123a3f9291"
+    },
+    {
+      "path": "supabase/migrations/0014_platform_core.sql",
+      "sha256": "fbae1476d6e646018416c8de872c7f1ee5c9b09f32526d768fb854df61e88af8"
+    },
+    {
+      "path": "tests/controlplane/migrations.test.ts",
+      "sha256": "e0046b966e7041cc007aa50e81b87d2a5d41a1d7a4f1d13ab50b8c4de23b6017"
+    },
+    {
+      "path": "tests/controlplane/operations.test.ts",
+      "sha256": "b563431f059d0467d40c1651c3dda784df48a4d58876cb6e21c6a7820c208028"
+    },
+    {
+      "path": "tests/controlplane/plan-artifacts.test.ts",
+      "sha256": "bc13dafeb7fa07dfd4d32f8c4cc595459420c3bb07dd9dbbf23650b6febbfda5"
+    },
+    {
+      "path": "tests/controlplane/tenancy.test.ts",
+      "sha256": "6bb44050f03792125c7b84eeb7dbfff942030968e5712d720835fdacb845176c"
+    },
+    {
+      "path": "tests/deploy/installation.test.ts",
+      "sha256": "ee4191a585e75a87025e8ca052d9cb6055da663e1362a4c2160494c7ac2ea7b0"
+    },
+    {
+      "path": "tests/docs/operator-docs.test.ts",
+      "sha256": "8fa962423c51c30b11fa232a325f6f0995f3e66cf82db257bd569ed5a2d1aa9b"
+    },
+    {
+      "path": "tests/execution/apply.test.ts",
+      "sha256": "53569fed7908d80994194152e7cdd3a1ce635e6a584553ffebf8f8549d12f559"
+    },
+    {
+      "path": "tests/execution/deletion-guards-real.test.ts",
+      "sha256": "cd96653ece31f88c4756e61b4ede10722758094895b5f3cd9e3622296237d60d"
+    },
+    {
+      "path": "tests/execution/destroy-review.test.ts",
+      "sha256": "88c04cbe79270f6c7dd4b12eef2adcc95921a507a5ff6b29c1c7971955bd70bc"
+    },
+    {
+      "path": "tests/execution/destroy.test.ts",
+      "sha256": "ffcebb91ad3a945ee9d7a8430470603d91f4312ca7d3dcf966786856fde79c17"
+    },
+    {
+      "path": "tests/execution/fakes/tofu.ts",
+      "sha256": "bf4314dbf2ddc663b759b10190197d87c670a326abb7056544f3f6bdc0da0ff6"
+    },
+    {
+      "path": "tests/execution/fakes/world.ts",
+      "sha256": "1c7c379dfb019e52f9e694214cd2e480e88aa49f18c609bef4c67b1a3637cfaf"
+    },
+    {
+      "path": "tests/execution/journey.test.ts",
+      "sha256": "d57e70d261440af321ab6ed0de616ac6d54db94fe2e17337aba903415f73236e"
+    },
+    {
+      "path": "tests/execution/plan.test.ts",
+      "sha256": "a9fd2a4cf56a855ff5e3739f9ecb33c04cf6e35f6aa5a7e6ab254020ec986a49"
+    },
+    {
+      "path": "tests/platform/composition.test.ts",
+      "sha256": "ca6da4e4cf714a6e4f5ea8dc2be0624e62d263b13890e3426be40fd538b654a6"
+    },
+    {
+      "path": "tests/platform/plan-approval.test.ts",
+      "sha256": "2bc429ea6dd4e068993c0d1e4b67a944b07be68840eb053483373e56ebd82628"
+    },
+    {
+      "path": "tests/security/plan-artifact-secrecy.test.ts",
+      "sha256": "62066323775389f6176398903e0317653342c834c3d178f74ccc8d259038fcf0"
+    },
+    {
+      "path": "tests/tofu/plan-artifact-handoff.test.ts",
+      "sha256": "af9e5e88429df9a161110dfe21994a038a408d97dc22f42ae2a4a9b88cccb433"
+    },
+    {
+      "path": "tests/workers/plan-artifact-startup.test.ts",
+      "sha256": "d88a625f8c5d431add0275040f25f3e1645b231e32123b25f0e7f52fed9e50c6"
+    },
+    {
+      "path": "tests/workers/plan-janitor.test.ts",
+      "sha256": "f15c627183da2517762d772e563fa8eed43f1ba8133926896baaed967f7a87ab"
+    },
+    {
+      "path": "workers/execution/packaged-client.ts",
+      "sha256": "5b1bb95c1523a219b018c5da0941924a101a3184a850d57ac971c2c189cb122a"
+    },
+    {
+      "path": "workers/execution/startup.ts",
+      "sha256": "2088522bc0cca2f6dd773271cc08672c169e9b27eccae1e89739ce0325be374f"
+    },
+    {
+      "path": "workers/execution/worker.ts",
+      "sha256": "731f6ea20c2c644ee9f6ef2270df171084648295fbbb6e074bcf2b7bfa35b3a6"
+    }
+  ],
+  "sourceBinding": "Root verified all57before and after each gate and after commit; database gates ran dirty exact frozen bytes before source commit.",
+  "author": "Saivedant Hava <saivedant169@gmail.com>",
+  "committer": "Saivedant Hava <saivedant169@gmail.com>",
+  "independentReview": {
+    "verdict": "source_clear",
+    "receiptSha256": "342a2c4cfa7d154a67452af39b3f7d8d973a68a966a2fe2c6b3a5aa66e66b949",
+    "runtimeVerifiedByReviewer": false
+  },
+  "gates": {
+    "diagnostic": {
+      "label": "prod-durable-real-pg-tenancy-corrected-root",
+      "passed": 444,
+      "failed": 0,
+      "skipped": 21,
+      "typecheck": true,
+      "lint": true,
+      "gofmtVetTest": true
+    },
+    "platformPostgres": {
+      "label": "prod-durable-real-pg-final-root",
+      "counts": {
+        "total": 1532,
+        "passed": 1532,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 70,
+      "schema2Bindings": 12,
+      "executionRevalidation": true,
+      "cleanup": {
+        "container": "zenith-prod-pg-35081064",
+        "ownershipVerified": true,
+        "removed": true,
+        "absenceVerified": true,
+        "newImageRemoved": true,
+        "baselineImagesPreserved": true,
+        "hostFreeGiB": 27.88
+      }
+    },
+    "supabasePostgres": {
+      "label": "prod-durable-supabase-postgres-root",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "fullApplyAndReapply": true,
+      "requiredGroups": 9,
+      "schema2Bindings": 12,
+      "executionRevalidation": true,
+      "alteredMigrationNameRejected": true,
+      "alteredMigrationChecksumRejected": true,
+      "cleanup": {
+        "container": "zenith-prod-pg-f68596be",
+        "ownershipVerified": true,
+        "removed": true,
+        "absenceVerified": true,
+        "newImageRemoved": true,
+        "baselineImagesPreserved": true,
+        "hostFreeGiB": 27.89
+      }
+    },
+    "localKind": {
+      "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+      "provider": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "release": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "cleanup": {
+        "deleteSucceeded": true,
+        "clusterAbsent": true,
+        "ownedContainersAbsent": true,
+        "kubeconfigRemoved": true,
+        "newDependencyImages": [
+          {
+            "reference": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+            "exitCode": 0,
+            "removed": true
+          },
+          {
+            "reference": "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+            "exitCode": 0,
+            "removed": true
+          }
+        ]
+      },
+      "limitations": [
+        "Disposable local kind cluster; no live or managed-cloud evidence.",
+        "Default kind CNI does not establish NetworkPolicy enforcement.",
+        "No StatefulSet, persistent-data recovery or default source-build credential proof."
+      ]
+    },
+    "packagedAmd64": {
+      "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+      "status": "passed",
+      "seconds": 335.76,
+      "architectureEvidence": "Linux AMD64 emulation on ARM64 host",
+      "createdResourceCount": 14,
+      "cleanup": "all14resources/privatefiles/ownedbuilder/cache/newdependencyimages removed",
+      "checks": {
+        "missing-schema": "refused-without-secret-output",
+        "invalid-secret": "refused-without-secret-output",
+        "invalid-signer": "refused-without-secret-output",
+        "readiness": {
+          "ready": true,
+          "checks": {
+            "temporal": "ok",
+            "store": "ok",
+            "policy": "ok",
+            "drivers": "ok"
+          }
+        },
+        "liveness": {
+          "alive": true
+        },
+        "store-readiness-outage": {
+          "readyStatus": 503,
+          "liveStatus": 200
+        },
+        "temporal-readiness-outage": {
+          "readyStatus": 503,
+          "liveStatus": 200
+        },
+        "shutdown": {
+          "signal": "SIGTERM",
+          "exitCode": 0,
+          "drained": true,
+          "inFlightActivity": false
+        }
+      },
+      "minimumObservedFreeGiB": 18.75,
+      "limits": "Actual entrypoint local dependencies, no cloud mutation or in-flight shutdown evidence."
+    },
+    "packagedArm64": {
+      "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+      "status": "passed",
+      "seconds": 300.27,
+      "architectureEvidence": "Native Linux ARM64 on ARM64 host",
+      "createdResourceCount": 14,
+      "cleanup": "all14resources/privatefiles/ownedbuilder/cache/newdependencyimages removed",
+      "checks": {
+        "missing-schema": "refused-without-secret-output",
+        "invalid-secret": "refused-without-secret-output",
+        "invalid-signer": "refused-without-secret-output",
+        "readiness": {
+          "ready": true,
+          "checks": {
+            "temporal": "ok",
+            "store": "ok",
+            "policy": "ok",
+            "drivers": "ok"
+          }
+        },
+        "liveness": {
+          "alive": true
+        },
+        "store-readiness-outage": {
+          "readyStatus": 503,
+          "liveStatus": 200
+        },
+        "temporal-readiness-outage": {
+          "readyStatus": 503,
+          "liveStatus": 200
+        },
+        "shutdown": {
+          "signal": "SIGTERM",
+          "exitCode": 0,
+          "drained": true,
+          "inFlightActivity": false
+        }
+      },
+      "minimumObservedFreeGiB": 18.85,
+      "limits": "Actual entrypoint local dependencies, no cloud mutation or in-flight shutdown evidence."
+    },
+    "fullRegression": {
+      "status": "failed_unit",
+      "label": "prod-durable-full-root",
+      "sourceCommit": "15e4453cdcf8dfd5ac83aa71b6d3c20e6ecf7b5a",
+      "completedChecks": [
+        "typecheck",
+        "lint",
+        "gofmt",
+        "go-vet",
+        "go-race",
+        "policy-generated",
+        "emit-sql",
+        "capability-matrix",
+        "aws-templates",
+        "ledger"
+      ],
+      "completedChecksAllExitZero": true,
+      "goRace": {
+        "topLevelPassed": 226,
+        "subtestsPassed": 539,
+        "failed": 0,
+        "linuxOnlyMacSkipped": 3,
+        "passedPackages": 11
+      },
+      "remaining": [
+        "correction review and targeted verification",
+        "fresh full regression",
+        "mandatorysecurity",
+        "workflows",
+        "policy",
+        "tofu"
+      ],
+      "unit": {
+        "passed": 16588,
+        "failed": 70,
+        "skipped": 212,
+        "total": 16870
+      },
+      "seconds": 946.98,
+      "unitExitCode": 1,
+      "artifact": "docs/build/production/evidence/durable-plan/full-regression-failed.json"
+    }
+  },
+  "failedAttempts": [
+    {
+      "label": "prod-durable-runtime-first-root",
+      "passed": 396,
+      "failed": 39,
+      "skipped": 25
+    },
+    {
+      "label": "prod-durable-final-combined-root",
+      "passed": 435,
+      "failed": 3,
+      "skipped": 26
+    },
+    {
+      "label": "prod-durable-artifact-postgres-root",
+      "passed": 1517,
+      "failed": 11,
+      "skipped": 5
+    },
+    {
+      "label": "prod-durable-real-pg-corrections-root",
+      "typecheckExitCode": 2,
+      "diagnostic": "Typed tenancy fixture internal broker metadata corrected through existing persistence path."
+    }
+  ],
+  "pendingGates": [
+    "review and independently verify regression corrections",
+    "combined full regression",
+    "current dependency advisory clearance",
+    "exact pushed candidate CI"
+  ],
+  "limitations": [
+    "Local actual PostgreSQL plus OpenTofu contract behavior, no live cloud application traffic.",
+    "No physical retention/pruning approval, backend locking/restore matrix or recovery epoch acceptance.",
+    "No production approved release."
+  ]
+}

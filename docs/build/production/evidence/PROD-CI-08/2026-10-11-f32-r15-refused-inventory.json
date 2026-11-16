@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "contract",
+  "kind": "r15-full-core-refusal-inventory-only",
+  "sourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "beforeFreezeInputSha256": "0bd1f06673a31885d228379150672d5ce7c80e6f0f837ccf663bae334845d50f",
+  "vitestReportSha256": "a19caedf1111cdb040720fc9940c9b234494242e3b6ea93915233b0d7d2dd509",
+  "identityReportSha256": "a67efb94726323bbcf329a2de722ddcc39ae9a3031b42ce804278aadc7bf37f0",
+  "reconciliationJsonSha256": "2000dabf88fa752b24919eae762a4e2a6ae6f1010e74f8e6fd466081f3597c10",
+  "reconciliationMarkdownSha256": "da57974f57af273f671f9abb33f2fb7f1db2e015910ae08080ccc79daa1bab98",
+  "assertionInventory": {
+    "passed": 24528,
+    "failed": 0,
+    "skipped": 1939,
+    "total": 26467,
+    "identityRowsCollectedAndCompleted": 26467,
+    "node": 25402,
+    "dom": 1065,
+    "suitesPassed": 4871,
+    "pendingIdentityStatuses": 0,
+    "todo": 0
+  },
+  "disposition": {
+    "wrapperExitCode": 2,
+    "refusal": "sticky child_capture_mismatch",
+    "actualVitestExitCode": "unknown",
+    "afterRunSourceFreezeAvailable": false,
+    "cleanupAccepted": false,
+    "quarantines": 1
+  },
+  "limitation": "The report/identity inventory reconciles assertion coverage only. This R15 attempt remains REFUSED; a later R17 pass on the same source does not reclassify this attempt."
+}

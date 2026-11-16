@@ -21,6 +21,7 @@ import { ensureHosted } from "@/lib/hosted";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { isServerless } from "@/lib/serverless";
+import { ensurePlatformApp } from "@/lib/platform/app";
 
 type G = typeof globalThis & { __zenithBoot?: Promise<void> };
 
@@ -66,6 +67,7 @@ async function boot(): Promise<void> {
   ensureHosted();
   ensureEngine(); // also registers every provider adapter
   registerAllActions();
+  await ensurePlatformApp(); // guarded: an unavailable platform leaves legacy boot operational
 
   // Everything below reads the product store, and on `ZENITH_STORE=postgres`
   // a read needs a snapshot that was loaded before the caller ran. Boot has no

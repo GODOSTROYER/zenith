@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+"""Root-owned execution of the unchanged packaged-worker suite in actual Linux Node."""
+import argparse, hashlib, io, json, os, re, resource, secrets, shutil, stat, subprocess, tarfile, time, signal, sys
+from pathlib import Path
+from owned_guard import OwnedGuard
+
+BASE = Path('/Users/saivedanthava/.codex/zenith-production')
+FROZEN = Path(__file__).resolve().parent
+CONTRACT_SHA = 'c4278a0d3f4fb8f2a126ffd3afd163a3a2a7135f5b0db0fa9748d93152253225'
+IMAGE = 'docker.io/library/node:22.23.3-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c'
+ENDPOINT = 'unix:///Users/saivedanthava/.docker/run/docker.sock'
+MIB = 1024**2
+RESERVE = 12_000_000_000
+LIMIT = 2*1024**3
+
+def sha(raw): return hashlib.sha256(raw).hexdigest()
+def decode(raw):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value: raise RuntimeError('duplicate actual metadata')
+            value[key] = item
+        return value
+    return json.loads(raw, object_pairs_hook=unique)
+
+RUNTIME_CODES = frozenset(['INVOCATION','NATIVE_IDENTITY','CAPABILITIES','STORAGE_RESERVE','STAGING_BUDGET','STAGING_TYPE','SOURCE_IDENTITY','SOURCE_LINK','PROJECTED_LOCK','DEPENDENCY_LINK','DEPENDENCY_TYPE','DEPENDENCY_VERSION','COMPILER_ARTIFACT','EMPTY_DEPENDENCIES','PROCESS_STATE','CHILD_SPAWN','CHILD_SIGNAL','CHILD_NONZERO','CHILD_TIMEOUT','REQUIRED_FLAG','REPORT_IDENTITY','REPORT_STATUS','REPORT_SUITE','REPORT_ASSERTIONS','REPORT_NATIVE','RUNTIME_READBACK'])
+RUNTIME_SIGNALS = frozenset(['SIGHUP','SIGINT','SIGQUIT','SIGILL','SIGABRT','SIGBUS','SIGFPE','SIGKILL','SIGSEGV','SIGPIPE','SIGTERM','SIGXCPU','SIGXFSZ','SIGSYS'])
+def classified_runtime_refusal(raw):
+    # Only an exact closed diagnostic is projected; arbitrary child messages stay private.
+    try:
+        markers = [line for line in raw.splitlines() if line.startswith(b'ZENITH_SUPERVISOR_REFUSAL ')]
+        if len(markers) != 1 or len(markers[0]) > 4096: return None
+        value = decode(markers[0][len(b'ZENITH_SUPERVISOR_REFUSAL '):])
+        if not isinstance(value,dict) or not {'status','mode','code'} <= value.keys() or value.keys()-{'status','mode','code','observedBytes','freeBytes','limitBytes','exitCode','signal'}: return None
+        if value['status'] != 'failed' or value['mode'] not in ['invalid','verify','install','dependencies','collect','tests','settled','report'] or value['code'] not in RUNTIME_CODES: return None
+        for key,item in value.items():
+            if key == 'signal' and item not in RUNTIME_SIGNALS: return None
+            if key in ['observedBytes','freeBytes','limitBytes','exitCode'] and (type(item) is not int or item < 0 or item > (255 if key == 'exitCode' else 2**53-1)): return None
+        return value
+    except (ValueError,TypeError,UnicodeError,RuntimeError): return None
+
+def public_file(path, expected, maximum=128*MIB, expected_mode=None):
+    identity = lambda s: (s.st_dev,s.st_ino,s.st_mode,s.st_nlink,s.st_uid,s.st_gid,s.st_size,s.st_mtime_ns,s.st_ctime_ns)
+    before = path.lstat()
+    assert stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and 0 < before.st_size <= maximum
+    assert expected_mode is None or before.st_mode & 0o7777 == expected_mode
+    with os.fdopen(os.open(path, os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK), 'rb') as file:
+        opened = os.fstat(file.fileno()); raw = file.read(maximum+1)
+    assert identity(before) == identity(opened) == identity(path.lstat()) and len(raw) == before.st_size and sha(raw) == expected
+    return raw
+
+def source_check(worktree, contract):
+    env = {'PATH': contract['hostPath'], 'GIT_OPTIONAL_LOCKS':'0'}
+    git=contract['hostTools']['git']['path']
+    listed = sorted(set(subprocess.check_output([git,'ls-files','--cached','--others','--exclude-standard','-z'], cwd=worktree, env=env).decode().split('\0'))-{''})
+    assert subprocess.check_output([git,'rev-parse','HEAD'],cwd=worktree,env=env).decode().strip() == contract['head']
+    current = [n for n in listed if (worktree/n).exists() or (worktree/n).is_symlink()]
+    assert current == sorted(contract['source'])
+    for name, item in contract['source'].items():
+        assert len(public_file(worktree/name,item['sha256'],expected_mode=int(item['mode'],8))) == item['bytes']
+
+def main():
+    if not __debug__: raise RuntimeError('optimized Python disables fixed guards')
+    parser = argparse.ArgumentParser(description=__doc__); parser.add_argument('--worktree',type=Path,required=True); parser.add_argument('--preflight',action='store_true'); args = parser.parse_args()
+    raw = (FROZEN/'EXECUTION-SOURCE-CONTRACT.json').read_bytes(); assert sha(raw) == CONTRACT_SHA; contract = decode(raw)
+    worktree = args.worktree.resolve(strict=True); assert str(worktree) == contract['worktree']; source_check(worktree,contract)
+    runtime = public_file(FROZEN/'runtime.cjs',contract['runtimeSha256'],32*MIB)
+    mini_package = public_file(FROZEN/'mini-package.json',contract['miniPackageSha256'],32*MIB)
+    mini_lock = public_file(FROZEN/'mini-package-lock.json',contract['miniLockSha256'],32*MIB)
+    assert contract['expectedWholeFileCount'] == 142
+    for tool in contract['hostTools'].values():
+        path=Path(tool['path']); assert path.resolve(strict=True)==path and sha(path.read_bytes())==tool['sha256']
+    assert Path(sys.executable).resolve()==Path(contract['hostTools']['python']['path'])
+    assert sha((FROZEN/'owned_guard.py').read_bytes())==contract['ownedGuardSha256']
+    if args.preflight:
+        assert shutil.disk_usage(worktree).free >= RESERVE
+        print(json.dumps({'preflight': True, 'sourceBound': True, 'attemptsCreated': 0, 'containersStarted': 0}))
+        return 0
+    os.umask(0o077); token = secrets.token_hex(16); name = 'zenith-supervisor-'+token; volume = name+'-state'; out = BASE/'logs'/name; out.mkdir(mode=0o700)
+    docker = contract['hostTools']['docker']['path']; assert shutil.which('docker',path=contract['hostPath']) == docker
+    socket = Path(ENDPOINT[7:]); original_socket = socket.lstat(); assert stat.S_ISSOCK(original_socket.st_mode) and original_socket.st_uid == os.geteuid()
+    socket_id = (original_socket.st_dev,original_socket.st_ino,original_socket.st_uid)
+    (out/'docker').mkdir(); (out/'docker/config.json').write_text('{}\n')
+    env = {'PATH':contract['hostPath'],'HOME':str(out),'TMPDIR':str(out),'LANG':'C','TZ':'UTC','DOCKER_CONFIG':str(out/'docker')}; command = [docker,'--host='+ENDPOINT]
+    receipt = {'status':'failed','owner':token,'sourceContractSha256':CONTRACT_SHA,'scope':'Actual Linux ARM64 Node22 six process-group tests and whole unchanged source-model file; no packaged-worker/systemd/default-service acceptance','stages':[],'cleanupComplete':False}
+    container_snapshots={}; volume_snapshot=None; image_aliases=None
+    class Guard(OwnedGuard):
+        def source_matches(self):
+            try: source_check(worktree,contract); return True
+            except BaseException: return False
+    guard=Guard(out, floor=RESERVE, socket_path=socket)
+    def interrupted(signum,frame): raise InterruptedError('owned execution interrupted')
+    signal.signal(signal.SIGTERM,interrupted); signal.signal(signal.SIGINT,interrupted)
+    pin = None; exec_pin = None; image = None; pull_started = False; baseline = set(); volume_started = False; containers = {}; cleaning = False
+    def save():
+        temporary = out/'receipt.tmp'
+        with temporary.open('wb') as file: file.write((json.dumps(receipt,indent=2)+'\n').encode()); file.flush(); os.fsync(file.fileno())
+        os.replace(temporary,out/'receipt.json'); fd = os.open(out,os.O_RDONLY); os.fsync(fd); os.close(fd)
+    def run(argv,phase,timeout=60):
+        current = socket.lstat(); assert (current.st_dev,current.st_ino,current.st_uid) == socket_id and stat.S_ISSOCK(current.st_mode)
+        def bound(): resource.setrlimit(resource.RLIMIT_FSIZE,(8*MIB,8*MIB))
+        with (out/(phase+'.stdout')).open('xb') as stdout,(out/(phase+'.stderr')).open('xb') as stderr:
+            guard.check(cleanup=cleaning)
+            child = guard.register(subprocess.Popen(command+argv,stdout=stdout,stderr=stderr,env=env,preexec_fn=bound,start_new_session=True)); deadline = time.monotonic()+timeout
+            try:
+                while child.poll() is None:
+                    guard.check(cleanup=cleaning); fs = os.statvfs(out); size = sum(f.stat().st_size for f in out.rglob('*') if f.is_file())
+                    if time.monotonic() > deadline or (not cleaning and (fs.f_bavail*fs.f_frsize < RESERVE or size > 192*MIB)):
+                        raise RuntimeError('bounded Docker delivery unconfirmed')
+                    time.sleep(.25)
+            except BaseException: guard.drain(child); raise
+            guard.drain(child)
+        receipt['stages'].append({'phase':phase,'exitCode':child.returncode}); save()
+        if child.returncode != 0:
+            receipt['failureCode'] = 'FIXED_PHASE_NONZERO'; receipt['failedPhase'] = phase
+            receipt['childExitCode'] = child.returncode if 0 <= child.returncode <= 255 else None
+            with (out/(phase+'.stderr')).open('rb') as error_file:
+                error_file.seek(max(0,error_file.seek(0,os.SEEK_END)-16384)); refusal = classified_runtime_refusal(error_file.read(16384))
+            if refusal is not None: receipt['runtimeRefusal'] = refusal
+            save(); raise RuntimeError('fixed phase refused '+phase)
+        return (out/(phase+'.stdout')).read_bytes()
+    def mutate(argv,phase,timeout=60):
+        nonlocal pin
+        assert pin is None and exec_pin is None and (argv[0] in ['pull','run','cp','stop','rm'] or argv[:2] in [['volume','create'],['volume','rm'],['image','rm']])
+        pin = phase; receipt['unconfirmedMutation'] = phase; save(); result = run(argv,phase,timeout)
+        receipt['unconfirmedMutation'] = None
+        try: save()
+        except BaseException: receipt['unconfirmedMutation'] = phase; raise
+        pin = None; return result
+    def owned_container(container):
+        state = decode(run(['container','inspect',container,'--format','{{json .}}'],'inspect-container-'+secrets.token_hex(4)))
+        assert containers.get(container) and state['Id'] == containers[container] and state['Name'] == '/'+container and state['Image'] == image and state['Config']['Labels'].get('zenith.supervisor.owner') == token
+        snapshot={k:state[k] for k in ['Id','Created','Name','Image','HostConfig','Mounts','Config']}
+        if container in container_snapshots: assert snapshot==container_snapshots[container]
+        else: container_snapshots[container]=snapshot
+        return state
+    def owned_volume():
+        nonlocal volume_snapshot
+        value = decode(run(['volume','inspect',volume,'--format','{{json .}}'],'inspect-volume-'+secrets.token_hex(4)))
+        assert value['Name'] == volume and value['Driver'] == 'local' and value['Scope'] == 'local' and not value['Options'] and value['Labels'].get('zenith.supervisor.owner') == token
+        if volume_snapshot is None: volume_snapshot=value
+        else: assert value==volume_snapshot
+    def execute(container,argv,phase,uid='0:0',timeout=60):
+        nonlocal exec_pin
+        assert pin is None and exec_pin is None; state = owned_container(container); assert state['State']['Running'] and state.get('ExecIDs') in [None,[]]
+        exec_pin = phase; receipt['unconfirmedExec'] = phase; save()
+        result = run(['exec','--user',uid,container,*argv],phase,timeout)
+        assert owned_container(container).get('ExecIDs') in [None,[]]
+        receipt['unconfirmedExec'] = None
+        try: save()
+        except BaseException: receipt['unconfirmedExec'] = phase; raise
+        exec_pin = None; return result
+    def absence(kind,value,phase):
+        argv = ['volume','ls','-q','--filter','name=^'+value+'$'] if kind == 'volume' else ['container','ls','-aq','--filter','name=^/'+value+'$']
+        assert not run(argv,phase).strip()
+    def create(container,network):
+        absence('container',container,container+'-absent')
+        # A missing response cannot mint concrete ownership; uncertainty then blocks cleanup.
+        containers[container] = None
+        argv = ['run','-d','--name',container,'--label','zenith.supervisor.owner='+token,'--platform','linux/arm64','--init','--network',network,'--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--memory','2g','--memory-swap','2g','--cpus','2','--pids-limit','256','--log-driver','json-file','--log-opt','max-size=1m','--log-opt','max-file=1','--tmpfs','/tmp:rw,nosuid,nodev,size=128m,mode=1777','--mount','type=volume,source='+volume+',target=/guest',IMAGE,'sleep','infinity']
+        result = mutate(argv,container+'-create'); identity = result.decode().strip(); assert re.fullmatch('[a-f0-9]{64}',identity); containers[container] = identity
+        state = owned_container(container); host = state['HostConfig']; mounts = state['Mounts']
+        assert not host['Privileged'] and not host['Binds'] and not host.get('Devices') and not host.get('DeviceCgroupRules') and not host.get('CapAdd') and host['CapDrop'] == ['ALL'] and host['ReadonlyRootfs'] and host['NetworkMode'] == network
+        assert host['Memory'] == host['MemorySwap'] == LIMIT and host['NanoCpus'] == 2*10**9 and host['PidsLimit'] == 256 and host['Init'] is True and host['PidMode'] == '' and host['IpcMode'] == 'private' and host['SecurityOpt'] == ['no-new-privileges']
+        assert host['Tmpfs'] == {'/tmp':'rw,nosuid,nodev,size=128m,mode=1777'} and host['LogConfig'] == {'Type':'json-file','Config':{'max-size':'1m','max-file':'1'}}
+        assert len(mounts) == 1 and mounts[0]['Type'] == 'volume' and mounts[0]['Name'] == volume and mounts[0]['Destination'] == '/guest' and mounts[0]['RW']
+        return container
+    def settled_remove(container):
+        state = owned_container(container); assert state.get('ExecIDs') in [None,[]]
+        mutate(['stop','--time','10',container],container+'-stop'); state = owned_container(container); assert not state['State']['Running'] and state.get('ExecIDs') in [None,[]]
+        mutate(['rm',container],container+'-remove'); absence('container',container,container+'-absent-after'); del containers[container]
+    try:
+        fs = os.statvfs(out); assert fs.f_bavail*fs.f_frsize >= RESERVE
+        assert run(['info','--format','{{.Architecture}}'],'native-architecture').strip() in [b'aarch64',b'arm64']
+        baseline = set(run(['image','ls','-aq','--no-trunc'],'baseline-images').decode().split()); assert all(re.fullmatch('sha256:[a-f0-9]{64}',n) for n in baseline)
+        pull_started = True; mutate(['pull','--platform','linux/arm64',IMAGE],'pinned-node-image',180)
+        value = decode(run(['image','inspect',IMAGE],'pinned-image-identity'))[0]
+        assert value['Os'] == 'linux' and value['Architecture'] == 'arm64' and value['Size'] <= 512*MIB and any(n.endswith('@'+IMAGE.split('@')[1]) for n in value['RepoDigests']); image = value['Id']; image_aliases={k:sorted(value.get(k) or []) for k in ['RepoTags','RepoDigests']}; assert re.fullmatch('sha256:[a-f0-9]{64}',image)
+        absence('volume',volume,'new-volume-absent'); volume_started = True; mutate(['volume','create','--label','zenith.supervisor.owner='+token,volume],'create-volume'); owned_volume()
+        setup = create(name+'-setup','bridge')
+        execute(setup,['sh','-ec','test -z "$(ls -A /guest)"; umask 022; mkdir -m0755 /guest/project /guest/config; mkdir -m1777 /guest/deps /guest/cache /guest/evidence; printf "registry=https://registry.npmjs.org/\\nignore-scripts=true\\naudit=false\\nfund=false\\n" > /guest/config/npmrc; : > /guest/config/global-npmrc'],'prepare-private-volume')
+        archive = out/'source.tar'
+        with tarfile.open(archive,'w',format=tarfile.PAX_FORMAT) as tar:
+            blobs = {'runtime.cjs':runtime,'EXECUTION-SOURCE-CONTRACT.json':raw,'deps/package.json':mini_package,'deps/package-lock.json':mini_lock}
+            for filename,item in contract['source'].items():
+                guard.check(); blobs['project/'+filename] = public_file(worktree/filename,item['sha256'],expected_mode=int(item['mode'],8))
+            for filename,data in sorted(blobs.items()):
+                guard.check(); entry = tarfile.TarInfo(filename); entry.size = len(data); entry.mode = 0o755 if filename.startswith('project/') and contract['source'][filename[8:]]['copyMode'] == '0755' else 0o644; entry.uid = entry.gid = 0; entry.mtime = 0; tar.addfile(entry,io.BytesIO(data))
+        guard.check(); assert archive.stat().st_size <= 128*MIB; archive.chmod(0o644); receipt['sourceTarSha256'] = sha(archive.read_bytes()); save()
+        mutate(['cp',str(archive),setup+':/guest/source.tar'],'copy-source')
+        execute(setup,['sh','-ec','test -f /guest/source.tar && test ! -L /guest/source.tar; test "$(stat -c "%F:%h:%s:%a" /guest/source.tar)" = "regular file:1:$1:644"; test "$(sha256sum /guest/source.tar | cut -d" " -f1)" = "$2"; tar --no-same-owner -xf /guest/source.tar -C /guest; rm /guest/source.tar; ln -s /guest/deps/node_modules /guest/project/node_modules','fixed-staging',str(archive.stat().st_size),receipt['sourceTarSha256']],'extract-source')
+        clean_env = ['env','-i','PATH=/usr/local/bin:/usr/bin:/bin','HOME=/guest/cache','TMPDIR=/tmp','LANG=C.UTF-8','TZ=UTC','NODE_ENV=test']
+        execute(setup,clean_env+['node','/guest/runtime.cjs','verify'],'verify-actual-source',uid='10001:10001')
+        execute(setup,clean_env+['node','/guest/runtime.cjs','install'],'fresh-locked-linux-dependencies',uid='10001:10001',timeout=420)
+        actual_deps = decode(execute(setup,clean_env+['node','/guest/runtime.cjs','dependencies'],'actual-dependencies',uid='10001:10001')); receipt['dependencies'] = actual_deps; save()
+        execute(setup,clean_env+['node','/guest/runtime.cjs','settled'],'setup-processes-settled',uid='10001:10001'); settled_remove(setup)
+        test = create(name+'-test','none')
+        test_env = clean_env+['ZENITH_TEST_NATIVE_SUPERVISOR_REQUIRED=1','NODE_OPTIONS=--max-old-space-size=1024']
+        execute(test,test_env+['node','/guest/runtime.cjs','collect'],'fresh-current-linux-collection',uid='10001:10001',timeout=120)
+        execute(test,clean_env+['node','/guest/runtime.cjs','verify'],'post-collection-source-binding',uid='10001:10001')
+        execute(test,test_env+['node','/guest/runtime.cjs','tests'],'unchanged-entire-suite',uid='10001:10001',timeout=240)
+        execute(test,clean_env+['node','/guest/runtime.cjs','settled'],'test-processes-settled',uid='10001:10001')
+        after_deps = decode(execute(test,clean_env+['node','/guest/runtime.cjs','dependencies'],'dependencies-preserved',uid='10001:10001')); assert after_deps == actual_deps
+        report_raw = execute(test,clean_env+['node','/guest/runtime.cjs','report'],'strict-report',uid='10001:10001'); report = decode(report_raw)
+        assert report['platform'] == 'linux' and report['arch'] == 'arm64' and report['node'] == 'v22.23.3' and report['sourceFingerprintSha256'] == contract['sourceFingerprintSha256'] and report['nativeRequiredPassed'] == 6 and report['wholeFilePassed'] == contract['expectedWholeFileCount'] and report['failed'] == report['skipped'] == 0
+        source_check(worktree,contract); receipt['result'] = report; receipt['status'] = 'passed_pending_cleanup'; save()
+    except BaseException:
+        receipt['status'] = 'failed'; receipt['failure'] = 'Fixed source, installation, actual process, strict report or custody check refused'
+    finally:
+        cleaning = True
+        try:
+            assert pin is None and exec_pin is None and (not pull_started or image is not None)
+            for container in list(containers): settled_remove(container)
+            if volume_started: owned_volume(); mutate(['volume','rm',volume],'remove-volume'); absence('volume',volume,'volume-absent-after')
+            if image and image not in baseline:
+                assert not run(['container','ls','-aq','--filter','ancestor='+image],'owned-image-unused').strip()
+                current_image=decode(run(['image','inspect',image],'new-image-aliases'))[0]
+                assert current_image['Id']==image and {k:sorted(current_image.get(k) or []) for k in ['RepoTags','RepoDigests']}==image_aliases
+                allowed_tags={'node:22.23.3-slim','docker.io/library/node:22.23.3-slim',IMAGE,'node:22.23.3-slim@'+IMAGE.split('@')[1],'node@'+IMAGE.split('@')[1],'docker.io/library/node@'+IMAGE.split('@')[1]}
+                assert len(image_aliases['RepoTags'])<=len(allowed_tags) and set(image_aliases['RepoTags'])<=allowed_tags
+                assert len(image_aliases['RepoDigests'])==1 and image_aliases['RepoDigests'][0] in {IMAGE,'node@'+IMAGE.split('@')[1],'library/node@'+IMAGE.split('@')[1]}
+                mutate(['image','rm',image],'remove-new-image')
+            current = set(run(['image','ls','-aq','--no-trunc'],'baseline-preserved').decode().split()); assert baseline <= current and (image in baseline or image not in current)
+            receipt['cleanupComplete'] = True
+            if receipt['status'] == 'passed_pending_cleanup': receipt['status'] = 'passed'
+        except BaseException:
+            receipt['cleanupComplete'] = False; receipt['cleanup'] = 'Unknown delivery, process settlement or concrete ownership; resources retained for root investigation'
+        try:
+            guard.cleaning=True; receipt['hostCustody']=guard.close()
+            source_check(worktree,contract)
+            assert not guard.violation and guard.minimum>=RESERVE
+        except BaseException:
+            receipt['status']='failed'; receipt['cleanupComplete']=False; receipt['hostCustodyRefused']=True
+        save()
+    print(json.dumps({'receipt':str(out/'receipt.json'),'status':receipt['status'],'nativePromotionAllowed':receipt['status'] == 'passed' and receipt['cleanupComplete']}))
+    return 0 if receipt['status'] == 'passed' else 1
+
+if __name__ == '__main__': raise SystemExit(main())

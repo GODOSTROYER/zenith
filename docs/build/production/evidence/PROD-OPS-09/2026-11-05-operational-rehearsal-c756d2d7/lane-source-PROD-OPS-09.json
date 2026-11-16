@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-OPS-09"
+  ],
+  "mode": "local",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2 with buildx (docker-container driver), Go go1.27.1 fetched by GOTOOLCHAIN; the build, SBOM, triage, updater-signing, signing and self-verify steps of .github/workflows/release.yml run verbatim with a throwaway zenith-release keygen key and a local prerelease tag; nothing uploaded or published; gate ZENITH_LOCAL_OPS09_REHEARSAL",
+  "command": "vitest run tests/acceptance/ops09-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/acceptance/ops09-rehearsal.operated.test.ts",
+      "sha256": "5d08e8b8bba47cee4e4a238720c6a7ff14ff3a89fe01830168a51f6742efd835"
+    }
+  ]
+}

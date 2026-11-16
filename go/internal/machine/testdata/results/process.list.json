@@ -1,0 +1,22 @@
+{
+  "args": {
+    "limit": 50,
+    "sortBy": "cpu"
+  },
+  "operation": "process.list",
+  "result": {
+    "ok": true,
+    "data": {
+      "processes": [
+        {
+          "command": "fixture",
+          "pid": 1,
+          "ppid": 0,
+          "rssKb": 128,
+          "user": "1000"
+        }
+      ],
+      "truncated": false
+    }
+  }
+}

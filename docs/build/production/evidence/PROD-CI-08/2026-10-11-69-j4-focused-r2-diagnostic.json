@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "kind": "source-69-j4-focused-candidate-diagnostic",
+  "candidateHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+  "primaryHead": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+  "receiptSha256": "2dff41ffa2d26e6107fe9977dc43cc266a74fea319415bae979fc6f0ccb5d227",
+  "auditSha256": "62780f1de25b96271a29927fa9308eb995be0b9964d871be7b711ac9c7998035",
+  "auditReportSha256": "8711af9be719fb68b4c5aa336f8d3d080318baa19338fe70a2379c1790e3e81d",
+  "outcome": "passed-focused-diagnostics-only",
+  "candidateSourceFreezeSha256": "67e125983abb4a549481453918fa0a384d682184f29034cb43da545859c1d5bf",
+  "primarySourceFreezeSha256": "f0ca531a5a245e6f6cb413dfc6eedfeae94c3a5f7fb75209b69e546af6e81f8d",
+  "candidateFreezeEqualsPrimary": false,
+  "vitest": {
+    "file": "tests/deploy/default-stack-j4.test.ts",
+    "passed": 18,
+    "failed": 0,
+    "skipped": 0,
+    "returnCode": 0,
+    "stdoutSha256": "491480ec136363f11cb780349a8e5b088fc2d2459505af65b59aa7a81393acc9",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "elapsedSeconds": 9.25
+  },
+  "eslint": {
+    "paths": [
+      "scripts/acceptance/default-stack/j4.mjs",
+      "tests/deploy/default-stack-j4.test.ts"
+    ],
+    "returnCode": 0,
+    "stdoutBytes": 0,
+    "stderrBytes": 0,
+    "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "custody": {
+    "heldCommandsComplete": true,
+    "closeoutsJoined": true,
+    "noSurvivors": true,
+    "registriesAbsent": true,
+    "floorWatcherJoined": true,
+    "noMonitorFailure": true,
+    "noResourceBreach": true,
+    "minimumFreeBytes": 336272736256,
+    "floorBytes": 23622320128,
+    "independentlyAudited": true
+  },
+  "reviewedTestCorrection": {
+    "expectedWithDeadlineCallsBefore": 4,
+    "after": 5,
+    "patchSha256": "5b9030d959ac5709b29bb8510069d76eb1365de041a0386a5ba6f56bfe32cabb",
+    "reviewNoteSha256": "099be5f1c87bf76a9289eb1d8d59db155fd68c6c251c0744a63209330c69ceda",
+    "implementationLogicChanged": false,
+    "changeScope": "one test expectation line"
+  },
+  "historicalFocusedFailures": {
+    "result": "R1/R2 failed focused receipts remain preserved; the recorded 17 passed / 1 failed result was an expected withDeadline count mismatch."
+  },
+  "priorTypecheck": {
+    "result": "passed",
+    "receiptSha256": "9732950177bbf51009e7ad515e40accf2bcd3eb1df68d4c15808aa8eef7b9635",
+    "appliesTo": "same J4 implementation before one-line test-only R3 correction",
+    "rerunForR2": false
+  },
+  "acceptance": {
+    "j4RuntimeAcceptance": false,
+    "r9AdmissionFailureSuperseded": false,
+    "fullSuiteAcceptance": false,
+    "milestonePromotion": false
+  },
+  "scope": "candidate-focused test and lint diagnostics only. HEAD matches frozen primary, but tracked-source freeze hashes differ; not a clean-primary exact-source result."
+}

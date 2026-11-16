@@ -5,7 +5,7 @@
 import { z } from "zod";
 import {
   id,
-  type Manifest,
+  type AnyManifest,
   type Route,
 } from "@/lib/domain/types";
 import {
@@ -72,7 +72,7 @@ manifestAction<AddRoute>({
 });
 
 /** Routes are looked up by id or by hostname, like every other node ref. */
-function requireRoute(m: Manifest, routeId: string): Route {
+function requireRoute(m: AnyManifest, routeId: string): Route {
   const route = m.routes.find((r) => r.id === routeId || r.host === routeId);
   if (!route)
     throw new Error(

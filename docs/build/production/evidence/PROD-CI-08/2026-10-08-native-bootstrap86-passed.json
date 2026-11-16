@@ -1,0 +1,737 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+  "scope": "Whole original bootstrap file, one OpenTofu case with seven mocked AWS plan runs plus ordinary controls; no live AWS or released-installation acceptance",
+  "counts": {
+    "requiredEnginePassed": 1,
+    "ordinaryControlsPassed": 85,
+    "passed": 86,
+    "failed": 0,
+    "skipped": 0,
+    "excluded": 0,
+    "discovered": 86
+  },
+  "elapsedSeconds": 67.31,
+  "environment": {
+    "node": "22.23.3",
+    "openTofu": "1.12.5",
+    "provider": "hashicorp/aws 6.68.0",
+    "architecture": "darwin_arm64",
+    "emulated": false,
+    "privateProfile": "1536MiB Node old space, isolated HOME/TMP and documented short plugin socket directory; actual validation/test external network denied"
+  },
+  "sourceInputs": {
+    "tests/credentials/bootstrap-templates.test.ts": "b5d3011715ec9513113d38af963ae7c4630014afd244c599ec13979801409f1e",
+    "tests/credentials/cfn.ts": "16520ea6bc47433787dda0472a571fbb39f40e881a5843297ff7298c9d1769cc",
+    "tests/credentials/helpers.ts": "9b521bce1257c0a6c466d8850de09ccb6ae2d7bef7b4fdfd4b08c0c7399c3ee7",
+    "tests/credentials/workload-boundary.ts": "08ea209c422391c3aef16b2d096d70b6f22bab16503d5cada1db97cf928f3e09",
+    "tests/credentials/legacy-workload-boundary.json": "708ecc96f37ee89cc5911fb6378460bc54824dedcda126de6b31c3cbfbdcfa6b",
+    "deploy/aws/tools/generate-tofu-policies.ts": "265be89841679dbde373593df53f86a6df666d64c4e536222beae7000c413ad9",
+    "deploy/aws/zenith-connection.cfn.yaml": "3a3df84900c019e87b7509caabd11b1d1c93c775828713d5d968a6bbe61f5ac6",
+    "src/lib/credentials/aws/naming.ts": "75cccf24d65da33fd2de7f7b8eba679e7f5794f0086003a94b22ed0e1e25a7f4",
+    "package.json": "02e632c348679aeaa32f1bca5bcc7f720e89809bdca87759de4e3748901055a8",
+    "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c",
+    "vitest.config.ts": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+    "deploy/aws/tofu-module/main.tf": "9eba04d813946cbc9b8422c359185412ebb2f7e8a1c348ce0da6039d37178d51",
+    "deploy/aws/tofu-module/outputs.tf": "b6bac417e4295a3436a036dff9812fbdaada5e1cb59d1f8aff9de2653e8ec80a",
+    "deploy/aws/tofu-module/policies/app-boundary.json.tftpl": "0bdc4f81051483a5611fd769175ee9a2db9df8aca544a7eab0600bae2721bdd0",
+    "deploy/aws/tofu-module/policies/build-boundary.json.tftpl": "01ebd2f6b92970ebc6f7673fb7aef3f5541e1ab3d982125dc9b6c2f72a8d052b",
+    "deploy/aws/tofu-module/policies/codebuild.json.tftpl": "5027c4c5a1b3a7e76ae48327004469fd26fc639945b648957a91fe2d7edae321",
+    "deploy/aws/tofu-module/policies/deploy-balancing.json.tftpl": "111ffdf637dcb6a5db35e39d4b96abb66be7e746e4b34c40ea96f22b3378fa4d",
+    "deploy/aws/tofu-module/policies/deploy-compute.json.tftpl": "9885b7f47a8d55b95da751c3d4a1a9ba96ce2970ed7f2e2a8cde843d30acdce6",
+    "deploy/aws/tofu-module/policies/deploy-data.json.tftpl": "3290fd720567578dd7ced334f0c6939aa4005ada9089b66cc59306423c41f2a2",
+    "deploy/aws/tofu-module/policies/deploy-edge.json.tftpl": "cd732d6fcfbc9cca7c9eb6eb35fb873c231b6c827c7a056fd0976065fc3f554d",
+    "deploy/aws/tofu-module/policies/deploy-iam.json.tftpl": "6467f106775ea101cab2677099af86805222c256e1a73feeeb7ab9fd22ebbfb5",
+    "deploy/aws/tofu-module/policies/deploy-network.json.tftpl": "dfcae4d98162b351275222a4ea309bbbc24168ec70fcd1cb13af7b4cf52f9615",
+    "deploy/aws/tofu-module/policies/deploy-state.json.tftpl": "523e5795b99ee5c940f078729e6b2775758a4e07fd74e6f1f93bac035ea4b50a",
+    "deploy/aws/tofu-module/policies/eks-cluster-boundary.json.tftpl": "ae3efbd7d67461c44eeb29628e7f2cbaf840ab7b68ec8aa7a8260b063d070206",
+    "deploy/aws/tofu-module/policies/eks-node-boundary.json.tftpl": "15aed53cea0b084ec8740ab25bb598cd9e1c5d348c755b5c79e8beca4cfce17a",
+    "deploy/aws/tofu-module/policies/machine-boundary.json.tftpl": "f142a7e25986d138cbd444a9b9af2fe3fdaf80158494137dc2b09aefaecc0ad9",
+    "deploy/aws/tofu-module/policies/observe.json.tftpl": "4007ee43e5d7c9121127bc984dde257034aee6329b0c4c58f4c382a8bae8c3b8",
+    "deploy/aws/tofu-module/policies/optional-statements.json.tftpl": "f26dc3f42643d7374c5af4ee301b9b4dd1ac67f511aad465f83d8f6451e280fd",
+    "deploy/aws/tofu-module/policies/scheduler-boundary.json.tftpl": "dae9f2e3d5a35b7cbb9a5d4e75c41d6df32c9f8b4acf6f5030ad9d61723cd320",
+    "deploy/aws/tofu-module/policies/secret-writer.json.tftpl": "d3970bab3b0063bfdaf9366a48678c49eb02c2ebe32a97389a4ac7208ba78415",
+    "deploy/aws/tofu-module/policies/workload-boundary.json.tftpl": "53e4e591b415060b9dbc5c0e296cb87a996c2ac57aaed0a6c9fb9f4715fb0347",
+    "deploy/aws/tofu-module/tests/bootstrap.tftest.hcl": "f53dfbf50d81788fca10b7519da960821c4e60523c38c59dd319aff8f94280c2",
+    "deploy/aws/tofu-module/variables.tf": "6d9ecdad77ad504b5c8c714ee8fac4d19476fe79db340357d69fc17e309e05db",
+    "deploy/aws/tofu-module/versions.tf": "f20ba25761a2432d9613da63e806982ed2180e67e6058881acebd16f25c1b62b",
+    "src/lib/credentials/aws/arn.ts": "ce2d51d4020cee9fd394c70a6611ec4b233e52d76aedb6da6767c061349aeb58",
+    "src/lib/credentials/aws/bootstrap-preflight.ts": "02d0e43f78857d8d5d5c63c4d40de56bf858ab8c5c1d819ef0d2c1c4764430a7",
+    "src/lib/credentials/aws/broker.ts": "d09c35295b3cd76ff1cc9b0d2c3b376c28d56cc7e473cea7cd42e3bf9a47a595",
+    "src/lib/credentials/aws/compiler-actions.ts": "70431e4f079b0016910e8b243233631c696c46d496403457ea9c442e86059a12",
+    "src/lib/credentials/aws/index.ts": "86ba18adac0685f8237587debaddc684f2bfb8543248caf1d83ff25ff4b642f2",
+    "src/lib/credentials/aws/least-privilege.ts": "19ec2bcf7c7c6a3a72856015bad3394915299a553be209737daa90fcdc48fbff",
+    "src/lib/credentials/aws/limits.ts": "1b4e887e2bbbf8f5feaf6b5c7e3abf13f6b8b79a52292e170662f12d5dfa1146",
+    "src/lib/credentials/aws/partition.ts": "160e8a3ca003d0c866e6fddf3432f64c0359f4c21e54ddaf88e766eb3a0173c3",
+    "src/lib/credentials/aws/policy-budget.ts": "7d86d68e4a21218e41c1a1d695f50d82266e133a23bdc62cd43157bd849701fd",
+    "src/lib/credentials/aws/policy.ts": "4a527c13a4d9861f0a5aa842c6cee35a89bcc4784308783335b1a77802dafa8d",
+    "src/lib/credentials/aws/secret-policy.ts": "a0c123ca5db3d603f94b58c58ccedf2ae706da9a701817d720a2d33aca19ed88",
+    "src/lib/credentials/aws/session-policy.ts": "746fe7086ddb1143255c482104ba47652a3c4e1f2f1fcacf78d99cecba0271bb",
+    "src/lib/credentials/aws/session.ts": "a048fcd279749d2848a247fa8e1f3c467c903232011a76e799d89b222986d7a4",
+    "src/lib/credentials/aws/tags.ts": "46c141bd667dea363a00903af19789bb5f733b23d3ce888ee402567dcc1ee4fa"
+  },
+  "providerBinding": {
+    "binaryName": "terraform-provider-aws",
+    "binarySha256": "9a5b9bf8a863e2b43e9b3026e7b7a593bc279677fb32070cb534c2bc8cefab52",
+    "archiveSha256": "a1b328d08cb3a35c33dae78d83f4e434b098e7311e88732803682939f0b24be7"
+  },
+  "providerAndSandboxPhases": [
+    {
+      "phase": "validate",
+      "exactProviderBinding": true,
+      "sandboxSelected": true
+    },
+    {
+      "phase": "test",
+      "exactProviderBinding": true,
+      "sandboxSelected": true
+    }
+  ],
+  "sandboxControls": {
+    "ipv4": true,
+    "ipv6": true,
+    "unix": true,
+    "externalDeniedErrno": 1
+  },
+  "controlListenersRefused": true,
+  "minimumFreeBytes": 26309472256,
+  "floorBytes": 23622320128,
+  "resourceGuardViolated": false,
+  "endSourceBinding": true,
+  "registeredGroupsAbsent": true,
+  "cleanupComplete": true,
+  "cases": [
+    {
+      "title": "parses with CloudFormation tags and declares the resources the README documents",
+      "ancestorTitles": [
+        "template structure"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "creates the OIDC provider for sts.amazonaws.com against the issuer (and only when asked)",
+      "ancestorTitles": [
+        "template structure"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "validates parameters: exact subject only, no wildcards, no scheme, sane suffix",
+      "ancestorTitles": [
+        "template structure"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for oidc",
+      "ancestorTitles": [
+        "boundary size in aws"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for everything",
+      "ancestorTitles": [
+        "boundary size in aws"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for assumeRoleOnly",
+      "ancestorTitles": [
+        "boundary size in aws"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for oidc",
+      "ancestorTitles": [
+        "boundary size in aws-cn"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for everything",
+      "ancestorTitles": [
+        "boundary size in aws-cn"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for assumeRoleOnly",
+      "ancestorTitles": [
+        "boundary size in aws-cn"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for oidc",
+      "ancestorTitles": [
+        "boundary size in aws-us-gov"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for everything",
+      "ancestorTitles": [
+        "boundary size in aws-us-gov"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "fits IAM's 6,144-character limit for assumeRoleOnly",
+      "ancestorTitles": [
+        "boundary size in aws-us-gov"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "all selectable family boundaries preserve headroom at maximum suffix/environment lengths, and all deploy policies fit in every partition",
+      "ancestorTitles": [],
+      "status": "passed"
+    },
+    {
+      "title": "adds the exact bootstrap version read statement and preserves the reviewed resource and policy inventory",
+      "ancestorTitles": [],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"-team-a\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"-xxxxxxxxxxxxxxxxxxx\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws-cn"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"-team-a\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws-cn"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"-xxxxxxxxxxxxxxxxxxx\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws-cn"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws-us-gov"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"-team-a\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws-us-gov"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "allows only the seven exact account/partition/suffix policy identities for suffix \"-xxxxxxxxxxxxxxxxxxx\"",
+      "ancestorTitles": [
+        "exact bootstrap boundary reads in aws-us-gov"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "legacy retains every pre-split grant and escalation deny, strengthening only the state namespace deny",
+      "ancestorTitles": [],
+      "status": "passed"
+    },
+    {
+      "title": "uploads and reads C3 source objects only in the configured environment and customer account",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "SNS/EBS/EKS mutations require creation or resource tags and account/environment ARN scopes",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "permits native CNI ENIs without Zenith tags while protecting node and resource tags",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "never allows Action * or service:* \u2014 and never Action * on Resource *",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "has unique Sids, no Principal in identity policies, and stays within IAM size limits",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "observe policy is read-only and can never read secret values",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "every mutating deploy-role permission is tag- or name-conditioned (documented exceptions only)",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "the deploy role can never read or write secret values, mint credentials or touch the OIDC provider",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "IAM: roles are created/changed only with the permission boundary, PassRole is service-limited, self-modification is denied",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "permission boundary allows only events PassRole in IAM and denies administration and the state bucket",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "conditions every new build grant on the shared role discriminator and narrow resources",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "build grants fail closed for apps, foreign resources and missing conditions; state denial still wins",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "state bucket policy denies plain HTTP and TLS < 1.2; deploy role cannot administer or shorten its history",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "CodeBuild role: assumable only by CodeBuild in this account; pushes only to zenith-* repositories; reads only the artifact prefix",
+      "ancestorTitles": [
+        "IAM policies (oidc)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "uploads and reads C3 source objects only in the configured environment and customer account",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "SNS/EBS/EKS mutations require creation or resource tags and account/environment ARN scopes",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "permits native CNI ENIs without Zenith tags while protecting node and resource tags",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "never allows Action * or service:* \u2014 and never Action * on Resource *",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "has unique Sids, no Principal in identity policies, and stays within IAM size limits",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "observe policy is read-only and can never read secret values",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "every mutating deploy-role permission is tag- or name-conditioned (documented exceptions only)",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "the deploy role can never read or write secret values, mint credentials or touch the OIDC provider",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "IAM: roles are created/changed only with the permission boundary, PassRole is service-limited, self-modification is denied",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "permission boundary allows only events PassRole in IAM and denies administration and the state bucket",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "conditions every new build grant on the shared role discriminator and narrow resources",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "build grants fail closed for apps, foreign resources and missing conditions; state denial still wins",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "state bucket policy denies plain HTTP and TLS < 1.2; deploy role cannot administer or shorten its history",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "CodeBuild role: assumable only by CodeBuild in this account; pushes only to zenith-* repositories; reads only the artifact prefix",
+      "ancestorTitles": [
+        "IAM policies (everything)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "uploads and reads C3 source objects only in the configured environment and customer account",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "SNS/EBS/EKS mutations require creation or resource tags and account/environment ARN scopes",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "permits native CNI ENIs without Zenith tags while protecting node and resource tags",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "never allows Action * or service:* \u2014 and never Action * on Resource *",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "has unique Sids, no Principal in identity policies, and stays within IAM size limits",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "observe policy is read-only and can never read secret values",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "every mutating deploy-role permission is tag- or name-conditioned (documented exceptions only)",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "the deploy role can never read or write secret values, mint credentials or touch the OIDC provider",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "IAM: roles are created/changed only with the permission boundary, PassRole is service-limited, self-modification is denied",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "permission boundary allows only events PassRole in IAM and denies administration and the state bucket",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "conditions every new build grant on the shared role discriminator and narrow resources",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "build grants fail closed for apps, foreign resources and missing conditions; state denial still wins",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "state bucket policy denies plain HTTP and TLS < 1.2; deploy role cannot administer or shorten its history",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "CodeBuild role: assumable only by CodeBuild in this account; pushes only to zenith-* repositories; reads only the artifact prefix",
+      "ancestorTitles": [
+        "IAM policies (assumeRoleOnly)"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "ObserveRole: OIDC statements pin issuer, audience and the exact subject; nothing else can assume it",
+      "ancestorTitles": [
+        "trust policies"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "ObserveRole: AssumeRole path requires the ExternalId and the principal; TagSession is a separate statement",
+      "ancestorTitles": [
+        "trust policies"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "DeployRole: OIDC statements pin issuer, audience and the exact subject; nothing else can assume it",
+      "ancestorTitles": [
+        "trust policies"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "DeployRole: AssumeRole path requires the ExternalId and the principal; TagSession is a separate statement",
+      "ancestorTitles": [
+        "trust policies"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "is versioned, private, encrypted (AES256 or the given KMS key), TLS-only and survives stack deletion",
+      "ancestorTitles": [
+        "state bucket"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "route53 write access exists only for listed zones; KMS statements only with a key",
+      "ancestorTitles": [
+        "optional features change only what they should"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "the environment scope reaches every tag condition on the deploy role",
+      "ancestorTitles": [
+        "optional features change only what they should"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "infrastructure.observe only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "topology.read only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "firewall.inspect only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "metrics.read only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "logs.read only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "service.restart only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "service.scale only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "database.snapshot only asks for permissions its role grants (by action and resource pattern)",
+      "ancestorTitles": [
+        "the broker's session policies stay inside the roles they narrow"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "the --check implementation detects edited and missing generated files",
+      "ancestorTitles": [
+        "OpenTofu module"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "policy templates are exactly what the generator derives from the CloudFormation template",
+      "ancestorTitles": [
+        "OpenTofu module"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "rendered templates equal the evaluated CloudFormation policies (default scenario)",
+      "ancestorTitles": [
+        "OpenTofu module"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "main.tf pins the same trust conditions and bucket protections as the template",
+      "ancestorTitles": [
+        "OpenTofu module"
+      ],
+      "status": "passed"
+    },
+    {
+      "title": "tofu init + validate + test (mock provider, offline after init)",
+      "ancestorTitles": [
+        "OpenTofu module"
+      ],
+      "status": "passed"
+    }
+  ],
+  "receiptSha256": "37f9b21ab0821c285ff962164bb68806fa166b89e8d19d35781c9b40deb6f105",
+  "rawReportSha256": "f15ccb67eab64426fc608711011a3369a63480f75f0bbabbf09fa470d71c61da",
+  "status": "passed",
+  "review": "Independent Astra review accepted exact86 identities, provider/source/network bindings and fresh cleanup. Original R2/R3/R4 failures preserved. Seven mock-plan definitions exist, but no seven separately retained output records are claimed.",
+  "failedPredecessors": [
+    {
+      "attempt": "R2",
+      "result": "setup failure before tests; authentic ZIP rejected by incorrect filename allowlist",
+      "testsExecuted": 0,
+      "cleanupComplete": true,
+      "sourceCommit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+      "receiptSha256": "528f1434adda0fcc263dfd4a6b5aa6864f09c1062a0cde0276bc9ac907c05c2d",
+      "minimumFreeBytes": 27113971712,
+      "endSourceBinding": true
+    },
+    {
+      "attempt": "R3",
+      "result": "85 passed /1 failed /0 skipped; provider Unix-socket startup failed",
+      "cleanupComplete": true,
+      "sourceCommit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+      "receiptSha256": "b82f6c95628bb9951648e4efc4ecd46c08bbac8108f784fb5fe0b187e182c874",
+      "minimumFreeBytes": 26304782336,
+      "endSourceBinding": true,
+      "rawReportSha256": "338cf527c530989ec65fb562171145935400073a6b136511584ef5b3896c9f55"
+    },
+    {
+      "attempt": "R4",
+      "result": "85 passed /1 failed /0 skipped; private diagnostics proved201-byte Unix-socket path bind failure",
+      "cleanupComplete": true,
+      "sourceCommit": "e4c0c23782b5deb6b5b385ef58b504588d3a546b",
+      "receiptSha256": "991b28377aed1da27a15f8eeff56a316e8a317469abeb930565b3fd7b3639da2",
+      "minimumFreeBytes": 26311929856,
+      "endSourceBinding": true,
+      "rawReportSha256": "5ededf812a6121681195cdf69a8c0ffcaa76eb52492ad2d6f336b091e49aaf51"
+    }
+  ]
+}

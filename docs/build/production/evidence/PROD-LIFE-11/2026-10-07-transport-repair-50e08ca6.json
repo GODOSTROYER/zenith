@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "finding": "PROD-LIFE-11 DNS preflight addresses were not bound to actual driver connections",
+  "securityFixCommit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+  "author": "Arnav Bule <arnav.bule05@gmail.com>",
+  "committer": "Arnav Bule <arnav.bule05@gmail.com>",
+  "sourcePostimages": {
+    "src/lib/portability/connect.ts": "85c22d618579f228e68ceaad52aa75f64b0d06ab968b1499703995741cd209d2",
+    "src/lib/portability/engines/mysql.ts": "d6bd2473b77d3cb5d521a404b5927c0db799aa3ee41900f3955835251f6f96a7",
+    "src/lib/portability/engines/s3.ts": "23261688f05051bb58e0105479ca71c43428feb4deee6975be3f4d7d9078b203",
+    "src/lib/portability/net.ts": "2d8a21d40417b19fb5b0f68b140c200ec24458af3af724c8d0b749b435d7dc7e",
+    "tests/portability/dns-transport-native.test.ts": "f8fe3eee7499c1c26e5f6cbe40653d807b0970aed3e1a0270108ed954211c571",
+    "tests/portability/dns-transport.test.ts": "7d012bcb7bc19438f0a82dee060989c277f73db46fce36e2777685d34502fe0a",
+    "tests/portability/mysql-cli-tls.test.ts": "e8d1350bd2fb6e798a60365e8a2555009c64cfcdecc4f9f3036110c6e081d22a",
+    "tests/portability/mysql-engine.test.ts": "d9ff8951e367351fa717ffe0a34c72f3262afcb4ea85495affd542068eaa7ded",
+    "tests/portability/tls-support.ts": "4d0f61cfac65cc8cae28dc9231a587a3087befe17c89c2b3675f891fb1858216"
+  },
+  "independentReviews": [
+    {
+      "review": "independent-c-pg-s3-security-r3",
+      "sha256": "b7a6ee1b4328dcfd1575d511c11f62527cc29bb540f6437c063af549a4493111",
+      "scope": "independent source-only review; root execution separately retained"
+    },
+    {
+      "review": "independent-c-mysql-security-r3",
+      "sha256": "2feb1fdec924377db07db0278dd337ddeb66b44d098df938449a720ab1732468",
+      "scope": "independent source-only review; root execution separately retained"
+    },
+    {
+      "review": "independent-c-mysql-security-r4",
+      "sha256": "82159c70f3b8f05e7a5cb58a629b84e125c1bfc9eefe95d7c78e6e444f8eaa93",
+      "scope": "independent source-only review; root execution separately retained"
+    },
+    {
+      "review": "independent-c-connect-mysql-composition-r1",
+      "sha256": "dd88cf0c5c8a468bcff6282df7a1d2f7d4b6fc7be26f52c713b20846e410b587",
+      "scope": "independent source-only review; root execution separately retained"
+    },
+    {
+      "review": "independent-c-s3-destination-options-r1",
+      "sha256": "9a08d74f6b6cf90b5f6e4ddd698904ef032d30fc26535b3cd97f5f69a9421233",
+      "scope": "independent source-only review; root execution separately retained"
+    }
+  ],
+  "executedReports": [
+    "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-pg-s3-50e08ca6.json",
+    "docs/build/production/evidence/PROD-LIFE-11/2026-10-07-mysql-50e08ca6.json"
+  ],
+  "compilerAndLint": {
+    "commit": "50e08ca659d0d49399297f705c5249f246b77ab9",
+    "checks": [
+      {
+        "name": "compiler",
+        "command": [
+          "npx",
+          "tsc",
+          "--noEmit"
+        ],
+        "exit": 0,
+        "heapMiB": 3072
+      },
+      {
+        "name": "lint",
+        "command": [
+          "npm",
+          "run",
+          "lint"
+        ],
+        "exit": 0,
+        "heapMiB": 1536
+      }
+    ]
+  },
+  "historicalFailedAttempts": [
+    {
+      "lane": "PG/S3 candidate1",
+      "passed": 26,
+      "failed": 1,
+      "skipped": 0,
+      "rootCause": "Fixture seeded JSON string through inferred jsonb encoder; fixed explicit text-to-jsonb seed plus independent source assertion."
+    },
+    {
+      "lane": "PG/S3 candidate2",
+      "passed": 25,
+      "failed": 2,
+      "skipped": 0,
+      "additionalUnhandledErrors": 1,
+      "rootCause": "Seed issue, occupied target correctly refused on rerun, injected TLS reset preceded request socket ownership. Fixed fixture lifecycle; fresh target buckets each attempt."
+    },
+    {
+      "lane": "stock MySQL TLS original",
+      "passed": 4,
+      "failed": 1,
+      "skipped": 0,
+      "rootCause": "Valid authenticated socket closed by protocol fixture on stock client startup version query. Exact bounded startup-query responses corrected; actual engine probe separately passed."
+    },
+    {
+      "lane": "compiler intermediate",
+      "observedExits": [
+        134,
+        2,
+        2
+      ],
+      "rootCause": "Default 2GiB heap exhausted, then TLS family/path option declaration mismatches. Bounded3GiB serial compiler plus precise socket-option types passed."
+    }
+  ],
+  "limitations": [
+    "MySQL DNS-hostname TLS explicitly refused because stock CLI cannot preserve original hostname identity on a pinned IP. Literal-IP CA and IP-SAN verification passed; no detached identity probe or TLS downgrade.",
+    "Stock MySQL TLS5 uses actual stock-client sockets against protocol fixture, not MySQL engine. Actual MySQL export/import/readback and refusal controls executed separately.",
+    "Sharp bump, fresh installation/lock integrity/security audit/Next build/packaged closure/full gate and new pushed CI remain pending mandatory native-bundle scope answer.",
+    "Default maintenance draft independently reviewed NOT_READY_DO_NOT_EXECUTE; no default scheduling proof.",
+    "Default product API/server, live clouds/private GitHub App remain blocked DEC-STARTUP/DEC-CLOUD."
+  ],
+  "cleanup": {
+    "containersVolumesNetworks": "independent absence verified",
+    "certificateDirectories": [
+      {
+        "directoryKind": "postgres",
+        "ownedKeyFilesRemoved": true,
+        "initializerAbsent": true
+      },
+      {
+        "directoryKind": "minio",
+        "ownedKeyFilesRemoved": true,
+        "initializerAbsent": true
+      },
+      {
+        "directoryKind": "mysql",
+        "ownedKeyFilesRemoved": true,
+        "initializerAbsent": true
+      }
+    ],
+    "ephemeralCredentialsAndRootPrivateKeyRemoved": [
+      "server.key",
+      "native-environment.private.json",
+      "mysql-environment.private.json",
+      "postgres.private.env",
+      "minio.private.env",
+      "mysql-340dc77c6c9ea7d6.env"
+    ],
+    "images": "preserved; ownership exclusive to this run not established",
+    "unrelatedResources": "untouched"
+  },
+  "releaseStates": "all four remain false; no requirement promoted"
+}

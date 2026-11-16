@@ -1,0 +1,606 @@
+{
+  "schemaVersion": 1,
+  "commit": "9b56810829ecf1467ce2c20571bc060af1f39144",
+  "environment": {
+    "host": "Darwin native ARM64 8 GiB RAM",
+    "node": "22.23.3",
+    "postgres": "16.15 native Homebrew, owned disposable server on loopback",
+    "vitest": "4.1.11",
+    "postgresLimits": "shared_buffers32MB; max_connections25; max_parallel_workers0; max_worker_processes4",
+    "trustScope": "Owned local-only SQL fixture; no product/API/operator authorization claim",
+    "docker": "stopped, unused"
+  },
+  "migrationRun": {
+    "passed": 9,
+    "failed": 0,
+    "filteredSiblings": 48,
+    "countsByEvidence": {
+      "networkedPostgres": 4,
+      "embeddedPostgres": 4,
+      "pureContract": 1
+    }
+  },
+  "effectsRun": {
+    "passed": 96,
+    "failed": 0,
+    "skipped": 0,
+    "countsByEvidence": {
+      "networkedPostgres": 48,
+      "embeddedPostgres": 48
+    }
+  },
+  "executedCases": {
+    "migrations": [
+      {
+        "suite": "tests/controlplane/migration-compat.test.ts",
+        "name": "migration compatibility classification binds the authorized external-effect repair to exact SQL and an explicit drained-writer version",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['pglite'] repairs published external-effect key checks through an approved upgrade without changing history or authority",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['pglite'] applies on a fresh database, records the ledger with checksums, and re-running is a no-op",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['pglite'] the emitted SQL applies on a fresh database, is idempotent, and is recognised by the TypeScript migrator",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['pglite'] the emitted SQL grants only service_role and revokes anon/authenticated when the Supabase roles exist",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['postgres'] repairs published external-effect key checks through an approved upgrade without changing history or authority",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['postgres'] applies on a fresh database, records the ledger with checksums, and re-running is a no-op",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['postgres'] the emitted SQL applies on a fresh database, is idempotent, and is recognised by the TypeScript migrator",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/controlplane/migrations.test.ts",
+        "name": "migrator ['postgres'] the emitted SQL grants only service_role and revokes anon/authenticated when the Supabase roles exist",
+        "status": "passed"
+      }
+    ],
+    "effects": [
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') startBuildOnce (providers without a launch claim table) launches once and returns the saved long handle to every retry without calling the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') startBuildOnce (providers without a launch claim table) a lost or unconfirmed launch is uncertain and no retry reaches the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') startBuildOnce (providers without a launch claim table) a refusal before dispatch retires the effect and is not repeated under the same identity",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') startBuildOnce (providers without a launch claim table) refuses to reuse the identity for a different source",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') startBuildOnce (providers without a launch claim table) without a control store or an operation it calls the port directly, exactly as before",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim the effect input records the exact request, the idempotency token sent to CodeBuild, and the fence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim an existing claim with no receipt becomes uncertain and is never replayed",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim the provider's own saved receipt is adopted after a crash between acceptance and acknowledgement",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim a receipt without request ids, or a retired effect, is not adopted",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim a lost response is resolved from readback evidence plus an authorization, then adopted without a second build",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim registers a pre-ledger launch that already has its receipt, once",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim an exact independent read of the accepted build confirms it; a read of another build conflicts",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('pglite') AWS helpers around the durable launch claim confirmation is best effort: an unknown effect or a store error never fails the build wait",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') startBuildOnce (providers without a launch claim table) launches once and returns the saved long handle to every retry without calling the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') startBuildOnce (providers without a launch claim table) a lost or unconfirmed launch is uncertain and no retry reaches the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') startBuildOnce (providers without a launch claim table) a refusal before dispatch retires the effect and is not repeated under the same identity",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') startBuildOnce (providers without a launch claim table) refuses to reuse the identity for a different source",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') startBuildOnce (providers without a launch claim table) without a control store or an operation it calls the port directly, exactly as before",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim the effect input records the exact request, the idempotency token sent to CodeBuild, and the fence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim an existing claim with no receipt becomes uncertain and is never replayed",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim the provider's own saved receipt is adopted after a crash between acceptance and acknowledgement",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim a receipt without request ids, or a retired effect, is not adopted",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim a lost response is resolved from readback evidence plus an authorization, then adopted without a second build",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim registers a pre-ledger launch that already has its receipt, once",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim an exact independent read of the accepted build confirms it; a read of another build conflicts",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/build-launch.test.ts",
+        "name": "build launch effects ('postgres') AWS helpers around the durable launch claim confirmation is best effort: an unknown effect or a store error never fails the build wait",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') record before dispatch, dedup by durable identity creates one pending effect per (family, dedupKey) and returns it to every later caller",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') record before dispatch, dedup by durable identity refuses to reuse an identity for a different request",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') record before dispatch, dedup by durable identity records the fence epoch, and a stale fence cannot create a NEW effect but an existing one is still returned",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') dispatchOnce: at most one provider call per identity calls once, stores the receipt, and answers a retry from the receipt without calling the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') dispatchOnce: at most one provider call per identity an unknown failure (timeout, reset, abort) makes the effect uncertain and no later caller ever calls the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') dispatchOnce: at most one provider call per identity a definite refusal before acceptance tombstones the effect, and it is never repeated under the same identity",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') dispatchOnce: at most one provider call per identity two concurrent callers cannot both reach the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') delayed responses never reopen an uncertain, conflicting or tombstoned effect a reply after the dispatcher was declared uncertain is recorded as a late receipt, stays uncertain, and is flagged stale-fence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') delayed responses never reopen an uncertain, conflicting or tombstoned effect a reply after revocation of the connection or approval (no live fence at all) is still stored",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') delayed responses never reopen an uncertain, conflicting or tombstoned effect a late receipt after a provider-rejection tombstone keeps the tombstone and is shown as a conflict",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') delayed responses never reopen an uncertain, conflicting or tombstoned effect a second, different receipt for an accepted effect makes it a conflict",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') readback an exact present readback confirms an accepted effect",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') readback a readback naming a different object makes an accepted effect a conflict",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') readback a readback never auto-resolves an uncertain effect; it only records evidence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') readback an unavailable read does not replace earlier definitive evidence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') readback refuses a stale or future observation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules refuses to resolve before any readback exists",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules confirm_applied adopts the readback as the receipt, on the exact reviewed binding",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules an approval for an old binding is unusable after any later readback, receipt or state change",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules cannot confirm 'applied' from an absent readback, or 'not applied' from a present one",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules refuses absence while the dispatching lease still holds its fence, including after a renewal",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules a takeover (a newer fence) also supersedes the dispatcher",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules refuses absence inside the settle window",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules a late receipt blocks absence, and changes the binding of anything already reviewed",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules a conflict can be confirmed from a present readback of the same object only",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') resolution needs evidence, the exact binding, and the fence/settle rules an effect that is not waiting for resolution cannot be resolved",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') the database trigger is the authority (bypass attempts) refuses to delete a ledger row or touch events and resolutions",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') the database trigger is the authority (bypass attempts) refuses illegal state jumps written directly",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') the database trigger is the authority (bypass attempts) uncertain cannot be cleared by a plain update: no resolution row, no exit",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') the database trigger is the authority (bypass attempts) confirmed and tombstoned are terminal; receipts and identity are write-once",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') tenant scoping a foreign workspace sees nothing and changes nothing",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') tenant scoping the same dedup key in two workspaces is two effects",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') stale pending sweep declares a pending effect whose lease is gone uncertain, never retries it, and leaves live holders alone",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') stale pending sweep never touches a recent pending effect",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('pglite') surfaces unresolved effects of an operation (pending, uncertain, conflict) for projections",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') record before dispatch, dedup by durable identity creates one pending effect per (family, dedupKey) and returns it to every later caller",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') record before dispatch, dedup by durable identity refuses to reuse an identity for a different request",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') record before dispatch, dedup by durable identity records the fence epoch, and a stale fence cannot create a NEW effect but an existing one is still returned",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') dispatchOnce: at most one provider call per identity calls once, stores the receipt, and answers a retry from the receipt without calling the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') dispatchOnce: at most one provider call per identity an unknown failure (timeout, reset, abort) makes the effect uncertain and no later caller ever calls the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') dispatchOnce: at most one provider call per identity a definite refusal before acceptance tombstones the effect, and it is never repeated under the same identity",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') dispatchOnce: at most one provider call per identity two concurrent callers cannot both reach the provider",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') delayed responses never reopen an uncertain, conflicting or tombstoned effect a reply after the dispatcher was declared uncertain is recorded as a late receipt, stays uncertain, and is flagged stale-fence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') delayed responses never reopen an uncertain, conflicting or tombstoned effect a reply after revocation of the connection or approval (no live fence at all) is still stored",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') delayed responses never reopen an uncertain, conflicting or tombstoned effect a late receipt after a provider-rejection tombstone keeps the tombstone and is shown as a conflict",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') delayed responses never reopen an uncertain, conflicting or tombstoned effect a second, different receipt for an accepted effect makes it a conflict",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') readback an exact present readback confirms an accepted effect",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') readback a readback naming a different object makes an accepted effect a conflict",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') readback a readback never auto-resolves an uncertain effect; it only records evidence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') readback an unavailable read does not replace earlier definitive evidence",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') readback refuses a stale or future observation",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules refuses to resolve before any readback exists",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules confirm_applied adopts the readback as the receipt, on the exact reviewed binding",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules an approval for an old binding is unusable after any later readback, receipt or state change",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules cannot confirm 'applied' from an absent readback, or 'not applied' from a present one",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules refuses absence while the dispatching lease still holds its fence, including after a renewal",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules a takeover (a newer fence) also supersedes the dispatcher",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules refuses absence inside the settle window",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules a late receipt blocks absence, and changes the binding of anything already reviewed",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules a conflict can be confirmed from a present readback of the same object only",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') resolution needs evidence, the exact binding, and the fence/settle rules an effect that is not waiting for resolution cannot be resolved",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') the database trigger is the authority (bypass attempts) refuses to delete a ledger row or touch events and resolutions",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') the database trigger is the authority (bypass attempts) refuses illegal state jumps written directly",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') the database trigger is the authority (bypass attempts) uncertain cannot be cleared by a plain update: no resolution row, no exit",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') the database trigger is the authority (bypass attempts) confirmed and tombstoned are terminal; receipts and identity are write-once",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') tenant scoping a foreign workspace sees nothing and changes nothing",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') tenant scoping the same dedup key in two workspaces is two effects",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') stale pending sweep declares a pending effect whose lease is gone uncertain, never retries it, and leaves live holders alone",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') stale pending sweep never touches a recent pending effect",
+        "status": "passed"
+      },
+      {
+        "suite": "tests/effects/ledger.test.ts",
+        "name": "external effect ledger ('postgres') surfaces unresolved effects of an operation (pending, uncertain, conflict) for projections",
+        "status": "passed"
+      }
+    ]
+  },
+  "compiler": {
+    "source": "9b56810829ecf1467ce2c20571bc060af1f39144",
+    "heapMiB": 4096,
+    "diskBefore": 24317321216,
+    "floorBytes": 23622320128,
+    "status": "completed",
+    "exitCode": 0,
+    "durationSeconds": 53.97,
+    "minimumFreeBytes": 24314277888,
+    "diskAfter": 24314277888
+  },
+  "cleanup": {
+    "bothServersStopped": true,
+    "bothOwnedDataDirsRemoved": true,
+    "installerCreatedDefaultClusterRemoved": true,
+    "privateConnectionFileRemoved": true,
+    "postgresBinaryKeptForReuse": true,
+    "unrelatedServicesModified": false
+  },
+  "disk": {
+    "migrations": {
+      "beforeFreeBytes": 24134840320,
+      "floorBytes": 23622320128,
+      "minimumFreeBytes": 24049164288,
+      "afterFreeBytes": 24135843840
+    },
+    "effects": {
+      "beforeFreeBytes": 24174465024,
+      "floorBytes": 23622320128,
+      "minimumFreeBytes": 24109731840,
+      "afterFreeBytes": 24174231552
+    }
+  },
+  "countsOverlapOtherEvidence": true,
+  "releasePromotion": false,
+  "toolInstallation": {
+    "postgresql": "16.15; kept for reuse, allocated76.63MiB",
+    "json-c": "0.19 newly installed, allocated0.414MiB",
+    "xz": "dependency upgraded to5.8.4, allocated2.68MiB; prior keg retained",
+    "projectPackageManifestsChanged": false,
+    "homebrewServiceStarted": false,
+    "installerDefaultClusterRemoved": true
+  }
+}

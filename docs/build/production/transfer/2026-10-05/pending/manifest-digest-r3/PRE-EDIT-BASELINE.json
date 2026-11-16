@@ -1,0 +1,14 @@
+{
+  "status": "PRE_EDIT_SOURCE_ONLY",
+  "preparationSha256": "81ef96bb903890cd4b1e4bd2857e79d194133ee859d0351a63e99383b568b8f1",
+  "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "sourcePaths": 3854,
+  "ownedPaths": [
+    "src/lib/tofu/engine.ts",
+    "tests/controlplane/cleanup-writer-barriers.test.ts",
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+  ],
+  "head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "realIndexSha256": "9e31fd0c901cc8c9e819d06a16080d1e1ce4e8c9dfd750256e60a906775ea328",
+  "stageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a"
+}

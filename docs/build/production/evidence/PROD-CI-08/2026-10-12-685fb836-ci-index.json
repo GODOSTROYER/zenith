@@ -1,0 +1,2431 @@
+{
+  "collectedAt": "2026-10-12T03:13:48.034910Z",
+  "conclusionCountsAcrossRuns": {
+    "success": 3
+  },
+  "failureLogPolicy": {
+    "enabled": true,
+    "failedJobsOnly": true,
+    "onlyRedactedLogsPersisted": true,
+    "perJobByteCap": 262144,
+    "persistedRedactedBytes": 0,
+    "rawLogBytesPersisted": false,
+    "rawLogFetchByteCapEnforcedDuringRead": true,
+    "timeoutSecondsPerJob": 120,
+    "totalByteCap": 2097152
+  },
+  "jobCountAcrossAttempts": 32,
+  "kind": "exact-source-github-actions-index",
+  "limitations": [
+    "Run conclusion success can include conditional skipped jobs; skips remain explicit and are not passes.",
+    "Matrix rows are preserved in the GitHub job name, labels, job ID, and attempt.",
+    "This inventory does not infer required-check policy or release acceptance."
+  ],
+  "readOnly": true,
+  "repository": "GODOSTROYER/zenith",
+  "runCount": 3,
+  "runs": [
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "conclusions": {
+            "success": 2
+          },
+          "jobCount": 2,
+          "jobs": [
+            {
+              "completedAt": "2026-10-12T02:49:45Z",
+              "conclusion": "success",
+              "id": 114641494238,
+              "labels": [
+                "ubuntu-24.04"
+              ],
+              "name": "packaged-worker (amd64, ubuntu-24.04)",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004148",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run canonical native package gate",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Validate exact executed native package evidence",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Admit sanitized artifact schema",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve only sanitized package evidence",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 15,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:49:43Z",
+              "conclusion": "success",
+              "id": 114641494485,
+              "labels": [
+                "ubuntu-24.04-arm"
+              ],
+              "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004149",
+              "startedAt": "2026-10-12T02:43:35Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run canonical native package gate",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Validate exact executed native package evidence",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Admit sanitized artifact schema",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve only sanitized package evidence",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 15,
+                  "status": "completed"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "conclusion": "success",
+      "createdAt": "2026-10-12T02:43:29Z",
+      "event": "push",
+      "headSha": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+      "latestAttempt": 1,
+      "runId": 38196907282,
+      "runNumber": 96,
+      "status": "completed",
+      "updatedAt": "2026-10-12T02:49:46Z",
+      "workflow": "Native packaged workers",
+      "workflowId": 375194309
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "conclusions": {
+            "success": 2
+          },
+          "jobCount": 2,
+          "jobs": [
+            {
+              "completedAt": "2026-10-12T02:44:41Z",
+              "conclusion": "success",
+              "id": 114641493881,
+              "labels": [
+                "windows-2022"
+              ],
+              "name": "windows-acl",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004146",
+              "startedAt": "2026-10-12T02:43:32Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Execute actual inherited ACL refusal",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized native evidence",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 13,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:01Z",
+              "conclusion": "success",
+              "id": 114641494026,
+              "labels": [
+                "ubuntu-24.04"
+              ],
+              "name": "linux-systemd",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004147",
+              "startedAt": "2026-10-12T02:43:32Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Execute actual systemd and journal operations",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized native evidence",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 13,
+                  "status": "completed"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "conclusion": "success",
+      "createdAt": "2026-10-12T02:43:29Z",
+      "event": "push",
+      "headSha": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+      "latestAttempt": 1,
+      "runId": 38196907212,
+      "runNumber": 78,
+      "status": "completed",
+      "updatedAt": "2026-10-12T02:44:42Z",
+      "workflow": "Native skipped platforms",
+      "workflowId": 376122592
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "conclusions": {
+            "skipped": 8,
+            "success": 20
+          },
+          "jobCount": 28,
+          "jobs": [
+            {
+              "completedAt": "2026-10-12T02:45:33Z",
+              "conclusion": "success",
+              "id": 114641494406,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "hosted",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004152",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Hosted suites",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Hosted acceptance journey",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Report the installed browser",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Gate 12 - recipient journey in a real browser",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 15,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 16,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 17,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:45:48Z",
+              "conclusion": "success",
+              "id": 114641494496,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "operation-gates (workflow-intents)",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004150",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Initialize containers",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned Temporal CLI",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Check committed policy assets",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and require current platform migrations",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Required operation scenarios",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Independently revalidate canonical execution and every required scenario",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized operation gate evidence",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 20,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 21,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Stop containers",
+                  "number": 22,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 23,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:46Z",
+              "conclusion": "success",
+              "id": 114641494506,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "adversarial",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004153",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run node scripts/ci/run-gate.mjs adversarial --run",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Validate every required contract",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 15,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:43Z",
+              "conclusion": "success",
+              "id": 114641494522,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "postgres",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004151",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Initialize containers",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply all committed Supabase migrations",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Postgres contract lanes",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lane report - fail if a lane ran zero tests, and list what is blocked",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Every PostgreSQL contract must pass",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 18,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 19,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Stop containers",
+                  "number": 20,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 21,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:43:53Z",
+              "conclusion": "success",
+              "id": 114641494597,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "supply-chain",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004157",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lockfile pins only registry tarballs with integrity hashes",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Known dependency findings block release",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 11,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:45:43Z",
+              "conclusion": "success",
+              "id": 114641494602,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "agent",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004159",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Agent acceptance journey",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Report the installed browser",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Approval screen in a real browser",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 15,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:45:47Z",
+              "conclusion": "success",
+              "id": 114641494621,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "wave5-contract",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004154",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Bind the SBOM build-info prerequisite",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run node scripts/ci/run-gate.mjs wave5-contract --run",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Validate every required contract",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 16,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 17,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 18,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 19,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:46:15Z",
+              "conclusion": "success",
+              "id": 114641494649,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "operation-gates (reconciliation)",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004168",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Initialize containers",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned Temporal CLI",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Check committed policy assets",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and require current platform migrations",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Required operation scenarios",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Independently revalidate canonical execution and every required scenario",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized operation gate evidence",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 20,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 21,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Stop containers",
+                  "number": 22,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 23,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:43Z",
+              "conclusion": "success",
+              "id": 114641494654,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "recovery",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004160",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Initialize containers",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Create the isolated platform workflow database",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical agent lane schema",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical platform workflow schema",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical Supabase workflow schema",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned Temporal CLI",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Use matching PostgreSQL16 recovery clients",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Recovery rehearsal suites",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lane report - fail if a required suite ran zero tests",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Every Temporal and platform e2e scenario must pass",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 15,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 28,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 29,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Stop containers",
+                  "number": 30,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 31,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:43:40Z",
+              "conclusion": "success",
+              "id": 114641494659,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "ledger",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004155",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Ledger markdown is current",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 9,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T03:13:18Z",
+              "conclusion": "success",
+              "id": 114641494664,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "verify",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004161",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned workflow validator",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Validate workflow syntax",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Typecheck",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lint",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Verify runner resources before unit suites",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Unit suites (Node and DOM projects)",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Verify runner resources after unit suites",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Smoke",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Verify Gimbal assets",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 25,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 26,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 27,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:22Z",
+              "conclusion": "success",
+              "id": 114641494673,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "policy",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004156",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned OPA",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Policy bundle is reproducible",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Policy suites",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lane report - fail if a required suite ran zero tests",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Every policy scenario must pass",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 19,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 20,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 21,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:17Z",
+              "conclusion": "success",
+              "id": 114641494685,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "workflow-history-replay",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004162",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install dependencies",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Replay reviewed workflow histories",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Require every recorded replay and versioning case",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 15,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:50:23Z",
+              "conclusion": "success",
+              "id": 114641494693,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "build",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004158",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Build",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 11,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:44:42Z",
+              "conclusion": "success",
+              "id": 114641494732,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "generated",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004165",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Platform SQL is current",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Capability matrix is current",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Offered capability catalog is current",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Documentation drift suites",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 15,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 16,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 17,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:48:38Z",
+              "conclusion": "success",
+              "id": 114641494737,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "tofu",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004164",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned OpenTofu",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Choose the provider plugin cache directory",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Cache provider plugins",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "OpenTofu and all provider suites",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lane report - fail if a required suite ran zero tests",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Every real provider validation must pass",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Go runner exercises real OpenTofu and provider lock enforcement",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 23,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Cache provider plugins",
+                  "number": 24,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 25,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 26,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 27,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:56:50Z",
+              "conclusion": "success",
+              "id": 114641494743,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "workflows",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004166",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Initialize containers",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Create the isolated platform workflow database",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical agent lane schema",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical platform workflow schema",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical Supabase workflow schema",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned Temporal CLI",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Workflow suites",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lane report - fail if a required suite ran zero tests",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Every Temporal and platform e2e scenario must pass",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 26,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 27,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Stop containers",
+                  "number": 28,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 29,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:50:53Z",
+              "conclusion": "success",
+              "id": 114641494747,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "docker",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004163",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Build image (no push)",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 7,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:57:26Z",
+              "conclusion": "success",
+              "id": 114641494786,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "platform-postgres",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004169",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Initialize containers",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Install pinned OpenTofu",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Choose the provider plugin cache directory",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "skipped",
+                  "name": "Say so when there is no platform migrator yet",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply and verify the canonical agent lane schema",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Apply the platform migrations",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Platform control store suites",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Lane report - fail if the control store ran zero tests, or none on Postgres",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Every platform Postgres contract must pass",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized gate evidence",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 26,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 27,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Stop containers",
+                  "number": 28,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 29,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:51:43Z",
+              "conclusion": "success",
+              "id": 114641494824,
+              "labels": [
+                "ubuntu-latest"
+              ],
+              "name": "go",
+              "runnerGroupName": "GitHub Actions",
+              "runnerName": "GitHub Actions 1000004167",
+              "startedAt": "2026-10-12T02:43:33Z",
+              "status": "completed",
+              "steps": [
+                {
+                  "conclusion": "success",
+                  "name": "Set up job",
+                  "number": 1,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 2,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "skipped",
+                  "name": "Say so when there is no Go module yet",
+                  "number": 3,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 4,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Toolchain is exactly the pinned one",
+                  "number": 5,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "gofmt",
+                  "number": 6,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "go vet",
+                  "number": 7,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 8,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Require local native package fixture tools",
+                  "number": 9,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Provision strictly disposable Linux guest fixtures",
+                  "number": 10,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Required native Linux race and authentic golden comparison",
+                  "number": 11,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Vet the explicit real systemd acceptance packages",
+                  "number": 12,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Provision only the owned inert systemd unit and restart-only rule",
+                  "number": 13,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Required ordered real systemd operations and signed execution",
+                  "number": 14,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Run npm ci --ignore-scripts",
+                  "number": 15,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "TypeScript validates the Go machine result goldens",
+                  "number": 16,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Cross-build linux/amd64 and linux/arm64 without cgo",
+                  "number": 17,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Remove only the owned settled systemd fixture",
+                  "number": 18,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Remove only owned drained Linux guest fixtures",
+                  "number": 19,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Select only current-attempt sanitized guest evidence",
+                  "number": 20,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized native guest evidence",
+                  "number": 21,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Select only the current systemd attempt after both owned cleanups",
+                  "number": 22,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Preserve sanitized real systemd evidence",
+                  "number": 23,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                  "number": 44,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+                  "number": 45,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+                  "number": 46,
+                  "status": "completed"
+                },
+                {
+                  "conclusion": "success",
+                  "name": "Complete job",
+                  "number": 47,
+                  "status": "completed"
+                }
+              ]
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641494988,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "drv2-crash-partition",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:30Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641495049,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "drv1-private-source",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:30Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641495078,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "drivers-d4-two-tenants",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:30Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641495121,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "drv2-drift-repair",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:30Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641495143,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "drivers-d4-export",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:30Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641495179,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "drv1-update-rollback",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:30Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641514560,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "j15-operated-restore",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:36Z",
+              "status": "completed",
+              "steps": []
+            },
+            {
+              "completedAt": "2026-10-12T02:43:30Z",
+              "conclusion": "skipped",
+              "id": 114641521210,
+              "labels": [
+                "self-hosted",
+                "macOS",
+                "ARM64",
+                "zenith-operated"
+              ],
+              "name": "j15-operated-upgrade",
+              "runnerGroupName": null,
+              "runnerName": null,
+              "startedAt": "2026-10-12T02:43:38Z",
+              "status": "completed",
+              "steps": []
+            }
+          ]
+        }
+      ],
+      "conclusion": "success",
+      "createdAt": "2026-10-12T02:43:29Z",
+      "event": "push",
+      "headSha": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+      "latestAttempt": 1,
+      "runId": 38196907237,
+      "runNumber": 369,
+      "status": "completed",
+      "updatedAt": "2026-10-12T03:13:19Z",
+      "workflow": "CI",
+      "workflowId": 348020673
+    }
+  ],
+  "schemaVersion": 1,
+  "sourceSha": "685fb836a4d1342a4ce3ca07cb217a3fe3428c24",
+  "terminal": true
+}

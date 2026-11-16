@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-04",
+  "level": "local_engine",
+  "commit": "c4653f94292129db8cbee534288ef21d056ad9ed",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, kind v0.33.0 (release checksum verified); local-target-runner profile acme with the pinned compose fixtures of deploy/acceptance/local-targets, torn down afterwards; gates ZENITH_LOCAL_TARGETS ZENITH_LOCAL_PROFILE=acme ZENITH_LOCAL_RUN_ID ZENITH_LOCAL_ROOT",
+  "command": "vitest run tests/acceptance/local-targets.engine.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "local",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-04/2026-11-02-local-engine-c4653f94-acme/lane-source-PROD-REL-04.json",
+      "sha256": "3f7193b9a28065de3becddebfe1c21853ef3a3d6df73bda27b722f97825e0e64"
+    }
+  ]
+}

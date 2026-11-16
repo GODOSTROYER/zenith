@@ -1,0 +1,259 @@
+{
+  "inspectedAt": "2026-10-10",
+  "runs": [
+    {
+      "conclusion": "failure",
+      "headSha": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+      "jobs": [
+        {
+          "name": "hosted",
+          "databaseId": 113384744898,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384744898",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:53Z"
+        },
+        {
+          "name": "build",
+          "databaseId": 113384745189,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745189",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:16:29Z"
+        },
+        {
+          "name": "supply-chain",
+          "databaseId": 113384745321,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745321",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:11:41Z"
+        },
+        {
+          "name": "policy",
+          "databaseId": 113384745370,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745370",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:14Z"
+        },
+        {
+          "name": "workflow-history-replay",
+          "databaseId": 113384745372,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745372",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:15Z"
+        },
+        {
+          "name": "operation-gates (workflow-intents)",
+          "databaseId": 113384745426,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745426",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:13:36Z"
+        },
+        {
+          "name": "generated",
+          "databaseId": 113384745503,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745503",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:42Z"
+        },
+        {
+          "name": "docker",
+          "databaseId": 113384745505,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745505",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:17:49Z"
+        },
+        {
+          "name": "operation-gates (reconciliation)",
+          "databaseId": 113384745544,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745544",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:13:12Z"
+        },
+        {
+          "name": "go",
+          "databaseId": 113384745563,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745563",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:34Z"
+        },
+        {
+          "name": "platform-postgres",
+          "databaseId": 113384745571,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745571",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:33:12Z"
+        },
+        {
+          "name": "adversarial",
+          "databaseId": 113384745594,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745594",
+          "startedAt": "2026-10-08T15:11:31Z",
+          "completedAt": "2026-10-08T15:13:08Z"
+        },
+        {
+          "name": "recovery",
+          "databaseId": 113384745632,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745632",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:29Z"
+        },
+        {
+          "name": "postgres",
+          "databaseId": 113384745638,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745638",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:44Z"
+        },
+        {
+          "name": "tofu",
+          "databaseId": 113384745657,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745657",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:15:31Z"
+        },
+        {
+          "name": "workflows",
+          "databaseId": 113384745666,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745666",
+          "startedAt": "2026-10-08T15:11:31Z",
+          "completedAt": "2026-10-08T15:25:24Z"
+        },
+        {
+          "name": "wave5-contract",
+          "databaseId": 113384745729,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745729",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:14:56Z"
+        },
+        {
+          "name": "ledger",
+          "databaseId": 113384745808,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745808",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:11:43Z"
+        },
+        {
+          "name": "verify",
+          "databaseId": 113384745887,
+          "status": "completed",
+          "conclusion": "cancelled",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384745887",
+          "startedAt": "2026-10-08T15:11:31Z",
+          "completedAt": "2026-10-08T15:56:55Z"
+        },
+        {
+          "name": "agent",
+          "databaseId": 113384746092,
+          "status": "completed",
+          "conclusion": "failure",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911/job/113384746092",
+          "startedAt": "2026-10-08T15:11:30Z",
+          "completedAt": "2026-10-08T15:12:15Z"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520911",
+      "runId": 37798520911,
+      "counts": {
+        "failure": 7,
+        "success": 12,
+        "cancelled": 1
+      }
+    },
+    {
+      "conclusion": "success",
+      "headSha": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+      "jobs": [
+        {
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "databaseId": 113385935518,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520926/job/113385935518",
+          "startedAt": "2026-10-08T15:14:02Z",
+          "completedAt": "2026-10-08T15:19:45Z"
+        },
+        {
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "databaseId": 113385936024,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520926/job/113385936024",
+          "startedAt": "2026-10-08T15:14:00Z",
+          "completedAt": "2026-10-08T15:20:56Z"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520926",
+      "runId": 37798520926,
+      "counts": {
+        "success": 2
+      }
+    },
+    {
+      "conclusion": "success",
+      "headSha": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+      "jobs": [
+        {
+          "name": "linux-systemd",
+          "databaseId": 113384209469,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520928/job/113384209469",
+          "startedAt": "2026-10-08T15:10:22Z",
+          "completedAt": "2026-10-08T15:11:00Z"
+        },
+        {
+          "name": "windows-acl",
+          "databaseId": 113384210181,
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520928/job/113384210181",
+          "startedAt": "2026-10-08T15:10:23Z",
+          "completedAt": "2026-10-08T15:12:48Z"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37798520928",
+      "runId": 37798520928,
+      "counts": {
+        "success": 2
+      }
+    }
+  ]
+}

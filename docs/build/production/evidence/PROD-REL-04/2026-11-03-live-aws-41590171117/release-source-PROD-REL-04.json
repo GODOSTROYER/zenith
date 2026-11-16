@@ -1,0 +1,28 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "85a9b25466c5012816b2f3705f76ac596ec69349",
+  "mode": "live",
+  "requirements": [
+    "PROD-REL-04"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario rel-04, run id zlive-202611030629-0ae8; plan sha256 8fc837b84203a6b137537701824b19c9060b022dc25e082b9408ab5f6ce63dbd; drill scripts/acceptance/live/drill/rel-04.ts, verified offline by verify-rel-04.ts",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 865e216266d442053da4e6cdab411eeacc869dc1de54907c37bd93d9b2416bb1; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611030629-0ae8",
+    "file": "evidence.json",
+    "sha256": "00c47e07c2a245cf31de12b5470982f6582db6e250b95fd8d183e66946cd905d",
+    "packetSha256": "3a92ccb03fb5f169c0270af7283959cdaa3f0bbd4eb0bcd8418ca2a509bde5d9"
+  },
+  "result": "PROD-REL-04 crash, resume and replay drill passed on the live sandbox and the offline verifier re-derived every step from disk. A: all assertions hold; B: all assertions hold; C: all assertions hold; D: all assertions hold",
+  "drill": {
+    "file": "rel-04-receipt.json",
+    "sha256": "63aa4f2c76a334a6c2fcbf16c5b5de320cab2663a7af612ea2176fc32f1f978b"
+  }
+}

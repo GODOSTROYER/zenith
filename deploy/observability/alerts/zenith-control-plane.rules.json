@@ -1,0 +1,165 @@
+{
+  "groups": [
+    {
+      "name": "zenith-control-plane",
+      "interval": "30s",
+      "rules": [
+        {
+          "alert": "ZenithControlStoreDown",
+          "expr": "min(zenith_control_store_up) == 0",
+          "for": "2m",
+          "labels": {
+            "severity": "critical",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "Control store is not answering",
+            "description": "The control plane cannot read its store. Deployed workloads and runners keep serving; new operations, approvals and API writes may fail. See the data-plane guarantee in docs/platform/operations/CONTROL-PLANE-FAIRNESS.md.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithcontrolstoredown"
+          }
+        },
+        {
+          "alert": "ZenithMaintenanceLeftOn",
+          "expr": "max by (mode) (zenith_maintenance_mode{mode!=\"off\"}) == 1",
+          "for": "60m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "Maintenance mode has been on for an hour",
+            "description": "Maintenance is {{ $labels.mode }}. New work is refused until an operator sets it back to off.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithmaintenancelefton"
+          }
+        },
+        {
+          "alert": "ZenithApiOverloaded",
+          "expr": "sum(rate(zenith_admission_decisions_total{layer=\"api\",decision=\"overloaded\"}[5m])) > 0",
+          "for": "5m",
+          "labels": {
+            "severity": "critical",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "API is shedding load at its in-flight ceiling",
+            "description": "The process-wide in-flight request limit is being hit. Raise ZENITH_OPS_API_MAX_IN_FLIGHT only after checking the control store and worker health.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithapioverloaded"
+          }
+        },
+        {
+          "alert": "ZenithTenantThrottled",
+          "expr": "sum by (tenant) (rate(zenith_admission_decisions_total{decision=~\"rate_limited|concurrency_exceeded|queue_full\"}[10m])) > 1",
+          "for": "15m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane",
+            "scope": "tenant"
+          },
+          "annotations": {
+            "summary": "Tenant {{ $labels.tenant }} is persistently throttled",
+            "description": "A workspace has been hitting its own limits for 15 minutes. Check for a runaway client, or raise its quota in /api/admin/ops/quotas.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithtenantthrottled"
+          }
+        },
+        {
+          "alert": "ZenithApiErrorRatioHigh",
+          "expr": "sum(rate(zenith_api_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(zenith_api_requests_total[5m])), 1) > 0.05",
+          "for": "10m",
+          "labels": {
+            "severity": "critical",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "More than 5% of API requests are failing with 5xx",
+            "description": "Maintenance and backpressure answers (503 with Retry-After) are counted here as well; compare with the refusals panel.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithapierrorratiohigh"
+          }
+        },
+        {
+          "alert": "ZenithApiLatencyHigh",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(zenith_api_request_duration_seconds_bucket[5m]))) > 2",
+          "for": "10m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "API p95 latency above 2 seconds",
+            "description": "Check the control store and the runner queue panels.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithapilatencyhigh"
+          }
+        },
+        {
+          "alert": "ZenithRunnerQueueNearCap",
+          "expr": "max(zenith_runner_queue_depth_total) > 4000",
+          "for": "5m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "Runner job queue is near its global cap",
+            "description": "The default global cap is 5000 (ZENITH_OPS_RUNNER_QUEUE_MAX_GLOBAL). New read jobs will be refused with 503 at the cap. Check that runners are polling.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithrunnerqueuenearcap"
+          }
+        },
+        {
+          "alert": "ZenithWorkerFairLaneSaturated",
+          "expr": "sum(rate(zenith_worker_fair_bypassed_total[10m])) > 0.1",
+          "for": "10m",
+          "labels": {
+            "severity": "warning",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "Worker heavy lane is saturated",
+            "description": "Heavy activities are exhausting their fair wait budget and running anyway. Add worker capacity or lower per-tenant active operation limits.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithworkerfairlanesaturated"
+          }
+        },
+        {
+          "alert": "ZenithWorkerFairBacklog",
+          "expr": "max(zenith_worker_fair_waiting) > 0",
+          "for": "15m",
+          "labels": {
+            "severity": "info",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "Heavy activities have been waiting for a fair turn for 15 minutes",
+            "description": "Sustained contention on the heavy lane.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithworkerfairbacklog"
+          }
+        },
+        {
+          "alert": "ZenithTelemetryExportFailing",
+          "expr": "sum(rate(zenith_telemetry_export_failures_total[10m])) > 0",
+          "for": "15m",
+          "labels": {
+            "severity": "info",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "OTLP export is failing",
+            "description": "The collector at ZENITH_OTEL_EXPORTER_OTLP_ENDPOINT is not accepting data. Serving is unaffected; this alert is about visibility.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithtelemetryexportfailing"
+          }
+        },
+        {
+          "alert": "ZenithTelemetryDroppingSamples",
+          "expr": "sum(rate(zenith_telemetry_dropped_total[10m])) > 0",
+          "for": "30m",
+          "labels": {
+            "severity": "info",
+            "service": "zenith-control-plane"
+          },
+          "annotations": {
+            "summary": "Telemetry samples are being dropped by a bound",
+            "description": "A series cap or the span buffer is full; raise export frequency or lower the trace sample ratio.",
+            "runbook_url": "docs/platform/operations/CONTROL-PLANE-FAIRNESS.md#zenithtelemetrydroppingsamples"
+          }
+        }
+      ]
+    }
+  ]
+}

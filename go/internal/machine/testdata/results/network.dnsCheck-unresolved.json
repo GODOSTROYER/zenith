@@ -1,0 +1,16 @@
+{
+  "args": {
+    "name": "missing.example",
+    "recordType": "A"
+  },
+  "operation": "network.dnsCheck",
+  "result": {
+    "ok": true,
+    "data": {
+      "answers": [],
+      "name": "missing.example",
+      "recordType": "A",
+      "resolved": false
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T06:02:27.739439+00:00",
+  "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "scope": "Native local OPA policy tests, distinct from Vitest policy lane",
+  "command": [
+    "opa",
+    "test",
+    "policy",
+    "--format=json"
+  ],
+  "exitCode": 0,
+  "counts": {
+    "total": 213,
+    "passed": 213,
+    "failed": 0,
+    "skipped": 0
+  },
+  "seconds": 0.35,
+  "rawReportSha256": "6259f972379a05fcb2980689eba62170f8ee20397cd664aa3a38d61d77255a18",
+  "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "opaVersion": "1.19.1",
+  "toolSha256": "805ce3f336154150bef73bafa2dab8806631851bccc7cae95bef46ffabdf8fc3",
+  "lockSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+  "sourceCleanAfter": true
+}

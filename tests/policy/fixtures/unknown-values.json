@@ -1,0 +1,112 @@
+{
+  "tofuVersion": "1.12.5",
+  "formatVersion": "1.2",
+  "configDigest": "7777777777777777777777777777777777777777777777777777777777777777",
+  "lockDigest": "8888888888888888888888888888888888888888888888888888888888888888",
+  "planDigest": "9999999999999999999999999999999999999999999999999999999999999999",
+  "resourceChanges": [
+    {
+      "address": "aws_db_instance.replica",
+      "type": "aws_db_instance",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "publicly_accessible", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_iam_role_policy.dynamic",
+      "type": "aws_iam_role_policy",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "policy", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_iam_policy.hidden",
+      "type": "aws_iam_policy",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "policy", "before": null, "after": "{\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}", "sensitive": true, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_iam_role_policy.broken",
+      "type": "aws_iam_role_policy",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "policy", "before": null, "after": "this is not json", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_security_group.dynamic",
+      "type": "aws_security_group",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "ingress.0.from_port", "before": null, "after": 22, "sensitive": false, "forcesReplacement": false },
+        { "path": "ingress.0.to_port", "before": null, "after": 22, "sensitive": false, "forcesReplacement": false },
+        { "path": "ingress.0.protocol", "before": null, "after": "tcp", "sensitive": false, "forcesReplacement": false },
+        { "path": "ingress.0.cidr_blocks.0", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_security_group.unknown_port",
+      "type": "aws_security_group",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "ingress.0.from_port", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false },
+        { "path": "ingress.0.to_port", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false },
+        { "path": "ingress.0.protocol", "before": null, "after": "tcp", "sensitive": false, "forcesReplacement": false },
+        { "path": "ingress.0.cidr_blocks.0", "before": null, "after": "0.0.0.0/0", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_security_group.whole_block_unknown",
+      "type": "aws_security_group",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "update",
+      "destroysData": false,
+      "changes": [
+        { "path": "ingress", "before": [], "after": "(known after apply)", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_security_group_rule.unknown_type",
+      "type": "aws_security_group_rule",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "type", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false },
+        { "path": "cidr_blocks[0]", "before": null, "after": "0.0.0.0/0", "sensitive": false, "forcesReplacement": false }
+      ]
+    },
+    {
+      "address": "aws_s3_bucket.unknown_region",
+      "type": "aws_s3_bucket",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "create",
+      "destroysData": false,
+      "changes": [
+        { "path": "region", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false },
+        { "path": "arn", "before": null, "after": "(known after apply)", "sensitive": false, "forcesReplacement": false }
+      ]
+    }
+  ],
+  "outputChanges": [],
+  "summary": { "create": 8, "update": 1, "delete": 0, "replace": 0, "noop": 0 },
+  "empty": false,
+  "diagnostics": [],
+  "createdAt": "2026-09-30T10:00:00.000Z"
+}

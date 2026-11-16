@@ -11,6 +11,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { v1View } from "@/lib/resources/upgrade";
 import type { ActionContext } from "@/lib/actions/core";
 import { tempDataDir } from "../_support/data-dir";
 
@@ -149,7 +150,7 @@ describe("system.setSecret stores the value and records only the reference", () 
         baseDomain: "atlas.zenith.test",
         createdAt: new Date().toISOString(),
       },
-      manifest()
+      v1View(manifest())
     );
     const exported = JSON.stringify(bundle);
     expect(exported).not.toContain(VALUE);

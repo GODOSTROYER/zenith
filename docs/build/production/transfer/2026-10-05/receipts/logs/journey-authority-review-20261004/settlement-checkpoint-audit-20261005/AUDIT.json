@@ -1,0 +1,90 @@
+{
+  "status": "SOURCE_ONLY_AS_IS_CHECKPOINT_AUDIT_NOT_RELEASE_ACCEPTANCE",
+  "recordedAtUtc": "2026-10-05T08:00:50.710521+00:00",
+  "request": "Same-branch source checkpoint and all handoffs for another machine; no packet integration or runtime requested in this audit.",
+  "B3": {
+    "freeze": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/manifest-digest-correction.patch",
+      "sha256": "b086e37d202591929e938ca2c86764285d3c09a2b61de33e69750c173536208e",
+      "bytes": 9736
+    },
+    "freezeSha256": "60c09316eeefc67c011a1fe29c09b19061640697fd26ce8968be8f8016fbf256",
+    "disposition": "ACCEPTED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+    "reviewPath": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/saved-plan-manifest-digest-independent-review-r3.json",
+    "reviewSha256": "ed832800d325ce574b0a4e06666805f3725169b042511e90751140af1de96bbb"
+  },
+  "A11Partial": {
+    "freezeSha256": "3b8192e8a3092fdd546c6e9b637c0ee59dfdf8323d5662e8da7d07dc95be0a06",
+    "patch": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-gates-20261005/revision1-partial/candidate.patch",
+      "sha256": "f1b8b33260db27cad96e11ac259443f20068777a7f28c274ad7fd3901415ee5d",
+      "bytes": 100883
+    },
+    "disposition": "FROZEN_PARTIAL_SOURCE_ONLY_NOT_REVIEWED_NOT_ACCEPTED",
+    "mechanicalBinding": {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/PARTIAL-BINDING.json",
+      "sha256": "8bf9f26d05ccfda5ec6a7bbbfa06521023b151d7425c8a95450a6acbf3c2e3a3"
+    },
+    "fullSemanticReview": "NOT_COMPLETED",
+    "runtime": "UNRUN",
+    "pendingRebind": {
+      "file": "tests/ci/gate-manifest.test.ts",
+      "oldSourceSha256": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+      "oldPinOccurrences": 2,
+      "newReviewedB3SourceSha256": "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+      "caseContractPinAlsoOld": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+      "changeRequired": "Separate bounded accepted-source hash overlay; do not silently alter partial freeze."
+    }
+  },
+  "sourceChain": {
+    "baseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+    "B3Tree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+    "A11PartialTree": "a6788b60ede249b8d97e03a7c2696bd2d4b51664",
+    "ownedScopesDisjoint": true,
+    "combinedHypotheticalTreeComputedWithoutWrites": "08c15b2e87b08a3df9f5041c4448bf5fc6aa97bb",
+    "combinedSourceCount": 3855,
+    "combined14OwnedPaths": [
+      ".github/workflows/ci.yml",
+      "docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md",
+      "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "docs/platform/operations/DEPLOYING.md",
+      "scripts/ci/apply-supabase-migrations.sh",
+      "scripts/ci/gate-manifest.mjs",
+      "src/lib/tofu/engine.ts",
+      "tests/ci/gate-manifest.test.ts",
+      "tests/ci/guest-file-write-gate.test.ts",
+      "tests/ci/platform-coverage.test.ts",
+      "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "tests/controlplane/migrations.test.ts",
+      "tests/controlplane/tenancy.test.ts",
+      "tests/security/controlplane-sql-scoping.test.ts"
+    ],
+    "appliedToAnyWorktree": false,
+    "integratedOrCommitted": false
+  },
+  "handoffInventory": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/HANDOFF-INVENTORY.json",
+    "sha256": "1609ece150af24028720031b5897cc9c01f8c12a4000c15f4c4882fdb3a1b459"
+  },
+  "portableHandoff": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/settlement-checkpoint-audit-20261005/HANDOFF.md",
+    "sha256": "3b3fc4f3f561474f214f544be837d15896782bde05b3df0255019eab309f7a5b"
+  },
+  "statusHistory": {
+    "A17R1": "SOURCE_CORRECTION_REQUIRED_PRESERVED",
+    "A17R2": "SOURCE_ACCEPTED_HISTORICAL; ACTUAL_NATIVE60P40F0S_FAILED_PRESERVED",
+    "B3Runtime": "UNRUN_PENDING_NO_ASSUMED_CURE",
+    "A11Gates": "PARTIAL_PENDING; NOT_ACCEPTED",
+    "checkpointCommitPush": "ROOT_OWNED_NOT_PERFORMED_BY_C"
+  },
+  "execution": {
+    "sourceEdits": "NONE",
+    "imports": "NOT_RUN",
+    "tests": "NOT_RUN",
+    "compiler": "NOT_RUN",
+    "Docker": "NOT_USED",
+    "database": "NOT_STARTED",
+    "GitIndexOrObjectWrites": "NONE",
+    "runtimeAcceptance": false
+  }
+}

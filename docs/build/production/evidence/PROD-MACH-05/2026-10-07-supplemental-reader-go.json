@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "jobs": [
+    {
+      "name": "agent-schema",
+      "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 24076500992,
+      "diskMinBytes": 24076488704,
+      "diskAfterBytes": 24076390400,
+      "elapsedSeconds": 2.05,
+      "scope": "Component/real-bare-PG verification; not installed runner/default SupabaseAuth",
+      "logPrivate": true
+    },
+    {
+      "name": "reader",
+      "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 24076386304,
+      "diskMinBytes": 24076386304,
+      "diskAfterBytes": 24074989568,
+      "elapsedSeconds": 2.04,
+      "scope": "Component/real-bare-PG verification; not installed runner/default SupabaseAuth",
+      "logPrivate": true,
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "go-custody",
+      "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 24074989568,
+      "diskMinBytes": 23757688832,
+      "diskAfterBytes": 23915659264,
+      "elapsedSeconds": 50.24,
+      "scope": "Component/real-bare-PG verification; not installed runner/default SupabaseAuth",
+      "logPrivate": true,
+      "passed": 368,
+      "failed": 0,
+      "skipped": 2,
+      "packagesPassed": 6,
+      "skippedCases": [
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+          "test": "TestRealOpenTofuPlanShowApply"
+        },
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+          "test": "TestRealOpenTofuWithProviderAndLockfile"
+        }
+      ],
+      "goVersion": "go version go1.27.1 darwin/arm64",
+      "architecture": "native Darwin ARM64"
+    },
+    {
+      "name": "go-real-tofu",
+      "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+      "exitCode": 0,
+      "refusal": null,
+      "diskBeforeBytes": 23915405312,
+      "diskMinBytes": 23869108224,
+      "diskAfterBytes": 23914237952,
+      "elapsedSeconds": 12.09,
+      "scope": "Component/real-bare-PG verification; not installed runner/default SupabaseAuth",
+      "logPrivate": true,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "packagesPassed": 1,
+      "skippedCases": [],
+      "goVersion": "go version go1.27.1 darwin/arm64",
+      "architecture": "native Darwin ARM64"
+    }
+  ],
+  "cleanup": {
+    "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+    "at": "2026-10-07T10:14:02.411803+00:00",
+    "ownedLeafContainerAbsent": true,
+    "tmpfsDataRemovedWithContainer": true,
+    "osGlobalCATrustChanged": false,
+    "dockerSettingsRetained": "User-approved6GiB memory/4GiB swap/VirtioFS/ResourceSaveroff",
+    "freeDiskBytes": 23914164224,
+    "scope": "Only exact labelled owned leaf container and this run TLS files; baseline resources preserved"
+  },
+  "scope": "Actual component/native Darwin ARM64 Go and bare verified-TLS PostgreSQL evidence; no installed Linux agent, default Auth, customer credential or cloud acceptance. Two OpenTofu cases overlap broad Go receipt; counts are not summed."
+}

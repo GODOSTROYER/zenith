@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "f36eb5d49d32a3ee64d8b08d2077405b16bb7820",
+  "tree": "a7f17dcf89bf2854b63dffc05f89c815478e5cf3",
+  "status": "passed_local_kind_components_only",
+  "helperSha256": "adae9e54d2cb33e5d7405b28553f424181455573e7f069be5c0a5ce1c9276313",
+  "originalReceiptSha256": "652983887c5588ab8c239696cc80b4fa2c3ca203e3e41366dbaa38b0e680c7e7",
+  "sourceFingerprintSha256": "b872faa274961f521944c9bdaea466c4a2460e8ce5732669c7d1b8a47a8fa6bb",
+  "lockSha256": "56a63b14daa9cb87f2239fd0b7f597e9ceaefb8360542a8a6691f968e456a9f1",
+  "suiteSourceSha256": {
+    "provider": "c84cf010e12b77aca04a40bbfba8445f11cf435affb7f5540b0ae1a59368c277",
+    "release": "28e45cf6ba378834704ca75172450c466ed804a681ee903e31909633c8adbdd9",
+    "guest": "45f883587092f2a55e95133b04b66f41375d087e0fa2fd6a088af629f4ddb660"
+  },
+  "provider": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "1df7a062d2d034bb8447bd1e99c5e54a997360dc318f55b187214e84828db6cd"
+  },
+  "release": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "24f20fea150a5654ccebc9de2a67e0a64480b62d4c1552bc28a0af132c63ec73"
+  },
+  "guest": {
+    "passed": 48,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "e795e266ecd3e00927b5476963e2e31f3a6e01fa180fa372c7d26ce589207116"
+  },
+  "toolsCheckedByExactFrozenHelper": {
+    "node": "22.23.3",
+    "kind": "0.33.0",
+    "kubectlClient": "1.37.0",
+    "kubernetesServer": "1.37.0",
+    "dockerArchitecture": "aarch64",
+    "dockerVersionNotExported": true,
+    "npmVersionNotExported": true
+  },
+  "nodeImage": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "releaseFixtureImage": "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+  "allThreeTestCommandsExit0": true,
+  "cleanupComplete": true,
+  "noUnknownMutationTestChildOrPendingCustody": true,
+  "rootIndependentReadback": {
+    "noContainers": true,
+    "unrelatedBaselineImagePreserved": true,
+    "observationOrigin": "Root independent terminal readback"
+  },
+  "limitations": [
+    "Local kind55 only; no managed-cloud/default-API/systemd/full-guest152/full-workers proof.",
+    "Eight real API controls use a PGlite tenant ledger and signed fixture claims; browser/current-human SQL authorization is unproved.",
+    "Default kind CNI does not prove NetworkPolicy enforcement."
+  ],
+  "noOtherLaneOrFreshCiClaim": true,
+  "countsNotAddedToOtherEvidence": true
+}

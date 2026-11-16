@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45_owned_cleanup_r5_preflight_failure",
+  "productionAcceptance": false,
+  "cleanupCompleted": false,
+  "source": {
+    "commit": "c45c95915531799b455b0f21faf7885de05ba6db",
+    "count": 5960,
+    "freezeSha256": "7511fd1aff90e02c9fedea148e105d45889f05880b8d599ebad31f9b2baedbc7",
+    "unchanged": true
+  },
+  "attempt": {
+    "sourceSha256": "62939fa8963be02580a9310bb81d5f4e99a67d9872c5c928667befddd1a8fa0a",
+    "sourceReview": "independent source review PASS with conditional focused-test requirement",
+    "lockArchitecture": "conditional PASS; focused execution and parser/lock proof still required",
+    "originalCleanup": "not executed"
+  },
+  "preflight": {
+    "outerSession": 24049,
+    "outerClosed": true,
+    "outerExitCode": 2,
+    "wrapperOutcome": "retained-failure-report",
+    "wrapperAcceptedRunReceipt": false,
+    "heldCommands": 9,
+    "commandClosure": true,
+    "childExitCode": 1,
+    "total": 12,
+    "passed": 11,
+    "failed": 1,
+    "skipped": 0,
+    "failedCase": "lock_checkpoint_readback_mismatch_never_clears",
+    "failure": "fixture-only AttributeError: fake m lacks read_private_stable",
+    "noProductionCodeFailureEstablished": true
+  },
+  "scope": {
+    "stage": "preflight parser and lock guards only",
+    "lockAdmissionForActualCleanup": false,
+    "ownedResources": "untouched",
+    "stickyMarkerPreserved": true,
+    "markerSha256": "49975ec59d11c085be88e941541658b597a0e0d5edc2bba64131bcfb28ae7c9a",
+    "sourceOrProductChange": false
+  },
+  "state": {
+    "cleanupR3": "HOLD; two defects",
+    "cleanupR4Guards": "11 synthetic cases passed, independently reviewed; actual R4 cleanup separately refused before lock/work/engine",
+    "cleanupR5": "source correction present; fixture R2 repair pending and cleanup remains unexecuted"
+  },
+  "currentStatus": {
+    "fullCore": "already passed 24,575 / 1,943 skipped / 0 failed across Node/DOM",
+    "witness": "ARM64 image build already passed; built-image acceptance invocation pending",
+    "ledger": "10 verified / 66 in progress / 2 planned",
+    "milestonePromotion": false,
+    "releaseFlagsChanged": false
+  }
+}

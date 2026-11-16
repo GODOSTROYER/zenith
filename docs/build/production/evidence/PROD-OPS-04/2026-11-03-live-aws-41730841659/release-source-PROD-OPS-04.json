@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "91548e4ee2bae58b728e5473780c73a38c08068f",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-04"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario ops-04, run id zlive-202611032226-5ead; plan sha256 ba762e7b8768f88f4fbeacdf78bcaaeaa05f40032187bf37ae879440d43cfd11",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 80c24ee993c3e540abb554b9f4ca77baa0be99cb0a99140ebdf4c3d89c415bed; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611032226-5ead",
+    "file": "evidence.json",
+    "sha256": "0d894ebf5b686180cbfad5795b8893c5dcf17909f4fc7eb5b262149ff7c15915",
+    "packetSha256": "a00cf0ff9e05ee37ce65efcf0d441acec8a17e0a4c04cc1088243d4a8d7fbb34"
+  },
+  "result": "OPS-04 restore proven on AWS: a deploy waiting for its approval was captured in the backup and approved and applied after it; the stores were lost from the control-plane database and restored into it at recovery epoch 1; the restored proposal was fenced (an approval was refused: journey:browser-human-approval), did not execute on its own for 120 s, and came back only through a recovery resume (a stale binding was refused) and a fresh approval; applying it again left AWS unchanged (2 buckets, 16 recorded resources). Measured RPO 203.6 s (target 900) and RTO 20.4 s (target 14400)"
+}

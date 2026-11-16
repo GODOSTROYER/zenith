@@ -1,0 +1,157 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "formatVersion": "v1.0",
+  "offerCode": "AmazonEC2",
+  "publicationDate": "2026-10-01T00:00:00Z",
+  "products": {
+    "EC2NATH": {
+      "sku": "EC2NATH",
+      "productFamily": "NAT Gateway",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "NatGateway-Hours"
+      }
+    },
+    "EC2NATB": {
+      "sku": "EC2NATB",
+      "productFamily": "NAT Gateway",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "NatGateway-Bytes"
+      }
+    },
+    "EC2AZ": {
+      "sku": "EC2AZ",
+      "productFamily": "Data Transfer",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "DataTransfer-Regional-Bytes",
+        "transferType": "IntraRegion"
+      }
+    },
+    "EC2T3S": {
+      "sku": "EC2T3S",
+      "productFamily": "Compute Instance",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "BoxUsage:t3.small",
+        "instanceType": "t3.small",
+        "operatingSystem": "Linux",
+        "tenancy": "Shared",
+        "capacitystatus": "Used",
+        "preInstalledSw": "NA"
+      }
+    },
+    "EC2GP3": {
+      "sku": "EC2GP3",
+      "productFamily": "Storage",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "EBS:VolumeUsage.gp3",
+        "volumeApiName": "gp3"
+      }
+    },
+    "EC2SNAP": {
+      "sku": "EC2SNAP",
+      "productFamily": "Storage Snapshot",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "EBS:SnapshotUsage"
+      }
+    }
+  },
+  "terms": {
+    "OnDemand": {
+      "EC2NATH": {
+        "EC2NATH.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "EC2NATH.T.0": {
+              "unit": "Hrs",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0450000000"
+              }
+            }
+          }
+        }
+      },
+      "EC2NATB": {
+        "EC2NATB.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "EC2NATB.T.0": {
+              "unit": "GB",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0450000000"
+              }
+            }
+          }
+        }
+      },
+      "EC2AZ": {
+        "EC2AZ.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "EC2AZ.T.0": {
+              "unit": "GB",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0100000000"
+              }
+            }
+          }
+        }
+      },
+      "EC2T3S": {
+        "EC2T3S.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "EC2T3S.T.0": {
+              "unit": "Hrs",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0208000000"
+              }
+            }
+          }
+        }
+      },
+      "EC2GP3": {
+        "EC2GP3.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "EC2GP3.T.0": {
+              "unit": "GB-Mo",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0800000000"
+              }
+            }
+          }
+        }
+      },
+      "EC2SNAP": {
+        "EC2SNAP.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "EC2SNAP.T.0": {
+              "unit": "GB-Mo",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0500000000"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

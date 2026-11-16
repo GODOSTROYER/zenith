@@ -1,0 +1,1017 @@
+{
+  "status": "SOURCE_ONLY_RUNTIME_UNRUN",
+  "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+  "retainedCount": 46,
+  "additiveCount": 54,
+  "requiredCount": 100,
+  "requiredEnvironment": "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1",
+  "prerequisites": [
+    "Actual owned PostgreSQL schema16 with canonical roles and agent prerequisites",
+    "ZENITH_TEST_PLATFORM_PG_URL",
+    "ZENITH_TEST_TOFU_NETWORK=1",
+    "Pinned genuine OpenTofu and genuine default paired codec",
+    "Existing mandatory cleanup/native/current-source flags"
+  ],
+  "cases": [
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "genuine default paired codec commits an exact scoped native hold before entering the callback",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "direct repository and copied DTO calls cannot create a native hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "isolated custody never issues native cleanup authority or a destructive grant",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "wrong authenticated bytes refuse before retaining any native hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a copied owning SQL handle cannot originate a hold even with authentic bytes",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "one active authenticated held attempt reserves and inserts exactly one native owner JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a prior same-operation issued grant is retained as a blocker after claimed use returns ready",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "an earlier unconsumed mutation grant blocks callback entry while the new hold still commits",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "expiry or revocation of an issued grant never supplies provider nondelivery proof",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a pre-epoch operation remains unknown even when terminal projections and handoffs are empty",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "an unknown product scope creation time cannot be inferred fresh from zero native writers",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a new scoped mutation grant waits on the actual final coordinator then refuses the committed hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "scope inventory sees an independently committed grant after the real hold coordinator wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "current human demotion committed during the actual coordinator wait refuses hold insertion",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "fresh post-signing current human refusal never inserts or returns a bearer and retains its JTI reservation",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a detached async child cannot retain the active paired issuance context after callback disposal",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "direct Kubernetes or Zenith-style destroy issuance refuses without any private held context",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "read attenuation remains available under a retained hold and does not imply write authority",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "an actual unrelated immutable environment scope remains writable while an unscoped writer refuses",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "changed promoted scope cannot hide a writer behind another environment",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "foreign workspace inventory never sees the owning held operation or its grants",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "raw native dispatch without authenticated paired origin cannot use a seeded hold as approval",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "held epoch and possible-delivery records cannot be cleared by native UPDATE DELETE or TRUNCATE grants",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "every native mutation writer family records possible delivery before any hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a held scope refuses a new native workflow handoff before possible delivery",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a held scope refuses a new native plan handoff before possible delivery",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a held scope refuses a new native build handoff before possible delivery",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a held scope refuses a new native runner handoff before possible delivery",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a held scope refuses a new native machine handoff before possible delivery",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "late workflow acknowledgement and build terminal receipts remain immutable history under a diagnostic hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "queued runner and machine work cannot cross into running after a native hold commits",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "discarding an acknowledged hold result never authorizes another consume or destructive grant",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "every cleanup authority table retains exact RLS and client denial without DELETE TRUNCATE or TRIGGER rights",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a workspace foreign key mismatch never reaches any possible-delivery ledger",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "current consumed human approver demotion during the real coordinator wait refuses hold insertion",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "a current human rejection committed during the actual coordinator wait refuses hold insertion",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "expiration during the actual coordinator wait refuses the still-owned fence and hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "requester demotion during the final native grant inventory wait refuses the bearer and retains its JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "consumed approver demotion during the final native grant inventory wait refuses the bearer and retains its JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "native source connection revocation during the final grant inventory wait refuses the bearer and retains its JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "reviewed revision source replacement during the final grant inventory wait refuses the bearer and retains its JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "current target replacement during the final grant inventory wait refuses the bearer and retains its JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "lease expiry during the final grant inventory wait refuses the bearer and retains its JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "unchanged current authority after the final native grant inventory wait returns exactly its one retained JTI",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "requester demotion during final native reservation inventory refuses before signing and preserves the hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "consumed approver demotion during final native reservation inventory refuses before signing and preserves the hold",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "retained46"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "real original builtin apply retains one authenticated immutable settlement and refuses replay",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "new default paired codec reconciles only completed builtin plan history before exact same-scope destroy",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "lost completion acknowledgement stays unconfirmed while independently retained proof permits a newly approved destroy",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "accepted builtin apply without a committed settlement remains uncertain and blocks later destroy",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "status-only terminal use and invented SQL settlement never remove unresolved plan history",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied workspaceId tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied projectId tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied environmentId tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied operationId tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied attemptId tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied manifestDigest tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied rawSha256 tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied backendDigest tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied targetDigest tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied holder tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "authenticated settlement refuses copied fenceToken tuple",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "corrupt settlement ciphertext and wrong purpose-separated key refuse independently",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "fresh engine accepts retained old settlement key only during explicit overlap and refuses retirement",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "current completion readback refuses changed state while immutable earlier settlement remains historical",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "different logical product scopes cannot bind the same actual local backend",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "mutable nonsticky grandparent refuses standalone admission before tool execution",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "fabricated readback with restored prototypes and genuine cleanup cannot mint settlement",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "incomplete actual checked cleanup cannot mint settlement or replay accepted apply",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "prior issued grant remains unresolved despite builtin settlement",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "final builtin receipt fences requester demotion during post-readback current-role wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "final builtin receipt fences approver removal during post-readback current-role wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "final builtin receipt fences approval expiry during post-readback current-role wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "final builtin receipt fences provider revocation during post-readback current-role wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "final builtin receipt fences unchanged current authority during post-readback current-role wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "foreign provider resources in protected local state refuse before standalone tool admission",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "observed native completion coordinator wait fences region replacement before terminal receipt insert",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "observed native completion coordinator wait fences approver demotion before terminal receipt insert",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "observed native completion coordinator wait fences lease expiry before terminal receipt insert",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "observed native completion coordinator wait fences state replacement before terminal receipt insert",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "observed native completion coordinator wait fences unchanged final tuple before terminal receipt insert",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "structural fake producer run cannot seal chosen bytes as a finite builtin original",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered finite producer refuses own init method with backend override before command launch",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered finite producer refuses own plan method with backend override before command launch",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered finite producer refuses accessor init fields changed during the prelaunch filesystem wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered finite producer refuses replacement target init fields changed during the prelaunch filesystem wait",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered cleanup refuses a substituted absent root and then permits actual original cleanup",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered cleanup field accessor during removal cannot mark a run cleaned or mint settlement",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered finite producer refuses altered init command arguments before tool launch",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered finite producer refuses altered plan command arguments before tool launch",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "genuine registered producer with a foreign workspace refuses before its first init",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r1-saved-builtin45"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "post-inspection producer own method accessor refuses before the next finite engine member read",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "post-inspection producer prototype method accessor refuses before the next finite engine member read",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "post-inspection apply own method accessor refuses before the next finite engine member read",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "post-inspection apply prototype method accessor refuses before the next finite engine member read",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "post-inspection readback prototype method accessor refuses before the next finite engine member read",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered apply refuses a plan-file method accessor installed during its awaited admission callback",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered runner finally refuses a dispose accessor after actual apply without invoking it or replaying",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "registered apply refuses an init-field accessor installed during its awaited admission callback",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    },
+    {
+      "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+      "test": "unknown proxy producer origin refuses before any descriptor or method trap",
+      "postgres": true,
+      "backend": "postgres",
+      "status": "UNRUN",
+      "cohort": "r2-accessor-origin9"
+    }
+  ],
+  "orderedNamesSha256": "85c3d8a2c1018f7c84d2bbcd0e6c83e3a2bf4af79ea643d1f624163325f8c364",
+  "pairedPriorTitleTemplates": [
+    {
+      "file": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+      "sourceBeforeSha256": "80a4593fac5e5c46f85e44189e58145dd5a00f20be1071d8b0a20bf8203225bf",
+      "sourceAfterSha256": "95d76ed84070e4a150f8f855ee79641889bd37b9562217acbad5ae7cd1414c80",
+      "literalTitleTemplates": [
+        "genuine default linked credential admits exactly the original sealed plan bytes once",
+        "final linked credential dispatch fences %s committed during held approving-human read",
+        "observed three-connection original use-row wait fences linked credential %s",
+        "a plan-only viewer publishes source-free Git destroy custody with zero provider writes",
+        "read-only viewer plan publication refuses %s before retaining original custody",
+        "viewer planning provenance cannot authorize ordinary apply or approve its own destroy review",
+        "browser-approved exact delegated destroy fences %s after held current admin read",
+        "observed three-connection delegated destroy use-row wait refuses newly retained historical resource before original dispatch",
+        "uncertain linked credential dispatch retains its original attempt and never admits a fresh replay"
+      ],
+      "allPriorLiteralTitleTemplatesAndOrderRetained": true,
+      "status": "UNRUN"
+    },
+    {
+      "file": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+      "sourceBeforeSha256": "7cfe2cf85fb454be9508a0e50469e278f0e2b032b2c1b457f36ab38f8366f3f7",
+      "sourceAfterSha256": "c4d522048dd2174c7bc31d78a85f5db9949f45451238131764d847a721c3ebb4",
+      "literalTitleTemplates": [
+        "genuine default OAuth grant admits exactly its original sealed bytes once",
+        "final native OAuth dispatch fences %s committed during held approving-human read",
+        "observed three-connection original use-row wait fences OAuth %s",
+        "OAuth plan-only viewer publication retains source-free Git destroy custody without provider writes",
+        "browser-approved exact OAuth delegated destroy fences %s after held admin read",
+        "uncertain OAuth dispatch retains its original attempt and refuses a fresh replay"
+      ],
+      "allPriorLiteralTitleTemplatesAndOrderRetained": true,
+      "status": "UNRUN"
+    },
+    {
+      "file": "tests/controlplane/plan-artifact-product-authority.test.ts",
+      "sourceBeforeSha256": "86702a3188a1bc31f79c48da8df0bd1b97024e641fb2c5f23daf16f087852a08",
+      "sourceAfterSha256": "a2fa6151deb86ef39e87012c415c63bbdfb9aa5de0122c1dcfb899ebd281e799",
+      "literalTitleTemplates": [
+        "final original-plan product dispatch fences %s committed during held current role lookup",
+        "observed three-connection original use-row wait refuses committed %s before provider dispatch",
+        "current native full %s recipe mutation with unchanged spec digest refuses original product dispatch",
+        "observed three-connection ready use-row wait refuses changed product target before original claim",
+        "exact native claimed witness %s refuses original product dispatch",
+        "published product origin refuses combined public owning-row removal before first claim",
+        "associated product destroy keeps original revision and rechecks %s after held roles",
+        "lost native claimed commit response retains the attempt and a second claim cannot replay",
+        "lost native dispatched commit response and uncertain completion never admit a new original dispatch"
+      ],
+      "allPriorLiteralTitleTemplatesAndOrderRetained": true,
+      "status": "UNRUN"
+    },
+    {
+      "file": "tests/tofu/plan-artifact-handoff.test.ts",
+      "sourceBeforeSha256": "26c0d8e2dbfde74589437788028192621bf2666b184b07c4f08cc0bad1363c13",
+      "sourceAfterSha256": "0221047e99a58559d6c392acfdd4356bf46f2914675f212280030993aebaea96",
+      "literalTitleTemplates": [
+        ".",
+        "matching immutable source identity consumes original bytes and a different source digest refuses before dispatch",
+        "independent saved binary with matching native private source binding applies the exact original once",
+        "independent saved binary refuses committed private source revocation before original apply without a fresh fallback",
+        "producer exits and loses its directory; another worker applies ORIGINAL bytes after a separate fresh check, then destroys",
+        "fresh semantic drift refuses before dispatch and has no original/fresh fallback",
+        "source/config/backend/address-map/lock/tool and operation swaps refuse before mutation",
+        "tampering with the original after inspection refuses before apply and preserves uncertainty after dispatch",
+        "source review completes, browser human approval is consumed, and destination destroys the associated ORIGINAL",
+        "restore into a fresh PostgreSQL store with matching keys preserves the original; missing keys refuse",
+        "fake cipher authority and arbitrary runner handles cannot mint production admission",
+        "stale original state serial refuses even when independent fresh semantic plan is unchanged, with no fallback",
+        "saved product original binary %s during paired current-role wait fences actual apply effects",
+        "associated saved product destroy binary fences %s during paired current-role wait"
+      ],
+      "allPriorLiteralTitleTemplatesAndOrderRetained": true,
+      "status": "UNRUN"
+    }
+  ],
+  "registration": "OUTSIDE_OWNED_REQUIRED_ROOT_OR_C_FOLLOWUP",
+  "coherentPrior1059Plus45Expected1104": "Superseded by R2; retained metadata only in immutable R1",
+  "evidenceScope": "Real native SQL and actual tool are authored prerequisites, not executed evidence. Hosted association and policy protocol replies plus deliberate response/prototype faults are explicit fixture models.",
+  "revision": "R2",
+  "r1AdditiveCount": 45,
+  "r2AdditiveCount": 9,
+  "coherentPrior1059Plus54Expected1113": "Independent strict manifest derivation required; no author gate edits",
+  "r1TitleOrderExact": true,
+  "r1ControlChanges": [
+    "Incomplete checked-cleanup title/state/receipt/nonreplay retained; fake dispose callback count is now0 due pre-read finally refusal",
+    "Five post-readback role-wait identities/assertions retained; wait installation moves to third genuine inspector callback, real work-directory cleanup is asserted instead of prototype alteration between completed runs"
+  ],
+  "newNames": [
+    "post-inspection producer own method accessor refuses before the next finite engine member read",
+    "post-inspection producer prototype method accessor refuses before the next finite engine member read",
+    "post-inspection apply own method accessor refuses before the next finite engine member read",
+    "post-inspection apply prototype method accessor refuses before the next finite engine member read",
+    "post-inspection readback prototype method accessor refuses before the next finite engine member read",
+    "registered apply refuses a plan-file method accessor installed during its awaited admission callback",
+    "registered runner finally refuses a dispose accessor after actual apply without invoking it or replaying",
+    "registered apply refuses an init-field accessor installed during its awaited admission callback",
+    "unknown proxy producer origin refuses before any descriptor or method trap"
+  ]
+}

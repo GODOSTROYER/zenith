@@ -23,7 +23,12 @@
  *      identity-provider double as NEXT_PUBLIC_SUPABASE_URL — the same single
  *      double `scripts/agent-acceptance.ts` uses, and for the same reason:
  *      `verifyRequestIdentity` refuses rather than admitting an unverified
- *      session, and that behaviour is being kept, not worked around;
+ *      session, and that behaviour is being kept, not worked around. Its
+ *      ephemeral RS256 session carries signed AAL2 and fresh TOTP claims; the
+ *      provider returns a synthetic verified-factor record for the existing
+ *      step-up guard. This exercises that protocol path, not an authenticator
+ *      enrollment or MFA ceremony, and it does not establish acceptance by a
+ *      default Supabase deployment/provider;
  *   3. opens `/agent/link?code=…` **signed out** and checks the middleware
  *      redirect carries the path *and* the query;
  *   4. signs in by installing the cookie `@supabase/ssr` itself minted, and
@@ -54,6 +59,8 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import net from "node:net";
+import { createSign, generateKeyPairSync, randomUUID } from "node:crypto";
+import type { Request } from "playwright-core";
 import { spawn, type ChildProcess } from "node:child_process";
 
 const DATA_DIR = path.join(process.cwd(), ".data-agent-browser");
@@ -116,6 +123,7 @@ const SCOPES = [
  * by a user reading their credential's expiry date.
  */
 const DEFAULT_DAYS = 30;
+const APPROVAL_ROUTE = "/api/integrations/agent/link/approve";
 
 const NO_BROWSER_MESSAGE =
   "the approval-screen gate needs a real browser and found none.\n" +
@@ -146,26 +154,43 @@ const record = (viewport: string, name: string, ok: boolean, detail: string): bo
 
 /* --------------------------- the identity provider --------------------------- */
 
-/** A JWT auth-js will decode and then validate by asking the provider. */
-function accessToken(): string {
-  const part = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");
-  return [
-    part({ alg: "HS256", typ: "JWT" }),
-    part({
-      sub: OWNER.subject,
-      email: OWNER.email,
-      aud: "authenticated",
-      role: "authenticated",
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600,
-      user_metadata: { full_name: OWNER.name },
-      app_metadata: {},
-    }),
-    Buffer.alloc(32, 9).toString("base64url"),
-  ].join(".");
+interface SyntheticSigningKey {
+  privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"];
+  jwk: JsonWebKey & { kid: string; use: "sig"; alg: "RS256" };
 }
 
-async function startIdentityProvider(token: string): Promise<{ origin: string; close: () => Promise<void> }> {
+/** The loopback provider's ephemeral signing key; never written or logged. */
+function syntheticSigningKey(): SyntheticSigningKey {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: "jwk" }) as JsonWebKey;
+  return { privateKey, jwk: { ...jwk, kid: randomUUID(), use: "sig", alg: "RS256" } };
+}
+
+/** A short-lived AAL2 test session verified against the loopback JWKS. */
+function accessToken(key: SyntheticSigningKey): string {
+  const part = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const header = part({ alg: "RS256", typ: "JWT", kid: key.jwk.kid });
+  const payload = part({
+    sub: OWNER.subject,
+    email: OWNER.email,
+    aud: "authenticated",
+    role: "authenticated",
+    iat: now,
+    exp: now + 3600,
+    session_id: randomUUID(),
+    aal: "aal2",
+    amr: [{ method: "totp", timestamp: now - 1 }],
+    user_metadata: { full_name: OWNER.name },
+    app_metadata: {},
+  });
+  const signer = createSign("RSA-SHA256");
+  signer.update(`${header}.${payload}`);
+  signer.end();
+  return `${header}.${payload}.${signer.sign(key.privateKey).toString("base64url")}`;
+}
+
+async function startIdentityProvider(token: string, jwk: SyntheticSigningKey["jwk"]): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const send = (status: number, body: unknown): void => {
@@ -173,6 +198,8 @@ async function startIdentityProvider(token: string): Promise<{ origin: string; c
       res.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(text) });
       res.end(text);
     };
+    if (url.pathname === "/auth/v1/.well-known/jwks.json")
+      return send(200, { keys: [jwk] });
     if (url.pathname === "/auth/v1/user") {
       if ((req.headers.authorization ?? "").replace(/^Bearer\s+/i, "") !== token)
         return send(401, { message: "invalid claim: missing sub claim", code: 401 });
@@ -184,6 +211,7 @@ async function startIdentityProvider(token: string): Promise<{ origin: string; c
         email_confirmed_at: "2026-01-01T00:00:00.000Z",
         user_metadata: { full_name: OWNER.name },
         app_metadata: {},
+        factors: [{ id: "synthetic-totp", factor_type: "totp", status: "verified" }],
         created_at: "2026-01-01T00:00:00.000Z",
       });
     }
@@ -217,8 +245,9 @@ async function main(): Promise<number> {
   fs.rmSync(DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(path.join(DATA_DIR, "agent-authority"), { recursive: true, mode: 0o700 });
 
-  const token = accessToken();
-  const provider = await startIdentityProvider(token);
+  const signingKey = syntheticSigningKey();
+  const token = accessToken(signingKey);
+  const provider = await startIdentityProvider(token, signingKey.jwk);
   process.env.NEXT_PUBLIC_SUPABASE_URL = provider.origin;
 
   const port = await freePort();
@@ -284,7 +313,14 @@ async function main(): Promise<number> {
 
   /* -------------------------------- 3. a browser --------------------------- */
 
-  const { chromium } = await import("playwright-core");
+  let chromium: typeof import("playwright-core").chromium;
+  try {
+    ({ chromium } = await import("playwright-core"));
+  } catch (error) {
+    try { await server.stop(); }
+    finally { await provider.close(); }
+    throw error;
+  }
   const attempts: string[] = [];
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let browserName = "";
@@ -300,39 +336,60 @@ async function main(): Promise<number> {
       .filter((executablePath) => fs.existsSync(executablePath))
       .map((executablePath) => ({ name: executablePath, options: { executablePath } })),
   ];
-  for (const candidate of candidates) {
-    try {
-      browser = await chromium.launch({ ...candidate.options, headless: true });
-      browserName = candidate.name;
-      break;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // "There is no browser installed" and "the browser would not start" are
-      // different answers: only the first is exit 2.
-      if (!/not found|no such file|ENOENT|Chromium distribution/i.test(message)) throw err;
-      attempts.push(`${candidate.name}: ${message.split("\n")[0]}`);
+  try {
+    for (const candidate of candidates) {
+      try {
+        browser = await chromium.launch({ ...candidate.options, headless: true });
+        browserName = candidate.name;
+        break;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // "There is no browser installed" and "the browser would not start" are
+        // different answers: only the first is exit 2.
+        if (!/not found|no such file|ENOENT|Chromium distribution/i.test(message)) throw err;
+        attempts.push(`${candidate.name}: ${message.split("\n")[0]}`);
+      }
     }
+  } catch (error) {
+    try { if (browser) await browser.close(); }
+    finally {
+      try { await server.stop(); }
+      finally { await provider.close(); }
+    }
+    throw error;
   }
   if (!browser) {
-    server.stop();
-    await provider.close();
+    try { await server.stop(); }
+    finally { await provider.close(); }
     process.stderr.write(`${NO_BROWSER_MESSAGE}\n\ntried:\n  ${attempts.join("\n  ")}\n`);
     return 2;
   }
   process.stdout.write(`driving ${browserName} through playwright-core against ${origin}\n`);
 
-  const cookie = await sessionCookie(provider.origin, token);
   const viewports = [
     { name: "desktop", width: 1280, height: 800 },
     { name: "narrow", width: 380, height: 780 },
   ];
 
   try {
+    const cookie = await sessionCookie(provider.origin, token);
     for (const viewport of viewports) {
       const label = `${viewport.name} ${viewport.width}px`;
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
         hasTouch: viewport.name === "narrow",
+      });
+      let navigationDiagnosticEvents = 0;
+      context.on("requestfailed", (request) => {
+        const failedUrl = new URL(request.url());
+        if (failedUrl.origin !== origin || !["/agent/link", APPROVAL_ROUTE].includes(failedUrl.pathname)) return;
+        const errorText = request.failure()?.errorText;
+        const networkError = errorText === "net::ERR_CONNECTION_REFUSED" ? "ERR_CONNECTION_REFUSED"
+          : errorText === "net::ERR_CONNECTION_RESET" ? "ERR_CONNECTION_RESET"
+          : errorText === "net::ERR_TIMED_OUT" ? "ERR_TIMED_OUT" : "unknown";
+        if (navigationDiagnosticEvents++ < 8) {
+          process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-request-failed", viewport: viewport.name, route: failedUrl.pathname, networkError })}\n`);
+        }
       });
       const consoleErrors: string[] = [];
       context.on("console", (message) => {
@@ -368,6 +425,34 @@ async function main(): Promise<number> {
           ...cookie.map(([name, value]) => ({ name, value, domain: "localhost", path: "/" })),
         ]);
         const page = await context.newPage();
+        const approvalRequests = new WeakMap<Request, number>();
+        let approvalDiagnosticEvents = 0;
+        let approvalClickedAt = 0;
+        const approvalDiagnostic = (fields: Record<string, string | number>): void => {
+          if (approvalDiagnosticEvents++ < 8) {
+            process.stdout.write(`${JSON.stringify({ diagnostic: "agent-approval-request", viewport: viewport.name, route: APPROVAL_ROUTE, ...fields })}\n`);
+          }
+        };
+        page.on("request", (request) => {
+          if (request.method() === "POST" && new URL(request.url()).pathname === APPROVAL_ROUTE) {
+            approvalRequests.set(request, performance.now());
+            approvalDiagnostic({ phase: "request", elapsedMs: Math.round(performance.now() - approvalClickedAt) });
+          }
+        });
+        page.on("response", (response) => {
+          const requestStartedAt = approvalRequests.get(response.request());
+          if (requestStartedAt !== undefined) {
+            approvalDiagnostic({ phase: "response", status: response.status(), elapsedMs: Math.round(performance.now() - requestStartedAt) });
+          }
+        });
+        const approvalSettled = (request: Request, phase: "requestfinished" | "requestfailed"): void => {
+          const requestStartedAt = approvalRequests.get(request);
+          if (requestStartedAt !== undefined) {
+            approvalDiagnostic({ phase, elapsedMs: Math.round(performance.now() - requestStartedAt) });
+          }
+        };
+        page.on("requestfinished", (request) => approvalSettled(request, "requestfinished"));
+        page.on("requestfailed", (request) => approvalSettled(request, "requestfailed"));
         await page.goto(`${origin}/agent/link?code=${pending.userCode}`, { waitUntil: "domcontentloaded" });
         // The screen fetches the request after hydration; judge it only once the
         // decision controls exist, otherwise the checks below race the fetch.
@@ -508,7 +593,21 @@ async function main(): Promise<number> {
         /* --- approve, and the terminal comes back to life --- */
 
         const approveControl = page.getByRole("button", { name: PAGE.approve }).first();
+        // The copy renders only after the approve POST answers, so wait for that
+        // answer rather than the clock. The first POST after a cold dev start is
+        // slow (22.7s on CI run 40241247225 against 8.9s on a passing run); the
+        // warm one is ~100ms. 120s bounds a worse cold start without hanging the job.
+        const approveAnswered = page
+          .waitForResponse(
+            (response) =>
+              response.request().method() === "POST" && new URL(response.url()).pathname === APPROVAL_ROUTE,
+            { timeout: 120_000 }
+          )
+          .then(() => true, () => false);
+        approvalClickedAt = performance.now();
         await approveControl.click();
+        await approveAnswered;
+        const approvalWaitStartedAt = performance.now();
         const done = await page
           .waitForFunction(
             (pattern: string) => new RegExp(pattern, "i").test(document.body.innerText),
@@ -516,7 +615,26 @@ async function main(): Promise<number> {
             { timeout: 20_000 }
           )
           .then(() => true)
-          .catch(() => false);
+          .catch(async (error: unknown) => {
+            const elapsedMs = Math.round(performance.now() - approvalWaitStartedAt);
+            const errorClass = error instanceof Error && error.name === "TimeoutError" ? "TimeoutError" : error instanceof Error ? "Error" : "Unknown";
+            let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
+            const unavailable = { approvedMessagePresent: null, visibleErrorIndicator: null };
+            const rendered = await Promise.race([
+              page.evaluate((pattern) => ({
+                approvedMessagePresent: new RegExp(pattern, "i").test(document.body.innerText),
+                visibleErrorIndicator: Array.from(document.querySelectorAll('[role="alert"]')).some((element) => {
+                  const style = getComputedStyle(element);
+                  return style.visibility !== "hidden" && style.display !== "none" && element.getClientRects().length > 0;
+                }),
+              }), PAGE.approved.source).catch(() => unavailable),
+              new Promise<typeof unavailable>((resolve) => {
+                snapshotTimer = setTimeout(() => resolve(unavailable), 1000);
+              }),
+            ]).finally(() => { clearTimeout(snapshotTimer); });
+            process.stdout.write(`${JSON.stringify({ diagnostic: "agent-approval-copy-wait", viewport: viewport.name, errorClass, elapsedMs, ...rendered, compileTimings: server.approvalCompileTimings() })}\n`);
+            return false;
+          });
         record(label, "Approve confirms, and sends the person back to their terminal", done, "the page says so");
 
         const issued = await poll(origin, pending.deviceCode, 20_000);
@@ -550,15 +668,21 @@ async function main(): Promise<number> {
           consoleErrors.length === 0 ? "clean" : consoleErrors.slice(0, 3).join(" | ")
         );
       } catch (err) {
+        process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-journey-failed", viewport: viewport.name, server: server.diagnosticState(), fetchCauseCode: fetchCauseCode(err) })}\n`);
         record(label, "the approval journey ran to the end", false, err instanceof Error ? err.message : String(err));
       } finally {
         await context.close();
       }
     }
   } finally {
-    await browser.close();
-    server.stop();
-    await provider.close();
+    try { await browser.close(); }
+    finally {
+      try { await server.stop(); }
+      finally {
+        process.stdout.write(`${JSON.stringify({ diagnostic: "agent-browser-server-final", server: server.diagnosticState() })}\n`);
+        await provider.close();
+      }
+    }
   }
 
   const failed = steps.filter((step) => !step.ok);
@@ -580,8 +704,24 @@ async function main(): Promise<number> {
 
 /* --------------------------------- helpers ---------------------------------- */
 
+function fetchCauseCode(error: unknown): string {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const candidates = cause instanceof AggregateError ? [cause, ...cause.errors.slice(0, 4)] : [cause];
+  for (const candidate of candidates) {
+    if (candidate === null || typeof candidate !== "object" || !("code" in candidate)) continue;
+    switch (candidate.code) {
+      case "ECONNREFUSED": case "ECONNRESET": case "ETIMEDOUT":
+      case "ENETUNREACH": case "EHOSTUNREACH": case "UND_ERR_CONNECT_TIMEOUT": case "UND_ERR_SOCKET":
+        return candidate.code;
+    }
+  }
+  return "unknown";
+}
+
 interface DevServer {
-  stop: () => void;
+  stop: () => Promise<void>;
+  diagnosticState: () => { exitCode: number | null; signalCode: NodeJS.Signals | null; directChildReaped: boolean; listenerClosed: boolean; stopRequested: boolean; termDelivered: boolean; unexpectedExit: boolean; forcedStop: boolean; nodeOomObserved: boolean; devMemoryRestartCount: number };
+  approvalCompileTimings: () => Array<{ route: string; durationMs: number }>;
 }
 
 /**
@@ -593,36 +733,164 @@ interface DevServer {
  * navigation is allowed to be slow.
  */
 async function startDevServer(port: number): Promise<DevServer | null> {
+  const startServerSource = [
+    'const { startServer } = require("next/dist/server/lib/start-server");',
+    'const port = Number(process.argv[1]);',
+    'if (!Number.isInteger(port) || port < 1 || port > 65535 || typeof process.send !== "function") process.exit(2);',
+    'process.once("disconnect", () => {',
+    '  const watchdog = setTimeout(() => process.exit(1), 10000);',
+    '  watchdog.unref();',
+    '  process.kill(process.pid, "SIGTERM");',
+    '});',
+    'startServer({ dir: process.cwd(), port, hostname: "127.0.0.1", isDev: true, allowRetry: false })',
+    '.then(() => process.send({ type: "zenith-next-ready", port }))',
+    '.catch(() => process.exit(1));',
+  ].join("\n");
+  const serverEnv: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "development", NEXT_RUNTIME: "nodejs" };
+  delete serverEnv.NEXT_PRIVATE_WORKER;
+  delete serverEnv.NEXT_MANUAL_SIG_HANDLE;
   const child: ChildProcess = spawn(
     process.execPath,
-    [path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next"), "dev", "-p", String(port)],
-    { cwd: process.cwd(), env: { ...process.env }, stdio: ["ignore", "pipe", "pipe"] }
+    ["-e", startServerSource, String(port)],
+    {
+      cwd: process.cwd(),
+      env: serverEnv,
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+      windowsHide: true,
+    }
   );
+  let childReaped = false;
+  let spawnError: Error | undefined;
+  let childReady = false;
+  let stopRequested = false;
+  let termDelivered = false;
+  let unexpectedExit = false;
+  let forcedStop = false;
+  let listenerClosed = false;
+  let stopPromise: Promise<void> | undefined;
+  const stop = (): Promise<void> => {
+    if (stopPromise) return stopPromise;
+    stopPromise = (async () => {
+      const postcondition = async (): Promise<boolean> => {
+        listenerClosed = await portRefused(port);
+        return childReaped && listenerClosed;
+      };
+      const waitForStop = async (milliseconds: number): Promise<boolean> => {
+        const stopDeadline = Date.now() + milliseconds;
+        while (Date.now() < stopDeadline) {
+          if (await postcondition()) return true;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        return postcondition();
+      };
+      if (!child.pid) {
+        if (!(await waitForStop(1_000))) throw new Error("Owned Next child was never created and listener refusal is unconfirmed.");
+        return;
+      }
+      if (childReaped || unexpectedExit) {
+        unexpectedExit = true;
+        throw new Error("Owned Next child exited before shutdown was requested; acceptance is refused.");
+      }
+      stopRequested = true;
+      termDelivered = child.kill("SIGTERM");
+      if (!termDelivered) {
+        unexpectedExit = true;
+        throw new Error("Owned Next TERM was not delivered; acceptance is refused.");
+      }
+      if (!(await waitForStop(5_000))) {
+        if (!childReaped) {
+          forcedStop = true;
+          child.kill("SIGKILL");
+        }
+        if (!(await waitForStop(5_000))) throw new Error("Owned Next child or loopback listener remained after bounded shutdown.");
+      }
+      if (forcedStop) throw new Error("Owned Next child required forced termination; acceptance is refused.");
+      if (unexpectedExit || child.exitCode !== 0 || child.signalCode !== null) {
+        throw new Error("Owned Next shutdown did not exit cleanly after TERM; acceptance is refused.");
+      }
+    })();
+    return stopPromise;
+  };
+  child.once("exit", () => {
+    childReaped = true;
+    if (!stopRequested) unexpectedExit = true;
+    // Next may have transient workers with inherited output handles. The
+    // acceptance contract owns the direct server child and listener only.
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+  });
+  child.once("error", (error) => { spawnError = error; });
+  child.on("message", (message) => {
+    if (message && typeof message === "object" && "type" in message && message.type === "zenith-next-ready" && "port" in message && message.port === port) {
+      childReady = true;
+    }
+  });
   const log: string[] = [];
   child.stdout?.on("data", (chunk: Buffer) => log.push(chunk.toString()));
   child.stderr?.on("data", (chunk: Buffer) => log.push(chunk.toString()));
 
   const deadline = Date.now() + 180_000;
   for (;;) {
-    if (child.exitCode !== null) {
+    if (spawnError) {
+      await stop();
+      process.stderr.write(`the dev server could not start (${spawnError.name}); no listener was accepted\n`);
+      return null;
+    }
+    if (childReaped) {
+      await stop();
       process.stderr.write(`the dev server exited with ${child.exitCode} before it answered:\n${log.join("")}\n`);
       return null;
     }
-    try {
-      const res = await fetch(`http://localhost:${port}/api/health`, { signal: AbortSignal.timeout(5_000) });
-      if (res.ok || res.status === 401 || res.status === 503) break;
-    } catch {
-      /* not up yet */
+    if (childReady) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(5_000) });
+        if (res.ok || res.status === 401 || res.status === 503) break;
+      } catch {
+        /* IPC readiness precedes this real health check. */
+      }
     }
     if (Date.now() > deadline) {
-      child.kill("SIGKILL");
+      await stop();
       process.stderr.write(`the dev server did not answer within 180s:\n${log.slice(-40).join("")}\n`);
       return null;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   process.stdout.write(`next dev is answering on http://localhost:${port}\n`);
-  return { stop: () => child.kill("SIGKILL") };
+  return {
+    stop,
+    diagnosticState: () => ({
+      exitCode: child.exitCode,
+      signalCode: child.signalCode,
+      directChildReaped: childReaped,
+      listenerClosed,
+      stopRequested,
+      termDelivered,
+      unexpectedExit,
+      forcedStop,
+      nodeOomObserved: /FATAL ERROR: [^\r\n]*JavaScript heap out of memory/.test(log.join("")),
+      devMemoryRestartCount: log.join("").split("Server is approaching the used memory threshold, restarting...").length - 1,
+    }),
+    approvalCompileTimings: () => Array.from(
+      log.join("").matchAll(/\bCompiled \/api\/integrations\/agent\/link\/approve in (\d+(?:\.\d+)?)(ms|s)(?=\s|$)/g),
+      (match) => ({ route: APPROVAL_ROUTE, durationMs: Math.round(Number(match[1]) * (match[2] === "s" ? 1000 : 1)) })
+    ).filter((entry) => Number.isFinite(entry.durationMs) && entry.durationMs >= 0 && entry.durationMs <= 180_000).slice(-4),
+  };
+}
+
+/** Confirm a TCP listener refuses loopback connections before claiming cleanup. */
+function portRefused(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const timer = setTimeout(() => { socket.destroy(); resolve(false); }, 250);
+    socket.once("connect", () => { clearTimeout(timer); socket.destroy(); resolve(false); });
+    socket.once("error", (error: NodeJS.ErrnoException) => {
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(error.code === "ECONNREFUSED");
+    });
+    socket.connect(port, "127.0.0.1");
+  });
 }
 
 /** Begin a device flow the way the plugin does: no credential, no cookie. */

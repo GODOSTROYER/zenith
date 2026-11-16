@@ -1,0 +1,118 @@
+# /etc/zenithd/config.yaml: zenithd example configuration.
+# Everything not listed here is OFF: zenithd can inspect the machine and run
+# checks, and nothing else, until you open a guard below.
+controlPlane:
+  url: https://zenith.example.com
+name: web-1
+labels:
+  environment: production
+
+# Only these units may be restarted (exact names or * wildcards). Keep the list
+# identical to the polkit rule. Empty or absent: machine.service.restart is off.
+services:
+  restartAllow:
+    - nginx.service
+    - myapp@*.service
+
+# Only files under these paths may be read (symbolic links are resolved first and
+# may not lead outside). zenithd's own state directory is never readable.
+files:
+  readAllow:
+    - /var/log/nginx
+    - /etc/nginx/nginx.conf
+  maxReadBytes: 1048576
+
+# Docker Engine operations (list, inspect, logs). Off by default: access to the
+# Docker socket is root-equivalent on the host, see docs/platform/ZENITHD.md.
+containers:
+  enabled: false
+  # socket: /var/run/docker.sock
+
+# machine.exec and container.exec: the escape hatch. Off by default. Enabling it
+# lets the control plane run programs as this service user (argv only, no shell,
+# bounded time and output). allowArgv0 narrows it to specific executables.
+exec:
+  enabled: false
+  # allowArgv0:
+  #   - /usr/bin/ss
+  #   - /usr/bin/df
+
+limits:
+  defaultTimeoutSec: 30
+  maxTimeoutSec: 300
+  defaultOutputBytes: 65536
+  maxOutputBytes: 1048576
+
+log:
+  level: info
+  format: json
+
+# Signed release channel (off by default). The agent fetches a release manifest
+# signed OFFLINE with a release key, verifies it against the PUBLIC keys pinned
+# here, downloads the binary, checks its SHA-256 and size against the signed
+# manifest, smoke-tests it, then activates it. If the new release does not
+# complete an authenticated heartbeat and poll within healthWindowSec, or keeps
+# restarting, it is rolled back to the previous binary automatically. The
+# control plane cannot change any of this. See docs/platform/RUNNER-UPDATES.md.
+# With the MACH-04 loop/storage integration, staging also requires fresh signed
+# human intent for the exact envelope digest. Holds are durable locally and
+# suppress staging; they never suppress health checks or automatic rollback.
+update:
+  enabled: false
+  # channel: stable
+  # manifestUrl: https://downloads.example.com/zenithd/stable.json
+  # publicKeys:
+  #   - kid: release-2026-10
+  #     publicKey: QCz_edVf623L2xc3D9dRRytU25iMBVd3npdz-c2GOaY
+  # checkIntervalSec: 3600
+  # healthWindowSec: 300
+
+# Customer-local immutable-template writes: disabled by default, Linux only.
+# All directories already exist; no writable/symlinked ancestors, ACLs, root
+# execution or executable/system configuration targets are allowed. Exact local
+# final-parent mount anchors are permitted; unexpected ancestor/file mounts fail.
+# Local persistent ext-family/XFS/Btrfs only; volatile/network/FUSE/overlay refused.
+# Provision a private customer application tree; modes are fixed per profile.
+fileWrite:
+  enabled: false
+  # backupDir: /opt/customer/fw-backups  # existing 0700, owned by zenithd
+  # maxBackupBytes: 16777216            # all retained intent/backup bytes
+  # maxBackups: 128                     # retained transactions; no pruning
+  # profiles:
+  #   - path: /opt/customer/app/settings.txt
+  #     contentRef: app-settings
+  #     contentVersion: REPLACE_WITH_FILE_WRITE_VERSIONS_CLI_HASH
+  #     sourcePath: /opt/customer/templates/settings.txt
+  #     sha256: REPLACE_WITH_LOCAL_PINNED_SHA256
+  #     mode: "0600"                   # only "0600" or "0640"
+  #     maxBytes: 65536                 # hard maximum 1048576
+
+# Convergent service configuration: off by default. One application-owned config
+# file (never under /etc or a unit file) is written atomically from a pinned local
+# source, then ONE unit that is also in services.restartAllow is reloaded or
+# restarted and verified active. Needs its own backup directory.
+serviceConfigure:
+  enabled: false
+  # backupDir: /opt/customer/sc-backups  # existing 0700, owned by zenithd
+  # maxBackupBytes: 16777216
+  # maxBackups: 128
+  # profiles:
+  #   - unit: myapp@main.service          # must match services.restartAllow
+  #     profileRef: myapp-config
+  #     profileVersion: REPLACE_WITH_SERVICE_CONFIGURE_VERSIONS_CLI_HASH
+  #     path: /opt/customer/app/myapp.env
+  #     sourcePath: /opt/customer/templates/myapp.env
+  #     sha256: REPLACE_WITH_LOCAL_PINNED_SHA256
+  #     mode: "0600"
+  #     maxBytes: 65536
+  #     action: restart                   # or reload
+  #     settleSec: 20                     # 1..60
+
+# Offline pinned Debian 12/dpkg 1.21 data-only first installs: off by default.
+# A separate root helper must have the exact machine/workspace identity, public
+# verification keys, numeric zenithd UID and matching versioned local profiles.
+# Enabling this flag alone does not advertise or execute package.install.
+# No archive path, bytes, URL or command is sent in the signed operation.
+packageInstall:
+  enabled: false
+  profiles: []

@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "workspace": "Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l3-live-managed",
+  "statement": "Exact shell invocations from this job. Verification outcomes and test counts are in L3-LIVE-MANAGED.md; read-only inspections and file mutations have no test counts.",
+  "commands": [
+    {
+      "timestamp": "2026-10-07T23:30:14.623Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content -LiteralPath 'Z:\\Projects\\Spawned.ai\\zenith-wt\\.resume\\PREAMBLE.md'"
+    },
+    {
+      "timestamp": "2026-10-07T23:30:14.623Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; git status --short; git log --oneline -10"
+    },
+    {
+      "timestamp": "2026-10-07T23:30:14.623Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg -n 'Zenith|zenith|acceptance|production' 'C:\\Users\\user\\.codex\\memories\\MEMORY.md'"
+    },
+    {
+      "timestamp": "2026-10-07T23:31:08.695Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content 'docs/build/production/ledger.json' -TotalCount 70; rg -n 'MAN-|MIX-|OPS-|REL-|DEC-CLOUD|4\\.1|P3' 'Z:\\Projects\\Spawned.ai\\zenith-wt\\.resume\\PLAN-100.md'"
+    },
+    {
+      "timestamp": "2026-10-07T23:31:08.695Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg --files scripts/acceptance docs/build/production/verify tests | rg '(managed|mixed|release|MAN-|MIX-|OPS-|REL-|permissions|live|acceptance)'; Get-Content scripts/acceptance/managed-acceptance.sh; rg --files 'Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l1-live-aws\\scripts\\acceptance' "
+    },
+    {
+      "timestamp": "2026-10-07T23:31:08.695Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg --files -g AGENTS.md -g '*permissions*' -g '*managed*' -g '*release*' -g '*mixed*' -g 'vitest.config*' -g '*acceptance*'; Get-Content package.json; Get-Content tsconfig.json; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\.resume\\codex\\tsc-serial.sh'"
+    },
+    {
+      "timestamp": "2026-10-07T23:31:40.700Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; node -e \"const l=require('./docs/build/production/ledger.json');for(const r of l.requirements.filter(r=>/^PROD-(MAN|MIX|OPS|REL)-/.test(r.id)))console.log(JSON.stringify(r));\"; Get-Content docs/build/production/permissions.json; Get-Content scripts/acceptance/managed-acceptance.sh -ErrorAction Continue"
+    },
+    {
+      "timestamp": "2026-10-07T23:31:40.700Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $p = Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\.resume\\PLAN-100.md'; $p[200..264]; $p[518..662]; $p[716..751]; $p[911..935]; $p[974..1025]"
+    },
+    {
+      "timestamp": "2026-10-07T23:32:24.365Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content scripts/release/acceptance-orchestrator.ts; Get-Content scripts/release/permissions-cli.ts; rg --files scripts/acceptance/mixed scripts/release; Get-Content scripts/acceptance/mixed/live-run.ts; Get-Content scripts/acceptance/mixed/live-recovery.ts"
+    },
+    {
+      "timestamp": "2026-10-07T23:32:24.365Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content scripts/k8s/managed-acceptance.sh; Get-Content scripts/k8s/managed-substrate-acceptance.sh; Get-Content scripts/isolation/tenant-isolation-acceptance.sh; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l1-live-aws\\scripts\\acceptance\\live\\contracts.ts'; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l1-live-aws\\scripts\\acceptance\\live\\guard.ts'; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l1-live-aws\\scripts\\acceptance\\live\\plan.ts'"
+    },
+    {
+      "timestamp": "2026-10-07T23:32:24.365Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $paths = rg --files docs/build/production/verify | Where-Object {$_ -match 'PROD-(MAN|MIX|OPS|REL)-'}; foreach ($p in $paths) { Write-Output \"FILE: $p\"; Get-Content $p }; Get-Content vitest.config.ts -TotalCount 160"
+    },
+    {
+      "timestamp": "2026-10-07T23:32:55.695Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content scripts/k8s/managed-acceptance.sh; Get-Content scripts/k8s/managed-substrate-acceptance.sh; Get-Content scripts/isolation/tenant-isolation-acceptance.sh; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l1-live-aws\\scripts\\acceptance\\live\\guard.ts'; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\prod6-l1-live-aws\\scripts\\acceptance\\live\\contracts.ts'"
+    },
+    {
+      "timestamp": "2026-10-07T23:33:13.348Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content scripts/release/scope.ts; Get-Content scripts/acceptance/mixed/live-run.ts"
+    },
+    {
+      "timestamp": "2026-10-07T23:33:36.211Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content tests/providers/zenith/managed-kind.test.ts -TotalCount 260; rg -n 'fetch|path|managed|session|onboard|release' scripts/acceptance/scenarios/i-managed-provider.ts src/app/api/platform/v1/_lib/managed.ts; Get-Content scripts/release/scenarios.ts -TotalCount 220; Get-Content scripts/acceptance/redact.ts"
+    },
+    {
+      "timestamp": "2026-10-07T23:33:36.211Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content scripts/acceptance/mixed/live-recovery.ts -TotalCount 230; Get-Content scripts/acceptance/mixed/connectivity-probe.ts -TotalCount 130; Get-Content tests/release/live-scope-coverage.test.ts"
+    },
+    {
+      "timestamp": "2026-10-07T23:34:13.036Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content src/app/api/platform/v1/_lib/managed.ts; Get-Content scripts/acceptance/clients/control-plane.ts -TotalCount 240; rg -n '(teardown|start|approve|mixed|suspend)' src/app/api/platform/v1/_lib/mixed-run.ts src/app/api/platform/v1/_lib/operations.ts scripts/release/scenarios.ts; Get-Content scripts/acceptance/redact.ts"
+    },
+    {
+      "timestamp": "2026-10-07T23:34:13.036Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg --files docs/build/production/verify | rg 'PROD-(MAN|MIX|OPS|REL)-'; Get-Content scripts/acceptance/mixed/readback.ts -TotalCount 150; Get-Content scripts/acceptance/mixed/traffic.ts -TotalCount 90; Get-Content scripts/acceptance/mixed/cost-report.ts -TotalCount 130"
+    },
+    {
+      "timestamp": "2026-10-07T23:34:36.992Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg --files src/app/api/platform/v1/operations src/app/api/platform/v1/mixed; Get-Content scripts/release/scenarios.ts; Get-Content scripts/acceptance/redact.ts; Get-Content scripts/acceptance/mixed-evidence.ts -TotalCount 70"
+    },
+    {
+      "timestamp": "2026-10-07T23:35:51.393Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content -LiteralPath 'src/app/api/platform/v1/operations/[id]/mixed-run/teardown/route.ts'; Get-Content -LiteralPath 'src/app/api/platform/v1/mixed/plans/[id]/start/route.ts'; Get-Content -LiteralPath 'src/app/api/platform/v1/capabilities/propose/route.ts' -TotalCount 110; rg -n 'dispatch|execute|destroy|startOperation' src/app/api/platform/v1/_lib/action.ts scripts/acceptance/clients/control-plane.ts; rg -n 'kube|current|metadata|label|ready' tests/isolation/tenant-isolation-acceptance.test.ts | Select-Object -First 65; Get-Content tests/release/_support.ts -TotalCount 100"
+    },
+    {
+      "timestamp": "2026-10-07T23:37:08.655Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $paths = rg --files docs/build/production/verify | Where-Object {$_ -match 'PROD-(MAN|MIX|OPS|REL)-'}; foreach($p in $paths){Write-Output \"FILE: $p\"; rg -n '^#|ZENITH_|npx |node |npm |scripts/|gaps|rehearsal|live' $p | Select-Object -First 80}; Get-Content .gitignore -Tail 40; Get-Content src/lib/controlplane/digest.ts -TotalCount 80"
+    },
+    {
+      "timestamp": "2026-10-07T23:57:15.933Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $env:ZENITH_LIVE_MANAGED='0'; $env:ZENITH_LIVE_MIXED='0'; $env:ZENITH_LIVE_RELEASE='0'; npx vitest run tests/acceptance/live-managed.test.ts tests/acceptance/live-l3.gated.test.ts --no-file-parallelism --maxWorkers=2"
+    },
+    {
+      "timestamp": "2026-10-07T23:57:15.933Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; npx eslint scripts/acceptance/live/managed scripts/acceptance/live/mixed/probes.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-l3.gated.test.ts"
+    },
+    {
+      "timestamp": "2026-10-07T23:57:15.933Z",
+      "command": "export PATH=\"/c/Users/user/.local/sdk/node22:$PATH\"\nfor script in scripts/acceptance/managed-acceptance.sh scripts/acceptance/live/mixed/acceptance.sh scripts/acceptance/live/release/acceptance.sh; do bash -n \"$script\" || exit; done\nnode --version"
+    },
+    {
+      "timestamp": "2026-10-07T23:57:51.596Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; git diff --stat; git status --short; Get-Content scripts/acceptance/live/managed/runner.ts -TotalCount 100; rg -n 'deleteNamespace\\(' node_modules/@kubernetes/client-node/dist/gen/types/ObjectParamAPI.d.ts | Select-Object -First 3"
+    },
+    {
+      "timestamp": "2026-10-08T00:00:10.890Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg -n 'interface ConfigurationOptions|fetchApi|httpApi|baseServer|middleware' node_modules/@kubernetes/client-node/dist/gen/configuration.d.ts; Get-Content node_modules/@kubernetes/client-node/dist/gen/configuration.d.ts -TotalCount 125; Get-Content docs/build/production/verify/PROD-REL-01.md -ErrorAction Continue; Get-Content docs/build/production/verify/PROD-REL-04.md -ErrorAction Continue; Get-Content docs/build/production/verify/PROD-MIX-05.md -ErrorAction Continue"
+    },
+    {
+      "timestamp": "2026-10-08T00:03:48.774Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $env:ZENITH_LIVE_MANAGED='0'; $env:ZENITH_LIVE_MIXED='0'; $env:ZENITH_LIVE_RELEASE='0'; npx vitest run tests/acceptance/live-managed.test.ts tests/acceptance/live-l3.gated.test.ts tests/release/live-scope-coverage.test.ts --no-file-parallelism --maxWorkers=2"
+    },
+    {
+      "timestamp": "2026-10-08T00:03:48.774Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; npx eslint scripts/acceptance/live/managed scripts/acceptance/live/mixed/probes.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-l3.gated.test.ts"
+    },
+    {
+      "timestamp": "2026-10-08T00:03:48.774Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh"
+    },
+    {
+      "timestamp": "2026-10-08T00:08:24.242Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content scripts/release/dossier.ts -Tail 95; rg -n 'usage|profile|prepare|--out' scripts/deploy/installation.mjs | Select-Object -First 25; Get-Content scripts/ops/recovery.ts -TotalCount 100"
+    },
+    {
+      "timestamp": "2026-10-08T00:10:18.905Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; @'\nconst fs = require('node:fs');\nconst ledgerFile = 'docs/build/production/ledger.json';\nconst ledger = JSON.parse(fs.readFileSync(ledgerFile, 'utf8'));\nconst rows = ledger.requirements.filter(r => /^PROD-(MAN|MIX|OPS|REL)-/.test(r.id));\nfor (const row of rows) {\n  const family = row.id.split('-')[1];\n  const profile = family === 'MAN' ? 'managed' : family === 'MIX' ? 'mixed' : 'release';\n  const shell = profile === 'managed' ? 'scripts/acceptance/managed-acceptance.sh' : `scripts/acceptance/live/${profile}/acceptance.sh`;\n  const gate = `ZENITH_LIVE_${profile.toUpperCase()}`;\n  const filename = `docs/build/production/verify/${row.id}.md`;\n  const existing = fs.existsSync(filename) ? fs.readFileSync(filename, 'utf8') : `# ${row.id}: ${row.title}\\n\\n`;\n  const section = [\n    '## L3 live and operational verification (2026-10-08)', '',\n    ...row.acceptance.map(a => `Acceptance contract: ${a}`), '',\n    `Profile: **${profile}**. The owner observation matrix in [LIVE-ACCEPTANCE-MANAGED.md](../LIVE-ACCEPTANCE-MANAGED.md) maps every clause above to real product receipts, provider reads and traffic or operational observations. Fill distinct checks for every clause; a generic operation-status assertion is insufficient.`, '',\n    'Implementation: `scripts/acceptance/live/managed/{plan,runner,transport,cli}.ts`, `scripts/acceptance/live/mixed/probes.ts`, the profile shell entry point. Offline checks: `tests/acceptance/live-managed.test.ts`, `tests/acceptance/live-managed-transports.test.ts`; actual Mac owner-gated checks: `tests/acceptance/live-l3.gated.test.ts`. No library injection replaces the CLI transport.', '',\n    'Mac prerequisites: Node 22; clean committed integrated RC; running owner-operated disposable Zenith/PostgreSQL/Temporal stack; managed cloud/CNI/runtime and two tenants for managed isolation; exact sandbox accounts/regions/real DNS/ACME/registry/Stripe test mode/private source fixtures as applicable. The shared runbook lists exact accounts, credentials as FILE references, and separate DEC-CLOUD, DEC-BUSINESS, DEC-RETENTION and signing/signoff approvals. For the lean 8 GB Mac/4 GiB Docker profile, observe an already operated remote sandbox; local cluster/engine rehearsals run one heavy process at a time after J1/J11/J14 integration.', '',\n    'Exact Mac commands, after owner has prepared the private recipe, permissions and approval FILEs described in the shared runbook:', '',\n    '```bash',\n    `bash ${shell} --plan --fixture \"$L3_PRIVATE/${profile}.recipe.json\"`,\n    `export ZENITH_LIVE_SCOPE_FILE=\"$L3_PRIVATE/permissions.json\"`,\n    'npx tsx scripts/release/permissions-cli.ts check',\n    `export ZENITH_L3_APPROVAL_FILE=\"$L3_PRIVATE/${profile}.approval.json\"`,\n    'export ZENITH_L3_BUDGET_FILE=\"$L3_PRIVATE/budget.json\"',\n    'export ZENITH_L3_OUT=\"$PWD/.data-live/l3\"',\n    `${gate}=1 bash ${shell} --run --fixture \"$L3_PRIVATE/${profile}.recipe.json\"`,\n    '# On interruption: audit the original journal/lock, then cleanup only with the same RC and approvals.',\n    `${gate}=1 bash ${shell} --cleanup-only --fixture \"$L3_PRIVATE/${profile}.recipe.json\"`,\n    '```', '',\n    'Expected: --plan opens no credential and makes zero calls; --run exits 0 only when every required profile scenario, actual assertion, approved cleanup and independent inventory passed. Exit 1 is a failed check, 2 refusal, 3 incomplete/cleanup-only. Live vitest alternative is in the shared runbook; all three live tests explicitly skip when their gates are disabled. Never count those skips as acceptance passes.', '',\n    'Not run here: cloud, real PostgreSQL, Temporal, Docker/kind, browser and operated-stack rehearsals. This row remains pending live/operational evidence and applicable owner decisions. Do not interpret generic tag-index scans as proof of all global/untaggable/unsupported resources being gone. Add direct provider-specific inventories from L1/L2 and review the actual observation matrix before accepting the ledger clause.', '',\n    'Integration joins: exact managed/release grants are absent from the shipped unapproved permissions.json; owner/integrator approval required before any live call. Use the original normal browser approval paths for all execution/teardown. Share the conservative budget book with L1/L2; connect J1/J2/J4/J5/J6/J11/J14/J15 receipt producers and J12 dossier/signoff. No platform migrations, aggregate SQL, package or published migration edits in this job.', '',\n    'Suggested ledger status: `implementation_complete_verification_pending` (L3 harness built; requirement verification and unresolved owner decisions remain pending).', ''\n  ].join('\\n');\n  fs.writeFileSync(filename, existing + '\\n' + section);\n  row.implementationStatus = 'implementation_complete_verification_pending';\n  row.implementationNote = 'L3 gated observation/cleanup/inventory harness built; live and operational evidence plus owner fixtures/decisions pending. No verification claimed.';\n}\nfs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2) + '\\n');\nconsole.log(`${rows.length} requirement verify docs and ledger notes updated; evidence/release flags unchanged`);\n'@ | node"
+    },
+    {
+      "timestamp": "2026-10-08T00:12:42.922Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $env:ZENITH_LIVE_MANAGED='0'; $env:ZENITH_LIVE_MIXED='0'; $env:ZENITH_LIVE_RELEASE='0'; npx vitest run tests/acceptance/live-managed.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-l3.gated.test.ts tests/release/live-scope-coverage.test.ts tests/acceptance/mixed-evidence.test.ts tests/acceptance/mixed-connectivity-probe.test.ts tests/acceptance/mixed-traffic.test.ts --no-file-parallelism --maxWorkers=2"
+    },
+    {
+      "timestamp": "2026-10-08T00:12:42.922Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; npx eslint scripts/acceptance/live/managed scripts/acceptance/live/mixed/probes.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-l3.gated.test.ts"
+    },
+    {
+      "timestamp": "2026-10-08T00:12:42.922Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; foreach ($script in @('scripts/acceptance/managed-acceptance.sh','scripts/acceptance/live/mixed/acceptance.sh','scripts/acceptance/live/release/acceptance.sh')) { $output = & bash $script --plan; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; $plan = ($output -join \"`n\") | ConvertFrom-Json; [pscustomobject]@{script=$script;profile=$plan.plan.profile;callsMade=$plan.callsMade;credentialsRead=$plan.credentialsRead;estimatedUsd=$plan.estimatedUsd;pendingScenarios=$plan.pendingScenarios.Count;approval=$plan.approval} | ConvertTo-Json -Compress }; git diff --check; git diff --stat; git status --short"
+    },
+    {
+      "timestamp": "2026-10-08T00:16:03.021Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; rg -n 'const Assertion|numeric operational bounds|Every scenario id' scripts/acceptance/live/managed/plan.ts tests/acceptance/live-managed.test.ts docs/build/production/LIVE-ACCEPTANCE-MANAGED.md; Get-Item -LiteralPath 'C:\\Users\\user\\AppData\\Local\\Temp\\zenith-tsc.lock' | Select-Object LastWriteTime"
+    },
+    {
+      "timestamp": "2026-10-08T00:17:03.175Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; @'\nconst fs = require('node:fs');\nconst { execFileSync } = require('node:child_process');\nconst file = 'docs/build/production/ledger.json';\nconst intended = JSON.parse(fs.readFileSync(file, 'utf8'));\nlet original = execFileSync('git', ['show', `HEAD:${file}`], {encoding: 'utf8'});\nconst rows = intended.requirements.filter(r => /^PROD-(MAN|MIX|OPS|REL)-/.test(r.id));\nfor (const r of rows) {\n  const id = original.indexOf(`\"id\": \"${r.id}\"`);\n  if (id < 0) throw new Error('Requirement missing');\n  const start = original.indexOf('\"implementationStatus\": ', id);\n  const end = original.indexOf('\\n', start);\n  const before = original.slice(start, end);\n  const ending = before.endsWith('\\r') ? '\\r' : '';\n  const replacement = `\"implementationStatus\": \"implementation_complete_verification_pending\",${ending}\\n      \"implementationNote\": ${JSON.stringify(r.implementationNote)},${ending}`;\n  original = original.slice(0, start) + replacement + original.slice(end);\n}\nif (JSON.stringify(JSON.parse(original)) !== JSON.stringify(intended)) {\n  // Compare semantically without treating inserted object key order as a change.\n  const canonical = v => v && typeof v === 'object' ? Array.isArray(v) ? v.map(canonical) : Object.fromEntries(Object.entries(v).sort().map(([k,w]) => [k,canonical(w)])) : v;\n  if (JSON.stringify(canonical(JSON.parse(original))) !== JSON.stringify(canonical(intended))) throw new Error('Unexpected ledger change');\n}\nfs.writeFileSync(file, original);\nconsole.log('Preserved original ledger formatting and all unrelated fields; only 27 status/note pairs changed');\n'@ | node"
+    },
+    {
+      "timestamp": "2026-10-08T00:18:14.467Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $env:ZENITH_LIVE_MANAGED='0'; $env:ZENITH_LIVE_MIXED='0'; $env:ZENITH_LIVE_RELEASE='0'; npx vitest run tests/acceptance/live-managed.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-l3.gated.test.ts tests/release/live-scope-coverage.test.ts tests/acceptance/mixed-evidence.test.ts tests/acceptance/mixed-connectivity-probe.test.ts tests/acceptance/mixed-traffic.test.ts --no-file-parallelism --maxWorkers=2"
+    },
+    {
+      "timestamp": "2026-10-08T00:18:14.467Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; npx eslint scripts/acceptance/live/managed scripts/acceptance/live/mixed/probes.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-l3.gated.test.ts; git diff --check; git diff --numstat; git ls-files --others --exclude-standard"
+    },
+    {
+      "timestamp": "2026-10-08T00:20:35.833Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Date -Format o; Get-Item -LiteralPath 'C:\\Users\\user\\AppData\\Local\\Temp\\zenith-tsc.lock' | Select-Object LastWriteTime; Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match '(typescript[/\\\\]bin[/\\\\]tsc|[ /]tsc --noEmit)' } | Select-Object ProcessId,ParentProcessId,CreationDate; git diff -- docs/build/production/ledger.json | Select-Object -First 90"
+    },
+    {
+      "timestamp": "2026-10-08T00:22:39.412Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; @'\nconst fs = require('node:fs');\nconst path = require('node:path');\nconst base = 'C:/Users/user/.codex/sessions/2026';\nconst found = [];\nfor (const day of ['10/07', '10/08']) {\n  const dir = path.join(base, day);\n  if (!fs.existsSync(dir)) continue;\n  for (const name of fs.readdirSync(dir).filter(n=>n.endsWith('.jsonl'))) {\n    const full = path.join(dir,name); found.push({full,mtime:fs.statSync(full).mtimeMs});\n  }\n}\nlet matched;\nfor (const file of found.sort((a,b)=>b.mtime-a.mtime).slice(0,40)) {\n  const fd = fs.openSync(file.full,'r'); const buf = Buffer.alloc(180000); const length=fs.readSync(fd,buf,0,buf.length,0);fs.closeSync(fd);\n  const lines=buf.subarray(0,length).toString('utf8').split('\\n');\n  if (lines.some(line=>{try {const j=JSON.parse(line);return j.type==='turn_context' && j.payload?.cwd?.replaceAll('\\\\','/').toLowerCase().endsWith('/prod6-l3-live-managed');}catch{return false;}})) {matched=file.full;break;}\n}\nif (!matched) {console.log('Own command log not located; use verification report command table');process.exit(0);}\nconst commands=[];\nfor (const line of fs.readFileSync(matched,'utf8').split('\\n')) {\n  let j;try{j=JSON.parse(line);}catch{continue;}\n  const p=j.payload;\n  if (j.type!=='response_item'||!p||!['function_call','custom_tool_call'].includes(p.type)||!p.name?.endsWith('exec')) continue;\n  const input=typeof p.input==='string'?p.input:typeof p.arguments==='string'?p.arguments:'';\n  const pattern=/tools\\.exec_command\\(\\{cmd:\\s*\"((?:\\\\.|[^\"\\\\])*)\"/g;\n  for(const m of input.matchAll(pattern)){try{commands.push({timestamp:j.timestamp,command:JSON.parse('\"'+m[1]+'\"')});}catch{}}\n}\nfs.writeFileSync('docs/build/production/verify/L3-COMMANDS.json',JSON.stringify({schema:1,workspace:process.cwd(),statement:'Exact shell invocations from this job. Verification outcomes and test counts are in L3-LIVE-MANAGED.md; read-only inspection commands have no test counts.',commands},null,2)+'\\n');\nconsole.log(`Recorded ${commands.length} exact shell invocations from this job only`);\n'@ | node; git branch --show-current"
+    },
+    {
+      "timestamp": "2026-10-08T00:26:05.708Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; @'\nconst fs=require('node:fs');const log=JSON.parse(fs.readFileSync('docs/build/production/verify/L3-COMMANDS.json','utf8'));\nfor (const key of ['npx vitest run','npx eslint','tsc-serial.sh','bash -n']) console.log(JSON.stringify({command:key,attempts:log.commands.filter(x=>x.command.includes(key)).length}));\nconst {execFileSync}=require('node:child_process');const old=JSON.parse(execFileSync('git',['show','HEAD:docs/build/production/ledger.json'],{encoding:'utf8'}));const current=JSON.parse(fs.readFileSync('docs/build/production/ledger.json','utf8'));\nif (JSON.stringify(old.releaseStatus)!==JSON.stringify(current.releaseStatus)) throw Error('Release flags changed');\nlet changed=0;for(let i=0;i<old.requirements.length;i++){const a=old.requirements[i],b=current.requirements[i];if(JSON.stringify(a)!==JSON.stringify(b)){if(!/^PROD-(MAN|MIX|OPS|REL)-/.test(a.id)||a.id!==b.id)throw Error('Unexpected ledger row');const clean={...b};clean.implementationStatus=a.implementationStatus;delete clean.implementationNote;if(JSON.stringify(clean)!==JSON.stringify(a))throw Error('Acceptance, evidence or state changed');changed++;}}\nconsole.log(JSON.stringify({ledgerRowsChanged:changed,acceptanceUnchanged:true,evidenceUnchanged:true,stateUnchanged:true,releaseFlagsUnchanged:true}));\n'@ | node"
+    },
+    {
+      "timestamp": "2026-10-08T00:29:25.898Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Date -Format o; Get-Process -Name node -ErrorAction SilentlyContinue | Select-Object Id,CPU,WorkingSet64 | Sort-Object WorkingSet64 -Descending | Select-Object -First 4; Get-Content docs/build/production/verify/L3-COMMANDS.json -TotalCount 8; git diff --check"
+    },
+    {
+      "timestamp": "2026-10-08T00:33:17.183Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh"
+    },
+    {
+      "timestamp": "2026-10-08T00:35:42.995Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; @'\nconst fs=require('node:fs');\nconst audit=JSON.parse(fs.readFileSync('docs/build/production/verify/L3-COMMANDS.json','utf8'));\nconst tests=audit.commands.filter(x=>x.command.includes('npx vitest run'));\nconst lint=audit.commands.filter(x=>x.command.includes('npx eslint'));\nconst rows=[\n'# L3-LIVE-MANAGED builder verification and handoff','',\n'Worktree: `Z:/Projects/Spawned.ai/zenith-wt/prod6-l3-live-managed`; branch `prod/l3-live-managed`; base `443bfeaf`. Working-tree changes only. No commit, push, migration, SQL aggregate or dependency changes. No real cloud, credentials, Docker, PostgreSQL, Temporal, kind or browser run.','',\n'## Files','',\n'8 harness files: `scripts/acceptance/managed-acceptance.sh`; `scripts/acceptance/live/managed/{plan,runner,transport,cli}.ts`; `scripts/acceptance/live/mixed/{probes.ts,acceptance.sh}`; `scripts/acceptance/live/release/acceptance.sh`.','',\n'3 tests: `tests/acceptance/live-managed.test.ts`, `live-managed-transports.test.ts`, `live-l3.gated.test.ts`.','',\n'27 per-requirement verify documents for MAN/MIX/OPS/REL; `docs/build/production/ledger.json` changes only 27 implementation-status/note pairs. Acceptance text, requirement state/evidence and all release flags are unchanged. Owner runbook: `docs/build/production/LIVE-ACCEPTANCE-MANAGED.md`. This report and `L3-COMMANDS.json` preserve the builder audit.','',\n'## Commands and actual outcomes','',\n'Every PowerShell shell invocation prepended Node 22 to PATH. The Git Bash syntax command exported `/c/Users/user/.local/sdk/node22` first. Detected runtime: `v22.23.3`. Exact shell invocations (including read-only inspections and file-generation commands) are in [L3-COMMANDS.json](L3-COMMANDS.json). Read-only inspections and mutations have no test pass/fail/skip counts; their non-test outcomes are described below.','',\n'### Targeted test attempts','',\n...tests.flatMap((x,i)=>[\n'```powershell',x.command,'```',\n[`35 passed, 0 failed, 3 skipped; 1 passed file, 1 skipped file.`,`78 passed, 0 failed, 3 skipped; 2 passed files, 1 skipped file.`,`143 passed, 0 failed, 3 skipped; 6 passed files, 1 skipped file.`,`144 passed, 0 failed, 3 skipped; 6 passed files, 1 skipped file.`][i]??'See final outcome below.',''\n]),\n'Final post-review test outcome: pending final test command below. All skipped cases are the 3 explicit owner-cloud profiles, not acceptance passes.','',\n'### Lint','',\n...lint.flatMap((x,i)=>['```powershell',x.command,'```',i===0?'Exit 1: 2 unused-import errors, 0 warnings; corrected in runner.ts and transport.ts.':'Exit 0: 0 errors, 0 warnings.','']),\n'Final post-review lint outcome: pending final lint command below. No existing assertion was weakened, removed or skipped. No stale test expectation was changed.','',\n'### Typecheck','',\n'```powershell',\n\"$env:PATH = 'C:\\\\Users\\\\user\\\\.local\\\\sdk\\\\node22;' + $env:PATH; bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh\",\n'```','',\n'Initial serial invocation and final recheck after review fixes: pending. Both use the mandatory serial lock script; no direct whole-repo tsc was run. Recheck follows the numeric-bound and OCI-account validation fixes made while the initial invocation was still waiting/running.','',\n'### Shell syntax and CLI plan smoke','',\n'```bash','export PATH=\"/c/Users/user/.local/sdk/node22:$PATH\"','for script in scripts/acceptance/managed-acceptance.sh scripts/acceptance/live/mixed/acceptance.sh scripts/acceptance/live/release/acceptance.sh; do bash -n \"$script\" || exit; done','node --version','```','',\n'Exit 0: 3 shell syntax checks passed, 0 failed, 0 skipped; Node v22.23.3.','',\n'Each profile wrapper was run with --plan: 3 passed commands, 0 failures, 0 skips; all emitted callsMade=0, credentialsRead=false, approval=not_approved and explicitly incomplete placeholder estimates. Managed/mixed have 6 pending scenarios; release has 24. No cloud was called. Exact loop invocation is in the command audit.','',\n'git diff --check: exit 0, no whitespace errors. Git status/log/diff/branch/show/ls-files were read-only. The optional Win32_Process diagnostic returned Access denied; Get-Process subsequently supplied safe process metadata. Initial reads of nonexistent owned/verify files reported missing paths and were followed by creation of those required files. One apply_patch attempt failed atomically due to an incomplete documentation line match; it was reapplied correctly. These are not test passes or blocked acceptance evidence.','',\n'## Remaining work and joins','',\n'All real-cloud/operational/engine/browser checks: NOT RUN (needs the Mac verifier, operated disposable stack, actual cloud/Stripe/DNS/ACME/source fixtures and accountable approvals). Root permissions remain unapproved and lack managed/release mutation grants. Owner exact-plan approval FILEs and a shared conservative budget book are mandatory.','',\n'Existing L1 helpers are AWS-specific. This handoff uses the allowed helper fallback under live/managed, with the shared release Scope/digest and existing MIX checkers. Integrator must join L1/L2 provider-specific inventories and budget book, J1/J2/J4/J5/J6/J11/J14/J15 actual receipt producers and J12 dossier/signoff. Generic tag indexes do not prove every global/untaggable kind absent; OCI native inventory is explicitly unsupported. Full scenario assertions and both connectivity vantages require owner review. No schema need in L3.','',\n'Cleanup is always attempted for accepted runs, including failures/SIGINT/SIGTERM; SIGKILL/power loss cannot run finally, and expired/revoked product permissions still refuse. Original journals permit bounded cleanup-only recovery; no forward mutation replay or privileged fallback.','',\n'No scope deviation: tests, requirement verify docs and pending ledger notes are explicitly authorized by the job. No commits; orchestrator owns integration and commits.','',\n'Suggested commit: `feat(acceptance): add gated managed mixed and release live harnesses`',''\n];\nfs.writeFileSync('docs/build/production/verify/L3-LIVE-MANAGED.md',rows.join('\\n'));\nconsole.log('Wrote handoff report; serial typecheck outcomes still pending');\n'@ | node"
+    },
+    {
+      "timestamp": "2026-10-08T00:35:42.995Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; $env:ZENITH_LIVE_MANAGED='0'; $env:ZENITH_LIVE_MIXED='0'; $env:ZENITH_LIVE_RELEASE='0'; npx vitest run tests/acceptance/live-managed.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-l3.gated.test.ts tests/release/live-scope-coverage.test.ts tests/acceptance/mixed-evidence.test.ts tests/acceptance/mixed-connectivity-probe.test.ts tests/acceptance/mixed-traffic.test.ts --no-file-parallelism --maxWorkers=2"
+    },
+    {
+      "timestamp": "2026-10-08T00:35:42.995Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; npx eslint scripts/acceptance/live/managed scripts/acceptance/live/mixed/probes.ts tests/acceptance/live-managed.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-l3.gated.test.ts"
+    },
+    {
+      "timestamp": "2026-10-08T00:38:23.149Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content 'Z:\\Projects\\Spawned.ai\\zenith-wt\\.resume\\codex\\tsc-serial.sh'; Get-Content 'docs/build/production/verify/L3-LIVE-MANAGED.md'; git status --short"
+    },
+    {
+      "timestamp": "2026-10-08T00:38:35.098Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Date -Format o; Get-Item -LiteralPath 'C:\\Users\\user\\AppData\\Local\\Temp\\zenith-tsc.lock' | Select-Object FullName,LastWriteTime; Get-Process -Name node,bash -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime,CPU,WorkingSet64"
+    },
+    {
+      "timestamp": "2026-10-08T00:38:51.233Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; Get-Content 'scripts/acceptance/managed-acceptance.sh'; Get-Content 'scripts/acceptance/live/mixed/acceptance.sh'; Get-Content 'scripts/acceptance/live/release/acceptance.sh'; Get-Content 'tests/acceptance/live-l3.gated.test.ts'; Get-Content 'docs/build/production/verify/PROD-REL-01.md'; Get-Content 'docs/build/production/verify/L3-COMMANDS.json' -TotalCount 16"
+    },
+    {
+      "timestamp": "2026-10-08T00:40:01.528Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; node -e @'\nconst fs = require('node:fs'); const cp = require('node:child_process');\nconst entries=cp.execFileSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'}).trimEnd().split('\\n').filter(Boolean); console.log(JSON.stringify({changedFiles:entries.length,files:entries.map(x=>x.slice(3))},null,2));\nconst before=JSON.parse(cp.execFileSync('git',['show','HEAD:docs/build/production/ledger.json'],{encoding:'utf8'})); const after=JSON.parse(fs.readFileSync('docs/build/production/ledger.json','utf8'));\nconsole.log(JSON.stringify({ledgerShape:Object.keys(after)}));\n'@; git diff --check"
+    },
+    {
+      "timestamp": "2026-10-08T00:40:25.452Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; @{ now=(Get-Date -Format o); lock=(Get-Item -LiteralPath 'C:\\Users\\user\\AppData\\Local\\Temp\\zenith-tsc.lock' -ErrorAction SilentlyContinue | Select-Object LastWriteTime); node=@(Get-Process -Name node -ErrorAction SilentlyContinue | Sort-Object CPU -Descending | Select-Object -First 8 Id,StartTime,CPU,WorkingSet64) } | ConvertTo-Json -Depth 4"
+    },
+    {
+      "timestamp": "2026-10-08T00:42:26.997Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; node -e @'\nconst fs=require('node:fs'), path=require('node:path');\nconst root='C:/Users/user/.codex/sessions/2026/10'; const workspace=process.cwd(); const normalized=workspace.replaceAll('\\\\','/').toLowerCase();\nconst files=['07','08'].flatMap(day=>fs.readdirSync(path.join(root,day)).filter(name=>name.endsWith('.jsonl')).map(name=>path.join(root,day,name))).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs).slice(0,40);\nlet own;\nfor (const file of files) {\n  const fd=fs.openSync(file,'r');const buf=Buffer.alloc(180000);const count=fs.readSync(fd,buf,0,buf.length,0);fs.closeSync(fd);\n  const lines=buf.subarray(0,count).toString('utf8').split('\\n');\n  if (lines.some(line=>{try{const v=JSON.parse(line);return v.type==='turn_context'&&String(v.payload.cwd).replaceAll('\\\\','/').toLowerCase()===normalized;}catch{return false;}})) { own=file;break; }\n}\nif(!own) throw Error('Own session log not found');\nconst commands=[];let sourceCalls=0;\nfor(const line of fs.readFileSync(own,'utf8').split('\\n')) {\n  let v;try{v=JSON.parse(line);}catch{continue;}\n  const p=v.payload;if(v.type!=='response_item'||!p||!String(p.name).endsWith('exec')||typeof p.input!=='string')continue;\n  sourceCalls+=(p.input.match(/tools\\.exec_command\\(/g)||[]).length;\n  const re=/tools\\.exec_command\\(\\{cmd:\\s*\"((?:\\\\.|[^\"\\\\])*)\"/g;let m;\n  while((m=re.exec(p.input))) commands.push({timestamp:v.timestamp,command:JSON.parse('\"'+m[1]+'\"')});\n}\nfs.writeFileSync('docs/build/production/verify/L3-COMMANDS.json',JSON.stringify({schema:1,workspace,statement:'Exact shell invocations from this job. Verification outcomes and test counts are in L3-LIVE-MANAGED.md; read-only inspection commands have no test counts.',commands},null,2)+'\\n');\nconsole.log(JSON.stringify({shellInvocations:commands.length,sourceCalls,vitestCommands:commands.filter(x=>x.command.includes('npx vitest run')).length,serialTypechecks:commands.filter(x=>x.command.includes('bash Z:/Projects/Spawned.ai/zenith-wt/.resume/codex/tsc-serial.sh')).length}));\n'@"
+    },
+    {
+      "timestamp": "2026-10-08T00:47:40.953Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; node -e \"const fs=require('node:fs'); console.log(JSON.stringify(JSON.parse(fs.readFileSync('docs/build/production/verify/L3-COMMANDS.json','utf8')).commands.filter(x=>x.command.endsWith('tsc-serial.sh')),null,2));\"; Get-Process -Id 2764 -ErrorAction SilentlyContinue | Select-Object Id,StartTime,CPU,WorkingSet64 | ConvertTo-Json"
+    },
+    {
+      "timestamp": "2026-10-08T00:50:14.097Z",
+      "command": "$env:PATH = 'C:\\Users\\user\\.local\\sdk\\node22;' + $env:PATH; node -e @'\nconst fs=require('node:fs'), path=require('node:path'), cp=require('node:child_process');\nconst root='C:/Users/user/.codex/sessions/2026/10'; const workspace=process.cwd(); const normalized=workspace.replaceAll('\\\\','/').toLowerCase();\nconst files=['07','08'].flatMap(day=>fs.readdirSync(path.join(root,day)).filter(name=>name.endsWith('.jsonl')).map(name=>path.join(root,day,name))).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs).slice(0,40);\nlet own;\nfor (const file of files) {\n  const fd=fs.openSync(file,'r');const buf=Buffer.alloc(180000);const count=fs.readSync(fd,buf,0,buf.length,0);fs.closeSync(fd);\n  if (buf.subarray(0,count).toString('utf8').split('\\n').some(line=>{try{const v=JSON.parse(line);return v.type==='turn_context'&&String(v.payload.cwd).replaceAll('\\\\','/').toLowerCase()===normalized;}catch{return false;}})) { own=file;break; }\n}\nif(!own) throw Error('Own session log not found');\nconst commands=[];let sourceCalls=0;\nfor(const line of fs.readFileSync(own,'utf8').split('\\n')) {\n  let v;try{v=JSON.parse(line);}catch{continue;}\n  const p=v.payload;if(v.type!=='response_item'||!p||!String(p.name).endsWith('exec')||typeof p.input!=='string')continue;\n  sourceCalls+=(p.input.match(/tools\\.exec_command\\(/g)||[]).length;\n  const re=/tools\\.exec_command\\(\\{cmd:\\s*\"((?:\\\\.|[^\"\\\\])*)\"/g;let m;\n  while((m=re.exec(p.input))) commands.push({timestamp:v.timestamp,command:JSON.parse('\"'+m[1]+'\"')});\n}\nif(sourceCalls!==commands.length)throw Error('Shell command audit is incomplete');\nfs.writeFileSync('docs/build/production/verify/L3-COMMANDS.json',JSON.stringify({schema:1,workspace,statement:'Exact shell invocations from this job. Verification outcomes and test counts are in L3-LIVE-MANAGED.md; read-only inspections and file mutations have no test counts.',commands},null,2)+'\\n');\nconst entries=cp.execFileSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'}).trimEnd().split('\\n').filter(Boolean);\nconsole.log(JSON.stringify({auditedShellInvocations:commands.length,changedFiles:entries.length,allTypecheckResultsRecorded:!fs.readFileSync('docs/build/production/verify/L3-LIVE-MANAGED.md','utf8').includes('invocation and final recheck after review fixes: pending')}));\n'@; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; git diff --check"
+    }
+  ]
+}

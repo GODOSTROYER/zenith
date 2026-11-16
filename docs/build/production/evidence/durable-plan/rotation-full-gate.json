@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "status": "failed",
+  "scope": "Complete executed clean staging regression checks; mandatory dependency gate failed. Separate real database, image, kind, default browser and external acceptance gates remain independently recorded.",
+  "steps": [
+    {
+      "name": "typecheck",
+      "exitCode": 0,
+      "seconds": 9.29,
+      "logSha256": "67bfbc2a439139104f888754cfda372370c2dcbeddb1689431dd3df637150145"
+    },
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "seconds": 22.46,
+      "logSha256": "553ac5e34bf28988f11bd351006e9db23c09e02320357311140e1d2683940fa8"
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.04,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 0.98,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "go-race",
+      "exitCode": 0,
+      "seconds": 22.8,
+      "logSha256": "99da2d9e892f0595c34a34b1c263439fb5a3333734c68ba466af9d476e0dc5a7",
+      "counts": {
+        "pass": {
+          "topLevel": 232,
+          "subtests": 541
+        },
+        "fail": {
+          "topLevel": 0,
+          "subtests": 0
+        },
+        "skip": {
+          "topLevel": 3,
+          "subtests": 0
+        }
+      }
+    },
+    {
+      "name": "policy-generated",
+      "exitCode": 0,
+      "seconds": 0.57,
+      "logSha256": "c4cd4167f3f19624e344a285c2ac171888bfba695757641dcc756a127888a557"
+    },
+    {
+      "name": "emit-sql",
+      "exitCode": 0,
+      "seconds": 0.44,
+      "logSha256": "eaca05df81b59d3424574f94d0441effd033c9ef9f63b3fe45374bc3e688c878"
+    },
+    {
+      "name": "matrix",
+      "exitCode": 0,
+      "seconds": 2.79,
+      "logSha256": "1772d93c0f907830506cb1f2b91ed2deb41f7a8dc15b5b3eff31a269e2d710a8"
+    },
+    {
+      "name": "aws-templates",
+      "exitCode": 0,
+      "seconds": 0.28,
+      "logSha256": "302317440f9e8c29eeb4961bcb5ba3a80e6bbcf31f9ab2dbbe559ab30fbda6dd"
+    },
+    {
+      "name": "ledger",
+      "exitCode": 0,
+      "seconds": 0.04,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "unit",
+      "exitCode": 0,
+      "seconds": 968.06,
+      "counts": {
+        "passed": 16842,
+        "failed": 0,
+        "skipped": 212,
+        "total": 17054
+      },
+      "logSha256": "36109da443df16c817e0650b151d4d5cfc49717fe3a91cbc23568b0493ddc69c"
+    },
+    {
+      "name": "security",
+      "exitCode": 1,
+      "seconds": 1.55,
+      "logSha256": "7609a42c858df85e8026be290724665a6b59820a06489d9109743ab9905a3f59"
+    },
+    {
+      "name": "workflows",
+      "exitCode": 0,
+      "seconds": 343.87,
+      "counts": {
+        "passed": 1000,
+        "failed": 0,
+        "skipped": 0,
+        "total": 1000
+      },
+      "logSha256": "a80c72bd3d7540a7096fa59ed64b9cc1f1f09bff4c3250b54171bb6b8d819125",
+      "canonicalExecution": {
+        "requiredGroups": 44,
+        "everyRequiredGroupPassed": true,
+        "requiredGroupSkippedAssertions": 0,
+        "verdict": "passed",
+        "exitCode": 0,
+        "bindings": {
+          "lane": true,
+          "reportSha256": true,
+          "manifestSha256": true,
+          "sourceSha256": true,
+          "sourceBindingComplete": true,
+          "effectiveEnvironmentSha256": true,
+          "environmentInventorySha256": true,
+          "shellContextSha256": true,
+          "shellLevelSha256": true,
+          "shellCommandSha256": true,
+          "runtimeSha256": true,
+          "environmentInventoryIntegrity": true
+        },
+        "evidenceSha256": "856e95989e017c31212bb32c1fb5723d82baca795213384eada7b3b82425e343"
+      }
+    },
+    {
+      "name": "workflows-revalidate",
+      "exitCode": 0,
+      "seconds": 0.13,
+      "logSha256": "32f97ebdd36c16fb70f661732f26f9a013351394f0d9c5c471adca45fc17cd58"
+    },
+    {
+      "name": "policy",
+      "exitCode": 0,
+      "seconds": 1.98,
+      "counts": {
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "total": 238
+      },
+      "logSha256": "d0583111817f11cc1a607bd0b2eb073be964625e8760a92444ad69e6ccf08f8d",
+      "canonicalExecution": {
+        "requiredGroups": 7,
+        "everyRequiredGroupPassed": true,
+        "requiredGroupSkippedAssertions": 0,
+        "verdict": "passed",
+        "exitCode": 0,
+        "bindings": {
+          "lane": true,
+          "reportSha256": true,
+          "manifestSha256": true,
+          "sourceSha256": true,
+          "sourceBindingComplete": true,
+          "effectiveEnvironmentSha256": true,
+          "environmentInventorySha256": true,
+          "shellContextSha256": true,
+          "shellLevelSha256": true,
+          "shellCommandSha256": true,
+          "runtimeSha256": true,
+          "environmentInventoryIntegrity": true
+        },
+        "evidenceSha256": "a499898b8ae99502559da2bdc0125b6e2f20cc8088ea8a1f32d5524805eca520"
+      }
+    },
+    {
+      "name": "policy-revalidate",
+      "exitCode": 0,
+      "seconds": 0.12,
+      "logSha256": "556c56ed8c86876453ab6a0bb1de63d51af18e456c50f59de23dbafaa9430c74"
+    },
+    {
+      "name": "tofu",
+      "exitCode": 0,
+      "seconds": 146.29,
+      "counts": {
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 8,
+        "total": 3908
+      },
+      "logSha256": "f0e98e9bc4f08f64176165a927ee50d653a0ee8a9b29ff01c6ebc0ccee29bcc5",
+      "canonicalExecution": {
+        "requiredGroups": 27,
+        "everyRequiredGroupPassed": true,
+        "requiredGroupSkippedAssertions": 0,
+        "verdict": "passed",
+        "exitCode": 0,
+        "bindings": {
+          "lane": true,
+          "reportSha256": true,
+          "manifestSha256": true,
+          "sourceSha256": true,
+          "sourceBindingComplete": true,
+          "effectiveEnvironmentSha256": true,
+          "environmentInventorySha256": true,
+          "shellContextSha256": true,
+          "shellLevelSha256": true,
+          "shellCommandSha256": true,
+          "runtimeSha256": true,
+          "environmentInventoryIntegrity": true
+        },
+        "evidenceSha256": "d5474001bb34ecf79d2d0ff6b4282732a28e80a6662c74f701ff4b902778b631"
+      }
+    },
+    {
+      "name": "tofu-revalidate",
+      "exitCode": 0,
+      "seconds": 0.14,
+      "logSha256": "6c748b9263d2e5cb922f5bcafd03a7357ab206d2c6bb5fbf6b899be409a5aead"
+    }
+  ],
+  "nonExecutedScopes": [
+    "Local API server Smoke/Gimbal require still-pending local startup authorization. Exact pushed CI runs browser gates.",
+    "Real PostgreSQL/Supabase lanes run separately after this serialized gate.",
+    "External Temporal mTLS, live clouds and operational release acceptance remain separate blockers."
+  ],
+  "mandatoryFailures": [
+    "security"
+  ],
+  "sourceMainIntegrated": false,
+  "skipLimits": [
+    "Unit212prerequisite skips remain visible; scopes overlap with separate canonical lanes.",
+    "OpenTofu8skips are tests/tofu/plan-artifact-handoff.test.ts PostgreSQL cases, required and separately executed by platform-postgres manifest.",
+    "All27required OpenTofu groups passed without skipped matching assertions; no blanket skip waiver.",
+    "Three Go tests Linux-only and skipped on macOS; actual Linux/package acceptance separate.",
+    "External Temporal mTLS unverified; canonical zero skips does not waive release requirement."
+  ]
+}

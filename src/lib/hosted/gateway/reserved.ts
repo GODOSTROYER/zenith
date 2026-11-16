@@ -9,6 +9,7 @@
  * without a session, because they are how a session begins. Everything else
  * here is behind the same admission as an artifact.
  */
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { hostedConfig } from "@/lib/hosted/config";
 import {
@@ -70,7 +71,38 @@ const escapeHtml = (value: string): string =>
  * only job is to say where the door is: the control origin's apps list, which
  * mints the single-use exchange code that lands back on this host.
  */
-export function signInPage(app: HostedApp, errorCode?: string): string {
+/**
+ * The login nonce. A launch code is single-use and short-lived, but on its own it is a bearer in a URL: whoever can get
+ * a browser to open `callback?code&state` signs that browser in as the code's owner (login CSRF / session fixation).
+ * So `state` must be a value only the browser that is about to log in holds: the sign-in page (app host) mints a
+ * random nonce, keeps it in this host-only HttpOnly cookie, and passes the same value as `state` to the launch; the
+ * callback refuses any `state` that is not exactly the cookie. A code minted for an attacker's own nonce is useless in
+ * a victim's browser. The cookie lives ten minutes and is cleared by a successful callback.
+ */
+export const LOGIN_STATE_COOKIE = "__Host-zenith_login";
+const LOGIN_STATE_TTL_SEC = 600;
+export const loginStateCookie = (nonce: string): string => `${LOGIN_STATE_COOKIE}=${nonce}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${LOGIN_STATE_TTL_SEC}`;
+export const clearLoginStateCookie = (): string => `${LOGIN_STATE_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
+const NONCE_RE = /^[A-Za-z0-9._~-]{1,128}$/;
+
+function loginStateOf(cookieHeader: string | null): string | null {
+  for (const pair of (cookieHeader ?? "").split(";")) {
+    const eq = pair.indexOf("=");
+    if (eq > 0 && pair.slice(0, eq).trim() === LOGIN_STATE_COOKIE) {
+      const value = pair.slice(eq + 1).trim();
+      return NONCE_RE.test(value) ? value : null;
+    }
+  }
+  return null;
+}
+
+const sameValue = (a: string, b: string): boolean => {
+  const left = createHash("sha256").update(a).digest();
+  const right = createHash("sha256").update(b).digest();
+  return timingSafeEqual(left, right);
+};
+
+export function signInPage(app: HostedApp, errorCode?: string, nonce?: string): string {
   const controlOrigin = hostedConfig().ZENITH_CONTROL_ORIGIN.replace(/\/+$/, "");
   const notice =
     errorCode && Object.prototype.hasOwnProperty.call(SIGN_IN_MESSAGES, errorCode)
@@ -111,7 +143,7 @@ export function signInPage(app: HostedApp, errorCode?: string): string {
   <h1>Open this app from Zenith</h1>
   ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ""}
   <p>${escapeHtml(app.name)} is a private app. Zenith signs you in when you open it from your apps list; there is nothing to type in here.</p>
-  <p><a class="go" href="${escapeHtml(controlOrigin)}/apps">Go to your Zenith apps</a></p>
+  <p><a class="go" href="${escapeHtml(controlOrigin)}${nonce ? `/api/hosted/apps/${encodeURIComponent(app.id)}/launch?state=${encodeURIComponent(nonce)}` : "/apps"}">${nonce ? "Sign in with Zenith" : "Go to your Zenith apps"}</a></p>
   <p><small>If you cannot see this app there, ask its owner to invite you.</small></p>
 </main>
 </body>
@@ -126,7 +158,8 @@ function signIn(req: NextRequest, app: HostedApp): Response {
   if (req.method !== "GET")
     return methodNotAllowed(["GET"], { wantsHtml: false, what: "The sign-in page" });
   const error = new URL(req.url).searchParams.get("error");
-  return gatewayHtml(signInPage(app, error ?? undefined));
+  const nonce = randomBytes(32).toString("base64url");
+  return gatewayHtml(signInPage(app, error ?? undefined, nonce), { setCookie: loginStateCookie(nonce) });
 }
 
 /**
@@ -147,10 +180,17 @@ async function authCallback(req: NextRequest, app: HostedApp): Promise<Response>
     gatewaySeeOther(`/_zenith/auth/signin?error=${encodeURIComponent(reason)}`);
 
   if (!code || !state) return bounce("invalid_input");
+  // Browser binding first, before the code is consumed: a mismatch must not burn the legitimate owner's code, and
+  // the failure is the same fixed answer whatever was wrong.
+  const nonce = loginStateOf(req.headers.get("cookie"));
+  if (nonce === null || !sameValue(nonce, state)) {
+    await noteAccessDenied(app, "login_state_mismatch");
+    return bounce("invalid_input");
+  }
   try {
     const deps = gatewayDeps();
     const { cookieValue, session } = await deps.redeemExchange(code, { appId: app.id, state });
-    return gatewaySeeOther("/", { setCookie: deps.appSessionCookie(cookieValue, session.expiresAt) });
+    return gatewaySeeOther("/", { setCookie: [deps.appSessionCookie(cookieValue, session.expiresAt), clearLoginStateCookie()] });
   } catch (err) {
     await noteAccessDenied(app, err instanceof HostedError ? err.code : "internal");
     return bounce(err instanceof HostedError ? err.code : "internal");

@@ -1,0 +1,71 @@
+# The platform BUILD namespace (PROD-MAN-01): where source builds for managed
+# environments run. Tenant code runs here (as the operator-chosen builder's
+# Dockerfile steps), so this namespace is NOT a tenant namespace and holds no
+# tenant workloads; builds are Jobs Zenith creates through its operator session.
+#
+# PLACEHOLDER like every file in this directory: never applied to a production
+# cluster. What Zenith checks at build time (src/lib/platform/zenith-managed-build.ts):
+#   - ServiceAccount zenith-builder exists and sets automountServiceAccountToken: false
+#   - NetworkPolicy zenith-build-egress exists. Its rules are READ BACK after each build
+#     and recorded in the build's provenance: a policy that allows the public internet
+#     is reported "unrestricted" and release admission refuses it unless the operator
+#     set the recorded open-egress exception (ZENITH_BUILD_ALLOW_OPEN_EGRESS=1).
+# Whether the CNI ENFORCES the policy is not something Zenith can read; verify it
+# (README, "Verify the cluster").
+#
+# The default egress policy below allows DNS only. A build that pushes to your
+# registry or downloads dependencies needs those destinations added as rules
+# (cidr:port; a NetworkPolicy matches addresses, not hostnames). Add the push
+# destination of ZENITH_MANAGED_REGISTRY and, if Dockerfiles install packages, an
+# allowlisting proxy you operate. Do not add 0.0.0.0/0.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zenith-build
+  labels:
+    zenith.dev/platform: "true"
+    # The builder runs Dockerfile steps as root inside its container (kaniko-style),
+    # which `restricted` forbids. `baseline` still forbids privileged pods,
+    # hostPath, host namespaces and added capabilities beyond the default set.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zenith-builder
+  namespace: zenith-build
+automountServiceAccountToken: false
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zenith-build-default-deny-ingress
+  namespace: zenith-build
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zenith-build-egress
+  namespace: zenith-build
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # REPLACE: the push destination of ZENITH_MANAGED_REGISTRY, for example
+    # - to: [{ ipBlock: { cidr: 203.0.113.10/32 } }]
+    #   ports: [{ protocol: TCP, port: 443 }]

@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-REL-02"
+  ],
+  "mode": "local",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); the release tooling (dossier, release status, evidence receipts) run over the repository's real recorded evidence: a committed live AWS run (PROD-MIX-01, run 41617473729) and the real ledger; no database or cloud engine applies to the release tooling; no network",
+  "command": "vitest run tests/acceptance/verify-release-dossier.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/acceptance/verify-release-dossier.test.ts",
+      "sha256": "6f5e4edf17ceee6c6199e52013c60328cb9618aa054cb9194aa9e9250239cee9"
+    }
+  ]
+}

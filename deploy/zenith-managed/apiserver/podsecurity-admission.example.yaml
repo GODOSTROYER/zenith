@@ -1,0 +1,36 @@
+# NOT a cluster object: do not kubectl apply this.
+#
+# kube-apiserver admission configuration that makes the `restricted` Pod Security
+# Standard the cluster-wide DEFAULT, so a namespace nobody labeled is still held
+# to it. Zenith also labels every tenant namespace `enforce: restricted`, which
+# works without this; this file protects the namespaces Zenith did not label.
+#
+# How to use it depends on how you run the control plane:
+#   - self-managed: write it to the control plane nodes and pass
+#       --admission-control-config-file=/etc/kubernetes/admission/podsecurity.yaml
+#     to kube-apiserver (mount the file into the static pod);
+#   - managed Kubernetes (EKS/GKE/AKS): the API server flag is not yours to set;
+#     rely on the per-namespace labels Zenith applies, and check your provider's
+#     policy features for a cluster default.
+# Pod Security Admission is built in from Kubernetes 1.25 (stable). Confirm your
+# version and that the PodSecurity admission plugin is enabled; Zenith cannot
+# detect a cluster where it is not.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: restricted
+        enforce-version: latest
+        audit: restricted
+        audit-version: latest
+        warn: restricted
+        warn-version: latest
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        # platform namespaces that must run privileged system components
+        namespaces: [kube-system, zenith-gateway]

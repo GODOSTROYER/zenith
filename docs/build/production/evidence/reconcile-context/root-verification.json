@@ -1,0 +1,191 @@
+{
+  "recordedAt": "2026-10-02T19:30:24.436656+00:00",
+  "testedCandidateCommit": "fbfa456e0111b106f039e2800b2c276b63d01b86",
+  "candidateDirty": true,
+  "candidateFrame": "7a8a2c1fa3d94649efa87e7ac09b837f65576079e1e091bdc66e4fcb4a379e22",
+  "sourceCommit": "43de51a3be84821139a6b20fc9c79db6d99e7b0d",
+  "mergeCommit": "d6be4404407afd02b2f2ec211c47d3e8e0dd80d5",
+  "ownedSource": [
+    {
+      "path": "docs/platform/operations/DEPLOYING.md",
+      "sha256": "283be74e06769be4daa05598a91994a6ebe4378e2451853ece047bb994268c28"
+    },
+    {
+      "path": "docs/platform/operations/OBSERVATION-REPAIR.md",
+      "sha256": "3a8efc4b141f44e854ffb7ef431ab5430682d9ac394cd36adb11131b18cac4b5"
+    },
+    {
+      "path": "docs/platform/operations/README.md",
+      "sha256": "a9f17947f4793857056579afe4db1e93faaddd41f9be5965eeb37517c49daaa5"
+    },
+    {
+      "path": "src/lib/platform/reconcile.ts",
+      "sha256": "673d97eabd9ae177fad9dae1da6bdd2d9029a00603454fc10cc745bfa7630600"
+    },
+    {
+      "path": "src/lib/reconcile/core.ts",
+      "sha256": "5fd2d47d11bc7501a6f1492e34a16a75fd8c2dab971d78f2f69e777fe812f542"
+    },
+    {
+      "path": "src/lib/reconcile/diff.ts",
+      "sha256": "0b408d64a5cde629cb7576c12a11aafa79b1a37c745d2e636fab4d813acacb4a"
+    },
+    {
+      "path": "src/lib/reconcile/observe.ts",
+      "sha256": "a03f12f8bd2b7a3ff530227ace2f651e75f6b2c6f4fae294294b1fbdba416a60"
+    },
+    {
+      "path": "src/lib/reconcile/platform/index.ts",
+      "sha256": "0d21ba6e717f3b439506d32097c1859685f7738cba9fafee92cd2215e56d68d1"
+    },
+    {
+      "path": "src/lib/reconcile/types.ts",
+      "sha256": "8595c0ab602fae13ad37b4a00ae2b1953cd0718d6c92eb116602bdf46dd3c05c"
+    },
+    {
+      "path": "tests/docs/operator-docs.test.ts",
+      "sha256": "4e72fe5d9792aecafb82400c0496b54e345d503629594cc251a96d69cbe4924e"
+    },
+    {
+      "path": "tests/execution/aws-bootstrap-context.test.ts",
+      "sha256": "4bf00462e2f927cd81215fb1ee93b1b2e10e01dc75dbd86557980e872614ded6"
+    },
+    {
+      "path": "tests/reconcile/core.test.ts",
+      "sha256": "2ee3fd2ba3aee6f7badc2574d0eafa37e211e1a1d458164af4ea076ce087cfb1"
+    },
+    {
+      "path": "tests/reconcile/observe.test.ts",
+      "sha256": "e0e69c56527b6860660d10f7114a06bb1b166c02e40a3ca15987c7f7cb1503ac"
+    },
+    {
+      "path": "tests/reconcile/platform.test.ts",
+      "sha256": "d5f55d8930e7d54cd2780dac72206ba4c00a8659e361d4d35d4ec13e6485115e"
+    }
+  ],
+  "checks": [
+    {
+      "name": "diff-check",
+      "exitCode": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "tsc",
+      "exitCode": 0,
+      "seconds": 15.2
+    },
+    {
+      "name": "eslint",
+      "exitCode": 0,
+      "seconds": 2.1
+    },
+    {
+      "name": "vitest",
+      "exitCode": 0,
+      "seconds": 82.2
+    },
+    {
+      "name": "gofmt",
+      "exitCode": 0,
+      "seconds": 0.0
+    },
+    {
+      "name": "go-vet",
+      "exitCode": 0,
+      "seconds": 0.5
+    },
+    {
+      "name": "go-test",
+      "exitCode": 0,
+      "seconds": 0.2
+    }
+  ],
+  "vitest": {
+    "passed": 448,
+    "failed": 0,
+    "skipped": 0,
+    "includesRealOpenTofu": 5
+  },
+  "go": {
+    "passedTopLevel": 226,
+    "passedSubtests": 539,
+    "failed": 0,
+    "skippedLinuxOnlyOnMac": 3,
+    "race": "not requested by focused helper; separate full release gate"
+  },
+  "postgres": {
+    "counts": {
+      "total": 1409,
+      "passed": 1409,
+      "failed": 0,
+      "skipped": 0,
+      "unknown": 0
+    },
+    "requiredGroups": 39,
+    "schema2ReceiptBindings": {
+      "lane": true,
+      "reportSha256": true,
+      "manifestSha256": true,
+      "sourceSha256": true,
+      "sourceBindingComplete": true,
+      "effectiveEnvironmentSha256": true,
+      "environmentInventorySha256": true,
+      "shellContextSha256": true,
+      "shellLevelSha256": true,
+      "shellCommandSha256": true,
+      "runtimeSha256": true,
+      "environmentInventoryIntegrity": true
+    },
+    "observedExitCode": 0,
+    "separateRequireExecutionRevalidation": "passed",
+    "cleanup": {
+      "container": "zenith-prod-pg-c82d8aff",
+      "ownershipVerified": true,
+      "removed": true,
+      "absenceVerified": true
+    }
+  },
+  "kind": {
+    "provider": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    "release": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "cleanup": {
+      "deleteSucceeded": true,
+      "clusterAbsent": true,
+      "ownedContainersAbsent": true,
+      "kubeconfigRemoved": true
+    },
+    "limitations": [
+      "Disposable local kind cluster; no live or managed-cloud evidence.",
+      "Default kind CNI does not establish NetworkPolicy enforcement.",
+      "No StatefulSet, persistent-data recovery or default source-build credential proof."
+    ]
+  },
+  "review": {
+    "result": "Independent source review clear after scope-binding correction",
+    "receiptSha256": "b057e874738e42d67481999045cb2023d426423c28b3cc008c320b4695b645bd"
+  },
+  "earlierCandidate": {
+    "revision": 1,
+    "passed": 343,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "Different frozen source; superseded by448-case revision3 runtime checks."
+  },
+  "limitations": [
+    "Root must independently verify frozen exact source before integration.",
+    "No atomic revocation is claimed: a saved connection can change after the final check and before a provider read; credential broker retains session authority and revocation checks.",
+    "A changed finding remains durable in detected events across unread passes, but active finding identity is not retained in the current report through those passes. No stale repairable finding is copied forward.",
+    "Context-only source tests are not live-cloud remediation acceptance."
+  ],
+  "remote": "Complete new pushed run still required."
+}

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "testedCommit": "228573330c718464b181eb5f3abc6a90c3f4ed50",
+  "verdict": "failed",
+  "counts": {
+    "passed": 19650,
+    "failed": 3,
+    "skipped": 1280,
+    "total": 20933
+  },
+  "failedCases": [
+    {
+      "file": "tests/ci/gate-manifest.test.ts",
+      "test": "binds exact cleanup source and literal titles to required physical PostgreSQL admission before hooks"
+    },
+    {
+      "file": "tests/ci/gate-manifest.test.ts",
+      "test": "binds all 100 source cases while preserving the original 46 and refusing unavailable native prerequisites before hooks"
+    },
+    {
+      "file": "tests/ci/guest-file-write-gate.test.ts",
+      "test": "holds a genuine-shaped modeled execution pass until both positive cleanups and absence"
+    }
+  ],
+  "runtimeEnvironment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "go": "1.27.1 GOTOOLCHAIN=local",
+    "architecture": "native Darwin ARM64",
+    "umask": "077"
+  },
+  "passedPrecedingSteps": [
+    "gofmt",
+    "go-vet",
+    "go-race",
+    "policy-generated",
+    "emit-sql",
+    "matrix",
+    "offered-catalog",
+    "aws-templates",
+    "ledger"
+  ],
+  "goEvents": {
+    "passed": 941,
+    "skipped": 5,
+    "scope": "Go test events include parents and leaves; not unique required identities"
+  },
+  "unexecutedAfterUnitFailure": [
+    "security",
+    "policy",
+    "policy-revalidate",
+    "tofu",
+    "tofu-revalidate"
+  ],
+  "cleanup": {
+    "ownedChildSettled": true,
+    "ownedDataRemoved": true
+  },
+  "rawReportSha256": "fe77fd87e397c8786f9fca628dc279edef28f89571ea750aedac5e2c561f5471",
+  "rawReceiptSha256": "27499f87de6d274ea51e17c3b30f3c38c427128705e4d7f360a9e49b5d9c7e0a",
+  "rawLogs": "not retained publicly",
+  "narrowFixCommits": [
+    "005cd1cc9c80b15b72567609a371fb6d24156bdb",
+    "7a3c1909b27764b7880c924f904df376263d4412"
+  ],
+  "successorFullGate": "pending; targeted successor checks do not replace this failed attempt"
+}

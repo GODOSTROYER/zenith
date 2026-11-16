@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "kind": "c45_incremental_cleanup_observer_and_ci_status",
+  "sourceCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "ledger": "10 verified / 66 in progress / 2 planned",
+  "milestonePromotion": false,
+  "releaseFlagsChanged": false,
+  "cleanup": {
+    "r5Outcome": "failed at protectedImagesBefore because two optional build-reference images were absent locally and treated as command failure",
+    "custody": "clean; terminal absence proven",
+    "deletionEntered": false,
+    "resourceDeletionClaimed": false,
+    "historicalR1FailurePreserved": true,
+    "r2PreflightPassed12Of12": true,
+    "r6": "HOLD after two field bugs",
+    "r7": "corrects both fields; conditional source review PASS; focused proof pending"
+  },
+  "observer04": {
+    "rawAssertionResult": "10 passed",
+    "wrapperR2": "failed on wrong ancestor expectation",
+    "accepted": false,
+    "afterSourceFreezeAndFinalFloorEvidence": "absent",
+    "R3": "source-reviewed candidate pending rerun",
+    "sourceOnlyCandidateSha256": "fd2302eb18906d7a131cb435f78349c80da7e9e799d9eaf485eac5f685fbc4e9"
+  },
+  "latestCI": {
+    "sourceSha": "34764541d54d67b17d67bf6455fadf29aa733b84",
+    "observedAt": "2026-10-11T20:20:21Z",
+    "workflowRuns": 3,
+    "jobCount": 32,
+    "counts": {
+      "success": 22,
+      "conditionalSkipped": 8,
+      "running": 2,
+      "failed": 0
+    },
+    "runs": [
+      {
+        "workflow": "Native skipped platforms",
+        "runId": 38170443451,
+        "status": "completed",
+        "sourceSha": "34764541d54d67b17d67bf6455fadf29aa733b84",
+        "counts": {
+          "success": 2
+        }
+      },
+      {
+        "workflow": "CI",
+        "runId": 38170443445,
+        "status": "in_progress",
+        "sourceSha": "34764541d54d67b17d67bf6455fadf29aa733b84",
+        "counts": {
+          "running": 2,
+          "success": 18,
+          "skipped": 8
+        }
+      },
+      {
+        "workflow": "Native packaged workers",
+        "runId": 38170443476,
+        "status": "completed",
+        "sourceSha": "34764541d54d67b17d67bf6455fadf29aa733b84",
+        "counts": {
+          "success": 2
+        }
+      }
+    ],
+    "inventorySha256": "0f01a60407ba93f41c2afe2398de2ff7f3be8927cf95851fc7a898e247c87b23",
+    "reportSha256": "46708b2bdbca8881e66a19539b5da809b6a333ffd96faa94bd312d51c80eccbf",
+    "sameSourceForAllThreeRuns": true
+  },
+  "historicalC45Ci": "prior terminal CI inventory remains unchanged and bound to c45; the 34764541 snapshot does not replace it",
+  "sourceRepositoryChanged": false
+}

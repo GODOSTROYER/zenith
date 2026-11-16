@@ -1,0 +1,189 @@
+{
+  "sourceCommit": "3e856cf4aac02fbc14fc95b5318983a2d9c360cd",
+  "observedAtUtc": "2026-10-05T17:50:06.535984+00:00",
+  "status": "terminal_not_green",
+  "runs": [
+    {
+      "runId": 37346865892,
+      "workflowName": "CI",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37346865892",
+      "status": "completed",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "id": 111887504946,
+          "name": "postgres",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505210,
+          "name": "hosted",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505216,
+          "name": "agent",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505267,
+          "name": "build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505281,
+          "name": "policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505306,
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "cancelled"
+        },
+        {
+          "id": 111887505313,
+          "name": "go",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "id": 111887505350,
+          "name": "workflows",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "id": 111887505355,
+          "name": "docker",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505472,
+          "name": "tofu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505506,
+          "name": "supply-chain",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505603,
+          "name": "operation-gates (workflow-intents)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505640,
+          "name": "ledger",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505683,
+          "name": "generated",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887505709,
+          "name": "platform-postgres",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "id": 111887505714,
+          "name": "operation-gates (reconciliation)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "runId": 37346865827,
+      "workflowName": "Native packaged workers",
+      "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37346865827",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 111887504275,
+          "name": "packaged-worker (amd64, ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 111887504469,
+          "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "mainCounts": {
+    "passed": 12,
+    "failed": 3,
+    "cancelled": 1
+  },
+  "nativeWorkers": [
+    {
+      "sha256": "1c9efb5514c5906fbed1308bc5f4dd40f94e18a988a694291db64f359de13816",
+      "sourceCommit": "3e856cf4aac02fbc14fc95b5318983a2d9c360cd",
+      "status": "passed",
+      "platform": "linux/amd64",
+      "childExitCode": 0,
+      "requiredCount": 22,
+      "passedChecks": 22,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "processArchitecture": "x64",
+      "dockerArchitecture": "amd64",
+      "nativeNotEmulated": true,
+      "tools": {
+        "Node": "22.23.3"
+      }
+    },
+    {
+      "sha256": "73baaa14c26365fa25046e480077f5017416e1c1f8e363269a7643aff335edd1",
+      "sourceCommit": "3e856cf4aac02fbc14fc95b5318983a2d9c360cd",
+      "status": "passed",
+      "platform": "linux/arm64",
+      "childExitCode": 0,
+      "requiredCount": 22,
+      "passedChecks": 22,
+      "cleanup": {
+        "builderAbsent": true,
+        "builderContainerAbsent": true,
+        "cacheVolumeAbsent": true,
+        "baselinePreserved": true,
+        "wrapperPrivateFilesRemoved": true,
+        "ownedContextAbsent": true
+      },
+      "processArchitecture": "arm64",
+      "dockerArchitecture": "arm64",
+      "nativeNotEmulated": true,
+      "tools": {
+        "Node": "22.23.3"
+      }
+    }
+  ],
+  "go": "1033 leaf passes, zero failures, three declared skips;148 required race statuses passed; strict parser failure prevented root-package4 and goldens. This does not verify152.",
+  "unit": "Cancelled at30-minute job limit, no final JSON/counts. Latest complete unit failure retained.",
+  "freshCandidateCi": "pending"
+}

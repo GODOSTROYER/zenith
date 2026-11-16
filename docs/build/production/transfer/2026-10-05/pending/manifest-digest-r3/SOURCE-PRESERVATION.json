@@ -1,0 +1,19 @@
+{
+  "status": "MECHANICAL_SOURCE_CHECKS_ONLY_NO_EXECUTION",
+  "engineRestoresOnlyOneImportAndTwoManifestDigestExpressions": true,
+  "allOtherObjectHashAndCipherDomainsExact": true,
+  "testWholeFileRestoresOnlyPositiveAssertionAndTwoProducerControls": true,
+  "retained46BodiesExact": true,
+  "all100LiteralNamesOrderExact": true,
+  "allOtherWaitGetterApprovalCasUncertaintyControlsExact": true,
+  "docOriginalPrefixExact": true,
+  "fullPaths": 3854,
+  "outsideOwnedPaths": 3851,
+  "preparedCandidateOutsideBytesExact": true,
+  "privateForwardReverseGitApplyExact": true,
+  "beforeTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "candidateTree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+  "realIndexBeforeAfterSha256": "9e31fd0c901cc8c9e819d06a16080d1e1ce4e8c9dfd750256e60a906775ea328",
+  "stageEntriesBeforeAfterSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+  "headBeforeAfter": "f69965600bc47e5f2935e19bdb10a2225d595fc5"
+}

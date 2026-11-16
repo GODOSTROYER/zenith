@@ -1,0 +1,340 @@
+{
+  "status": "INDEPENDENT_SOURCE_MECHANICAL_BINDING_ONLY",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/FROZEN-SOURCE.json",
+    "sha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85"
+  },
+  "patch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/candidate.patch",
+    "sha256": "abdcd294212a3b399db9679cb5a34d9d3342749cda3fa8de976aa7c670954b91",
+    "bytes": 341203,
+    "paths": [
+      "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md",
+      "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+      "src/lib/controlplane/db/migrations/emit.ts",
+      "src/lib/controlplane/db/migrations/index.ts",
+      "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+      "src/lib/controlplane/db/repos/plan-artifacts.ts",
+      "src/lib/platform/plan-artifacts.ts",
+      "src/lib/tofu/engine.ts",
+      "src/lib/tofu/runner.ts",
+      "supabase/migrations/0018_platform_core.sql",
+      "tests/controlplane/_support/saved-native-plan.ts",
+      "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "tests/controlplane/plan-artifact-integration-authority.test.ts",
+      "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+      "tests/controlplane/plan-artifact-product-authority.test.ts",
+      "tests/tofu/plan-artifact-handoff.test.ts"
+    ]
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/CASE-CONTRACT.json",
+    "sha256": "c861acd36702b25758be61b53e629c725c5d4c1cfd74a63df79b284fff94f68a"
+  },
+  "preparedTreeIndependentlyReconstructed": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+  "candidateTreeIndependentlyReconstructed": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+  "ownedCount": 17,
+  "fullPreparedCount": 3830,
+  "fullCandidateCount": 3835,
+  "outsideOwnedCount": 3818,
+  "allFrozenBeforeAfterLiveHashBytesModesExact": true,
+  "outsideOwnedRawExact": true,
+  "completeActualTrackedAndNonignoredUntrackedSetExact": true,
+  "pureInMemoryPatchForwardReverseExact": true,
+  "noGitIndexObjectWrites": true,
+  "rawIndexSha256BeforeAndAfter": "d204f6d8fdc25a60c69e4802687e5a6bb841b931246fec437c5d2758129b06e3",
+  "nulStageEntriesSha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+  "stagedDiffEmpty": true,
+  "head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "casesIndependentlyExpanded": {
+    "count": 91,
+    "retained46Additive45": true,
+    "namesSha256CompactJSON": "4b7178e6cb23d3f01634c912b8a54ad7c4c361c06b26103eb9d282de9e21c68e",
+    "old46BodyByteExact": true,
+    "independentStrippedBodySha256": "96d35c967bae156495671b7c9b9280c534227c4aec4f9bccf30cb522a7886b0e",
+    "pairedOtherLiteralTitleTemplateOrderExact": true,
+    "requiredEnvironment": "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1"
+  },
+  "historicalExact": {
+    "migration15": {
+      "path": "src/lib/controlplane/db/migrations/0015_cleanup_writer_barriers.ts",
+      "sha256": "bb5b53c6e87f0a2e957a27ef6c47b9393c948ed507ba5f482c37e536be765b3e",
+      "bytes": 13936,
+      "mode": 420
+    },
+    "supabase17": {
+      "path": "supabase/migrations/0017_platform_core.sql",
+      "sha256": "2a5a95abdfd54dc8bae835d85254944fc18eae3e535145739da3e28393cf07ee",
+      "bytes": 85951,
+      "mode": 420
+    }
+  },
+  "migration16LiteralMatches0018ExactlyOnce": true,
+  "actualEmitterCompilerNativeProjectRuntime": "UNRUN_BY_REVIEWER",
+  "ownedFiles": [
+    {
+      "path": "src/lib/tofu/engine.ts",
+      "before": {
+        "sha256": "cff24238b8bc9d249fdd3f94c6d5fd5c220cff8e36b947cfaf33a5b486aaa5da",
+        "bytes": 16179,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "ea14ceff2d1d901d440aea0edfdbe90350909a906f920e095dab9aca6b3ab82a",
+        "bytes": 32367,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/tofu/runner.ts",
+      "before": {
+        "sha256": "25ec7823dc283a49e9e502fe4a5cf617ed098c68560ab8c7e2e2c080a16247ed",
+        "bytes": 20966,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "9f3c568f00a17457999f2fbaec20642c6641745cba99e823d03ee72ad2b72ece",
+        "bytes": 37030,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/platform/plan-artifacts.ts",
+      "before": {
+        "sha256": "0424cb2c9905d032808a149535f03238d2975687059f97a6db3ea9846155da97",
+        "bytes": 14814,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "fc64499e805755f80ae7d1ddd9b70da7250d43f0c22d21d31f745c6ba952ea89",
+        "bytes": 20682,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/plan-artifacts.ts",
+      "before": {
+        "sha256": "59eeeb68d6b5549b9beeafdfd0b887968016550924708289d72f2206ef6e8ddd",
+        "bytes": 59540,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "de670526d19331a824365a6659a955e2d2750e44a84f7b9466795255b87f309a",
+        "bytes": 68728,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+      "before": {
+        "sha256": "bda9b7b8d6e9a696394cfafa78273bb7e87e9f7f5dec72a976c8c6c06949ddc6",
+        "bytes": 8310,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "ba3b040c48b608c689594d57f33164ff99026b94a94f92d0af5662fd31b28179",
+        "bytes": 12251,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+      "before": null,
+      "after": {
+        "sha256": "746a7b331ea5ed179c32e9e48bc6c1f8654d8c4ae87e22dac326a9d2f60ad703",
+        "bytes": 3312,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/index.ts",
+      "before": {
+        "sha256": "3e202d82402bfd1f05e0c54755d8fa600bcabfd3b01325f62a2863b267febe0d",
+        "bytes": 2481,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "ce6ab2ff6c88c6564ce0d89bc2666b00b506ccf014f9a18ad8a290e574ab41aa",
+        "bytes": 2611,
+        "mode": 420
+      }
+    },
+    {
+      "path": "src/lib/controlplane/db/migrations/emit.ts",
+      "before": {
+        "sha256": "85bd93b5ef644be8b0d317892004c37f2976584ef43ca5c446c426c36067f978",
+        "bytes": 6891,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "67abe87d40c76b2397caecc1936fb0a8625759c607d3566f64080ef95bdb2482",
+        "bytes": 7218,
+        "mode": 420
+      }
+    },
+    {
+      "path": "supabase/migrations/0018_platform_core.sql",
+      "before": null,
+      "after": {
+        "sha256": "dfa07664b99bca3494db0d716f5fd40578690f9a72dadb4819e8ddb2d4da833e",
+        "bytes": 89676,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "before": {
+        "sha256": "4709e75f33820dc62e9b9a9be870d1cf71d94092cbaa1063257790e1db069ae9",
+        "bytes": 61240,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "f5704edefcc609b691a4cae0a454e93d50cc19e26f67004318dc45b1535dfd7a",
+        "bytes": 97885,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "before": null,
+      "after": {
+        "sha256": "75db274c955de109d3026f48fe95078b6757097d28e96a0ab8317f0e6e2ebae0",
+        "bytes": 6360,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/plan-artifact-integration-authority.test.ts",
+      "before": {
+        "sha256": "80a4593fac5e5c46f85e44189e58145dd5a00f20be1071d8b0a20bf8203225bf",
+        "bytes": 39969,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "95d76ed84070e4a150f8f855ee79641889bd37b9562217acbad5ae7cd1414c80",
+        "bytes": 41459,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+      "before": {
+        "sha256": "7cfe2cf85fb454be9508a0e50469e278f0e2b032b2c1b457f36ab38f8366f3f7",
+        "bytes": 36066,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "c4d522048dd2174c7bc31d78a85f5db9949f45451238131764d847a721c3ebb4",
+        "bytes": 37567,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/plan-artifact-product-authority.test.ts",
+      "before": {
+        "sha256": "86702a3188a1bc31f79c48da8df0bd1b97024e641fb2c5f23daf16f087852a08",
+        "bytes": 42299,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "a2fa6151deb86ef39e87012c415c63bbdfb9aa5de0122c1dcfb899ebd281e799",
+        "bytes": 46370,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/tofu/plan-artifact-handoff.test.ts",
+      "before": {
+        "sha256": "26c0d8e2dbfde74589437788028192621bf2666b184b07c4f08cc0bad1363c13",
+        "bytes": 55901,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "0221047e99a58559d6c392acfdd4356bf46f2914675f212280030993aebaea96",
+        "bytes": 52816,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/_support/saved-native-plan.ts",
+      "before": null,
+      "after": {
+        "sha256": "973d9045675813376a62a7cc5de0dee981cd43b0d19c1b466684cfdd41cd6b59",
+        "bytes": 17891,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md",
+      "before": null,
+      "after": {
+        "sha256": "5f2a5eab404edfa5b43d99f9f72fc8eb1d227a23574eff21838d641d4e7b5bda",
+        "bytes": 3449,
+        "mode": 420
+      }
+    }
+  ],
+  "artifactsIndependentlyHashed": [
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-preparation-20261005/PREPARATION.json",
+      "sha256": "a79c5af38bba3e6514bcd58c32899f7c0498e526fb2367aacfc1bbd930f4c824"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/PRE-EDIT-BASELINE.json",
+      "sha256": "1c28f2e13b0c99bb4c53320584dbfd780039ee2445f464a5fa0b2edc0c879742"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/PROPOSED-OWNERSHIP-AND-PROOF-CONTRACT.json",
+      "sha256": "62add5a1a17bde76981084db8a6bab206a8860141226177c79fb9bfbf228ca98"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/candidate.patch",
+      "sha256": "abdcd294212a3b399db9679cb5a34d9d3342749cda3fa8de976aa7c670954b91",
+      "bytes": 341203,
+      "paths": [
+        "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md",
+        "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+        "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+        "src/lib/controlplane/db/migrations/emit.ts",
+        "src/lib/controlplane/db/migrations/index.ts",
+        "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+        "src/lib/controlplane/db/repos/plan-artifacts.ts",
+        "src/lib/platform/plan-artifacts.ts",
+        "src/lib/tofu/engine.ts",
+        "src/lib/tofu/runner.ts",
+        "supabase/migrations/0018_platform_core.sql",
+        "tests/controlplane/_support/saved-native-plan.ts",
+        "tests/controlplane/cleanup-writer-barriers.test.ts",
+        "tests/controlplane/plan-artifact-integration-authority.test.ts",
+        "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+        "tests/controlplane/plan-artifact-product-authority.test.ts",
+        "tests/tofu/plan-artifact-handoff.test.ts"
+      ]
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/CASE-CONTRACT.json",
+      "sha256": "c861acd36702b25758be61b53e629c725c5d4c1cfd74a63df79b284fff94f68a"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/OWNED-INVENTORY.json",
+      "sha256": "b8523654131b1e63c899b590b2ee96b51a3a383f413f6fdfeaaf053809d03462"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/FULL-AFTER-INVENTORY.json",
+      "sha256": "91673fb4fc3d1db5f356dc03d3b1357cdcdfdf6e5c56d07dde7e0bda2f0ba283"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/OUTSIDE-INVENTORY.json",
+      "sha256": "08420c58c47eef6c2663dcfd466f661ea6c8af327c497661002f0cd3c665f132"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/STATIC-SOURCE-CHECKS.json",
+      "sha256": "34a7a6cc4d134d9c96b027aa9191b9faae70a578ea38eb1145d1b42fbc7779e1"
+    },
+    {
+      "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/VERIFICATION-COMMANDS.json",
+      "sha256": "c0da25f7ce632b4fff03b82acacd82dbd8356b3f977b4a2e795b3334039e9506"
+    }
+  ]
+}

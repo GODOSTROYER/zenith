@@ -1,0 +1,96 @@
+{
+  "disposition": "CORRECTION_REQUIRED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "reviewer": "Independent B; author A; root owns runtime/integration",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/FROZEN-SOURCE.json",
+    "sha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85"
+  },
+  "patch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-writer-settlement-20261005/revision1/candidate.patch",
+    "sha256": "abdcd294212a3b399db9679cb5a34d9d3342749cda3fa8de976aa7c670954b91",
+    "bytes": 341203,
+    "paths": [
+      "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md",
+      "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "src/lib/controlplane/db/migrations/0016_cleanup_writer_settlements.ts",
+      "src/lib/controlplane/db/migrations/emit.ts",
+      "src/lib/controlplane/db/migrations/index.ts",
+      "src/lib/controlplane/db/repos/cleanup-writer-barriers.ts",
+      "src/lib/controlplane/db/repos/plan-artifacts.ts",
+      "src/lib/platform/plan-artifacts.ts",
+      "src/lib/tofu/engine.ts",
+      "src/lib/tofu/runner.ts",
+      "supabase/migrations/0018_platform_core.sql",
+      "tests/controlplane/_support/saved-native-plan.ts",
+      "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "tests/controlplane/plan-artifact-integration-authority.test.ts",
+      "tests/controlplane/plan-artifact-oauth-authority.test.ts",
+      "tests/controlplane/plan-artifact-product-authority.test.ts",
+      "tests/tofu/plan-artifact-handoff.test.ts"
+    ]
+  },
+  "candidateTree": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+  "binding": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/BINDING.json",
+    "sha256": "44b198ab7f7aa8f80bcc24ce4faa9e7d1cc58476cb649349b470c8e52327041e"
+  },
+  "cases": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-writer-settlement-r1-review-20261005/CASES.json",
+    "sha256": "26acb2a66218479a99e476c51d65fb2822496559dfd37171bf26e94f9625d1ee",
+    "requiredCount": 91,
+    "retained46Exact": true,
+    "additive45Exact": true
+  },
+  "findings": [
+    {
+      "severity": "BLOCKING_SOURCE_CONTRACT",
+      "title": "Finite registered run method and field access can evaluate hostile descriptors after an awaited canonical command",
+      "paths": [
+        {
+          "path": "src/lib/tofu/engine.ts",
+          "line": 293
+        },
+        {
+          "path": "src/lib/tofu/runner.ts",
+          "line": 530
+        },
+        {
+          "path": "src/lib/tofu/runner.ts",
+          "line": 587
+        },
+        {
+          "path": "src/lib/tofu/runner.ts",
+          "line": 322
+        }
+      ],
+      "trigger": "A genuine finite run initially matches the original private descriptors. While its actual init/show/dispatch callback waits, an own/prototype subsequent method or i accessor is introduced.",
+      "trace": [
+        "Engine producer/apply/readback callbacks only guard the run before first init, then directly read later run.plan/normalizedPlan/readPlanFile/output/currentStateDigest after awaits.",
+        "Inside canonical normalizedPlan, showJson is awaited and this.i.session/ws/extraEnv is subsequently read without another descriptor guard.",
+        "Inside canonical apply, awaited digest/normalize/beforeDispatch paths precede mutable this.planFileSha/this.command method reads.",
+        "TofuRunner.run finally reads run.dispose after the caller callback wait; an accessor is evaluated before original dispose can perform its internal guard."
+      ],
+      "implication": "Later private command/cleanup matching still refuses false settlement, but evaluation of the substituted getter/callback precedes that refusal, violating the stated finite descriptor and zero-hostile-getter admission boundary. This is source tracing, not an executed attack or proof of a forged receipt.",
+      "boundedRemedy": "On known private registered finite runs, repeat descriptor-only original run/workspace checks immediately before every later method read and internal field access following awaits, capture fixed original fields for awaited work, and guard final disposal before reading the mutable method. Separate legacy paths retain their existing behavior. Add meaningful producer/apply/readback/internal-show/final-dispose hostile accessor controls with zero getter calls and unchanged nonreplay/state assertions.",
+      "authorResponse": "A confirmed the engine accessor gap and proposed immutable-parent R2; additional internal normalizedPlan/apply/final-dispose locations sent A/root/C. No author source edits reviewed as part of this frozen R1."
+    }
+  ],
+  "acceptedLimitedObservations": [
+    "Exact17 pre/post/live/frozen/candidate and3835 full/3818 outside inventory bound independently, real index bytes/staged entries unchanged, no real/private index writes; in-memory unified forward/reverse and independently encoded prepared/candidate trees exact.",
+    "All46 prior whole test prefix bytes and literal names retained;45 additive names expand mechanically to91 unique cases under literal native suite/backend flags. All execution remains unrun.",
+    "Finite generated builtin JSON/local backend and existing state eligibility precede first tool init; physical parent device/inode/UID plus fixed terraform.tfstate identity and separate approved path/config digest bind target.",
+    "Private actual command records and full init/plan/original-apply argv close previously recorded direct producer/terminal fabrication findings. Captured command invocation fields and original-root disposal internal checks close their narrower prior field mutation findings.",
+    "Authentic encrypted settlement domain/native immutable row/current approval CAS are reviewed on C separate crypto axis; this receipt does not borrow C runtime or treat SQL-seeded rows as proof."
+  ],
+  "outsideFollowups": [
+    "Exact 45-case mandatory registration and strict coherent identity derivation retaining old1059/80/123/22",
+    "SQL AST composer/source hash rebind for receipt/source settlement composition",
+    "Schema16/two-table counts and tenancy classification, fresh/reapply/collision/hardening tests",
+    "Canonical Supabase0018 emitter parity and initializer checks",
+    "Genuine positively owned Linux bind-mount alias/foreign-scope fixture",
+    "Cloud/provider/workflow/build/runner/machine settlement remains unsupported; their histories/grants stay blockers",
+    "Runtime success/review of hosted production topology, browser/OAuth consent or complete cleanup requirements is not claimed",
+    "Fresh separate R2 against frozenfa1d95ad, final independent review, root compiler/lint/nativePG/OpenTofu all required before any source integration or requirement closure."
+  ],
+  "execution": "No project imports/compiler/tests/lint/DB/Docker/services/cloud/install or source/Git index writes/commits. Standard-library source/hash/unified-diff/tree parsing only; own review receipts written. Historical draft findings and original failed platform/runtime receipts retained."
+}

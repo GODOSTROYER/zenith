@@ -11,6 +11,7 @@ import { useProjectData } from "./project-context";
 import { useShell } from "./shell-context";
 import { useChromeSlot } from "./chrome-slot";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
+import { v1View } from "@/lib/resources/upgrade";
 import { cx, fmtUsd } from "@/lib/format";
 
 /**
@@ -77,7 +78,7 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
   const projects = boot?.projects ?? [];
   const isProd = selectedEnv?.class === "production";
   const pending = changesets[selectedEnvId]?.items.length ?? 0;
-  const cost = fmtUsd(monthlyCostUsd(project.workingManifest));
+  const cost = fmtUsd(monthlyCostUsd(v1View(project.workingManifest)));
   const controls = <div className="workbench-project-context" data-production={isProd}>
     <h1 className="sr-only">{project.name}</h1>
     {projects.length > 1 ? <Select

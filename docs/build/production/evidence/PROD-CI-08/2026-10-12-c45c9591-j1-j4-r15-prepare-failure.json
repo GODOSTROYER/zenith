@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "J1-J4-joined-R15-R5-prepare-terminal-diagnosis",
+  "acceptanceClaim": false,
+  "sourceCommit": "c45c95915531799b455b0f21faf7885de05ba6db",
+  "session": {
+    "id": 30937,
+    "closed": true,
+    "exitCode": 1,
+    "durationSecondsApprox": 290,
+    "stageChildExitCode": 0
+  },
+  "result": {
+    "status": "failed-retain-owned-state",
+    "stage": "prepare",
+    "hardQuarantineCount": 1,
+    "quarantineReason": "parent_bracket_mismatch",
+    "captureRecords": 24,
+    "captureErrno": "ESRCH",
+    "captureExhaustion": false,
+    "custodyTelemetryComplete": true,
+    "eventsTruncated": false,
+    "droppedEvents": 0,
+    "pendingResolvedAbsent": 8,
+    "pendingStillLive": 0,
+    "terminalAbsenceConfirmationsPerPendingIdentity": 2,
+    "finalActiveIdentityCount": 0,
+    "finalAbsenceProven": true,
+    "cleanupReceiptPresent": false,
+    "resourceDeletionProven": false,
+    "CAtrustMutation": false,
+    "AirPlay": "off under prior authorization"
+  },
+  "phaseOnlyResults": {
+    "J4Prestart": "14 passed / 0 failed",
+    "J4PreAPI": "13 passed / 0 failed",
+    "J1DeferredUpLeaderExit": 0,
+    "outerJoinedPhase": "refused during settlement"
+  },
+  "causeSummary": "A short-lived unadmitted child had an exact parent-before observation followed by parent ESRCH and two child ESRCH reads. Existing policy recorded a hard parent_bracket_mismatch quarantine; clean terminal absence did not clear the earlier quarantine.",
+  "futureNarrowProof": "Any source change requires a narrowly staged parent/child identity proof with exact parent-before/after transition, two exact child ESRCH reads, matching UID/PPID/session/group/birth facts, complete brackets and telemetry, and two terminal independent identity-absence confirmations. Contradictions or incomplete evidence remain hard refusals. This is diagnosis only; no source change or retry.",
+  "diagnosisSha256": "ae8dacfca7a40df05fc7cc6d48d03182f5304f2821947816c253525fc87df2c9"
+}

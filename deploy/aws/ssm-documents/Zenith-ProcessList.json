@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith process.list: the busiest processes by CPU or memory. Read-only. Output format zenith.process.list/v1.",
+  "parameters": {
+    "limit": {
+      "type": "String",
+      "description": "Maximum processes to return (1-500).",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3,
+      "interpolationType": "ENV_VAR"
+    },
+    "sortBy": {
+      "type": "String",
+      "description": "cpu or memory.",
+      "allowedPattern": "^(cpu|memory)$",
+      "maxChars": 6,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "limit=\"${SSM_limit-}\"",
+          "sortby=\"${SSM_sortBy-}\"",
+          "case \"$limit\" in ''|*[!0-9]*) die 64 'invalid limit (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "[ \"$limit\" -ge 1 ] && [ \"$limit\" -le 500 ] || die 64 'limit out of range'",
+          "case \"$sortby\" in cpu) key=4 ;; memory) key=5 ;; *) die 64 'invalid sortBy' ;; esac",
+          "command -v ps >/dev/null 2>&1 || die 69 'ps is not available on this machine'",
+          "out=$(ps -eo pid=,ppid=,user=,pcpu=,pmem=,rss=,etimes=,comm= 2>&1) || die 69 \"ps failed: $(printf '%s' \"$out\" | head -c 300)\"",
+          "echo 'zenith.process.list/v1'",
+          "printf 'total=%s\\n' \"$(printf '%s\\n' \"$out\" | grep -c .)\"",
+          "printf '%s\\n' \"$out\" | sort -k \"$key\",\"$key\" -nr | head -n \"$limit\" | awk 'NF >= 8 {c = $8; for (i = 9; i <= NF; i++) c = c \" \" $i; printf \"proc=%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n\", $1, $2, $3, $4, $5, $6, $7, c}'",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

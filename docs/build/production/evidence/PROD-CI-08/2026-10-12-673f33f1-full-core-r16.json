@@ -1,0 +1,70 @@
+{
+  "acceptance": false,
+  "commit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+  "custody": {
+    "diskFloorBytes": 23622320128,
+    "droppedEvents": 0,
+    "eventCount": 44,
+    "minimumFreeBytes": 257468084224,
+    "ownedIgnoredDataCleanup": "completed after child exit",
+    "pendingObservations": 12,
+    "pendingResolvedAbsent": 12,
+    "pendingStillLive": 0,
+    "quarantineOverflowMode": false,
+    "quarantinedObservations": 0,
+    "telemetryComplete": true
+  },
+  "execution": {
+    "acceptedRunExecution": true,
+    "executionReceiptSha256": "b3f766d4093edeb4735cae915dd41d97c1e3fa73e99fc20c216309e66e09fb2d",
+    "failed": 0,
+    "identityReporterSha256": "71d13bb91cbc8dca8b1ac0be79185e1e92d7e4cbfcd8347300cdfbde7f4b00a1",
+    "passed": 24624,
+    "runnerSha256": "1af0b516c335e28d3f94c5a7fcfc4b2942b0b415a79124f96b4841eebebb9f54",
+    "scope": "full core Node/DOM test execution only",
+    "skipped": 1943,
+    "status": "passed",
+    "suitesFailed": 0,
+    "suitesPassed": 4902,
+    "suitesSkipped": 0,
+    "summarySha256": "6ec9e4b3ce89ea810caa9a0943f01fa7100a06a37f60317765bd506d55d61577",
+    "todo": 0,
+    "total": 26567,
+    "upstreamCoreSha256": "379b6a99508e16da39f1d797153cdfbcb9399bae1a9a1afeecfb3bc30ea6232c",
+    "wrapperExitCode": 0
+  },
+  "kind": "673f33f1_full_core_terminal_evidence",
+  "level": "local_engine",
+  "limitations": [
+    "This records a passing scoped full-core Node/DOM execution with 1,943 skips; it is not a no-skip run.",
+    "It does not establish the complete PROD-CI-08 gate or all-78 application/milestone acceptance.",
+    "The earlier refused full-core attempt remains separate historical evidence and is not replaced by this passing execution."
+  ],
+  "milestonePromotion": false,
+  "pins": {
+    "executionReceiptPath": "/tmp/zenith-fresh-r16-673f33f1b714-09008dac198b4953926f8a614abeb681.execution-receipt.private.json",
+    "independentTerminalReview": {
+      "path": "/tmp/zenith-673f33f1-fullcore-terminal-review-r1/review.json",
+      "sha256": "a6afde82f9aa23e8f206707eb42658adce3a243e5b640cc245fb18f316d5a718"
+    },
+    "outerLogSha256": "9bea34ea6d3920e9c57e7ada9ab21089caa601b794a1ec365d84a45570732c6c",
+    "summaryPath": "/private/tmp/zenith-newmac-core-84cy9e92/summary.private.json"
+  },
+  "proposedLedgerEntry": {
+    "acceptance": false,
+    "artifact": "docs/build/production/evidence/PROD-CI-08/2026-10-12-673f33f1-full-core-r16.json",
+    "commit": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+    "level": "local_engine",
+    "milestonePromotion": false,
+    "requirement": "PROD-CI-08"
+  },
+  "requirement": "PROD-CI-08",
+  "schemaVersion": 1,
+  "source": {
+    "head": "673f33f1b714df9f22a0ebae301bbb9f32c0cff5",
+    "sourceBeforeAfterByteIdentical": true,
+    "sourceCount": 6012,
+    "sourceFreezeSha256": "25139bd2570392016d4bcf90ff31683923502584a1ffadae1f4c723a1061c360",
+    "sourceStable": true
+  }
+}

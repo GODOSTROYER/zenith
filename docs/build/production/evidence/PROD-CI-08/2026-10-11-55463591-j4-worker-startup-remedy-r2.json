@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "kind": "local_j4_worker_startup_remedy",
+  "diagnosticSourceCommit": "554635916dfc8ce6c74e7b699a24e2f61670bebc",
+  "acceptance": false,
+  "milestonePromotion": false,
+  "originalJ4FailureLocalized": false,
+  "actualProjectedWorkerBlockers": {
+    "receiptSha256": "f4c27227103f360f5a1e3b99cda8ce35207d00493b5cd2e036f6032240248b35",
+    "validatorResults": [
+      {
+        "category": "startup.tofu_packaged_identity",
+        "stage": "execution",
+        "status": "caught"
+      },
+      {
+        "category": "startup.production_temporal_tls",
+        "stage": "reconcile",
+        "status": "caught"
+      }
+    ],
+    "terminalReviewSha256": "ea4c2a5e9abe3322b954bdf619dd70d854b084d41d9da5cf7577e77f70484059"
+  },
+  "nativeToolPackaging": {
+    "receiptSha256": "d9034b75f5f941a471702f707f4ae6968055aa895de507e479e472249868f061",
+    "terminalReviewSha256": "30fffc3e6551559ef0e3389a32f7cb86a083dab5642d06a3424c5e0e1c86bb58",
+    "status": "packaging-completed",
+    "version": "1.12.5",
+    "platform": "darwin_arm64",
+    "binarySha256": "96557429623614140cf41afeb147b8a7e1fbe53e55923b63e7b581bc608d60ca",
+    "archiveSha256": "2ae38150a667f5c0bd57b318d18ad8091d08f93fcca40345f3d88998661de5a9",
+    "identitySha256": "c06e24250fcd496856df6793b0ebbbc1f2b49e0a32f1ea0af7fc1796995d14aa",
+    "provenanceSha256": "e422ae865071d9f61cd4139dbfadbc381e6edc215e3cfe15445792c7d72f9306",
+    "scope": "Genuine native Darwin local fixture packaging; not Linux or production acceptance. Retained official checksum-list bytes are pinned; cosign signature is not verified, matching the documented product packaging trust limit."
+  },
+  "correctedConfiguration": {
+    "receiptSha256": "b5147ad580e1d8ba2849970831376749034a5fe9880ec91eecadf4d0695d5757",
+    "validatorResults": [
+      {
+        "category": null,
+        "stage": "execution",
+        "status": "returned"
+      },
+      {
+        "category": null,
+        "stage": "reconcile",
+        "status": "returned"
+      }
+    ],
+    "status": "diagnostic-completed",
+    "scope": "Explicit lean local worker projection with NODE_ENV=test and genuine native tool paths. Product validators unchanged; no maintenance function or worker invoked.",
+    "terminalReview": "PASS scoped local configuration only",
+    "terminalReviewSha256": "8560fe6efb32941cca0d6b3e8e05fb32fdb610e92e731a3d7919696fd66d9b04"
+  },
+  "fixtureCodeValidation": {
+    "sourceFiles": {
+      "scripts/release/local-joined.ts": "8c1f149e02349b2f9562ba2581d8a3d92815683530a517cab6fc475c913f9dfe",
+      "tests/release/local-targets.test.ts": "82fb2180b41bd18dcd6ecc551448759ebbc0e724d60917af3041d1d849a09869"
+    },
+    "focused": {
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "a20865a5324f161ccc427a9b97d9eda5310a58643e5909bc978f1d1aa65f536c"
+    },
+    "lintExitCode": 0,
+    "fullTypecheckExitCode": 0,
+    "codeCheckLogSha256": "1b2a397b57f0c747bc63fc46fd502e84f6c028c7a0619514c65781d484eb9fdf",
+    "initialTypecheckFailurePreserved": true,
+    "initialTypecheckFailureLogSha256": "9e45d17732209051759ad27ac0efdf00861383171391833abd35f65c31f94147",
+    "independentSourceReviewSha256": "dbd0496b1a01a036c37862f7378706f8195f4f2edf71ea964486f4d0190852bd",
+    "typeFixReviewSha256": "b1f47f49250399fcebdc1a2675c0d837c3568474961ef98ff367d91c21884421"
+  },
+  "remaining": [
+    "New-source full CI and coherent local acceptance",
+    "Fresh J1/J4 natural timer acceptance",
+    "Authorized manual CA trust and J2/browser journeys",
+    "Remaining fixed verifier queue and documented external prerequisites"
+  ],
+  "releaseFlagsChanged": false
+}

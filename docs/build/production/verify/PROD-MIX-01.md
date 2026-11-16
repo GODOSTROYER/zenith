@@ -1,0 +1,157 @@
+# PROD-MIX-01: Execution partitions and authorities
+
+## L1-LIVE-AWS provider slice (8 October 2026)
+
+Acceptance: Partition graph by provider/account/region/backend; bind separate authorized connections before replacing existing cross-provider refusal.
+
+The AWS planner includes this exact requirement; native provider fixture checks alone leave its full product acceptance pending. See [L1-LIVE-AWS](L1-LIVE-AWS.md) and [owner runbook](../LIVE-ACCEPTANCE.md) for the immutable plan, Wave 5 ProductScenarioPort join, approved permission/session FILE references, owner-only bootstrap, one-command execution and recovery. Commercial, retention, multi-cloud, managed cluster and final signoff decisions remain separate where this row requires them.
+
+Exact Mac commands (Node 22, one workload, Docker 4GiB only for the separate Wave 5 stack):
+
+```bash
+export PATH="$ZENITH_NODE22_BIN:$PATH"
+node --version
+actionlint .github/workflows/live-acceptance.yml
+tofu -chdir=deploy/live-sandbox/aws init -backend=false
+tofu -chdir=deploy/live-sandbox/aws validate
+npx vitest run tests/acceptance/aws-production.test.ts tests/acceptance/aws-production.live.test.ts --no-file-parallelism --maxWorkers=1
+# Only AFTER DEC-CLOUD and all variables in LIVE-ACCEPTANCE.md are exported, for a NEW approved run:
+ZENITH_LIVE_AWS=1 npx vitest run tests/acceptance/aws-production.live.test.ts --no-file-parallelism --maxWorkers=1
+```
+
+Expected offline: provider contracts pass; actual AWS test is skipped, never accepted as live evidence. Expected live for this source: six actual provider fixtures and native cleanup, zero failed checks, packet incomplete / exit 3 and this requirement pending until its full product journey is joined and independently verified. No actual AWS, real PostgreSQL, Temporal, kind or browser verification was run on the Windows builder. Status for the AWS harness slice: implementation_complete_verification_pending.
+
+## PROD-MIX-01: L2 live acceptance successor
+
+This is an additive harness packet; existing implementation/contract evidence remains in the combined requirement docs. No live acceptance was run, no requirement was verified, and no test expectation was weakened.
+
+Files: `scripts/acceptance/live/{azure,gcp,oci,dns}/**`, `deploy/live-sandbox/{azure,gcp,oci}/**`, [cloud campaign](../LIVE-ACCEPTANCE-CLOUDS.md). Acceptance maps to **mixed-authorities**; the campaign table lists every subclause and required independent readback. Contract tests are `scripts/acceptance/live/dns/offline.test.ts`; the real gated successor is `clouds.live.test.ts`.
+
+Mac offline command (Node 22, no services/cloud):
+```bash
+npx vitest run --config scripts/acceptance/live/dns/vitest.config.ts scripts/acceptance/live/dns/offline.test.ts --no-file-parallelism --maxWorkers=2
+npx eslint scripts/acceptance/live
+npx tsx scripts/acceptance/live/gcp/run.ts --plan --packet scripts/acceptance/live/gcp/packet.json.example
+```
+Expected: zero failed/skipped offline cases and zero credential reads/network calls in plan.
+
+Mac real command, **only after owner approval**: start the canonical operated Wave 5 API/worker/runner fixture through its release harness. Its exact startup/packet-emitter join is absent on this base and must be supplied by that owner before running; do not invent a replacement startup. Provision only owned disposable targets and apply the existing real browser approvals. Put its non-secret packet, owner-approved permissions, short-lived provider credential FILE references and API token FILE outside the clean frozen checkout, as specified in the campaign.
+
+```bash
+export ZENITH_LIVE_GCP=1
+export ZENITH_LIVE_GCP_CREDENTIAL_FILE="$HOME/.zenith-live/gcp-credential-ref.json"
+export ZENITH_LIVE_API_TOKEN_FILE="$HOME/.zenith-live/api-token"
+npx tsx scripts/acceptance/live/gcp/run.ts --packet "$HOME/.zenith-live/PROD-MIX-01-packet.json" --permissions "$HOME/.zenith-live/PROD-MIX-01-permissions.json" --out "$HOME/.zenith-live/PROD-MIX-01-evidence.json"
+# Recovery reuses the same immutable packet and needs fresh reviewed authority if it expired:
+npx tsx scripts/acceptance/live/gcp/run.ts --cleanup --packet "$HOME/.zenith-live/PROD-MIX-01-packet.json" --permissions "$HOME/.zenith-live/PROD-MIX-01-permissions.json" --out "$HOME/.zenith-live/PROD-MIX-01-cleanup-evidence.json"
+```
+Expected: each clause's selected checks passed_live, consumed human destructive approvals for exact scoped environments, independently empty complete paginated inventories. Run the other provider entry points for clauses spanning clouds. Sovereign, faults, ACME renewal, traffic/data and private connectivity must each be actually operated; no status-only or mocked substitutes.
+
+Lean Mac profile: one fixture/provider at a time; one worker; two small replicas at most; 8 GiB host/4 GiB Docker; stop only owned resources and keep private packets for recovery.
+
+Remaining: Wave 5 fixture emission/startup and `zenith_live_run` tagging joins, AWS partition receipt for mixed scenarios, provider initialization/IAM admission, owner-created live accounts and live verification. No new migrations/tables/store functions. Assembler registers the custom vitest config in the gate manifest and attaches sanitized artifacts to the ledger at one coherent commit. Suggested status: `implementation_complete_verification_pending` for this harness slice; overall acceptance stays pending.
+
+## L3 live and operational verification (2026-10-08)
+
+Acceptance contract: Partition graph by provider/account/region/backend; bind separate authorized connections before replacing existing cross-provider refusal.
+
+Profile: **mixed**. The owner observation matrix in [LIVE-ACCEPTANCE-MANAGED.md](../LIVE-ACCEPTANCE-MANAGED.md) maps every clause above to real product receipts, provider reads and traffic or operational observations. Fill distinct checks for every clause; a generic operation-status assertion is insufficient.
+
+Implementation: `scripts/acceptance/live/managed/{plan,runner,transport,cli}.ts`, `scripts/acceptance/live/mixed/probes.ts`, the profile shell entry point. Offline checks: `tests/acceptance/live-managed.test.ts`, `tests/acceptance/live-managed-transports.test.ts`; actual Mac owner-gated checks: `tests/acceptance/live-l3.gated.test.ts`. No library injection replaces the CLI transport.
+
+Mac prerequisites: Node 22; clean committed integrated RC; running owner-operated disposable Zenith/PostgreSQL/Temporal stack; managed cloud/CNI/runtime and two tenants for managed isolation; exact sandbox accounts/regions/real DNS/ACME/registry/Stripe test mode/private source fixtures as applicable. The shared runbook lists exact accounts, credentials as FILE references, and separate DEC-CLOUD, DEC-BUSINESS, DEC-RETENTION and signing/signoff approvals. For the lean 8 GB Mac/4 GiB Docker profile, observe an already operated remote sandbox; local cluster/engine rehearsals run one heavy process at a time after J1/J11/J14 integration.
+
+Exact Mac commands, after owner has prepared the private recipe, permissions and approval FILEs described in the shared runbook:
+
+```bash
+bash scripts/acceptance/live/mixed/acceptance.sh --plan --fixture "$L3_PRIVATE/mixed.recipe.json"
+export ZENITH_LIVE_SCOPE_FILE="$L3_PRIVATE/permissions.json"
+npx tsx scripts/release/permissions-cli.ts check
+export ZENITH_L3_APPROVAL_FILE="$L3_PRIVATE/mixed.approval.json"
+export ZENITH_L3_BUDGET_FILE="$L3_PRIVATE/budget.json"
+export ZENITH_L3_OUT="$PWD/.data-live/l3"
+ZENITH_LIVE_MIXED=1 bash scripts/acceptance/live/mixed/acceptance.sh --run --fixture "$L3_PRIVATE/mixed.recipe.json"
+# On interruption: audit the original journal/lock, then cleanup only with the same RC and approvals.
+ZENITH_LIVE_MIXED=1 bash scripts/acceptance/live/mixed/acceptance.sh --cleanup-only --fixture "$L3_PRIVATE/mixed.recipe.json"
+```
+
+Expected: --plan opens no credential and makes zero calls; --run exits 0 only when every required profile scenario, actual assertion, approved cleanup and independent inventory passed. Exit 1 is a failed check, 2 refusal, 3 incomplete/cleanup-only. Live vitest alternative is in the shared runbook; all three live tests explicitly skip when their gates are disabled. Never count those skips as acceptance passes.
+
+Not run here: cloud, real PostgreSQL, Temporal, Docker/kind, browser and operated-stack rehearsals. This row remains pending live/operational evidence and applicable owner decisions. Do not interpret generic tag-index scans as proof of all global/untaggable/unsupported resources being gone. Add direct provider-specific inventories from L1/L2 and review the actual observation matrix before accepting the ledger clause.
+
+Integration joins: exact managed/release grants are absent from the shipped unapproved permissions.json; owner/integrator approval required before any live call. Use the original normal browser approval paths for all execution/teardown. Share the conservative budget book with L1/L2; connect J1/J2/J4/J5/J6/J11/J14/J15 receipt producers and J12 dossier/signoff. No platform migrations, aggregate SQL, package or published migration edits in this job.
+
+Suggested ledger status: `implementation_complete_verification_pending` (L3 harness built; requirement verification and unresolved owner decisions remain pending).
+
+
+## Wave 6 final integration
+
+Status remains `implementation_complete_verification_pending`. Node 22 only. Execute sequentially with Docker Desktop 4 GiB and one kind node; stop each heavy profile before starting another. Live acceptance stays deferred until separate owner approval.
+
+```bash
+node scripts/ci/wave6-gates.mjs --requirement PROD-MIX-01 --print > /tmp/zenith-wave6-PROD-MIX-01.commands.json
+```
+
+This prints the exact argv for each contract batch and required engine case, its gate names, private prerequisites, and its strict report-validation command. Set only the gates for the selected lane after preparing its owned fixture; a skip cannot satisfy that lane. Run each `argv` sequentially and then its `verify` argv. [Final integration setup and results](FINAL-INTEGRATION.md), [canonical inventory](../../../../scripts/ci/wave6-gates.json), [owner live runbook](../LIVE-ACCEPTANCE.md).
+
+## Live scenario `mix-01` (2026-11-03)
+
+The owner ruled that one AWS account with two separately authorized connections meets the partition requirement for the AWS BYOC private beta. Separate accounts and cross-provider partitions stay outside that beta.
+
+`scripts/acceptance/live/product/mix-03.ts` gains a `mix-01` variant. In the run:
+- One tenant creates two AWS connections, on the `zenith-connection-live` and `zenith-connection-live2` stacks.
+- The ExternalId on each stack's observe and deploy role trust is rewritten and later restored.
+- Both connections must pass `connection.verifyAws`.
+- One mixed parent puts the producer child (S3 bucket) on the first connection and the consumer child (Lambda function) on the second, with one typed reference between them.
+
+Independent AWS readback decides:
+- The consumer's deployed `PRODUCER_BUCKET_ARN` equals the producer bucket.
+- Each child's OpenTofu state object (`zenith/<workspace>/<environment>/terraform.tfstate`, `src/lib/execution/compile.ts`) is in its own connection's state bucket and not in the other's. This uses a bounded `ListObjectsV2` under the runner's existing `s3:ListBucket` grant on `zenith-*`.
+
+Dispatch `mix-01` only while no other lane run is active, because it rewrites trust on both lanes' roles. The plan allows 5..40 minutes with a cap of USD 0.5 + 0.02 per minute. Offline coverage is in `tests/acceptance/aws-mix03-port.test.ts` ("PROD-MIX-01 partitions over two connections").
+
+Limits: no live run yet. This is one account and one provider, and only AWS AssumeRole connections. Not a promotion.
+
+### Live run 41611302755 refused at plan time; scenario changed to independent partitions (2026-11-03)
+
+The first `mix-01` run ([41611302755](https://github.com/saivedant169/zenith/actions/runs/41611302755), at df1ed98f) created both connections, rewrote and verified both stacks' trust, and proposed the plan. The product refused it, with `plan_refused`: partitions that depend on each other need protected connectivity, declared as mutual-TLS endpoints with an address allowlist and DNS and TLS pins. The producer bucket's ARN was a typed reference into a consumer on another connection. That refusal is the correct behaviour: protected cross-connection dependencies are PROD-MIX-05.
+
+- Cleanup completed and trust was restored on all four roles.
+- The run's "leak" check reports only that no environment id was recorded. Nothing was deployed before the refusal.
+
+The scenario now proposes two independent children, one S3 bucket each (`object_store/first` on the first connection, `object_store/second` on the second), with no reference. That is what PROD-MIX-01 asks for: partitions bound to separately authorized connections and backends.
+
+Independent readback:
+- Each environment holds exactly one tagged bucket of its own.
+- Each child's OpenTofu state is in its own connection's state bucket only.
+
+The second stack's STS session call is no longer planned, since there is no consumer package to upload.
+
+### Live, contract and local_engine receipts at f3b8fae6 (2026-11-03)
+
+- `live_sandbox`: run [41617473729](https://github.com/saivedant169/zenith/actions/runs/41617473729), scenario `mix-01`, cap USD 1.3, cleanup complete. Two connections were verified, with two independent partitions and one tagged bucket per environment. Each child's state is in its own connection's state bucket only. Files: `docs/build/production/evidence/PROD-MIX-01/2026-11-03-live-aws-41617473729/`.
+- `contract`: 192 passed, 0 failed, 0 skipped. Files: `tests/execution/mixed-partitions.test.ts`, `tests/execution/mixed/parent-plan.test.ts`, `tests/acceptance/mixed-evidence.test.ts`, `tests/acceptance/aws-mix03-port.test.ts`.
+- `local_engine`: 101 passed, 0 failed, 0 skipped, on disposable PostgreSQL 16.15 with the committed Supabase migrations. Files: `tests/controlplane/mixed-parent-plans.test.ts`, `tests/controlplane/mixed-child-admission.test.ts`.
+
+Limits:
+- `operational_rehearsal` is not done yet.
+- One account and one provider, per the owner's ruling for the AWS beta.
+- Status unchanged. Not a promotion.
+
+## Operational rehearsal (live), scenario `mix-rehearsal` (2026-11-04)
+
+This requirement passes when steps 1, 2 and 6 hold.
+
+Scenario `mix-rehearsal` (lane `live`; it uses both connection stacks, `-live` and `-live2`, so dispatch it only while no other lane run is active) produces this requirement's `operational_rehearsal` evidence from one live run that walks the operator runbook on the AWS sandbox: [MIXED-PARTITIONS.md](../../../platform/operations/MIXED-PARTITIONS.md) and [MIXED-RECOVERY.md](../../../platform/operations/MIXED-RECOVERY.md) sections 1 and 4. Port: `scripts/acceptance/live/product/mix-rehearsal.ts`; driver: `browserMix03Product` (`mix-03-driver.ts`).
+
+Steps, in order:
+1. One tenant, connection A on `-live` and B on `-live2`; the trust change and `connection.verifyAws` for both.
+2. P1: a plan whose consumer on B consumes a typed output of a producer on A, without declared connectivity, must be refused (`plan_refused`). An independent plan over A and B runs; each environment holds its own bucket and each child's state is in its own connection's state bucket only.
+3. P2: producer and consumer on A. The execution worker is stopped while the producer's deployment step is `apply_infrastructure`, then restarted. The producer must end succeeded with one tagged bucket and unchanged digests and stable addresses. If it ends indeterminate, the port reads AWS, records `POST .../mixed-run/reconcile` (`reconcileChild`) and replans; PROD-MIX-02 is then not claimed. The consumer waits for the output review of the changed parent digest, a person approves it, and readback proves `PRODUCER_BUCKET_ARN` is the producer bucket.
+4. P3: producer and consumer on A. With the producer succeeded and the consumer waiting for its review, the operator cancels the run (`POST .../mixed-run/cancel`, `cancelMixed`). `GET .../mixed-run` must read `partial`, the producer in `appliedWithoutRunCompletion`, the consumer `cancelled` and never started, `atomicity: none`, `automaticCompensation: never`, `propose_teardown_for_human_approval` in `nextSteps`. AWS still holds the producer bucket.
+5. Teardown of P3, P2 (and its replan) and P1 through the product: `proposeTeardown`; releasing P2's producer before its consumer must be refused (`ordering_blocked`); then per step `openChildDestroy`, `releaseTeardown`, `finishChildDestroy`, `syncTeardown` = `destroyed`, one at a time. Each review opens only once the environment's deploy activity settled (about 85 minutes after its deploy), so the OIDC session is refreshed once before the first destroy. AWS then shows no tagged bucket or function for any of the run's environments.
+6. Connection B is revoked (`connection.revoke`, `revokeConnection`) and a new plan on it must be refused (`connection_unverified`).
+
+The harness cleanup still runs last: it restores the trust on all four roles and deletes anything tagged that is left, which is reported as a leak. Minutes 120..150 (the settlement wait); cap USD 0.5 + 0.015 per minute (2.75 at 150). The evidence packet records `operational_rehearsal` for this run's rows, and the release source carries `level: "operational_rehearsal"`. Bind it with `node scripts/release/evidence-cli.mjs --source <release-source-PROD-MIX-01.json> --requirement PROD-MIX-01 --level operational_rehearsal --mode live --out <receipt>`. The CLI and `scripts/release/status.mjs` refuse that source at any other level, and refuse a live `operational_rehearsal` receipt whose source does not say it is a rehearsal.
+
+Offline: `tests/acceptance/aws-mix-rehearsal-port.test.ts`, `tests/acceptance/aws-mix03-driver.test.ts`. Not run live yet. Approvals come from an automated test approver through the browser path. Not a promotion.

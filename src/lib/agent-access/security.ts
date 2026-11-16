@@ -103,7 +103,7 @@ export function redact(value: unknown, depth = 0): unknown {
   if (depth > 30) return "[depth limit]";
   if (typeof value === "string") return value
     .replace(/Bearer\s+[^\s"']+/gi, "Bearer [redacted]")
-    .replace(/za_[A-Za-z0-9_-]{43}/g, "[redacted]")
+    .replace(/z[ap]_[A-Za-z0-9_-]{43}/g, "[redacted]")
     .replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/gi, "https://[redacted]@")
     .replace(/sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}/g, "[redacted]");
   if (Array.isArray(value)) return value.map(v => redact(v, depth + 1));

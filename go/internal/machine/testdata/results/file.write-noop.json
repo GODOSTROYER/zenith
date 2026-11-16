@@ -1,0 +1,22 @@
+{
+  "args": {
+    "path": "/opt/zenith-file-write-golden/app/settings.txt",
+    "contentRef": "settings",
+    "contentVersion": "506cf10d7b6688794088bf039e30cce9c56f5859e74341f2b20c97bb9f02bb31",
+    "expectedSha256": "d5d1457be4c0af974b6c182060be89cb9c54a75971ad1e76b006dba5edb1c351"
+  },
+  "operation": "file.write",
+  "result": {
+    "ok": true,
+    "data": {
+      "bytesWritten": 0,
+      "changed": false,
+      "contentVersion": "506cf10d7b6688794088bf039e30cce9c56f5859e74341f2b20c97bb9f02bb31",
+      "created": false,
+      "effect": "none",
+      "path": "/opt/zenith-file-write-golden/app/settings.txt",
+      "phase": "verified",
+      "postcondition": "verified"
+    }
+  }
+}

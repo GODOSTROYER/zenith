@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Private source-bound installed runner scenario; root serial admission required."""
+import argparse,hashlib,json,os,pathlib,re,resource,secrets,shutil,signal,stat,subprocess,sys,time
+from owned_guard import OwnedGuard
+P=pathlib.Path(__file__).resolve().parent
+FREEZE_SHA='46ee0d8545c5e4e134bf03fbb11c468a666e2f3f3c76b3e30e315dce1e7fd400'
+FLOOR=12_000_000_000
+ENDPOINT='unix:///Users/saivedanthava/.docker/run/docker.sock'
+BASE_IMAGE='ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7'
+BUILD_IMAGE='moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea'
+def sha(p):return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+def write(p,v):
+ t=p.with_suffix('.new');t.write_text(json.dumps(v,indent=2)+'\n');t.chmod(0o600);os.replace(t,p)
+def bind(f):
+ root=pathlib.Path(f['root']);assert root.resolve()==root
+ assert subprocess.check_output([f['tools']['git']['path'],'rev-parse','HEAD'],cwd=root,text=True).strip()==f['sourceCommit']
+ assert not subprocess.check_output([f['tools']['git']['path'],'diff','--name-only','HEAD'],cwd=root).strip()
+ for row in f['sourceInputs']:assert sha(root/row['file'])==row['sha256']
+ tree={}
+ for n in (root/'go').rglob('*'):
+  if n.name=='.DS_Store':continue
+  st=n.lstat();assert st.st_uid==os.getuid() and (stat.S_ISDIR(st.st_mode) or (stat.S_ISREG(st.st_mode) and st.st_nlink==1))
+  if stat.S_ISREG(st.st_mode):tree[n.relative_to(root).as_posix()]=sha(n)
+ assert tree==f['completeGoTree']
+ assert sha(P/'SOURCE-CONTRACT.json')==f['sourceContractSha256']
+ assert json.loads((P/'SOURCE-CONTRACT.json').read_text())=={k:f[k] for k in ['root','sourceCommit','sourceInputs']}
+ actual_go=sorted(n.relative_to(root).as_posix() for n in (root/'go').rglob('*') if n.is_file() and (n.suffix=='.go' or n.name in ['go.mod','go.sum']))
+ assert actual_go==sorted(f['goBuildInputs'])
+ for n in actual_go:
+  st=(root/n).lstat();assert stat.S_ISREG(st.st_mode) and st.st_nlink==1 and sha(root/n)==f['goBuildInputs'][n]
+ for row in f['tools'].values():assert sha(row['path'])==row['sha256']
+ assert pathlib.Path(sys.executable).resolve()==pathlib.Path(f['tools']['python']['path'])
+ assert sha(P/'owned_guard.py')==f['ownedGuardSha256']
+ return root
+def owned_image_tuple(value,tag,token):
+ image=value['Id'];assert re.fullmatch(r'sha256:[a-f0-9]{64}',image)
+ digests=value.get('RepoDigests') or []
+ assert digests in ([],[tag.split(':',1)[0]+'@'+image])
+ assert value['Os']=='linux' and value['Architecture']=='arm64' and value['Config']['Labels']['zenith.mach04.owner']==token and value['RepoTags']==[tag]
+ return {k:value[k] for k in ['Id','Os','Architecture','RepoTags','RepoDigests']}|{'owner':token}
+def main():
+ assert __debug__
+ a=argparse.ArgumentParser();a.add_argument('--preflight',action='store_true');args=a.parse_args()
+ assert sha(P/'FREEZE.json')==FREEZE_SHA;f=json.loads((P/'FREEZE.json').read_text());root=bind(f)
+ assert not pathlib.Path('/c/Users/user/.local/sdk/node22').exists()
+ assert shutil.disk_usage(P).free>=FLOOR+f['setupHeadroomBytes']
+ if args.preflight:print(json.dumps({'sourceBound':True,'attempts':0,'builds':0,'containers':0}));return 0
+ os.umask(0o077);token=secrets.token_hex(6);out=P/('attempt-'+secrets.token_hex(16));out.mkdir(mode=0o700)
+ receipt={'status':'failed','diagnosticOnly':False,'scope':'one actual installed signed-update/rollback Linux ARM64 PID1 scenario; no production signer, cloud, default-stack or generic Go skip acceptance','cleanupComplete':False,'phases':[]};write(out/'receipt.private.json',receipt)
+ # Exact fresh names are recorded before any delivery; unknown delivery blocks removal.
+ name='zenith-mach04-'+token;builder='zenith-owned-'+token;context='zenith-owned-context-'+token
+ builder_name='buildx_buildkit_'+builder+'0';cache=builder_name+'_state';tag=name+':fixture'
+ env={'PATH':f['path'],'HOME':str(out),'TMPDIR':str(out),'LANG':'C','TZ':'UTC','GOTOOLCHAIN':'local','GOROOT':f['goRoot'],'GOENV':'off','GOFLAGS':'-mod=readonly','GOCACHE':str(out/'go-cache'),'GOMODCACHE':str(out/'go-modules')}
+ config=out/'docker';config.mkdir(mode=0o700);write(config/'config.json',{'cliPluginsExtraDirs':[f['dockerPluginDir']]});env['DOCKER_CONFIG']=str(config)
+ command=[f['tools']['docker']['path'],'--host='+ENDPOINT]
+ guard=OwnedGuard(out,floor=FLOOR,socket_path=ENDPOINT[7:]);assert guard.sourceStartMatched
+ pin=None;exec_pin=None;builder_snapshot=None;container_snapshot=None;image=None;image_snapshot=None;image_build_started=False;context_snapshot=None;cleaning=False;baseline=None
+ def save():write(out/'receipt.private.json',receipt)
+ def interrupt(signum,frame):raise InterruptedError('owned interrupt')
+ signal.signal(signal.SIGTERM,interrupt);signal.signal(signal.SIGINT,interrupt)
+ def run(argv,phase,timeout=60,cwd=None,docker=True,extra=None):
+  guard.check(cleanup=cleaning)
+  childenv={**env,**(extra or {})}
+  def limits():resource.setrlimit(resource.RLIMIT_FSIZE,(32*1024**2,32*1024**2))
+  with (out/(phase+'.stdout.private')).open('xb') as stdout,(out/(phase+'.stderr.private')).open('xb') as stderr:
+   child=guard.register(subprocess.Popen((command+argv) if docker else argv,cwd=cwd,env=childenv,stdout=stdout,stderr=stderr,start_new_session=True,preexec_fn=limits));deadline=time.monotonic()+timeout
+   try:
+    while child.poll() is None:
+     guard.check(cleanup=cleaning);assert time.monotonic()<deadline
+     assert sum(p.stat().st_size for p in out.rglob('*') if p.is_file() and not p.is_symlink())<=f['attemptByteCap'];time.sleep(.25)
+   finally:guard.drain(child)
+  receipt['phases'].append({'phase':phase,'exitCode':child.returncode});save()
+  if phase=='apt-image-build':receipt['aptBuildOOMObserved']=bool(re.search(rb'(?i)out of memory|oomkilled', (out/(phase+'.stderr.private')).read_bytes()));save()
+  assert child.returncode==0,'fixed phase failed'
+  return (out/(phase+'.stdout.private')).read_bytes()
+ def mutate(argv,phase,timeout=60):
+  nonlocal pin
+  assert pin is None and exec_pin is None;pin=phase;receipt['unconfirmedDelivery']=phase;save();result=run(argv,phase,timeout);pin=None;receipt['unconfirmedDelivery']=None;save();return result
+ def obj(argv,phase):return json.loads(run(argv,phase))
+ def absent(kind,value,phase):
+  if kind=='volume':args=['volume','ls','-q','--filter','name=^'+value+'$']
+  else:args=['container','ls','-aq','--filter','name=^/'+value+'$']
+  assert not run(args,phase).strip()
+ def capture_builder(phase):
+  descriptor=run(['buildx','inspect',builder],phase+'-descriptor').decode()
+  assert re.search(r'^Driver:\s+docker-container\s*$',descriptor,re.M)
+  nodes=descriptor.split('Nodes:',1)[1];assert len(re.findall(r'^Name:',nodes,re.M))==1 and re.search(r'^Name:\s+'+re.escape(builder+'0')+r'\s*$',nodes,re.M) and re.search(r'^Endpoint:\s+'+re.escape(context)+r'\s*$',nodes,re.M)
+  c=obj(['container','inspect',builder_name],phase+'-container')[0];v=obj(['volume','inspect',cache],phase+'-volume')[0]
+  assert c['Name']=='/'+builder_name and re.fullmatch('[a-f0-9]{64}',c['Id']) and c['Config']['Image']==BUILD_IMAGE and c['HostConfig']['Memory']==1024**3
+  assert len(c['Mounts'])==1 and c['Mounts'][0]['Type']=='volume' and c['Mounts'][0]['Name']==cache and c['Mounts'][0]['Destination']=='/var/lib/buildkit' and c['Mounts'][0]['RW'] is True
+  im=obj(['image','inspect',c['Image']],phase+'-buildkit-image')[0];assert im['Id']==c['Image'] and im['Os']=='linux' and im['Architecture']=='arm64' and any(n.endswith('@'+BUILD_IMAGE.split('@')[1]) for n in im['RepoDigests'])
+  assert v['Name']==cache and v['Driver']==v['Scope']=='local' and not v.get('Options')
+  return {'container':{k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']},'volume':v}
+ def release_builder():
+  nonlocal builder_snapshot
+  assert capture_builder('builder-before-release')==builder_snapshot
+  mutate(['buildx','rm',builder],'release-builder',120);absent('container',builder_name,'builder-absent');absent('volume',cache,'cache-absent');builder_snapshot=None
+ def owned_container(phase):
+  c=obj(['container','inspect',name],phase)[0]
+  assert {k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}==container_snapshot
+  return c
+ def execute(argv,phase,timeout=60):
+  nonlocal exec_pin
+  assert pin is None and exec_pin is None;c=owned_container(phase+'-before');assert c['State']['Running'] and not c.get('ExecIDs')
+  exec_pin=phase;receipt['unconfirmedExec']=phase;save();result=run(['exec',name,*argv],phase,timeout)
+  assert not owned_container(phase+'-after').get('ExecIDs');exec_pin=None;receipt['unconfirmedExec']=None;save();return result
+ try:
+  info=obj(['info','--format','{{json .}}'],'native-info');assert info['OSType']=='linux' and info['Architecture'] in ['aarch64','arm64']
+  baseline={'containers':run(['container','ls','-aq','--no-trunc'],'baseline-containers').splitlines(),'images':run(['image','ls','-aq','--no-trunc'],'baseline-images').splitlines(),'volumes':run(['volume','ls','-q'],'baseline-volumes').splitlines()}
+  absent('container',name,'test-absent');absent('container',builder_name,'builder-absent-before');absent('volume',cache,'cache-absent-before')
+  assert context not in run(['context','ls','--format','{{.Name}}'],'baseline-contexts').decode().splitlines()
+  assert builder not in run(['buildx','ls','--format','{{.Name}}'],'baseline-builders').decode().splitlines()
+  assert not run(['image','ls','-q',tag],'image-absent').strip()
+  binaries=out/'fixtures';binaries.mkdir(mode=0o700)
+  resolved=run(['/bin/sh','-c','command -v go; command -v python3; command -v git'],'resolved-build-tools',docker=False).decode().splitlines()
+  assert [str(pathlib.Path(n).resolve(strict=True)) for n in resolved]==[str(pathlib.Path(f['tools'][k]['path']).resolve(strict=True)) for k in ['go','python','git']]
+  receipt['actualResolvedBuildTools']=resolved;save()
+  run(['/bin/bash',str(root/'deploy/zenithd/acceptance/build.sh')],'build-original-fixtures',900,cwd=root,docker=False,extra={'ZENITH_UPDATE_FIXTURE_OUT':str(binaries)})
+  bind(f);assert (binaries/'source-sha').read_text().strip()==f['sourceCommit'] and (binaries/'source-working-tree.patch').stat().st_size==0
+  expected_build_inventory=''.join(f['goBuildInputs'][n]+'  '+n[3:]+'\n' for n in sorted(f['goBuildInputs']))
+  assert (binaries/'source-inputs.sha256').read_text()==expected_build_inventory
+  receipt['goBuildInventorySha256']=sha(binaries/'source-inputs.sha256');receipt['binaries']={}
+  for n in ['zenithd-1.0.0','zenithd-1.1.0','update-systemd.test']:
+   p=binaries/n;s=p.lstat();assert stat.S_ISREG(s.st_mode) and s.st_nlink==1 and s.st_uid==os.getuid()
+   h=p.read_bytes()[:20];assert h[:4]==b'\x7fELF' and h[4:6]==b'\x02\x01' and int.from_bytes(h[18:20],'little')==183
+   receipt['binaries'][n]={'sha256':sha(p),'bytes':s.st_size};run([f['tools']['go']['path'],'version','-m',str(p)],'binary-build-info-'+n,docker=False)
+  contextdir=out/'build-context';contextdir.mkdir(mode=0o700);shutil.copyfile(root/'deploy/zenithd/acceptance/Dockerfile',contextdir/'Dockerfile');assert sha(contextdir/'Dockerfile')==sha(root/'deploy/zenithd/acceptance/Dockerfile')
+  src=out/'source';src.mkdir(mode=0o700)
+  for n in ['deploy/zenithd/acceptance/cgroup-check.sh','deploy/zenithd/zenithd.service']:
+   target=src/n;target.parent.mkdir(mode=0o700,parents=True,exist_ok=True);shutil.copyfile(root/n,target);assert sha(target)==sha(root/n)
+  mutate(['context','create',context,'--docker','host='+ENDPOINT],'create-owned-context');context_snapshot=obj(['context','inspect',context],'context-identity');assert context_snapshot[0]['Endpoints']['docker']['Host']==ENDPOINT
+  mutate(['buildx','create','--name',builder,'--driver','docker-container','--driver-opt','default-load=true,image='+BUILD_IMAGE+',memory=1g','--bootstrap',context],'create-owned-builder',180);builder_snapshot=capture_builder('builder-captured');receipt['builder']=builder_snapshot;save()
+  image_build_started=True;receipt['ownedImageAbsenceConfirmed']=False;save()
+  mutate(['buildx','build','--builder',builder,'--platform','linux/arm64','--pull','--no-cache','--build-arg','SYSTEMD_BASE='+BASE_IMAGE,'--label','zenith.mach04.owner='+token,'--load','-t',tag,str(contextdir)],'apt-image-build',600)
+  loaded=obj(['image','inspect',tag],'loaded-image')[0];image_snapshot=owned_image_tuple(loaded,tag,token);image=loaded['Id'];assert image.encode() not in baseline['images'];receipt['ownedImageIdentity']=image_snapshot;receipt['imageInspectSha256']=hashlib.sha256(json.dumps(loaded,sort_keys=True).encode()).hexdigest();receipt['imageId']=image;save()
+  release_builder() # The 1GiB apt-only builder is gone before the 512MiB test.
+  result=mutate(['run','-d','--name',name,'--label','zenith.mach04.owner='+token,'--platform','linux/arm64','--privileged','--cgroupns','private','--network','none','--memory','512m','--memory-swap','512m','--cpus','2','--pids-limit','512','--log-driver','json-file','--log-opt','max-size=1m','--log-opt','max-file=1','--tmpfs','/run:rw,nosuid,nodev,size=64m','--tmpfs','/run/lock:rw,nosuid,nodev,size=16m','--tmpfs','/tmp:rw,nosuid,nodev,size=64m','--mount','type=bind,source='+str(src)+',target=/src,readonly','--mount','type=bind,source='+str(binaries)+',target=/fixtures,readonly',image],'create-disposable-pid1')
+  cid=result.decode().strip();assert re.fullmatch('[a-f0-9]{64}',cid)
+  c=obj(['container','inspect',name],'container-created')[0];assert c['Id']==cid and c['Image']==image and c['Name']=='/'+name and c['Config']['Labels']['zenith.mach04.owner']==token
+  host=c['HostConfig'];assert host['Privileged'] and host['CgroupnsMode']=='private' and host['Memory']==host['MemorySwap']==512*1024**2 and host['NetworkMode']=='none' and host['PidsLimit']==512 and host['NanoCpus']==2*10**9
+  assert len(c['Mounts'])==2 and {(m['Source'],m['Destination'],m['RW']) for m in c['Mounts']}=={(str(src),'/src',False),(str(binaries),'/fixtures',False)}
+  container_snapshot={k:c[k] for k in ['Id','Created','Name','Image','Config','HostConfig','Mounts']}
+  execute(['/bin/sh','-ec','test "$(cat /proc/1/comm)" = systemd; test "$(uname -m)" = aarch64; test -f /sys/fs/cgroup/cgroup.controllers; test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"'],'pid1-cgroup-and-clean-baseline')
+  receipt['installedAptPackageVersionsSha256']=hashlib.sha256(execute(['dpkg-query','-W','-f=${binary:Package}=${Version}\n'],'installed-apt-package-versions')).hexdigest();save()
+  actual=execute(['env','-i','PATH=/usr/sbin:/usr/bin:/sbin:/bin','HOME=/root','ZENITH_TEST_AGENT_UPDATE_SYSTEMD=1','ZENITH_AGENT_UPDATE_DISPOSABLE_SYSTEMD=1','ZENITH_AGENT_UPDATE_REPO=/src','ZENITH_UPDATE_FIXTURE_OUT=/fixtures','ZENITH_AGENT_UPDATE_ARCH=arm64','/fixtures/update-systemd.test','-test.run','^TestSystemdSignedUpdateAndRollback$','-test.v','-test.timeout=8m'],'actual-one-systemd-scenario',510)
+  text=actual.decode();assert re.findall(r'^=== RUN\s+(\S+)$',text,re.M)==['TestSystemdSignedUpdateAndRollback'];assert re.findall(r'^--- PASS: (\S+)',text,re.M)==['TestSystemdSignedUpdateAndRollback'] and not re.search(r'^--- (?:FAIL|SKIP):',text,re.M) and re.search(r'^PASS$',text,re.M)
+  execute(['/bin/sh','-ec','test -z "$(find /etc/systemd/system /var/lib /etc /usr/local/lib -maxdepth 1 -name "zenith-mach04-*" -print)"; test -z "$(systemctl list-units --all --no-legend "zenith-mach04-*" )"'],'independent-guest-fixture-absence')
+  for n,b in receipt['binaries'].items():assert sha(binaries/n)==b['sha256']
+  bind(f);receipt['passed']=1;receipt['failed']=receipt['skipped']=0;receipt['status']='passed_pending_cleanup';save()
+ except BaseException as e:receipt['failureClass']=type(e).__name__;receipt['status']='failed';save()
+ finally:
+  cleaning=True;guard.cleaning=True
+  try:
+   assert pin is None and exec_pin is None
+   if container_snapshot:
+    c=owned_container('before-stop');assert not c.get('ExecIDs');mutate(['stop','--time','20',name],'stop-owned-pid1',60);assert not owned_container('after-stop')['State']['Running'];mutate(['rm',name],'remove-owned-container');absent('container',name,'container-absent-after')
+   if builder_snapshot:release_builder()
+   if image:
+    current=obj(['image','inspect',image],'image-before-remove')[0];assert owned_image_tuple(current,tag,token)==image_snapshot and image.encode() not in baseline['images'];assert not run(['container','ls','-aq','--filter','ancestor='+image],'image-unused').strip();mutate(['image','rm',image],'remove-exact-owned-image')
+    assert image.encode() not in run(['image','ls','-aq','--no-trunc'],'owned-image-id-absent').splitlines() and not run(['image','ls','-q',tag],'owned-image-tag-absent').strip();receipt['ownedImageAbsenceConfirmed']=True;save()
+   else:
+    assert not image_build_started,'owned image identity unconfirmed'
+    assert not run(['image','ls','-q',tag],'never-built-image-tag-absent').strip();receipt['ownedImageAbsenceConfirmed']=True;save()
+   if context_snapshot:
+    assert obj(['context','inspect',context],'context-before-remove')==context_snapshot;mutate(['context','rm',context],'remove-owned-context')
+   receipt['retainedPrerequisiteImageIds']=sorted(n.decode() for n in set(run(['image','ls','-aq','--no-trunc'],'remaining-prerequisite-images').splitlines())-set(baseline['images']))
+   assert set(baseline['containers'])<=set(run(['container','ls','-aq','--no-trunc'],'baseline-containers-after').splitlines()) and set(baseline['images'])<=set(run(['image','ls','-aq','--no-trunc'],'baseline-images-after').splitlines()) and set(baseline['volumes'])<=set(run(['volume','ls','-q'],'baseline-volumes-after').splitlines())
+   bind(f);receipt['hostCustody']=guard.close();assert not guard.violation and guard.minimum>=FLOOR;assert receipt['ownedImageAbsenceConfirmed'] is True;receipt['cleanupComplete']=True
+   if receipt['status']=='passed_pending_cleanup':receipt['status']='passed'
+  except BaseException as e:
+   receipt['cleanupFailureClass']=type(e).__name__;receipt['cleanupComplete']=False;receipt['status']='failed'
+   if not guard.stop.is_set():
+    try:receipt['hostCustody']=guard.close()
+    except BaseException:receipt['hostCustodyRefused']=True
+  save() # All private setup/binary/log files retained; no host tree deletion.
+ print(json.dumps({'status':receipt['status'],'cleanupComplete':receipt['cleanupComplete'],'receipt':str(out/'receipt.private.json')}));return 0 if receipt['status']=='passed' else 1
+if __name__=='__main__':raise SystemExit(main())

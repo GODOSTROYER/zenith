@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "kind": "fresh_local_r16_execution_summary",
+  "source": {
+    "commit": "554635916dfc8ce6c74e7b699a24e2f61670bebc",
+    "sourceFreezeSha256": "e9c3f00a0a5b75f17f189c5d3eaed2ed3721a9deb1386271bb72db37968936c6",
+    "sourceCount": 5954,
+    "beforeAfterStable": true
+  },
+  "execution": {
+    "wrapperExitCode": 0,
+    "receiptSha256": "9793a30dc6bcbb1a3b760ef27e4112cda764a261aa987d02710ae35213844714",
+    "summarySha256": "7c9c961a3fa489f41eac547fc7be475242b1515c5b80b384d3c3d0b23b91ed11",
+    "summaryCommit": "554635916dfc8ce6c74e7b699a24e2f61670bebc"
+  },
+  "results": {
+    "passed": 24572,
+    "failed": 0,
+    "skipped": 1943,
+    "collected": 26515,
+    "identityAccountingMatched": true,
+    "independentReview": {
+      "status": "PASS",
+      "reviewSha256": "b84b6198b55961cd99ad47ffaf7b6c1c8741b00dd53b6b9a5e4a70f3e82b4701",
+      "reviewMarkdownSha256": "5109cd34266298599b46a686f62c97d9333ba530f4c687b939336517ca0fcfd3",
+      "scope": "this R16 run only; source binding, exact identity/case counters, custody, and closeout reviewed",
+      "skipBreakdown": {
+        "static": 1723,
+        "runtime": 220
+      },
+      "limitation": "suite totals checked arithmetically rather than against an independent suite inventory"
+    }
+  },
+  "limits": {
+    "diagnosticRunOnly": true,
+    "acceptedRunReceipt": false,
+    "milestonePromoted": false,
+    "productionAcceptance": false,
+    "independentReviewPending": false,
+    "reviewedScopeOnlyThisRun": true
+  }
+}

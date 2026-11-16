@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+  "scope": "Complete native Mac Node and DOM execution, strict collection/runtime identity admission",
+  "environment": {
+    "node": "22.23.3",
+    "vitest": "4.1.11",
+    "architecture": "native Darwin ARM64",
+    "floorBytes": 12000000000
+  },
+  "vitestCounts": {
+    "numTotalTests": 23475,
+    "numPassedTests": 21851,
+    "numFailedTests": 0,
+    "numPendingTests": 1624,
+    "numTodoTests": 0
+  },
+  "vitestExit": 0,
+  "verifierVerdict": "failed",
+  "verifierErrorClass": "AssertionError",
+  "receiptSha256": "7e674882a22a609fb462829f0155c741f8e9679afeca930aa24c0193b6ec5c3c",
+  "reportSha256": "cc056dfe8c1e9328a94e0e5847446c2382502cfb75c2a0b1dcb7c5b2614bb245",
+  "collectionSha256": "343214b738b0c00d3e2244174ec6f35bdd4870fc56a8d8f00e7cb847d81ee8bb",
+  "runtimeFiles": 1046,
+  "identityFinding": {
+    "missingCollectedIdentities": 1,
+    "extraPassedIdentities": 1,
+    "extraSkippedIdentities": 1414,
+    "file": "tests/waitlist/admin-file.test.ts",
+    "cause": "Parameterized title embeds1001 random UUIDs generated independently during collection and execution",
+    "fixCommit": "5072c4a02b0a86ce7e77a33cb3da29566a31d20b",
+    "integrationCommit": "b5430146e22bd2eff50df412a44217886bf487fe",
+    "targetedVerification": {
+      "file": "tests/waitlist/admin-file.test.ts",
+      "sourceSha256": "6bf7aa0bdfc6a157c4e1a767261128fe80212a4a4223f65f4c84df2707d774c1",
+      "counts": {
+        "numPassedTests": 44,
+        "numFailedTests": 0,
+        "numPendingTests": 0,
+        "numTotalTests": 44
+      },
+      "identityMultiplicityMatch": true,
+      "eslintExit": 0,
+      "minimumFreeBytes": 24823631872
+    }
+  },
+  "pythonCollector": {
+    "sourceCommit": "9354a3f5629f1efe91ea1a7d7e7b6291569be38f",
+    "sourceInputs": {
+      "tests/machines/azure-scripts.test.ts": "8d54fce197f429e3f5da2b7c9a6d859bf8db03d331483cf0ebcd71227475655a",
+      "src/lib/machines/transports/azure-scripts.ts": "9d2db786495648e547430b9484f13842f24b2c4477d5c35dfa1f9806dea48550",
+      "src/lib/machines/transports/aws-ssm-docs.ts": "f6b99a6a50a62abd92c540d7a93dcbf88b1ed3908a9d5181856e5d09409b4010",
+      "tests/machines/_helpers.ts": "3e59f8a79a5a3636d41c09a1fd9d7e77f6cd8cd6b9981d6664e4d394810b1d05",
+      "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c",
+      "vitest.config.ts": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08"
+    },
+    "pythonExecutable": "Pinned native Python3.14.5",
+    "pythonVersion": "Python 3.14.5",
+    "exitCode": 0,
+    "sourceBinding": true,
+    "floorViolated": false,
+    "minimumFreeBytes": 24831578112,
+    "counts": {
+      "numPassedTests": 6,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTotalTests": 6
+    },
+    "scope": "Actual native Mac fixed Python collector only, no Azure/cloud or Linux delivery",
+    "reportSha256": "58cdc54abdf94eb734e5505934fb3327f592e290267d9002bc27ac256a5c6efe"
+  },
+  "cleanupComplete": true,
+  "allRegisteredGroupsAbsent": true,
+  "endSourceBinding": true,
+  "minimumFreeBytes": 24437710848,
+  "elapsedSeconds": 1894.04,
+  "limitations": [
+    "Rejected receipt remains failed; targeted stable identity success cannot replace a complete fresh successor.",
+    "Conditional skips remain explicit; six collector passes are separate overlapping evidence.",
+    "No live cloud or default operated journey proof."
+  ]
+}

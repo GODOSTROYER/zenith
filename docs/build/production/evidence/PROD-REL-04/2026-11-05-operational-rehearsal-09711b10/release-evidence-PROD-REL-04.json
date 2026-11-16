@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-04",
+  "level": "operational_rehearsal",
+  "commit": "09711b10825fc79319cfecf11c0b71e2876fdcb7",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); operator CLIs from the clean checkout (acceptance-orchestrator, permissions-cli) on a private copy of the owner-approved scope manifest; no cloud, no stack, no approval written; gate ZENITH_LOCAL_REL04_REHEARSAL",
+  "command": "vitest run tests/acceptance/rel04-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "local",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-04/2026-11-05-operational-rehearsal-09711b10/lane-source-PROD-REL-04.json",
+      "sha256": "70235bb2bde312bab9c8e4c90950dc13aba714edd2cbd6f25ed0d1037de85de9"
+    }
+  ]
+}

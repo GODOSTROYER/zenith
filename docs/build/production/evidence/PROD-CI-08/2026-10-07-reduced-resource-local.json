@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "date": "2026-10-07",
+  "sourceCommit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "profile": "reduced-resource local profile",
+  "scope": "Owned disposable local resources on this ARM64 Mac; not shipped Linux container topology, live cloud or production proof",
+  "authorization": {
+    "localStartup": true,
+    "liveCloud": false,
+    "providerCalls": 0
+  },
+  "hostBefore": {
+    "hostRamBytes": 8589934592,
+    "freeDiskBytes": 23461072896,
+    "macSwap": "vm.swapusage: total = 4096.00M  used = 2779.50M  free = 1316.50M  (encrypted)",
+    "dockerMemoryConfiguredMiB": 6144,
+    "dockerSwapConfiguredMiB": null,
+    "dockerContainersBefore": 0
+  },
+  "dockerAfter": {
+    "dockerConfigured": {
+      "MemoryMiB": 6144,
+      "SwapMiB": 4096,
+      "UseResourceSaver": false,
+      "UseVirtualizationFrameworkVirtioFS": true
+    },
+    "vmMeasured": {
+      "MemTotal": "6067048 kB",
+      "MemAvailable": "5594004 kB",
+      "SwapTotal": "4194300 kB",
+      "SwapFree": "4194300 kB"
+    },
+    "probeExit": 0,
+    "ownedProbeAbsent": true,
+    "diskBeforeBytes": 26555359232,
+    "diskAfterBytes": 26555072512,
+    "hostSwap": "vm.swapusage: total = 4096.00M  used = 2840.38M  free = 1255.62M  (encrypted)"
+  },
+  "limits": {
+    "oneHeavyWorkload": true,
+    "diskFloorBytes": 23622320128,
+    "packagedMinimumGiB": 18,
+    "swapHeadroomGiB": 4,
+    "apiHeapMiB": 768,
+    "workerHeapMiB": 1024
+  },
+  "attempts": [
+    {
+      "name": "Supabase R3",
+      "status": "fixture_setup_failed",
+      "testsExecuted": 0,
+      "reason": "CLI resolves API TLS paths relative to workdir/supabase; absolute fixture paths did not resolve. Only two private path values corrected; independent source review accepted R4."
+    },
+    {
+      "name": "Supabase R4",
+      "status": "resource_blocked",
+      "exitCode": 130,
+      "elapsedSeconds": 69.48,
+      "diskBeforeBytes": 26501058560,
+      "diskMinBytes": 23377846272,
+      "diskAfterBytes": 23377440768,
+      "requiredFloorBytes": 23622320128,
+      "reason": "Disk fell below 22 GiB during required image pulls, before containers, health checks or operator users existed",
+      "testsExecuted": 0,
+      "containersCreated": 0,
+      "memoryFitProved": false
+    }
+  ],
+  "cleanup": {
+    "ownedNetworkRemoved": true,
+    "ownedContainersAbsent": true,
+    "allBaselineImagesPreserved": true,
+    "partialPullContent": "No global content/image prune performed; partial registry layer reclamation unproven."
+  },
+  "unexecutedAcceptance": [
+    "installer readiness",
+    "signed-in two-operator accessibility journey",
+    "seven default critical schedules and catch-up",
+    "default registered signed runbook",
+    "default telemetry join",
+    "registered Linux systemd agent update/rollback"
+  ],
+  "admissionFindings": [
+    "Installer currently requires separate platform server authority and hard-bound disposable container addresses. Requested native/same-server/SQLite profile is not installer topology acceptance. Guards unchanged.",
+    "Default maintenance draft remains NOT_READY and unexecuted after independent review.",
+    "Linux cgroup delegation and effective service sandbox need independent admission; PID1 alone does not prove installed-agent acceptance."
+  ],
+  "externalBlockers": [
+    "Live cloud, real public DNS and private GitHub App remain unapproved."
+  ],
+  "resourceResume": "Restore sufficient free disk for measured >2.91 GiB image-pull growth plus 22 GiB floor and remaining pulls/builds. Measured minimum is a lower bound, not a completed-stack size. Create a new labelled loopback-only bridge, update/freeze/review private argv and rerun full setup; deleted network ID must not be reused.",
+  "completion": {
+    "dockerBackend": "stopped idle after all owned containers removed; approved settings retained",
+    "freeDiskBytes": 27824545792,
+    "diskFloorBytes": 23622320128,
+    "heavyRunsAllowed": false,
+    "cleanupTaskResult": "New unexplained3GiB drop investigated; no large safe disposable growth found. No unrelated deletion. Resource attribution remains unresolved.",
+    "ownedLeafContainerRemoved": true,
+    "throwawayCertificatesAndPrivateKeysDeleted": true,
+    "osGlobalCATrustChanged": false
+  }
+}

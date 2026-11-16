@@ -1,0 +1,16 @@
+# Candidate opt-in: review exact customer-owned paths before installation.
+# Source-only example, NOT verified systemd acceptance. Exact configured final
+# parent directories are local trusted mount anchors; file mounts below them
+# and unexpected ancestor transitions remain refused. Do not disable hardening
+# or grant broad writable roots to bypass a guard refusal.
+[Service]
+User=zenithd
+Group=zenithd
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/opt/customer/app /opt/customer/fw-backups
+# /opt/customer/templates stays read-only under ProtectSystem=strict.
+# Retain the base unit's state-directory permissions and every other hardening
+# setting. Provision trusted non-symlinked parents and private backups locally.

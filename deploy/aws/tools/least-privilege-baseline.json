@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "knownMissing": {
+    "iam:AddClientIDToOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "iam:CreateOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "iam:DeleteOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    },
+    "iam:TagOpenIDConnectProvider": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "The compiler emits this resource type but the deploy policies do not grant the action, so applying it through the deploy role fails at IAM. Not widened here: changing the bootstrap needs its own reviewed change and independent live IAM acceptance."
+    },
+    "iam:UpdateOpenIDConnectProviderThumbprint": {
+      "via": [
+        "aws_iam_openid_connect_provider"
+      ],
+      "status": "denied_by_design",
+      "note": "Explicitly denied by the DenyPrincipalCreation statement of the deploy-iam policy: OIDC providers are bootstrap/customer owned. The aws_iam_openid_connect_provider resource the IAM role driver can emit for EKS workload trust therefore cannot be applied through the deploy role; the cluster's OIDC provider must be created by the customer stack."
+    }
+  },
+  "allowedUnusedSensitive": []
+}

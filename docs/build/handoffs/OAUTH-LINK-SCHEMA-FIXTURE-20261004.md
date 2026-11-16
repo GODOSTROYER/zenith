@@ -1,0 +1,9 @@
+# Agent-link canonical schema fixture, 2026-10-04
+
+Root's cold OAuth migration and safe reapplication passed. The prior PostgreSQL lane then stopped in the agent-link suite's `beforeAll`: its literal two-row ledger expectation rejected the canonical third `agent-oauth-grants-v1` migration. The retained run had 237 passing assertions, no failed assertions and fourteen skipped agent-link cases, but the suite error and job exit remained failed. No OAuth 71-case execution is inferred from it.
+
+This separate two-path source-only correction starts from the exact root OAuth prepared tree `0fd059a63da08a7ede1d2d6b493cf1415fc068ad`. The gated hook loads the canonical `AGENT_CONTROL_MIGRATIONS` registry and actual read-only `verifyAgentSchema`, verifies the native schema, and compares every ordered version/name with the registry. It rejects missing, renamed, extra or incompatible native schema; it does not accept arbitrary versions or invent agent-history checksums. Imports stay inside the enabled hook, before any suite fixture writes. The documented canonical migration range now includes 0015.
+
+All fourteen original test identities and callback bodies, suite/backend selectors, prerequisite flags, SQL predicates, concurrency and refusal assertions, reverse foreign-key cleanup, secret-exchange controls and timeouts remain byte-identical. No production, migration, privilege, audit, skip or report guard changes are included. A real PostgreSQL schema failure still fails the canonical nine-group lane.
+
+Author imports, tests, compiler, lint, services, Docker/database work, installation and commits are unrun. Root/B independently review the exact two-path patch before root retries the canonical PostgreSQL lane and all 71 mandatory OAuth cases with actual source/execution/exit binding. Native OAuth final dispatch, provider token and browser consent proof remain separate work.

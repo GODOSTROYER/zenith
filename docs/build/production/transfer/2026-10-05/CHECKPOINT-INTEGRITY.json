@@ -1,0 +1,24 @@
+{
+  "scope": "Transfer/source integrity only, no acceptance test execution",
+  "productCommit": "19be80b3ea905ee51da89f27e3258184611952f0",
+  "productTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "pendingPacketForwardReverse": [
+    {
+      "packet": "manifest-digest-r3",
+      "forwardTree": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+      "reverseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "passed": true
+    },
+    {
+      "packet": "settlement-gates-partial",
+      "forwardTree": "a6788b60ede249b8d97e03a7c2696bd2d4b51664",
+      "reverseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "passed": true
+    }
+  ],
+  "requirements": 78,
+  "allCriteriaDependenciesEvidenceLevelsUnchanged": true,
+  "criteriaSha256": "4f5ea8d7a8ea8ede5b25bf3627f148daf804cc29b2ce899f077e5a804cc410e1",
+  "gitIdentity": "Saivedant Hava <saivedant169@gmail.com>",
+  "host": "Saivedants-MacBook-Air.local"
+}

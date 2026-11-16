@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "kind": "zenith_j2_witness_build_preflight_refusal",
+  "sourceSha": "cf299647df8551f246e04021a8784a7742b06749",
+  "status": "refused_before_build",
+  "reason": "local-tag-already-exists",
+  "buildExecuted": false,
+  "push": false,
+  "sourceClean": true,
+  "targetPlatform": "linux/arm64",
+  "sourceSummarySha256": "57f06d59e6379377ba510937cd1bf12c0a18d675e02c82659117058ee0fdfa95",
+  "r16ExecutionReceiptSha256": "c11dcf9adc5053ec0aacb1dab4e5dee58b4237d8f349a2423a0c1e0e673f8606",
+  "priorWitness": "preserved",
+  "followup": "A scoped owned-tag rotation candidate is being prepared; no replacement build has run.",
+  "acceptanceClaim": false,
+  "scopeLimit": "No image build, push, image invocation, J1/J2 runtime, or broader acceptance is established by this refused preflight."
+}

@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-OPS-09",
+  "level": "live_sandbox",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "environment": "GitHub Actions release.yml run https://github.com/saivedant169/zenith/actions/runs/42114952805 in the protected release environment; published release v0.1.0-beta.1 of saivedant169/zenith; signed with pinned key release-2026-11",
+  "command": "gh release download v0.1.0-beta.1 -R saivedant169/zenith; node scripts/supply-chain/published-release-source.mjs (offline, --strict)",
+  "mode": "live",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-OPS-09/2026-11-06-live-release-42114952805/release-source-PROD-OPS-09.json",
+      "sha256": "2414a62a3dc6aca18eaa0b69d70236478c1796eb41ef621b33ddb455ab382ce0"
+    }
+  ]
+}

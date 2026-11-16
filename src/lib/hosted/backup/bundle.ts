@@ -46,7 +46,7 @@ export type DraftManifest = Omit<BackupManifest, "digest" | "byteSize">;
 export { sha256 };
 
 /** Names are relative, slash separated and free of traversal. Enforced on both sides. */
-const NAME_RE = /^(?!\/)(?!.*\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$/;
+const NAME_RE = /^(?!\/)(?!.*\/\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$/;
 
 function assertName(name: string): string {
   if (!NAME_RE.test(name))
@@ -135,7 +135,9 @@ export function unpackBundle(bytes: Buffer): UnpackedBundle {
     files.push({ name: assertName(name), bytes: Buffer.from(content) });
   }
 
-  const listed = new Map((manifest.files ?? []).map((file) => [file.name, file]));
+  if (!Array.isArray(manifest?.files)) throw malformed("its manifest has no file table");
+  if (new Set(files.map((f) => f.name)).size !== files.length) throw malformed("it carries the same file name twice");
+  const listed = new Map(manifest.files.map((file) => [file.name, file]));
   if (listed.size !== files.length)
     throw malformed(`its manifest lists ${listed.size} files and it carries ${files.length}`);
   for (const file of files) {

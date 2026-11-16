@@ -1,0 +1,63 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BuildLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/codebuild/zenith-*",
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/codebuild/zenith-*:*"
+      ]
+    },
+    {
+      "Sid": "PushImagesToZenithRepositories",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage"
+      ],
+      "Resource": "arn:${partition}:ecr:*:${account_id}:repository/zenith-*"
+    },
+    {
+      "Sid": "EcrLoginToken",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadBuildArtifacts",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "${state_bucket_arn}/artifacts/*"
+    },
+    {
+      "Sid": "ListArtifactPrefix",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "${state_bucket_arn}",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "artifacts/*"
+          ]
+        }
+      }
+    }
+  ]
+}

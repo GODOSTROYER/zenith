@@ -1,0 +1,126 @@
+{
+  "tofuVersion": "1.12.5",
+  "formatVersion": "1.2",
+  "configDigest": "4444444444444444444444444444444444444444444444444444444444444444",
+  "lockDigest": "5555555555555555555555555555555555555555555555555555555555555555",
+  "planDigest": "6666666666666666666666666666666666666666666666666666666666666666",
+  "resourceChanges": [
+    {
+      "address": "aws_db_instance.legacy",
+      "type": "aws_db_instance",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": true,
+      "changes": [{ "path": "engine", "before": "postgres", "after": null, "sensitive": false, "forcesReplacement": false }]
+    },
+    {
+      "address": "aws_s3_bucket.logs",
+      "type": "aws_s3_bucket",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "replace",
+      "destroysData": true,
+      "changes": [{ "path": "bucket", "before": "old-logs", "after": "new-logs", "sensitive": false, "forcesReplacement": true }]
+    },
+    {
+      "address": "aws_sqs_queue.jobs",
+      "type": "aws_sqs_queue",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_ebs_volume.data",
+      "type": "aws_ebs_volume",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_elasticache_cluster.cache",
+      "type": "aws_elasticache_cluster",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_elasticache_subnet_group.cache",
+      "type": "aws_elasticache_subnet_group",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_instance.old",
+      "type": "aws_instance",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "custom_store.central",
+      "type": "custom_store",
+      "providerName": "example.com/acme/custom",
+      "action": "delete",
+      "destroysData": true,
+      "changes": []
+    },
+    {
+      "address": "aws_dynamodb_table.orders",
+      "type": "aws_dynamodb_table",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "update",
+      "destroysData": false,
+      "changes": [{ "path": "read_capacity", "before": 5, "after": 10, "sensitive": false, "forcesReplacement": false }]
+    },
+    {
+      "address": "aws_security_group.old",
+      "type": "aws_security_group",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_iam_role.old",
+      "type": "aws_iam_role",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_route53_record.old",
+      "type": "aws_route53_record",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "delete",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "aws_ecs_service.unchanged",
+      "type": "aws_ecs_service",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "no-op",
+      "destroysData": false,
+      "changes": []
+    },
+    {
+      "address": "data.aws_caller_identity.current",
+      "type": "aws_caller_identity",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "read",
+      "destroysData": false,
+      "changes": []
+    }
+  ],
+  "outputChanges": [],
+  "summary": { "create": 0, "update": 1, "delete": 10, "replace": 1, "noop": 1 },
+  "empty": false,
+  "diagnostics": [],
+  "createdAt": "2026-09-30T10:00:00.000Z"
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "commit": "80482e411205d16dc4fae565202922f58ab7bad4",
+  "tree": "c4d40bd58f196cf94f02c57f68853ff5822a7e95",
+  "ownedPath": "tests/ci/gate-manifest.test.ts",
+  "afterSha256": "266e6d69ed1be22070d4c88062c10dd97059be41c9a3311bb0bfef2baaad38a0",
+  "independentReviewSha256": "b516d3bb498c57308a2b1a1b1523f9f5eb5ce01e92ef3c7182100939411f3061",
+  "rootChecks": {
+    "targetedTests": {
+      "passed": 370,
+      "failed": 0,
+      "skipped": 0,
+      "durationSeconds": 29.1
+    },
+    "eslintExit": 0,
+    "compilerAttempts": [
+      {
+        "heapMiB": 3072,
+        "exitCode": 134,
+        "reason": "heap exhaustion"
+      },
+      {
+        "heapMiB": 4096,
+        "exitCode": 0
+      }
+    ]
+  },
+  "environment": {
+    "node": "22.23.3",
+    "typescript": "5.9.3",
+    "eslint": "9.39.5",
+    "vitest": "4.1.11",
+    "architecture": "native Darwin ARM64"
+  },
+  "rawLogs": "not retained",
+  "scope": "One-path source-contract correction only. Original titles, counts and failure controls preserved. Whole suite and complete CI on successor remain required."
+}

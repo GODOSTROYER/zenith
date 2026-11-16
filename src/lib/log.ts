@@ -11,7 +11,10 @@
  * function in between having to pass it down.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
+import { redactCredentials } from "@/lib/credentials/redact";
+import { redactText } from "@/lib/observability/redact";
 import { env } from "@/lib/env";
+import { currentTraceId } from "@/lib/ops/telemetry/tracing";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -32,10 +35,39 @@ export function currentRequestId(): string | undefined {
 /** Fields are structured data; an Error value is flattened to name/message/stack. */
 export type LogFields = Record<string, unknown>;
 
+/**
+ * Every string field passes two shared redactors on its way to the sink (PROD-OPS-06): the credential redactor
+ * (AWS keys, JWTs, PEM blocks, bearer values, Zenith tokens) and the observability redactor (`scheme://user:pw@`
+ * URLs, `password=` style pairs, vendor token prefixes). Plain objects and arrays are walked (bounded depth, cycles
+ * become "[Circular]"); anything else (Date, Buffer, class instances with toJSON such as SecretString) is left for
+ * JSON.stringify exactly as before. This is a backstop, not a secret detector: a secret with no recognisable shape
+ * or key name is written as given, so callers must still keep credentials out of log fields. Messages, stacks and
+ * field names are otherwise intact for operators.
+ */
+const MAX_LOG_DEPTH = 8;
+
+function scrubString(text: string): string {
+  return redactText(redactCredentials(text)).text;
+}
+
+function scrub(value: unknown, depth: number, seen: WeakSet<object>): unknown {
+  if (typeof value === "string") return scrubString(value);
+  if (value === null || typeof value !== "object") return value;
+  if (value instanceof Error) return { name: value.name, message: scrubString(value.message), stack: value.stack === undefined ? undefined : scrubString(value.stack) };
+  const proto = Object.getPrototypeOf(value) as unknown;
+  const plain = Array.isArray(value) || proto === Object.prototype || proto === null;
+  if (!plain) return value;
+  if (seen.has(value)) return "[Circular]";
+  if (depth >= MAX_LOG_DEPTH) return "[truncated]";
+  seen.add(value);
+  if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1, seen));
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(value)) out[scrubString(key)] = scrub((value as Record<string, unknown>)[key], depth + 1, seen);
+  return out;
+}
+
 function serialise(value: unknown): unknown {
-  if (value instanceof Error)
-    return { name: value.name, message: value.message, stack: value.stack };
-  return value;
+  return scrub(value, 0, new WeakSet());
 }
 
 /**
@@ -67,10 +99,13 @@ function emit(level: LogLevel, message: string, fields?: LogFields): void {
   const record: Record<string, unknown> = {
     level,
     ts: new Date().toISOString(),
-    msg: message,
+    msg: scrubString(message),
   };
   const requestId = currentRequestId();
   if (requestId) record.requestId = requestId;
+  // PROD-OPS-02: joins a log line to its trace and, through the span attributes, to tenant and operation.
+  const traceId = currentTraceId();
+  if (traceId) record.traceId = traceId;
   // Object.keys, not Object.entries: the same own enumerable keys, without a
   // two-element array allocated per field on a path this hot.
   if (fields) for (const k of Object.keys(fields)) record[k] = serialise(fields[k]);
@@ -80,7 +115,7 @@ function emit(level: LogLevel, message: string, fields?: LogFields): void {
     line = JSON.stringify(record);
   } catch {
     // A circular field must not take the process down.
-    line = JSON.stringify({ level, ts: record.ts, msg: message, fieldsError: "not serialisable" });
+    line = JSON.stringify({ level, ts: record.ts, msg: record.msg, fieldsError: "not serialisable" });
   }
 
   // Warnings and errors go to stderr so they survive a stdout-only pipeline.

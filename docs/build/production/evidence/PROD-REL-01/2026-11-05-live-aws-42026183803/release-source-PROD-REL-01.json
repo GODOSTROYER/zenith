@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "mode": "live",
+  "requirements": [
+    "PROD-REL-01"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario deploy-01, run id zlive-202611051219-ed11; plan sha256 d30086638a8851a373ccf0718d91ac82bf8a7e327fc9ba8fae0a5b917c1e30e8",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 f2eff20488efbe4ed7e4f32210bc0f1a4c5d8fc5ce94047ba1e0a6659116c129; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611051219-ed11",
+    "file": "evidence.json",
+    "sha256": "e7c3dc011e6e7815d2a1995e4be6349722b3a059c640c620dc660c1e7aa126a5",
+    "packetSha256": "6d0ebaad3ac3deed331b2217059513377fe2030b1465d42fed5610bbc7b44063"
+  },
+  "result": "DEPLOY-01 proven: connection verified on the sandbox roles; public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66 deployed to ECS Fargate behind an ALB with two-person approval and served HTTP 200; updated to public.ecr.aws/nginx/nginx@sha256:4aad0a9f6622a58402a3d37d7a92d67903ffae86498f6bac79155ec3760f8500 and rolled back to public.ecr.aws/nginx/nginx@sha256:df80ece7fa07f8ed4f3b70e883fe322732954d0287e562f1fdc790018f7d2c66, each read back from the recorded state and over HTTP"
+}

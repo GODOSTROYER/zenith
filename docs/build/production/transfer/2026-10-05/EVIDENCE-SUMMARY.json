@@ -1,0 +1,507 @@
+{
+  "recordedAtUtc": "2026-10-05T08:02:18.771397+00:00",
+  "scope": "Sanitized summaries. Raw local logs, environment inventories, stores, plan/state files, credentials and tool binaries are intentionally not published. Raw hashes do not mean raw artifacts arrived with the clone.",
+  "countsOverlapDoNotSum": true,
+  "evidence": [
+    {
+      "originalPath": "logs/saved-plan-settlement-native-root-r2-20261005/receipt.json",
+      "rawSha256": "03a13d1e33ee280000df5b345b3fa886d89b53268f7f244124961647b1d201a9",
+      "rawIncluded": false,
+      "status": "failed",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "scope": "Current source native100 failed; PostgreSQL/OpenTofu, not Temporal or Supabase.",
+      "steps": [
+        {
+          "name": "pull",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 18.12,
+          "sha256": "bfd765701a2d68e4f3b303d8493d35f971fd2b351eb74ae7f36a5cafd94d5328"
+        },
+        {
+          "name": "start",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "6cf60dc4b02b6a5380fdb099b25eda47261408f80076a92f4eb6677ac7d10441"
+        },
+        {
+          "name": "server-version",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "create-platform-database",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "agent3-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.02,
+          "sha256": "fef7f3a93780247bf8c6d7cd6d0e2029c151ed315e870fc297284340297de8e8"
+        },
+        {
+          "name": "platform16-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.02,
+          "sha256": "ef110d5b55e9f2c7f8e30a6719fc7983b95fea5f9f16b7e36727b9e2acb27d66"
+        },
+        {
+          "name": "platform16-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.01,
+          "sha256": "bd0fa83b842eef64d4a461d6733c4aeb4f62fbfe325c6b3931acea87de924edb"
+        },
+        {
+          "name": "agent3-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "071d0a3673f8e2b191147e7f175880699c77da971b99394ca1613ba218be522d"
+        },
+        {
+          "name": "agent-canonical-verifier",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "df3418668e0c049f12bc157c2a2e32986b281f412cdcd54bde90bc4eea98d2ee"
+        },
+        {
+          "name": "lint-settlement",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.02,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "native-settlement100",
+          "exitCode": 1,
+          "expectedExitCode": 0,
+          "seconds": 76.38,
+          "sha256": "60a18a57c6a813ac2763432114a400feba4736663eb4ce489a0d7c1c5adf8416"
+        }
+      ]
+    },
+    {
+      "originalPath": "logs/zenith-package-native-r14-8e91f39e222f40cd2b28451a2e129b64/receipt.json",
+      "rawSha256": "1b3e332a7f0cce4e8cd8c60b02352e77f58a77255eb52c2251907c120662cb9d",
+      "rawIncluded": false,
+      "status": "direct_native_passed",
+      "commit": null,
+      "tree": null,
+      "scope": "Scoped actual Linux ARM64 native4/signed5 and Linux31; not installed/default/nativeAMD64 acceptance.",
+      "steps": []
+    },
+    {
+      "originalPath": "logs/cleanup-workflow-native-root-r4-20261005/receipt.json",
+      "rawSha256": "b072091193a71c0db5c911fd7fa39916f2bfcc215618e7d30a868eeb739f4d0e",
+      "rawIncluded": false,
+      "status": "failed",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": "810678f5b44dc67893d5bb1279b99110db248b05",
+      "scope": "Last full local native lanes; platform27 failure remains open.",
+      "steps": [
+        {
+          "name": "lint-plan-fixture",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.02,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "model-plan-fixture",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 6.05,
+          "sha256": "99f1bc2ce54ac6f3d5f30c7e78f2a17ba171bd4a4f584169b064865737e617fe"
+        },
+        {
+          "name": "pull",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 16.07,
+          "sha256": "740e0ca5b6d5b61884352bd0209549c4866085f4060f5d7dd72a124e98d18ba3"
+        },
+        {
+          "name": "start",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "d92c398c575a67a1559a9d08fd15151087cb5a8efabb9ccf40f1d84693f80aa5"
+        },
+        {
+          "name": "server-version",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "create-platform-database",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "agent3-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.02,
+          "sha256": "47a412228f933611d8832112068f5c51bd97b7f7c8fe5ed6a4448aee0a3eb938"
+        },
+        {
+          "name": "platform15-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.03,
+          "sha256": "8612a4d1d85aa787c096eb9ecc19ebef902189eabc869485c342a6412d064879"
+        },
+        {
+          "name": "platform15-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "bb39bc05b4506aa2e8fef61e8d876cc3531833e700077c278364827073740de4"
+        },
+        {
+          "name": "agent3-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "954244b097ae54a1a53843910477aee2c7c9bdd716db5f746015d2d218fe9b6a"
+        },
+        {
+          "name": "agent-canonical-verifier",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "26498857a07e17bdc4550f839070f579fc762fa98b1e84dccb0f2be66a3f1cc0"
+        },
+        {
+          "name": "supabase17-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 3.02,
+          "sha256": "3f126245b02e343bf41c7eef25db4bb2bfd64fc806c402d9820e933c5330a057"
+        },
+        {
+          "name": "supabase17-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.01,
+          "sha256": "b01bbed6bae9ecf2d63a1502252a2bfdda221f61c93e041b2692432a8e06037a"
+        },
+        {
+          "name": "canonical-workflows",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 451.02,
+          "sha256": "7dce06ce5019f8bf9397fe596823610e77e6e022a2a9af255162af4c5453c22b"
+        },
+        {
+          "name": "revalidate-workflows",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "7bcc4bbf4484f7fba5f21915b757d8dbe03fb29c0f440274b5cb462e29da8d93"
+        },
+        {
+          "name": "canonical-postgres",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 10.04,
+          "sha256": "27cafeee7d8d75651ae287ae624f24fb6532ad3fd27e4f07f5d0654482dbca73"
+        },
+        {
+          "name": "revalidate-postgres",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "18cf8e012d0ebb47589b73435b6e6836a5196c7e45ae4d50fc1c8bb479d5842d"
+        },
+        {
+          "name": "canonical-platform-postgres",
+          "exitCode": 1,
+          "expectedExitCode": 0,
+          "seconds": 438.51,
+          "sha256": "3d4e1caffb7136e2a9c157afefe04cfec52dd84a9e1bf1813d6573f6c0f02a01"
+        }
+      ]
+    },
+    {
+      "originalPath": "logs/production-upload-cost-full-root-r1-20261005-results.json",
+      "rawSha256": "081d1d40c0a3be301d88c3320bc8ebe512ceef831741bedbf7ae99b4241c5ac8",
+      "rawIncluded": false,
+      "status": "failed",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": "e9f8e74e241613ff9ae3e7b52215fb94e769811e",
+      "scope": "Historical f699 whole-unit pass; overall strict workflow attempt failed.",
+      "steps": [
+        {
+          "name": "typecheck",
+          "exitCode": 0,
+          "seconds": 41.33
+        },
+        {
+          "name": "lint",
+          "exitCode": 0,
+          "seconds": 27.21
+        },
+        {
+          "name": "gofmt",
+          "exitCode": 0,
+          "seconds": 1.02
+        },
+        {
+          "name": "go-vet",
+          "exitCode": 0,
+          "seconds": 3.03
+        },
+        {
+          "name": "go-race",
+          "exitCode": 0,
+          "seconds": 110.81
+        },
+        {
+          "name": "policy-generated",
+          "exitCode": 0,
+          "seconds": 1.02
+        },
+        {
+          "name": "emit-sql",
+          "exitCode": 0,
+          "seconds": 1.02
+        },
+        {
+          "name": "matrix",
+          "exitCode": 0,
+          "seconds": 4.04
+        },
+        {
+          "name": "aws-templates",
+          "exitCode": 0,
+          "seconds": 1.02
+        },
+        {
+          "name": "ledger",
+          "exitCode": 0,
+          "seconds": 1.02
+        },
+        {
+          "name": "unit",
+          "exitCode": 0,
+          "seconds": 1318.81,
+          "counts": {
+            "passed": 18682,
+            "failed": 0,
+            "skipped": 1167,
+            "total": 19849
+          }
+        },
+        {
+          "name": "security",
+          "exitCode": 0,
+          "seconds": 2.02
+        },
+        {
+          "name": "workflows",
+          "exitCode": 1,
+          "seconds": 427.79,
+          "counts": {
+            "passed": 1096,
+            "failed": 0,
+            "skipped": 82,
+            "total": 1178
+          }
+        }
+      ]
+    },
+    {
+      "originalPath": "logs/cleanup-corrections-native-root-r1-20261005/receipt.json",
+      "rawSha256": "14b70810a3edb9f01e7e676e3d8202b59c78fc21081e84b21f03e6986f9d5942",
+      "rawIncluded": false,
+      "status": "passed_actual_targeted_native_corrections_only",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": "bbfc96a8c5be4c627bc9b385851e2667f4fe53a2",
+      "scope": "Scoped predecessor304 actual PostgreSQL pass, no Temporal.",
+      "steps": [
+        {
+          "name": "pull",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 16.1,
+          "sha256": "f93e29349733442b80e5af42bd04a1181ab1d7ff3d6f6d2b64a688f036789829"
+        },
+        {
+          "name": "start",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "a459ac9ee5032e3fcfd8bc9fa345a0a247567dd1941a4293fefa7a16d974d8f2"
+        },
+        {
+          "name": "server-version",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "create-platform-database",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "agent3-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "487d5a66eac61915a9e4ab950237e93f13d250194e5a633ebc5affeea8d2878a"
+        },
+        {
+          "name": "platform15-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.01,
+          "sha256": "4e4cd8fab0b8cf82a3e5e78b40f3fca0847c6ca0e307f3b81ae5c667084fe3b7"
+        },
+        {
+          "name": "platform15-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "1f50d74b4759dab17daae6261de5dec120ece921c3e77da00203bf5210f3b33b"
+        },
+        {
+          "name": "agent3-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "69d6ed49f1731ed5b86ae86984487e127493f44e1af9f0188812b4dddd6ef100"
+        },
+        {
+          "name": "agent-canonical-verifier",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 1.01,
+          "sha256": "1bbea8602f6181ab078f5d92a876b6f567c9b2b060dffce6337e802fb057a7cb"
+        },
+        {
+          "name": "supabase17-fresh",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 3.02,
+          "sha256": "93d64106e23874078fae8d505db29d50419d9b0c80389247020e04018f04888c"
+        },
+        {
+          "name": "supabase17-reapply",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.01,
+          "sha256": "aac2274911ce8852ac3f748acf329095a1634ae05f85dae261cf860767d8bdac"
+        },
+        {
+          "name": "lint-corrections",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 2.01,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "native-corrections",
+          "exitCode": 0,
+          "expectedExitCode": 0,
+          "seconds": 62.36,
+          "sha256": "f063e3d0d8d0066fac3154b8f3ff6724c2ca90622633ed1adab87d13cc47d3da"
+        }
+      ]
+    },
+    {
+      "originalPath": "logs/production-upload-cost-kind-root-r1-20261005-evidence.json",
+      "rawSha256": "060f04b28b07d2a899b0109f24928c6477c71cc5345719e4fd80883bde9072fd",
+      "rawIncluded": false,
+      "status": "failed",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": null,
+      "scope": "Historical f699 local kind55 pass, extra systemd exec setup failed.",
+      "steps": []
+    },
+    {
+      "originalPath": "logs/production-upload-cost-systemd-root-r2-20261005-evidence.json",
+      "rawSha256": "4508f4f419066ad96167e48397caad118a14981005d3dd7da0a22ea4e2c16e19",
+      "rawIncluded": false,
+      "status": "passed",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": null,
+      "scope": "Historical f699 additional systemd read1 pass; not a write/helper lifecycle.",
+      "steps": []
+    }
+  ],
+  "latestCounts": {
+    "wholeUnitF699": {
+      "passed": 18682,
+      "failed": 0,
+      "skipped": 1167
+    },
+    "lastNativeWorkflows": {
+      "passed": 1192,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lastNativePostgres": {
+      "passed": 322,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lastFullNativePlatform": {
+      "passed": 2755,
+      "failed": 27,
+      "skipped": 8
+    },
+    "savedPlanSettlement100": {
+      "passed": 60,
+      "failed": 40,
+      "skipped": 0
+    },
+    "directPackageLinuxLeaves": {
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0
+    },
+    "directPackageRequiredScenarios": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "signedChildrenPassed": 5
+    },
+    "historicalF699Kind": {
+      "providerPassed": 6,
+      "releasePassed": 1,
+      "guestPassed": 48,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "unexecutedCurrentCandidate": [
+    "complete combined full gate",
+    "complete Supabase18 lane",
+    "canonical native Linux127",
+    "packaged workers22",
+    "native AMD64 worker startup and in-flight shutdown",
+    "default browser/API/MCP composition",
+    "live cloud/private-source and managed/mixed-cloud traffic",
+    "new pushed commit CI"
+  ]
+}

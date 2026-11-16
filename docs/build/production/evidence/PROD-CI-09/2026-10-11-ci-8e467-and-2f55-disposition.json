@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-09",
+  "evidenceLevel": "remote_ci",
+  "kind": "exact-source-ci-8e467-and-2f55-terminal-disposition",
+  "currentRun": {
+    "sourceHead": "8e4670825b4e6cab15fed8dea4c5c77fd5eeaa9e",
+    "runId": 38089224123,
+    "snapshotSha256": "4481f0a574a5521bdb55a872279fb978f49f4a44d15627f626045784b95872ae",
+    "jobCount": 28,
+    "success": 19,
+    "failure": 1,
+    "skipped": 8,
+    "active": 0,
+    "nativeJobsPassed": 4,
+    "nativeJobsTotal": 4,
+    "go": {
+      "jobId": 114322073674,
+      "goRace": {
+        "packages": 22,
+        "passedLeaves": 1074,
+        "failedLeaves": 0,
+        "skippedLeaves": 3,
+        "totalLeaves": 1077
+      },
+      "aptImageBuildExitCode": 1,
+      "aptFailureStage": "BuildKit builder / Dockerfile RUN",
+      "expectedPlatform": "linux/amd64",
+      "pulledBasePlatform": "linux/arm64",
+      "failure": "exec format error before PID1 tests; zero PID1 test events",
+      "cleanup": "completed",
+      "oomObserved": false,
+      "artifactApiDigest": "sha256:696ca2b72c868956c1f28145aba789678d3328efa5d158ca7e1d788fab2cb5c0",
+      "sanitizedArtifactSha256": "68166575147bf93e4735f4c907109fdf1ea2bf287a488301fa313aeef382b939"
+    },
+    "verify": {
+      "conclusion": "success",
+      "testFilesPassed": 1139,
+      "testFilesSkipped": 94,
+      "testFilesTotal": 1233,
+      "durationSeconds": 1848.48,
+      "smoke": "success",
+      "gimbal": "success",
+      "jobId": 114322073680
+    },
+    "snapshotMarkdownSha256": "be4ba762e864c2da1d76e8f0dead3b91b284990edcedf01ba25e69cf6323dbdd",
+    "terminalInventoryReportSha256": "4481f0a574a5521bdb55a872279fb978f49f4a44d15627f626045784b95872ae",
+    "terminal": true
+  },
+  "previousRun": {
+    "sourceHead": "2f55fdaaf1c55c2048cd4fc2363388d0f76ad048",
+    "runId": 38086537262,
+    "finalInventorySha256": "ff90c0b0646309477d7993859f1000d528d9f0b0d79e4c592959238ac7c61ec9",
+    "jobCount": 28,
+    "success": 18,
+    "failure": 1,
+    "skipped": 8,
+    "cancelled": 1,
+    "cancelledJob": "Verify",
+    "verifyUnitSuites": "cancelled",
+    "smokeAndGimbal": "skipped",
+    "goAptFailure": "build-apt-image before PID1 events; cause unknown; cleanup completed",
+    "verifyCancellationReason": "higher-priority queue annotation"
+  },
+  "terminal": true,
+  "allGreen": false,
+  "limitation": "The 8e467 exact-source run is terminal failure from the Go fixture-build architecture mismatch; Verify, Smoke, Gimbal, and all four native jobs passed. The older 2f55 run is terminal cancelled. No current all-green or release promotion."
+}

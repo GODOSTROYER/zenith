@@ -1,0 +1,721 @@
+{
+  "schemaVersion": 1,
+  "runId": 37103826519,
+  "commit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+  "scope": "Offline source/capture independent audit; private output only",
+  "runConclusion": "failure",
+  "jobCounts": {
+    "total": 14,
+    "success": 13,
+    "failure": 1,
+    "skipped": 0
+  },
+  "stepCounts": {
+    "success": 158,
+    "skipped": 3,
+    "failure": 1
+  },
+  "unitCounts": {
+    "files": 807,
+    "total": 16826,
+    "passed": 16427,
+    "skipped": 399,
+    "reporterPassedFiles": 785,
+    "reporterSkippedFiles": 22
+  },
+  "allCaseSkippedFiles": 28,
+  "skipFiles": 72,
+  "skipSourceMapping": {
+    "lane-command-only": {
+      "files": 2,
+      "skippedCases": 3
+    },
+    "outside-five-canonical-lanes": {
+      "files": 23,
+      "skippedCases": 91
+    },
+    "required-group-covered": {
+      "files": 47,
+      "skippedCases": 305
+    }
+  },
+  "canonicalLanes": [
+    {
+      "lane": "platform-postgres",
+      "artifactId": 11268025080,
+      "zipSha256": "f113d53fc18c1b267891807fafe0b6d617b653a6d6c8bf7f28fda03b6be27600",
+      "evidenceSha256": "ca6f57a670100abc70b565c161c3d49a936c44f8302458ff382f707eafa0cdd7",
+      "counts": {
+        "total": 1422,
+        "passed": 1422,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 45,
+      "independentChecks": {
+        "zipDigestMatchesMetadata": true,
+        "artifactRunAndHeadExact": true,
+        "archiveHasOnlyExpectedSanitizedEvidence": true,
+        "embeddedSourceExact": true,
+        "cleanIndexInventory": true,
+        "dependencyVersionsExact": true,
+        "manifestDigestExact": true,
+        "requirementIdsMetadataAlgorithmMatches": true,
+        "requiredInventoryExact": true,
+        "allRequiredFilesExistAtExactSource": true,
+        "allCountsPositiveAndPassed": true,
+        "allRequiredStatusesPassed": true,
+        "elevenReceiptBindingsMatch": true,
+        "twelfthInventoryFlagInternallyConsistent": true,
+        "allTwelveExportedChecksMatch": true,
+        "receiptPrettySerializationDigestMatches": true,
+        "observedZeroExitAndMatched": true,
+        "validSchemaAndVerdict": true,
+        "toolExpectationsMatchManifest": true
+      },
+      "exportedTwelveFlags": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "policy",
+      "artifactId": 11267740182,
+      "zipSha256": "e1324189a5dcfbf4343386273485432f45bee6b7de92dbee9d2e85d2ed84e137",
+      "evidenceSha256": "04d1c7a41060a3eef40e9eb33c04f316c2ce820e31ea6f40774d626b50eec389",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 7,
+      "independentChecks": {
+        "zipDigestMatchesMetadata": true,
+        "artifactRunAndHeadExact": true,
+        "archiveHasOnlyExpectedSanitizedEvidence": true,
+        "embeddedSourceExact": true,
+        "cleanIndexInventory": true,
+        "dependencyVersionsExact": true,
+        "manifestDigestExact": true,
+        "requirementIdsMetadataAlgorithmMatches": true,
+        "requiredInventoryExact": true,
+        "allRequiredFilesExistAtExactSource": true,
+        "allCountsPositiveAndPassed": true,
+        "allRequiredStatusesPassed": true,
+        "elevenReceiptBindingsMatch": true,
+        "twelfthInventoryFlagInternallyConsistent": true,
+        "allTwelveExportedChecksMatch": true,
+        "receiptPrettySerializationDigestMatches": true,
+        "observedZeroExitAndMatched": true,
+        "validSchemaAndVerdict": true,
+        "toolExpectationsMatchManifest": true
+      },
+      "exportedTwelveFlags": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "tofu",
+      "artifactId": 11267425856,
+      "zipSha256": "607fc0fc919b86ae63ad7b93e4995128752f065c0bdf7493cb91c1ca45f8a0eb",
+      "evidenceSha256": "6571fa6ed74e79d47cbb1899167c9d96c1da9eafdc6054e28df8d501b7b0044e",
+      "counts": {
+        "total": 3900,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 27,
+      "independentChecks": {
+        "zipDigestMatchesMetadata": true,
+        "artifactRunAndHeadExact": true,
+        "archiveHasOnlyExpectedSanitizedEvidence": true,
+        "embeddedSourceExact": true,
+        "cleanIndexInventory": true,
+        "dependencyVersionsExact": true,
+        "manifestDigestExact": true,
+        "requirementIdsMetadataAlgorithmMatches": true,
+        "requiredInventoryExact": true,
+        "allRequiredFilesExistAtExactSource": true,
+        "allCountsPositiveAndPassed": true,
+        "allRequiredStatusesPassed": true,
+        "elevenReceiptBindingsMatch": true,
+        "twelfthInventoryFlagInternallyConsistent": true,
+        "allTwelveExportedChecksMatch": true,
+        "receiptPrettySerializationDigestMatches": true,
+        "observedZeroExitAndMatched": true,
+        "validSchemaAndVerdict": true,
+        "toolExpectationsMatchManifest": true
+      },
+      "exportedTwelveFlags": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "workflows",
+      "artifactId": 11267186377,
+      "zipSha256": "7528b38241ef7928e3592b73be8e47a86ac7e0fb61cea6287b3c82cf44229d72",
+      "evidenceSha256": "a5f04f9f216656d8e653dfc8837ad20c889220763c9aabb6bd88a187684c27de",
+      "counts": {
+        "total": 982,
+        "passed": 982,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 44,
+      "independentChecks": {
+        "zipDigestMatchesMetadata": true,
+        "artifactRunAndHeadExact": true,
+        "archiveHasOnlyExpectedSanitizedEvidence": true,
+        "embeddedSourceExact": true,
+        "cleanIndexInventory": true,
+        "dependencyVersionsExact": true,
+        "manifestDigestExact": true,
+        "requirementIdsMetadataAlgorithmMatches": true,
+        "requiredInventoryExact": true,
+        "allRequiredFilesExistAtExactSource": true,
+        "allCountsPositiveAndPassed": true,
+        "allRequiredStatusesPassed": true,
+        "elevenReceiptBindingsMatch": true,
+        "twelfthInventoryFlagInternallyConsistent": true,
+        "allTwelveExportedChecksMatch": true,
+        "receiptPrettySerializationDigestMatches": true,
+        "observedZeroExitAndMatched": true,
+        "validSchemaAndVerdict": true,
+        "toolExpectationsMatchManifest": true
+      },
+      "exportedTwelveFlags": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "externalAcceptance": [
+        {
+          "id": "external-temporal-mtls",
+          "file": "tests/workflows/mtls-live.test.ts",
+          "status": "unverified",
+          "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+        }
+      ]
+    },
+    {
+      "lane": "postgres",
+      "artifactId": 11266119704,
+      "zipSha256": "1c9acab6d648e96c3fe9556e161a730aaa099491cbb259fcd01a569d7b74f3f5",
+      "evidenceSha256": "564a0faec4f6d6b4e0ec7934126ef72726a2e34a10ff343673832ef1b3cc3058",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 9,
+      "independentChecks": {
+        "zipDigestMatchesMetadata": true,
+        "artifactRunAndHeadExact": true,
+        "archiveHasOnlyExpectedSanitizedEvidence": true,
+        "embeddedSourceExact": true,
+        "cleanIndexInventory": true,
+        "dependencyVersionsExact": true,
+        "manifestDigestExact": true,
+        "requirementIdsMetadataAlgorithmMatches": true,
+        "requiredInventoryExact": true,
+        "allRequiredFilesExistAtExactSource": true,
+        "allCountsPositiveAndPassed": true,
+        "allRequiredStatusesPassed": true,
+        "elevenReceiptBindingsMatch": true,
+        "twelfthInventoryFlagInternallyConsistent": true,
+        "allTwelveExportedChecksMatch": true,
+        "receiptPrettySerializationDigestMatches": true,
+        "observedZeroExitAndMatched": true,
+        "validSchemaAndVerdict": true,
+        "toolExpectationsMatchManifest": true
+      },
+      "exportedTwelveFlags": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "externalAcceptance": []
+    }
+  ],
+  "otherMeasures": {
+    "hostedVitest": {
+      "passed": 1146,
+      "skipped": 13,
+      "total": 1159,
+      "files": 92
+    },
+    "generatedVitest": {
+      "passed": 109,
+      "skipped": 0,
+      "files": 4
+    },
+    "goTypeScriptInterop": {
+      "passed": 19,
+      "skipped": 0,
+      "files": 1
+    },
+    "goRacePackages": {
+      "passed": 11,
+      "noTestFiles": 6,
+      "individualCaseCounts": "not exported"
+    },
+    "opaInterpreter": {
+      "passed": 213,
+      "total": 213
+    },
+    "hostedAcceptanceChecks": 22,
+    "hostedBrowser": {
+      "passed": 24,
+      "failed": 0
+    },
+    "agentAcceptanceChecks": 35,
+    "agentBrowser": {
+      "passed": 44,
+      "failed": 0
+    }
+  },
+  "skippedSteps": [
+    {
+      "job": "go",
+      "name": "Say so when there is no Go module yet",
+      "status": "completed",
+      "conclusion": "skipped",
+      "number": 3,
+      "started_at": "2026-10-03T06:40:33Z",
+      "completed_at": "2026-10-03T06:40:33Z"
+    },
+    {
+      "job": "platform-postgres",
+      "name": "Say so when there is no platform migrator yet",
+      "status": "completed",
+      "conclusion": "skipped",
+      "number": 6,
+      "started_at": "2026-10-03T06:41:06Z",
+      "completed_at": "2026-10-03T06:41:06Z"
+    },
+    {
+      "job": "supply-chain",
+      "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "status": "completed",
+      "conclusion": "skipped",
+      "number": 9,
+      "started_at": "2026-10-03T06:40:37Z",
+      "completed_at": "2026-10-03T06:40:37Z"
+    }
+  ],
+  "sourceHashes": [
+    {
+      "file": "scripts/ci/gate-manifest.mjs",
+      "sha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6",
+      "independentGitObjectSha256": "16c388f6f0a9e6df26aed2c13d13d831e3246eb4f283ceb6e1aee4898e1532e6",
+      "exact": true
+    },
+    {
+      "file": "scripts/ci/run-gate.mjs",
+      "sha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f",
+      "independentGitObjectSha256": "fe9ff29bf99f70495f3ac27d1ab94cb3630b50b41e632fb3b50d79a10767b68f",
+      "exact": true
+    },
+    {
+      "file": "scripts/ci/sanitize-evidence.mjs",
+      "sha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba",
+      "independentGitObjectSha256": "63a69e0b4d8bacfa5a2f530cfb7d4688e469e870e3f28ff2c018ff8bc6211fba",
+      "exact": true
+    },
+    {
+      "file": "scripts/ci/lane-report.mjs",
+      "sha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8",
+      "independentGitObjectSha256": "a3c9a51ff6ff26fd78905c79f9d829c7ac53a2fd3b3596c0e34189ea9ec456e8",
+      "exact": true
+    },
+    {
+      "file": "tests/ci/assert-lane-report.mjs",
+      "sha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b",
+      "independentGitObjectSha256": "bdb3bb8c1b9ffd6179557ef17073cf5877c8eae6c5751dc659188a0c3bd81f4b",
+      "exact": true
+    },
+    {
+      "file": "vitest.config.ts",
+      "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+      "independentGitObjectSha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+      "exact": true
+    },
+    {
+      "file": "package-lock.json",
+      "sha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+      "independentGitObjectSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+      "exact": true
+    },
+    {
+      "file": ".github/workflows/ci.yml",
+      "sha256": "cc76429ae8ae5f7550e3ecd59a6cc02479b0dca7edd94010a0116b16264a0450",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "cc76429ae8ae5f7550e3ecd59a6cc02479b0dca7edd94010a0116b16264a0450",
+      "independentGitObjectSha256": "cc76429ae8ae5f7550e3ecd59a6cc02479b0dca7edd94010a0116b16264a0450",
+      "exact": true
+    },
+    {
+      "file": "scripts/ci/security-audit.mjs",
+      "sha256": "43ecf6a4c5b23b2d99c1e116aba7d1790ef9cd3abc996ce10d53606e55c0996a",
+      "verifiedFromExactGitObject": true,
+      "independentLocalSha256": "43ecf6a4c5b23b2d99c1e116aba7d1790ef9cd3abc996ce10d53606e55c0996a",
+      "independentGitObjectSha256": "43ecf6a4c5b23b2d99c1e116aba7d1790ef9cd3abc996ce10d53606e55c0996a",
+      "exact": true
+    }
+  ],
+  "supportedVersionEvidence": {
+    "node": {
+      "pinned": "22.23.3",
+      "observed": "22.23.3",
+      "supportedEngineRange": ">=22.22.2 <23"
+    },
+    "npm": {
+      "observed": "10.9.9"
+    },
+    "vitest": {
+      "locked": "4.1.11"
+    },
+    "postgres": {
+      "pinnedImage": "16.15-alpine",
+      "clientLocked": "3.4.7"
+    },
+    "pglite": {
+      "locked": "0.5.8"
+    },
+    "go": {
+      "pinnedAndObserved": "1.27.1",
+      "executed": "linux/amd64",
+      "crossCompiledOnly": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    "opa": {
+      "pinnedAndObserved": "1.19.1",
+      "rego": "v1",
+      "bundledCompilerGoVersion": "go1.26.6"
+    },
+    "opentofu": {
+      "pinnedAndObserved": "1.12.5",
+      "providers": {
+        "aws": "6.66.0",
+        "google": "8.5.0",
+        "azurerm": "5.7.0",
+        "oci": "9.7.1"
+      }
+    },
+    "temporal": {
+      "cliObserved": "1.9.1",
+      "devServerObserved": "1.32.0",
+      "uiObserved": "2.54.1",
+      "sdkLocked": "1.24.0"
+    },
+    "browser": {
+      "chromeObserved": "154.0.8037.57",
+      "playwrightCoreLocked": "1.56.1",
+      "engine": "playwright-core chromium",
+      "viewports": {
+        "hosted": [
+          "1280x800",
+          "375x812"
+        ],
+        "agent": [
+          "1280x800",
+          "380x780"
+        ]
+      }
+    },
+    "next": {
+      "locked": "15.5.24"
+    },
+    "vite": {
+      "locked": "7.3.6"
+    }
+  },
+  "findings": [
+    {
+      "id": "REMOTE-AUDIT-01",
+      "kind": "observed-release-blocker",
+      "priority": "P1",
+      "summary": "The overall run failed its mandatory complete locked dependency audit.",
+      "job": "supply-chain",
+      "jobId": 111148397074,
+      "step": "Known dependency findings block release",
+      "exit": 1,
+      "packages": [
+        "@next/eslint-plugin-next",
+        "braces",
+        "eslint-config-next",
+        "fast-glob",
+        "micromatch"
+      ],
+      "advisoryIds": [
+        "GHSA-vfj7-8cjw-p6xm"
+      ],
+      "logLines": [
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145
+      ],
+      "source": "scripts/ci/security-audit.mjs:7",
+      "followup": "Resolve dependency findings in a separate authorized source workstream and rerun the mandatory audit; preserve all-severity dev/optional/peer scope."
+    },
+    {
+      "id": "REMOTE-SHELL-02",
+      "kind": "source-defect-with-root-harmless-probe",
+      "priority": "P1",
+      "summary": "Native POSIX shell availability helper forms sh sh -s, causing the probe to run sh as a script instead of consuming stdin with sh -s.",
+      "sourceAnchors": [
+        "tests/machines/_sh.ts:34",
+        "tests/machines/_sh.ts:48"
+      ],
+      "observedFile": "tests/machines/ssm-documents.test.ts",
+      "observedSkipped": 14,
+      "inference": "Thirteen shell-guarded cases plus one OpenTofu-guarded case are source-consistent with the fourteen captured skips; runtime causality was not reproduced by this auditor.",
+      "followup": "Correct the native invocation shape, test the actual shell prerequisite, and require meaningful hostile-parameter/filesystem execution in an authorized gate.",
+      "rootFindingId": "AUDIT-SSM-SHELL-01",
+      "runtimeProbeEvidence": "Root independently executed only harmless native shell argv/stdin probes on macOS. Incorrect argv exit126; correct argv exit0 and expected stdout. Auditor verified exact source hashes and captured receipt, not runtime execution."
+    },
+    {
+      "id": "REMOTE-SHELL-03",
+      "kind": "source-only-false-green-path",
+      "priority": "P1",
+      "summary": "The advertised real-shell hostile argv test silently returns when findSh is unavailable, so a passed test/file does not establish its shell assertions executed.",
+      "sourceAnchors": [
+        "tests/machines/ssm-transport.test.ts:490",
+        "tests/machines/ssm-transport.test.ts:493"
+      ],
+      "followup": "Replace silent return with observable prerequisite handling and require the real shell check in the intended native gate."
+    },
+    {
+      "id": "REMOTE-REPLAY-04",
+      "kind": "independent-replay-limitation",
+      "priority": "P2",
+      "summary": "Only sanitized lane evidence is retained publicly; raw reports and private environment inventories are absent.",
+      "followup": "Keep sanitized uploads; arrange authorized private retention/replay of raw reports and hashed environment inventory if stronger independent execution replay is required."
+    },
+    {
+      "id": "REMOTE-COVERAGE-05",
+      "kind": "incomplete-runtime-acceptance",
+      "priority": "P2",
+      "summary": "399 unit cases skipped; external Temporal mTLS remains explicitly unverified; several opt-in integrations are outside all five canonical lane commands.",
+      "followup": "Plan authorized disposable acceptance for the uncovered source guards without claiming unit or aggregate lane passes replace these prerequisites."
+    },
+    {
+      "id": "REMOTE-GO-06",
+      "kind": "case-observability-limitation",
+      "priority": "P2",
+      "summary": "Go nonverbose package summaries hide actual per-case skips and case counts, including the systemd opt-in.",
+      "followup": "In a separate CI/evidence change, capture private go test -json reports and sanitize exact counts/skip identities while preserving race/golden/cross-build gates."
+    }
+  ],
+  "limitations": [
+    "This is an offline independent source and captured-evidence audit; no tests, network requests, runtime commands, services, or deployment were executed by this auditor.",
+    "All counts were freshly parsed from run 37103826519. No prior-run count or verdict was copied. Repeated job/lane assertions overlap, so no combined unique-test grand total is claimed.",
+    "Sanitized ZIPs contain no raw Vitest reports, origin sidecars, or private environment inventories. Their digests and internal relationships match, but original assertion matching and environment values cannot be independently replayed.",
+    "Standard Vitest JSON does not export unique task identity. Identical display names cannot independently establish distinct cases, even if raw JSON were supplied.",
+    "The 399 captured unit skips have file identities and counts; skipped case titles are absent in the captured reporter output. Source guard candidates and declared suite names are labeled inferences rather than captured skipped-case identities.",
+    "Go package-only race output does not disclose case totals or actual runtime skip events. Eleven package passes are not eleven tests; six no-test packages are not six skipped cases.",
+    "Platform-Postgres 1422 and OpenTofu 3900 are lane assertion totals containing other engines, mocks, compiler and SDK checks. Required-group counts are scoped evidence; overlapping required groups must not be summed into a unique total.",
+    "Hosted and agent browsers use installed Linux Chrome with local services. DOM project tests use jsdom. Neither establishes deployed customer acceptance, Safari/Firefox/Windows browser coverage, real external identity-provider integration, or live cloud/provider acceptance.",
+    "The Go golden and TypeScript interop gate verifies generated result fixture contracts. Its public exact9 source has no newly frozen production typed file.write/native Linux gate. That private workstream cannot inherit this run acceptance.",
+    "Supported pinned versions show this one CI environment. Other Node/OPA/Go/OpenTofu/PostgreSQL versions, architecture runtime behavior, hardened systemd deployment and external services require their own evidence.",
+    "Raw npm audit JSON is absent. Five package findings and one advisory family are captured; severity, vulnerable ranges, advisory text, dependency graph and fixed versions cannot be independently reconstructed from these short logs."
+  ],
+  "outsideOwnedFollowups": [
+    "Resolve dependency findings in a separate authorized source workstream and rerun the mandatory audit; preserve all-severity dev/optional/peer scope.",
+    "Correct the native invocation shape, test the actual shell prerequisite, and require meaningful hostile-parameter/filesystem execution in an authorized gate.",
+    "Replace silent return with observable prerequisite handling and require the real shell check in the intended native gate.",
+    "Keep sanitized uploads; arrange authorized private retention/replay of raw reports and hashed environment inventory if stronger independent execution replay is required.",
+    "Plan authorized disposable acceptance for the uncovered source guards without claiming unit or aggregate lane passes replace these prerequisites.",
+    "In a separate CI/evidence change, capture private go test -json reports and sanitize exact counts/skip identities while preserving race/golden/cross-build gates."
+  ],
+  "outputs": [
+    "remote-unit-files.json",
+    "remote-unit-files.csv",
+    "remote-skipped-files.json",
+    "remote-job-evidence-audit.json",
+    "remote-lane-evidence-audit.json",
+    "go-source-skip-guards.json",
+    "remote-local-unit-count-comparison.json",
+    "independent-source-requirements.json"
+  ],
+  "noSourceChangesOrRuntimeExecuted": true,
+  "rootIndependentShellProbe": {
+    "findingId": "AUDIT-SSM-SHELL-01",
+    "receiptPath": "private-evidence:complete-test-audit-20261003/ssm-shell-probe-finding.json",
+    "sha256": "548b978a2835ee28e5cc3b7ea5db8c728f850b80284b3b674c44e9b7a19f0b8e",
+    "sourceHashesIndependentlyMatch": true,
+    "observations": [
+      {
+        "argv": [
+          "sh",
+          "sh",
+          "-s"
+        ],
+        "exitCode": 126,
+        "expectedOutputMatched": false,
+        "stderr": "/bin/sh: /bin/sh: cannot execute binary file"
+      },
+      {
+        "argv": [
+          "sh",
+          "-s"
+        ],
+        "exitCode": 0,
+        "expectedOutputMatched": true,
+        "stderr": ""
+      }
+    ],
+    "scope": "Root independently reproduced argv shape defect with harmless shell stdin probe on macOS; no SSM/cloud call or product source change. False shell-unavailable probe skips guarded cases and allows unguarded hostile-argv test to return without assertions.",
+    "productionMutationVulnerabilityProven": false,
+    "sourceReceiptVerified": true
+  },
+  "freshLocalCountComparison": {
+    "sourceCommit": "9e62a15f57034bf21d8924a6c6e1e1c558bfe854",
+    "remoteRunId": 37103826519,
+    "localRun": "fresh root public-unit-9e62a15",
+    "localReportSha256": "0fffacd75c608651fa38e0a3f19c768ee6f7ac47915dbd8f4bce198e0975dbfd",
+    "localReceiptSha256": "86ed6e397ff2a63518ab7057a2d5d40a8d8280ba49eab0b0e9a2f12b85a3beec",
+    "counts": {
+      "remote": {
+        "files": 807,
+        "total": 16826,
+        "passed": 16427,
+        "skipped": 399,
+        "reporterPassedFiles": 785,
+        "reporterSkippedFiles": 22
+      },
+      "local": {
+        "files": 807,
+        "total": 16826,
+        "passed": 16462,
+        "failed": 0,
+        "skipped": 364
+      }
+    },
+    "changedFiles": 13,
+    "inference": "41 cases pass locally across 12 files where tools are available; six Azure collector cases pass remotely but skip locally because the source autodetects the executable named python. Net local passed increase 35 across 13 changed files. Source guards and root environment describe these differences; no captured remote case title claimed.",
+    "localNewPassedCases": 41,
+    "remotePassedLocalSkippedCases": 6,
+    "netAdditionalLocalPassed": 35,
+    "localNewPassedFiles": 12,
+    "remotePassedLocalSkippedFiles": 1
+  },
+  "sourceRequirementsIndependentlyRebuilt": [
+    {
+      "lane": "policy",
+      "requirementsRebuiltFromSource": 7,
+      "snapshotRequirements": 7,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "tofu",
+      "requirementsRebuiltFromSource": 27,
+      "snapshotRequirements": 27,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "postgres",
+      "requirementsRebuiltFromSource": 9,
+      "snapshotRequirements": 9,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "workflows",
+      "requirementsRebuiltFromSource": 44,
+      "snapshotRequirements": 44,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    },
+    {
+      "lane": "platform-postgres",
+      "requirementsRebuiltFromSource": 45,
+      "snapshotRequirements": 45,
+      "exactOrderAndContents": true,
+      "sourceMethod": "Offline Python directory enumeration plus reviewed exact source declarations and regex backend derivation; no Node invocation"
+    }
+  ]
+}

@@ -7,8 +7,10 @@ import { throttleAsync } from './rate-limit';
 import { oauthConfig } from './oauth';
 import { ControlError } from './journal';
 import { redact } from '../security';
+import { sanitizeForModel, redactionNote } from '@/lib/security/result-sanitizer';
 const MAX_RESULT=524288;
-function result(data:unknown){const safe=redact(data);if(Buffer.byteLength(JSON.stringify(safe))>MAX_RESULT)throw new ControlError('response_too_large','Narrow the query or paginate.',413);return {content:[{type:'text' as const,text:JSON.stringify(safe)}],structuredContent:{contractVersion:CONTROL_VERSION,mode:'reviewed-operations',data:safe}};}
+// Model-visible: legacy projection first, then the shared structured sanitizer (best-effort; never a completeness claim).
+function result(data:unknown){const {value:safe,report}=sanitizeForModel(redact(data));if(Buffer.byteLength(JSON.stringify(safe))>MAX_RESULT)throw new ControlError('response_too_large','Narrow the query or paginate.',413);const note=redactionNote(report);return {content:[{type:'text' as const,text:JSON.stringify(safe)}],structuredContent:{contractVersion:CONTROL_VERSION,mode:'reviewed-operations',data:safe,...(note?{sanitization:{redactions:report.redactions,kinds:report.kinds,completeness:report.completeness,note}}:{})}};}
 export async function mcp(request:Request):Promise<Response>{
   try{
     // The capability probe, once per transport entry point, and the whole one:
@@ -38,7 +40,7 @@ export async function gateway(request:Request):Promise<Response>{
     const auth=await authorizeRequest(request);await throttleAsync(auth.who);
     if(request.method==='GET')return inAgentScope(auth.who,async()=>json({contractVersion:CONTROL_VERSION,mode:'reviewed-operations',tools:catalog(auth.who)}));
     if(request.method!=='POST')return json({error:{code:'method_not_allowed'}},405);
-    const input=z.object({name:z.string().min(1).max(100),arguments:z.record(z.unknown()).default({})}).strict().parse(await jsonBody(request));
+    const input=z.object({name:z.string().min(1).max(100),arguments:z.record(z.string(), z.unknown()).prefault({})}).strict().parse(await jsonBody(request));
     return json(result(await invoke(input.name,input.arguments,auth.who,auth.selected,async()=>{request.signal.throwIfAborted();return (await authorizeRequest(request)).who;},auth.origin)));
   }catch(error){return failure(error);}
 }

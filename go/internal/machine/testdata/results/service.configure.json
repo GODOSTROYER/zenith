@@ -1,0 +1,26 @@
+{
+  "args": {
+    "unit": "app.service",
+    "profileRef": "app-config",
+    "profileVersion": "90a32ea589efb6dab600b81d615f6c92476752ba9148cfcdfa7fb574b65a4a29",
+    "expectedSha256": null
+  },
+  "operation": "service.configure",
+  "result": {
+    "ok": true,
+    "data": {
+      "action": "restart",
+      "activeState": "active",
+      "bytesWritten": 39,
+      "changed": true,
+      "created": true,
+      "effect": "committed",
+      "phase": "verified",
+      "postcondition": "verified",
+      "profileRef": "app-config",
+      "profileVersion": "90a32ea589efb6dab600b81d615f6c92476752ba9148cfcdfa7fb574b65a4a29",
+      "transactionRef": "fw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unit": "app.service"
+    }
+  }
+}

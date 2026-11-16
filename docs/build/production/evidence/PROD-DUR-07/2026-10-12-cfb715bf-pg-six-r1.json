@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "kind": "pg-six-evidence-publication-closure",
+  "status": "bounded-local-engine-evidence-ready",
+  "sourceHead": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+  "sourceFreezeSha256": "7cb0aa4ba5270fb5cfa0c7bd18025038a451073f3af2df5b20c833aca9dc07b3",
+  "candidate": {
+    "revision": "R7",
+    "sourceSha256": "a5130f77dfdbacef548cd1f9e0cc395beb36c9863f5c396e9998438fc737b278",
+    "independentReview": "P",
+    "reviewSha256": "8022535c924c4e7d93263bc458defb9387ef0d9245a63d26bdcafd739c93f9fb"
+  },
+  "execution": {
+    "testReportSha256": "b7a4b59b63d4af3d4ba86092359b6750e6ae92fb4f1eb9a1dab1055c6138a5fa",
+    "resultReceiptSha256": "d09f88954279b535a13d62b9942b318426e8b19b3c7b25368894e36f3f29610f",
+    "caseTotals": {
+      "total": 45,
+      "passed": 6,
+      "failed": 0,
+      "filteredSkipped": 39
+    },
+    "suiteTotals": {
+      "total": 17,
+      "passed": 17,
+      "failed": 0,
+      "pending": 0
+    },
+    "selectedFullNames": [
+      "idempotent runner enqueue ['postgres'] a definite failure lets the retry queue a new generation, while a succeeded or running job is attached",
+      "idempotent runner enqueue ['postgres'] a retry after a lost enqueue acknowledgement attaches to the queued job",
+      "idempotent runner enqueue ['postgres'] the identity is scoped by operation and by key",
+      "idempotent runner enqueue ['postgres'] two workers racing on one identity queue exactly one job",
+      "idempotent runner enqueue ['postgres'] without a key every enqueue is a new job (the control)",
+      "recovery epochs ['postgres (scratch database)'] running work and external effects stay uncertain a pending effect becomes uncertain; the same identity is never created twice; a late receipt is evidence only"
+    ],
+    "heldCommands": 23,
+    "allHeldCommandsSettledAndAbsent": true,
+    "cleanup": {
+      "ownedContainerId": "72c161da96882a736bb60c54dbe21294614fa08837d287049c22c2861a123e4c",
+      "containerAbsenceProven": true,
+      "privatePasswordAndInitSqlRemoved": true,
+      "cleanupCompleted": true
+    },
+    "sourceChecks": {
+      "head": "cfb715bfcff8049e031e1422c526da4bc13d5d5c",
+      "trackedFiles": 5978,
+      "beforeTestAfterCleanupFreezeMatched": true
+    },
+    "floors": {
+      "requiredBytes": 23622320128,
+      "vmSamples": 3,
+      "vmMinimumFreeBytes": 406764740608,
+      "hostWatcherJoined": true,
+      "vmObserverJoined": true,
+      "hostNumericMinimumPersisted": false,
+      "limitation": "Terminal receipts record successful host watcher join but do not persist its numeric minimum."
+    },
+    "terminalReview": {
+      "sha256": "83045f9c07337d8802b25c03183f748f54b4bd8d92025c2e12fd972f741c0017",
+      "structuredSha256": "4e362a48b20222cecd935202fed439ccb2c1d1e3f2628be4ff8f2949c179f625",
+      "result": "P"
+    },
+    "supersededFailurePreserved": {
+      "sha256": "b9e281cf2104bd1e02403cc570b8b67949c7fea54d087892a11d0e33c2c39738",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 45
+    }
+  },
+  "ledgerAppendProposal": {
+    "requirement": "PROD-DUR-07",
+    "level": "local_engine",
+    "recommendation": "Append as scoped supplemental evidence for persisted PostgreSQL recovery-epoch uncertainty and idempotent enqueue identity behavior.",
+    "scopeLimit": "Does not prove provider idempotency/receipts/readback, operator resolution, durable external-mutation outbox, full lifecycle recovery, or acceptance-cleanup quiescence.",
+    "promoteRequirement": false
+  },
+  "otherRequirements": {
+    "PROD-DUR-06": "Do not append as evidence for janitor writer/unlink races, artifact retention, or the supported-backend locking/encryption/versioning/restore matrix; the six cases do not exercise those criteria."
+  },
+  "acceptanceState": "unchanged; no requirement promotion proposed"
+}

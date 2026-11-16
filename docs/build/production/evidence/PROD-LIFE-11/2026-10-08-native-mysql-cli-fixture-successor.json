@@ -1,0 +1,276 @@
+{
+  "schema": "zenith.scoped-native-verification.v1",
+  "requirement": "PROD-LIFE-11",
+  "date": "2026-10-08",
+  "scope": "Six original stock-client and in-process MySQL TLS/auth protocol custody cases; no MySQL engine/provider acceptance",
+  "testedSource": {
+    "commit": "33f6aa175c54ade5f9d269e98c7862b1f19dde72",
+    "trackedCleanBeforeAndAfter": true,
+    "sourceHashes": {
+      "tests/portability/mysql-cli-tls.test.ts": "c35194560064b1e9044a61e645a2027c907081e28ce91f40df17361a6e191baa",
+      "src/lib/portability/engines/mysql.ts": "883e1867b77d8723b6a4803673eade4e07e9f7eede0706249d72ec031a9cd6b3",
+      "src/lib/portability/engines/mysql-inprocess.ts": "feadcd14dfaf6fafdfb29e5d32f3893bf52dbfae0d9e6570b1608e29ae1725bc",
+      "src/lib/portability/net.ts": "2d8a21d40417b19fb5b0f68b140c200ec24458af3af724c8d0b749b435d7dc7e",
+      "src/lib/portability/types.ts": "e59beb5e38afa1af393f6dc1b7eb253ccbcd7ec12ccf07933478504fdf19e0a1",
+      "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c"
+    },
+    "independentGitObjectHashesMatched": true
+  },
+  "controller": {
+    "sha256": "f9eb79245d516cc3b459675b7ccf05b600898ebea465880aeb4ef161dd0227d0",
+    "independentSourceReview": "accepted",
+    "scopeDelta": "Reviewed wrapper source path points to the clean provider worker; selection, tool, TLS, resource and cleanup guards are unchanged."
+  },
+  "tools": {
+    "versions": {
+      "node": "v22.23.3",
+      "mysql": "MySQL 9.6.0 for macos26.2 ARM64 (Homebrew)",
+      "openssl": "OpenSSL 3.6.5 29 Sep 2026 (Library: OpenSSL 3.6.5 29 Sep 2026)"
+    },
+    "sha256": {
+      "node": "68f4d07ca49e0500cc135c7e0a445093e228e42e126ac22306d045f0a8c2636b",
+      "mysql": "4f5d47abed3c8c20d5899c9821b173932e75bb94a314efbcb04b4c927e56a2ba",
+      "openssl": "b03f2e68b47deed8084008b548a50e95eca6bb952154e5d95daf813a833bba3b"
+    }
+  },
+  "result": {
+    "testProcessExitCode": 0,
+    "requiredPassed": 6,
+    "requiredFailed": 0,
+    "requiredSkipped": 0,
+    "filteredCases": 0,
+    "discoveredCases": 6,
+    "cases": [
+      {
+        "suite": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1)",
+        "title": "authenticates a CA-trusted literal IP SAN on the same real stock-client TLS socket before query",
+        "status": "passed"
+      },
+      {
+        "suite": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1)",
+        "title": "refuses a CA-valid certificate lacking the destination IP SAN before credential authentication",
+        "status": "passed"
+      },
+      {
+        "suite": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1)",
+        "title": "refuses an untrusted CA on the real TLS socket before credential authentication",
+        "status": "passed"
+      },
+      {
+        "suite": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1)",
+        "title": "refuses a non-TLS greeting rather than downgrading or sending an authentication response",
+        "status": "passed"
+      },
+      {
+        "suite": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1)",
+        "title": "verifies a DNS TLS name against the certificate identity in-process (never the stock client) before credentials",
+        "status": "passed"
+      },
+      {
+        "suite": "stock MySQL authenticated TLS destination custody (explicit ZENITH_TEST_MYSQL_CLI_TLS=1)",
+        "title": "refuses a DNS TLS name the certificate does not name, before credential authentication",
+        "status": "passed"
+      }
+    ]
+  },
+  "predecessors": [
+    {
+      "stage": "original-close-race",
+      "preserved": true,
+      "sourceCommit": "5687c3bea1a5c6288199c9fef885de97c5dce5f9",
+      "controllerSha256": "a3c848c3ff04b619b1bb4977556fbcd5bd73defb5cc0426ad33fd69542014d75",
+      "passed": 4,
+      "failed": 2,
+      "skipped": 0,
+      "discovered": 6,
+      "exitCode": 1,
+      "cleanupComplete": false,
+      "cleanupFailures": [
+        "test_certificate_directory_retained"
+      ],
+      "sourceBindingConfirmed": true,
+      "failedCases": [
+        "verifies a DNS TLS name against the certificate identity in-process (never the stock client) before credentials",
+        "refuses a DNS TLS name the certificate does not name, before credential authentication"
+      ],
+      "interpretation": "Both DNS cases failed strict socket cleanup; the owned certificate directory was retained.",
+      "receiptSha256": "657acb3b7e381c84c823b2f2cdf40038a2b77dbbfdfc774a175f613cc266d78b",
+      "reportSha256": "d5b51b35f2d836e10eae56dd4b782d79c3b4661b2eea15f842965395698052ab",
+      "independentRetainedCertificateDirectoryObserved": true
+    },
+    {
+      "stage": "actual-close-fixed",
+      "preserved": true,
+      "sourceCommit": "568bad74f8eeb6f6f72a4a3aebd1d1d756cdab9c",
+      "controllerSha256": "f9eb79245d516cc3b459675b7ccf05b600898ebea465880aeb4ef161dd0227d0",
+      "passed": 5,
+      "failed": 1,
+      "skipped": 0,
+      "discovered": 6,
+      "exitCode": 1,
+      "cleanupComplete": true,
+      "cleanupFailures": [],
+      "sourceBindingConfirmed": true,
+      "failedCases": [
+        "verifies a DNS TLS name against the certificate identity in-process (never the stock client) before credentials"
+      ],
+      "interpretation": "DNS-positive in-process client exceeded its unchanged deadline; cleanup completed.",
+      "receiptSha256": "cae76eedccfa6df33277bdd9bf8464ece873ffaec48a1ce92ff044b073494744",
+      "reportSha256": "0b5a250fd678d65295adc800b54358ca639f8ac78ad358f2d5bff84bbe2c7e2e"
+    },
+    {
+      "stage": "numeric-phase-diagnostic",
+      "preserved": true,
+      "sourceCommit": "568bad74f8eeb6f6f72a4a3aebd1d1d756cdab9c",
+      "controllerSha256": "fd6fb0d0ab13650176b24663697f59f8b40c1cb3240e8a1a5c4af575a4340ef3",
+      "passed": 5,
+      "failed": 1,
+      "skipped": 0,
+      "discovered": 6,
+      "exitCode": 1,
+      "cleanupComplete": true,
+      "cleanupFailures": [],
+      "sourceBindingConfirmed": true,
+      "failedCases": [
+        "verifies a DNS TLS name against the certificate identity in-process (never the stock client) before credentials"
+      ],
+      "interpretation": "Diagnostic only; not acceptance. Numeric counters locate the buffered TLS handoff failure.",
+      "receiptSha256": "b1ddf05493b00a77e6c672c5db531e882e13b07a8b482ae5ada270feba352bc7",
+      "reportSha256": "8b973be372936d1b5eb228fe9cc9290ffa8895e6077b4113ef6c31c006290f90",
+      "diagnosticOnly": true,
+      "phaseCounters": {
+        "connections": 1,
+        "sslRequests": 1,
+        "bufferedTLSBytes": 1592,
+        "tlsEstablished": 0,
+        "encryptedAuth": 0,
+        "queries": 0
+      }
+    }
+  ],
+  "diagnosis": {
+    "actualCloseRepair": "The fixture registers close promises when raw and TLS sockets are created, and drains their actual close events before retaining the zero-socket/listener assertions.",
+    "bufferedTLSRepair": "The fixture uses the existing mysql-wire-fixture generic Duplex handoff so unshifted ClientHello bytes flow into TLS; protocol bytes and TLS flags are unchanged.",
+    "productionChanges": false,
+    "deadlineOrAssertionRelaxation": false
+  },
+  "cleanup": {
+    "complete": true,
+    "ownedGroupsAbsent": true,
+    "observedOwnedListenerCount": 2,
+    "listenerClosureConfirmedByController": true,
+    "exactConnectionRefusalRequired": true,
+    "testAfterAllCertificateCleanupObserved": true,
+    "inodeCustodyCheckedBeforeWipe": true,
+    "ownedRuntimeRemoved": true,
+    "independentCurrentOwnedRuntimeAbsent": true,
+    "failures": []
+  },
+  "resources": {
+    "continuousFloorBytes": 23622320128,
+    "minimumFreeBytes": 25368580096,
+    "floorSatisfied": true
+  },
+  "privateArtifacts": {
+    "receiptSha256": "8782165a17854592c7b0cebbb133bed626d1ac3d408c4ccb7522cabe7a66d706",
+    "testReportSha256": "dc00ececafdedab922bf05608ad8a19fabf64f66c259d50668cc870ae97719da",
+    "rawLogsCredentialsAndHomePathsExcluded": true
+  },
+  "limits": [
+    "This is stock-client and in-process TLS/auth acceptance against an owned protocol fixture, not MySQL engine acceptance.",
+    "The separate earlier two-case native MySQL engine receipt is not rerun or incorporated into these six counts.",
+    "Failed predecessors and diagnostic attempts remain failures; no project-wide zero-skip or cloud/provider acceptance is claimed."
+  ],
+  "integratedRootSuccessor": {
+    "sourceCommit": "60d78730a148f175e0d63c3be4c600545fdf43d0",
+    "sourceHashes": {
+      "tests/portability/mysql-cli-tls.test.ts": "c35194560064b1e9044a61e645a2027c907081e28ce91f40df17361a6e191baa",
+      "src/lib/portability/engines/mysql.ts": "883e1867b77d8723b6a4803673eade4e07e9f7eede0706249d72ec031a9cd6b3",
+      "src/lib/portability/engines/mysql-inprocess.ts": "feadcd14dfaf6fafdfb29e5d32f3893bf52dbfae0d9e6570b1608e29ae1725bc",
+      "src/lib/portability/net.ts": "2d8a21d40417b19fb5b0f68b140c200ec24458af3af724c8d0b749b435d7dc7e",
+      "src/lib/portability/types.ts": "e59beb5e38afa1af393f6dc1b7eb253ccbcd7ec12ccf07933478504fdf19e0a1",
+      "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c"
+    },
+    "controllerSHA256": "a3c848c3ff04b619b1bb4977556fbcd5bd73defb5cc0426ad33fd69542014d75",
+    "requiredPassed": 6,
+    "failed": 0,
+    "skippedOrFiltered": 0,
+    "discovered": 6,
+    "cases": [
+      {
+        "title": "authenticates a CA-trusted literal IP SAN on the same real stock-client TLS socket before query",
+        "status": "passed"
+      },
+      {
+        "title": "refuses a CA-valid certificate lacking the destination IP SAN before credential authentication",
+        "status": "passed"
+      },
+      {
+        "title": "refuses an untrusted CA on the real TLS socket before credential authentication",
+        "status": "passed"
+      },
+      {
+        "title": "refuses a non-TLS greeting rather than downgrading or sending an authentication response",
+        "status": "passed"
+      },
+      {
+        "title": "verifies a DNS TLS name against the certificate identity in-process (never the stock client) before credentials",
+        "status": "passed"
+      },
+      {
+        "title": "refuses a DNS TLS name the certificate does not name, before credential authentication",
+        "status": "passed"
+      }
+    ],
+    "reportSHA256": "b5b917dbd2858ad5627ace94314d201f67d5c06a6ef4c42b4da55e359bb00782",
+    "toolVersions": {
+      "node": "v22.23.3",
+      "mysql": "/opt/homebrew/bin/mysql  Ver 9.6.0 for macos26.2 on arm64 (Homebrew)",
+      "openssl": "OpenSSL 3.6.5 29 Sep 2026 (Library: OpenSSL 3.6.5 29 Sep 2026)"
+    },
+    "toolHashes": {
+      "node": "68f4d07ca49e0500cc135c7e0a445093e228e42e126ac22306d045f0a8c2636b",
+      "mysql": "4f5d47abed3c8c20d5899c9821b173932e75bb94a314efbcb04b4c927e56a2ba",
+      "openssl": "b03f2e68b47deed8084008b548a50e95eca6bb952154e5d95daf813a833bba3b"
+    },
+    "cleanupConfirmed": true,
+    "cleanupFailures": [],
+    "ownedGroupsAbsent": true,
+    "observedOwnedListenerCount": 2,
+    "testAfterAllCertificateCleanupObserved": true,
+    "endSourceBindingConfirmed": true,
+    "minimumFreeBytes": 25365311488,
+    "floorBytes": 23622320128,
+    "floorCrossed": false,
+    "passed": true,
+    "privateReceiptSha256": "5eb7075e818a6f646e97ccabefb7abcb5ab4bc370b5bbd22e76504e88ce164b9"
+  },
+  "compilerAndLint": {
+    "testedCommit": "33f6aa175c54ade5f9d269e98c7862b1f19dde72",
+    "compiler": {
+      "commit": "33f6aa175c54ade5f9d269e98c7862b1f19dde72",
+      "heapMiB": 4096,
+      "exitCode": 0,
+      "minimumFreeBytes": 25368481792,
+      "floorBytes": 23622320128,
+      "termination": null,
+      "durationSeconds": 57.06,
+      "previousAttempts": [
+        {
+          "heapMiB": 2048,
+          "exitCode": 134,
+          "reason": "JavaScript heap out of memory"
+        },
+        {
+          "heapMiB": 3072,
+          "exitCode": -6,
+          "reason": "JavaScript heap out of memory"
+        }
+      ]
+    },
+    "compilerLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lintExitCode": 0,
+    "lintLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scope": "Root executed before integration; exact reviewed fixture bytes integrated69e732db/60d78730. Two lower-heap OOM attempts retained; passing4GiB attempt stayed above22GiB floor."
+  }
+}

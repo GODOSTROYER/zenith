@@ -1,0 +1,17 @@
+{
+  "schema": "zenith.j2-native-witness-build-evidence.v1",
+  "source_commit": "7313824e3f34615c63ca88cd904c4f3551c34236",
+  "source_content_sha256": "acf9de4f75e4cd9661f2f5b67de4cccc0de5ff884d613a3b2839a7ce4012884f",
+  "platform": "linux/arm64",
+  "build_status": "built",
+  "build_exit_code": 0,
+  "image_id": "sha256:f5431b0dbbbfa0bed7e3e6b44b31737778e131e06a9b610fea0eb75efe958802",
+  "image_retained_locally": true,
+  "push_performed": false,
+  "runtime_user": "65532:65532",
+  "build_processes_absent": true,
+  "bound_r16_execution_receipt_sha256": "d9b76c236b806edd76639efafc04f484d85d0eff6812e2c6fa998bf31fac1adf",
+  "scope": "Native ARM64 image-build witness only. The image was not pushed or invoked; no native J2 runtime acceptance is claimed.",
+  "summary_sha256": "e030fbd8ad7c97ad40dbd330835c612a42d56d22e0b2d01dfde7e0c5a54b0950",
+  "source_bound_r16_execution_receipt_sha256": "d9b76c236b806edd76639efafc04f484d85d0eff6812e2c6fa998bf31fac1adf"
+}

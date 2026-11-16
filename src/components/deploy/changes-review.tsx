@@ -15,6 +15,7 @@ import { api, ApiError, executeAction, planAction, useJson } from "@/lib/client/
 import type { ActionPlan } from "@/lib/actions/core";
 import { cx, fmtDuration, fmtUsd } from "@/lib/format";
 import type { ChangeItem, Changeset, Revision } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 
 const ChangeRehearsal = dynamic(() => import("@/components/spatial/change-rehearsal").then((m) => m.ChangeRehearsal), {
   ssr: false,
@@ -68,7 +69,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   const { data: current, error: currentError, refresh: retryCurrent } = useJson<{ revision: Revision }>(
     selectedEnv?.deployedRevisionId ? `/api/revisions/${selectedEnv.deployedRevisionId}` : null
   );
-  const currentManifest = current && current.revision.id === selectedEnv?.deployedRevisionId ? current.revision.manifest : null;
+  const currentManifest = current && current.revision.id === selectedEnv?.deployedRevisionId ? v1View(current.revision.manifest) : null;
 
   const scope = { projectId: project.id, environmentId: selectedEnvId };
 
@@ -234,7 +235,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         <div role="status" className="border border-line bg-bg1 p-4 text-[13px] text-ink-mute">
           {currentError ? <><p>The deployed configuration could not be loaded. The change list remains available below.</p><Button variant="quiet" size="sm" onClick={retryCurrent} className="mt-2">Retry comparison</Button></> : "Loading the deployed configuration for an exact comparison…"}
         </div>
-      ) : <ChangeRehearsal currentManifest={currentManifest} proposedManifest={project.workingManifest} changeset={changeset} selectedId={selectedId} onSelect={setSelectedId} environmentName={envName || "This environment"} />}
+      ) : <ChangeRehearsal currentManifest={currentManifest} proposedManifest={v1View(project.workingManifest)} changeset={changeset} selectedId={selectedId} onSelect={setSelectedId} environmentName={envName || "This environment"} />}
 
       <div className="space-y-3">
         {GROUPS.map(({ op, label }) => {

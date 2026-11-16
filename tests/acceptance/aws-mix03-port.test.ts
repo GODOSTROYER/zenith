@@ -30,7 +30,7 @@ const COMMIT = "a".repeat(40);
 const fast = { upload: async () => VERSION, sleep: async () => undefined, propagation: { attempts: 3, intervalMs: 0 }, polls: { attempts: 3, intervalMs: 0 } };
 
 /** The AWS side: the sandbox trust documents, the tagged product resources and what has been deleted. */
-interface World { trustDocs: Record<"observe" | "deploy", string>; deleted: Set<string>; extra: { ResourceARN: string; Tags: { Key: string; Value: string }[] }[]; failDelete: boolean; second?: boolean; envArn?: string; inline?: string[]; fnState?: Record<string, string> }
+interface World { trustDocs: Record<"observe" | "deploy", string>; deleted: Set<string>; extra: { ResourceARN: string; Tags: { Key: string; Value: string }[] }[]; failDelete: boolean; second?: boolean; envArn?: string; inline?: string[]; fnState?: Record<string, string>; bucketErrors?: string[] }
 function world(): World {
   return {
     trustDocs: { observe: trustDocument(PRINCIPAL, OLD_EXT), deploy: trustDocument(PRINCIPAL, OLD_EXT) },
@@ -68,7 +68,8 @@ function respond(state: World, c: Call, input: Record<string, Json>): Record<str
     case "mix03-role-inline-list": return { PolicyNames: state.inline ?? [] };
     case "mix03-role-inline-delete": return {};
     case "mix03-role-delete": return {};
-    case "mix03-bucket-delete": state.deleted.add(`arn:aws:s3:::${String(input.Bucket)}`); return {};
+    case "mix03-bucket-delete": { const name = state.bucketErrors?.shift(); if (name) throw Object.assign(new Error("arn:aws:s3:::secret detail"), { name }); }
+      state.deleted.add(`arn:aws:s3:::${String(input.Bucket)}`); return {};
     default: throw new Error(`unexpected planned call in the fake: ${c.id}`);
   }
 }
@@ -443,7 +444,35 @@ describe("PROD-MIX-03 cleanup", () => {
     const { run } = harness(state, happy());
     const result = await run();
     expect(result.complete).toBe(false);
-    expect(result.leaks).toContain("deleting the consumer function failed; resources may remain");
+    expect(result.leaks).toContain("deleting the consumer function failed (AccessDenied); resources may remain");
+  });
+
+  it("retries a producer bucket delete once after a transient S3 error, with no leak", async () => {
+    const state = world();
+    state.bucketErrors = ["OperationAborted"];
+    const { run, sent } = harness(state, happy());
+    const result = await run();
+    expect(result.leaks ?? []).toEqual([]);
+    expect(sent.filter(s => s.id === "mix03-bucket-delete")).toHaveLength(2);
+  });
+
+  it("names the AWS error code of a bucket delete that keeps failing, never its message", async () => {
+    const state = world();
+    state.bucketErrors = ["OperationAborted", "OperationAborted"];
+    const { run, sent } = harness(state, happy());
+    const result = await run();
+    expect(result.leaks).toContain("deleting the producer bucket failed (OperationAborted); resources may remain");
+    expect(JSON.stringify(result)).not.toContain("secret detail");
+    expect(sent.filter(s => s.id === "mix03-bucket-delete")).toHaveLength(2);
+  });
+
+  it("does not retry a bucket delete that fails with a non-transient error", async () => {
+    const state = world();
+    state.bucketErrors = ["BucketNotEmpty"];
+    const { run, sent } = harness(state, happy());
+    const result = await run();
+    expect(result.leaks).toContain("deleting the producer bucket failed (BucketNotEmpty); resources may remain");
+    expect(sent.filter(s => s.id === "mix03-bucket-delete")).toHaveLength(1);
   });
 
   it("a refusal after the proposal still restores the trust and deletes the run's resources", async () => {

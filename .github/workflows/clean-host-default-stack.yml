@@ -115,7 +115,7 @@ jobs:
           node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log("readiness passed",r.passed,"failed",r.failed,"apis",r.apis,"workers",r.workers,"failed checks:",Object.entries(r.checks).filter(([,v])=>!v).map(([k])=>k).join(","),"api probes:",JSON.stringify(r.apiProbes))' "$RUNNER_TEMP/zenith/stack/readiness.receipt.json" || true
           grep -E ' (die|oom|kill|health_status: unhealthy) ' "$RUNNER_TEMP/events.log" | awk '{ printf "%s %s\n", strftime("%T", $1/1e9), substr($0, index($0,$2)) }' || true
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: clean-host-default-stack

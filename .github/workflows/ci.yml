@@ -70,7 +70,7 @@ jobs:
       ZENITH_LOCAL_SOURCE_BINARY_FILE: ${{ vars.ZENITH_LOCAL_SOURCE_BINARY_FILE }}
       ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE: ${{ vars.ZENITH_LOCAL_SOURCE_REGISTRY_IMAGE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -123,7 +123,7 @@ jobs:
       ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV1_UPDATE_ROLLBACK_STACK_DIR }}
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV1_UPDATE_ROLLBACK_CONFIG_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -176,7 +176,7 @@ jobs:
       ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV2_DRIFT_REPAIR_STACK_DIR }}
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV2_DRIFT_REPAIR_CONFIG_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -229,7 +229,7 @@ jobs:
       ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV2_CRASH_PARTITION_STACK_DIR }}
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV2_CRASH_PARTITION_CONFIG_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -283,7 +283,7 @@ jobs:
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV3_UPGRADE_CONFIG_FILE }}
       ZENITH_LOCAL_UPGRADE_IMAGES_FILE: ${{ vars.ZENITH_LOCAL_UPGRADE_IMAGES_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -336,7 +336,7 @@ jobs:
       ZENITH_ACCEPTANCE_DEFAULT_STACK_DIR: ${{ vars.ZENITH_OPERATED_DRV3_RESTORE_STACK_DIR }}
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV3_RESTORE_CONFIG_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -390,7 +390,7 @@ jobs:
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_TWO_TENANTS_CONFIG_FILE }}
       ZENITH_LOCAL_TWO_TENANTS_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_TWO_TENANTS_CONFIG_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -448,7 +448,7 @@ jobs:
       ZENITH_LOCAL_EXPORT_MYSQL_IMAGE: ${{ vars.ZENITH_LOCAL_EXPORT_MYSQL_IMAGE }}
       ZENITH_LOCAL_EXPORT_MINIO_IMAGE: ${{ vars.ZENITH_LOCAL_EXPORT_MINIO_IMAGE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -502,7 +502,7 @@ jobs:
       ZENITH_LOCAL_JOURNEY_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_ADOPT_CONFIG_FILE }}
       ZENITH_LOCAL_ADOPT_CONFIG_FILE: ${{ vars.ZENITH_OPERATED_DRV4_ADOPT_CONFIG_FILE }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -550,7 +550,7 @@ jobs:
       ZENITH_FAST: "1"
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -608,7 +608,7 @@ jobs:
           UNIT_RESULT: ${{ needs.verify-unit.result }}
         run: test "$UNIT_RESULT" = success
 
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -739,7 +739,7 @@ jobs:
       # and setting `postgres` here would make both rows the same database.
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -799,7 +799,7 @@ jobs:
       ZENITH_RUNTIME: local
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -856,7 +856,7 @@ jobs:
       ZENITH_FAST: "1"
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -894,7 +894,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -933,7 +933,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1019,7 +1019,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1109,7 +1109,7 @@ jobs:
       ZENITH_TEST_TOFU_NETWORK: "1"
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1229,7 +1229,7 @@ jobs:
       GOTOOLCHAIN: local
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1518,7 +1518,7 @@ jobs:
       ZENITH_TEST_SOURCE_REF: 37be7340536ccb68ae4bb49294e8ab3799d1f01b
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1590,7 +1590,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -1645,7 +1645,7 @@ jobs:
       # No hosted database, provider credentials, ambient frontend or downloads.
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1760,7 +1760,7 @@ jobs:
       SUPABASE_EXCLUDE: mailpit,storage-api,imgproxy,realtime,studio,postgres-meta,logflare,vector,edge-runtime
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1897,7 +1897,7 @@ jobs:
       # can resolve the platform database to anything but the URL above.
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -1977,7 +1977,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -2019,7 +2019,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -2052,7 +2052,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -2106,7 +2106,7 @@ jobs:
       ZENITH_TEST_SOURCE_REF: 37be7340536ccb68ae4bb49294e8ab3799d1f01b
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -2198,7 +2198,7 @@ jobs:
     env:
       ZENITH_DATA: ${{ github.workspace }}/.data-ci-wave5-contract
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -2240,7 +2240,7 @@ jobs:
     env:
       ZENITH_DATA: ${{ github.workspace }}/.data-ci-adversarial
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0

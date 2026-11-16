@@ -32,6 +32,7 @@
   --ink: var(--zenith-ink);
   --ink-mute: var(--zenith-muted);
   --line: var(--zenith-rule);
+  --control-line: var(--line);
   --line-strong: var(--zenith-muted);
   --signal: var(--zenith-accent);
   --ok: #0d8a5a;
@@ -257,3 +258,69 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
   --r-ctl: 8px;
   --r-pill: 999px;
 }
+
+/* AMOLED uses the application palette, including inside floating glass scopes.
+   The original porcelain/ink composition remains the default for Light/Dark.
+   Reset landing aliases before referencing core tokens to avoid variable cycles. */
+html[data-theme="amoled"] .zenith-landing {
+  --bg0: inherit; --bg1: inherit; --bg2: inherit; --bg3: inherit;
+  --ink: inherit; --ink-mute: inherit; --ink-faint: inherit;
+  --line: inherit; --line-strong: inherit; --control-line: inherit;
+  --signal: inherit; --signal-strong: inherit; --on-signal: inherit;
+  --on-danger: inherit; --on-nav: inherit;
+  --ok: inherit; --warn: inherit; --err: inherit; --info: inherit;
+  --prod: inherit; --nav-accent: inherit;
+  --ok-dim: inherit; --warn-dim: inherit; --err-dim: inherit;
+  --info-dim: inherit; --signal-dim: inherit; --nav-dim: inherit;
+  --shadow-1: inherit; --shadow-2: inherit;
+  --landing-card: var(--bg1);
+  --landing-raised: var(--bg2);
+  --landing-hover: var(--bg3);
+  --landing-selected: var(--signal-dim);
+  --landing-on-selected: var(--ink);
+  --landing-text: var(--ink);
+  --landing-muted: var(--ink-mute);
+  --landing-rule: var(--line);
+  --landing-control-line: var(--control-line, var(--line-strong));
+  --landing-connection: var(--line-strong);
+  --landing-accent: var(--signal);
+  --landing-focus: var(--signal);
+  --landing-ok: var(--ok); --landing-ok-dim: var(--ok-dim);
+  --landing-warn: var(--warn); --landing-warn-dim: var(--warn-dim);
+  --landing-info: var(--info); --landing-info-dim: var(--info-dim);
+  --landing-agent: var(--nav-accent); --landing-agent-dim: var(--nav-dim);
+  --landing-chart: var(--line-strong); --landing-chart-active: var(--nav-accent);
+  --landing-shadow: 0 0 0 1px var(--line), 0 8px 24px rgba(0, 0, 0, .4);
+  --landing-glow: radial-gradient(ellipse at 95% 100%, var(--signal-dim), transparent 68%);
+  background: var(--bg0);
+  color-scheme: dark;
+}
+html[data-theme="amoled"] .zenith-landing,
+html[data-theme="amoled"] .zenith-landing :is(.zenith-ink, .zenith-ink-tokens, [data-tone]) {
+  --zenith-paper: var(--bg0);
+  --zenith-ink: var(--ink);
+  --zenith-muted: var(--ink-mute);
+  --zenith-rule: var(--line);
+  --zenith-panel: var(--bg2);
+  --zenith-surface: var(--bg1);
+  --zenith-soft: var(--bg3);
+  --zenith-accent-text: var(--signal);
+  --zenith-accent-soft: var(--signal-dim);
+  --zenith-glow: color-mix(in srgb, var(--signal) 6%, transparent);
+  --zenith-error: var(--err);
+  --ok: inherit; --warn: inherit;
+}
+html[data-theme="amoled"]:has(.zenith-landing),
+html[data-theme="amoled"] body:has(.zenith-landing) { background: var(--bg0); }
+html[data-theme="amoled"] .zenith-landing [data-bento] { box-shadow: inset 0 0 0 1px var(--line); }
+html[data-theme="amoled"] .zenith-sheet { box-shadow: 0 -1px 0 var(--line); }
+html[data-theme="amoled"] .zenith-sheet-dim { background: var(--bg0); }
+html[data-theme="amoled"] .zenith-header-inner {
+  background-color: color-mix(in srgb, var(--bg1) 94%, transparent);
+  background-image: none;
+  box-shadow: inset 0 0 0 1px var(--line), var(--shadow-1);
+}
+html[data-theme="amoled"] .zenith-mobile-nav { background: var(--bg2); }
+/* White-on-vermilion small text is too harsh/low-contrast on black. */
+html[data-theme="amoled"] .zenith-cta:hover,
+html[data-theme="amoled"] .zenith-landing ::selection { background: var(--signal); color: var(--on-signal) !important; }

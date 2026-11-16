@@ -1,0 +1,89 @@
+.screen {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--bg0);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 24px;
+  color: var(--ink-mute);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.statusDot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.content { display: grid; gap: 24px; min-width: 0; }
+.heading, .panel, .card, .fact, .message, .reply, .mapNode {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+.heading { gap: 14px; }
+.panel, .card, .editor, .canvas, .conversation {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg1);
+}
+.panel, .card { padding: 20px; }
+.columns, .cards, .settings { display: grid; gap: 20px; min-width: 0; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--line); }
+.fact { padding: 20px 12px; }
+.fact + .fact { border-left: 1px solid var(--line); }
+.rows { display: grid; min-width: 0; }
+.row { display: flex; align-items: center; gap: 12px; padding: 17px 0; min-width: 0; }
+.row + .row { border-top: 1px solid var(--line); }
+.rowText { display: grid; flex: 1; gap: 9px; min-width: 0; }
+.row > :first-child, .row > :last-child { flex: none; }
+.card { gap: 18px; min-height: 192px; }
+.cardFooter, .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cardFooter { justify-content: space-between; margin-top: 8px; }
+.canvas { display: flex; align-items: center; justify-content: center; gap: 24px; min-height: 340px; padding: 28px; }
+.mapNode { width: 180px; padding: 20px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--bg2); }
+.mapNode:nth-child(2) { margin-top: 88px; }
+.editor { display: grid; align-content: start; gap: 19px; min-height: 340px; padding: 28px 20px; }
+.codeLine { display: flex; align-items: center; gap: 22px; min-width: 0; }
+.codeLine > :first-child { flex: none; }
+.sectionRail { display: flex; flex-wrap: wrap; gap: 20px; }
+.sectionRail > span { max-width: 120px; }
+.field { display: grid; gap: 10px; margin-top: 14px; }
+.conversation { display: grid; min-height: 360px; }
+.conversationRail { display: none; }
+.messages { display: flex; flex-direction: column; gap: 28px; padding: 24px; min-width: 0; }
+.message { width: 80%; }
+.reply { width: 62%; align-self: end; }
+.composer { margin-top: auto; }
+.pageBody { margin-top: 12px; }
+
+@media (min-width: 640px) {
+  .screen { padding: 28px; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settings { grid-template-columns: 156px minmax(0, 1fr); }
+  .sectionRail { display: grid; align-content: start; padding-top: 20px; }
+  .conversation { grid-template-columns: 200px minmax(0, 1fr); }
+  .conversationRail { display: block; border-right: 1px solid var(--line); padding: 16px; }
+  .conversationRail .row > :last-child { display: none; }
+}
+
+@media (min-width: 1100px) {
+  .columns { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+}
+
+@media (max-width: 639px) {
+  .canvas { flex-direction: column; align-items: stretch; gap: 16px; padding: 20px; }
+  .mapNode { width: 68%; }
+  .mapNode:nth-child(2) { align-self: flex-end; margin-top: 0; }
+}

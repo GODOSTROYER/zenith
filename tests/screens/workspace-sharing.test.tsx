@@ -63,19 +63,31 @@ const buttons = (text: string, within: ParentNode = document) =>
   [...within.querySelectorAll<HTMLButtonElement>("button")].filter((button) => button.textContent?.trim() === text);
 const button = (text: string, within: ParentNode = document) => buttons(text, within)[0]!;
 const dialog = () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find((panel) => !panel.closest("[inert]"))!;
-const click = async (target: HTMLButtonElement) => { await act(async () => target.click()); };
-const change = async (target: HTMLInputElement | HTMLSelectElement, value: string) => {
+const click = async (target: HTMLElement) => { await act(async () => target.click()); };
+const change = async (target: HTMLInputElement, value: string) => {
   await act(async () => {
-    const prototype = target instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype;
-    Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(target, value);
-    target.dispatchEvent(new Event(target instanceof HTMLInputElement ? "input" : "change", { bubbles: true }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(target, value);
+    target.dispatchEvent(new Event("input", { bubbles: true }));
   });
 };
-const field = <T extends HTMLInputElement | HTMLSelectElement>(labelText: string): T => {
+const field = <T extends HTMLInputElement | HTMLButtonElement>(labelText: string): T => {
   const label = [...document.querySelectorAll("label")].find((element) => element.textContent?.startsWith(labelText))!;
   return document.getElementById(label.htmlFor) as T;
 };
-const roleSelect = (name: string) => host.querySelector<HTMLSelectElement>(`select[aria-label="Role for ${name}"]`);
+const roleSelect = (name: string) => host.querySelector<HTMLButtonElement>(`button[role="combobox"][aria-label="Role for ${name}"]`);
+const selectOptions = (control: HTMLButtonElement) => {
+  const list = document.getElementById(control.getAttribute("aria-controls")!);
+  expect(list?.getAttribute("role")).toBe("listbox");
+  return [...list!.querySelectorAll<HTMLElement>('[role="option"]')];
+};
+const choose = async (control: HTMLButtonElement, label: string) => {
+  expect(control.getAttribute("role")).toBe("combobox");
+  await click(control);
+  const option = selectOptions(control).find((item) => item.textContent?.trim() === label)!;
+  expect(option).toBeDefined();
+  expect(option.getAttribute("aria-disabled")).not.toBe("true");
+  await click(option);
+};
 
 beforeEach(() => {
   for (const mock of Object.values(calls)) mock.mockReset();
@@ -102,7 +114,7 @@ describe("workspace sharing permissions", () => {
     account(id);
     await show();
     expect(calls.read).toHaveBeenCalledWith("/api/workspace/sharing?workspaceId=ws-atlas", 10_000);
-    expect(host.querySelectorAll("select")).toHaveLength(0);
+    expect(host.querySelectorAll('button[role="combobox"]')).toHaveLength(0);
     expect(buttons("Create invitation")).toHaveLength(0);
     expect(host.querySelector('[aria-label^="Remove "]')).toBeNull();
     expect(buttons("Transfer ownership…")).toHaveLength(0);
@@ -134,8 +146,10 @@ describe("workspace sharing permissions", () => {
     expect(host.querySelector('[aria-label="Remove Alex Admin"]')).toBeNull();
     expect(roleSelect("Erin Editor")).not.toBeNull();
     expect(roleSelect("Val Viewer")).not.toBeNull();
-    for (const select of host.querySelectorAll("select")) {
-      expect([...select.options].map((option) => option.value)).not.toContain("admin");
+    for (const control of host.querySelectorAll<HTMLButtonElement>('button[role="combobox"]')) {
+      await click(control);
+      expect(selectOptions(control).map((option) => option.textContent?.trim())).not.toContain("Admin");
+      await act(async () => control.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     }
     expect(host.querySelector('[aria-label="Revoke invite for future-admin@example.com"]')).toBeNull();
     expect(buttons("Renew invite")).toHaveLength(0);
@@ -147,7 +161,7 @@ describe("workspace sharing permissions", () => {
     await show();
     expect(buttons("Leave workspace…")).toHaveLength(0);
     expect(button("Transfer ownership…").disabled).toBe(true);
-    await change(field<HTMLSelectElement>("New owner"), "editor");
+    await choose(field<HTMLButtonElement>("New owner"), "Erin Editor · editor@example.com");
     await click(button("Transfer ownership…"));
     const confirm = button("Transfer ownership", dialog());
     expect(dialog().textContent).toContain("Erin Editor (editor@example.com)");
@@ -171,7 +185,7 @@ describe("workspace sharing permissions", () => {
     boot.role = "admin";
     await show();
     expect(buttons("Create invitation")).toHaveLength(0);
-    expect(host.querySelectorAll("select")).toHaveLength(0);
+    expect(host.querySelectorAll('button[role="combobox"]')).toHaveLength(0);
     expect(host.textContent).toContain("You have viewer access");
   });
 });
@@ -180,7 +194,7 @@ describe("workspace invitations and confirmations", () => {
   it("defaults an invitation to viewer and exposes the server's link for sharing", async () => {
     calls.api.mockResolvedValue({ invite: invite(), inviteUrl: "/invite?invite=invite-viewer" });
     await show();
-    expect(field<HTMLSelectElement>("Workspace role").value).toBe("viewer");
+    expect(field<HTMLButtonElement>("Workspace role").textContent?.trim()).toBe("Viewer");
     await change(field<HTMLInputElement>("Email address"), "New@Example.com");
     await click(button("Create invitation"));
     expect(calls.api).toHaveBeenCalledWith("/api/workspace/invites", {
@@ -209,9 +223,10 @@ describe("workspace invitations and confirmations", () => {
 
   it("waits for role confirmation and scopes the request to this workspace", async () => {
     await show();
-    await change(roleSelect("Val Viewer")!, "editor");
+    await choose(roleSelect("Val Viewer")!, "Editor");
     expect(calls.api).not.toHaveBeenCalled();
     expect(dialog().textContent).toContain("Val Viewer (viewer@example.com) will change from viewer to editor");
+    expect(dialog().contains(document.activeElement)).toBe(true);
     await click(button("Change role", dialog()));
     expect(calls.api).toHaveBeenCalledWith("/api/workspace/members/viewer?workspaceId=ws-atlas", {
       method: "PATCH", body: JSON.stringify({ workspaceId: "ws-atlas", role: "editor" }),

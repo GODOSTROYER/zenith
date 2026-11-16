@@ -1,9 +1,6 @@
-import { ZenithLoader } from "@/components/brand/zenith-loader";
+import { ScreenLoading } from "@/components/shell/screen-loading";
 
-/** Covers server redirects and navigations without a link-click transition. */
+/** The root fallback is ordinary page content, never a viewport-covering curtain. */
 export default function Loading() {
-  return <div className="zenith-route-loading" role="status" aria-live="polite">
-    <span className="sr-only">Loading Zenith</span>
-    <ZenithLoader id="route" size={76} />
-  </div>;
+  return <ScreenLoading />;
 }

@@ -124,7 +124,7 @@ const requiredCommands: Record<string, string[]> = {
   ],
   // The unit suites run in three Vitest shards; `verify` waits for all of them (see the shard guard test).
   "verify-unit": [INSTALL, "node scripts/ci/run-gate.mjs core --run --step unit --shard ${{ matrix.shard }}/3"],
-  build: [INSTALL, "npm run build"],
+  build: [INSTALL, "npm run build", "npm run test:themes"],
   docker: ["docker build -t zenith:ci ."],
   hosted: [
     INSTALL,

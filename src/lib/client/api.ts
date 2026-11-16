@@ -418,40 +418,57 @@ export function useEventStream(
     if (!url || typeof EventSource === "undefined") return;
     let es: EventSource | null = null;
     let closed = false;
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
 
     const open = () => {
       if (closed) return;
       const sep = url.includes("?") ? "&" : "?";
-      es = new EventSource(`${url}${sep}after=${lastSeq.current}`);
-      es.onopen = () => setConnected(true);
+      const source = new EventSource(`${url}${sep}after=${lastSeq.current}`);
+      es = source;
+      const isCurrent = () => !closed && es === source;
+      source.onopen = () => { if (isCurrent()) setConnected(true); };
       for (const t of eventTypes) {
-        es.addEventListener(t, (ev) => {
-          const me = ev as MessageEvent;
-          const seq = Number(me.lastEventId ?? -1);
+        source.addEventListener(t, (ev) => {
+          // Native connection failures also have type "error", but carry no
+          // server payload. Leave those to onerror instead of the screen.
+          if (!isCurrent() || !(ev instanceof MessageEvent)) return;
+          const seq = Number(ev.lastEventId ?? -1);
           if (!Number.isNaN(seq)) lastSeq.current = Math.max(lastSeq.current, seq);
+          let payload: unknown = ev.data;
           try {
-            cb.current(t, JSON.parse(me.data as string), seq);
+            payload = JSON.parse(ev.data as string);
           } catch {
-            cb.current(t, me.data, seq);
+            // Non-JSON messages keep their raw text. A caller exception must
+            // not be mistaken for a parse failure and invoke it a second time.
           }
+          cb.current(t, payload, seq);
         });
       }
-      es.addEventListener("done", () => {
+      source.addEventListener("done", () => {
+        if (!isCurrent()) return;
         closed = true;
+        clearTimeout(reconnect);
         setConnected(false);
-        es?.close();
+        source.close();
+        es = null;
         doneCb.current?.();
       });
-      es.onerror = () => {
+      source.onerror = (ev) => {
+        // A named SSE error message is an application payload, not a broken
+        // transport. It was already delivered by the listener above.
+        if (!isCurrent() || ev instanceof MessageEvent) return;
         setConnected(false);
-        es?.close();
-        if (!closed) setTimeout(open, 1200); // reconnect with replay cursor
+        source.close();
+        es = null;
+        reconnect = setTimeout(open, 1200); // reconnect with replay cursor
       };
     };
     open();
     return () => {
       closed = true;
+      clearTimeout(reconnect);
       es?.close();
+      es = null;
       setConnected(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

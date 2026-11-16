@@ -173,3 +173,10 @@
 @media (max-width: 900px), (hover: none), (pointer: coarse) {
   .layer, .ridge { will-change: auto; }
 }
+
+/* Illustration colors stay intact; the underlying night sky is true black. */
+:global(html[data-theme="amoled"]) .hero,
+:global(html[data-theme="amoled"]) .sky { background: #000000; }
+:global(html[data-theme="amoled"]) .nebula { opacity: .4; }
+:global(html[data-theme="amoled"]) .glow,
+:global(html[data-theme="amoled"]) .haze { opacity: .35; }

@@ -1,1 +1,5 @@
-export { ScreenLoading as default } from "@/components/shell/screen-loading";
+import { ScreenLoading } from "@/components/shell/screen-loading";
+
+export default function Loading() {
+  return <ScreenLoading label="workspace" variant="overview" />;
+}

@@ -4,7 +4,7 @@
  * pointing at it.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, createElement as h, type ReactNode } from "react";
+import { act, createElement as h, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Chip, MenuItem, Popover, Tooltip } from "@/components/ui";
 
@@ -107,6 +107,42 @@ describe("<Popover>", () => {
       panel.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
     });
     expect(document.activeElement?.textContent).toBe("Two");
+  });
+
+  it("walks exclusive choices and actions together without selecting a choice until activation", () => {
+    function Choices() {
+      const [choice, setChoice] = useState("light");
+      return <Popover open onClose={() => {}} label="Theme" trigger={<button>Theme</button>}>
+        <MenuItem checked={choice === "light"} onClick={() => setChoice("light")}>Light</MenuItem>
+        <MenuItem checked={false} disabled disabledReason="Unavailable">Disabled choice</MenuItem>
+        <MenuItem checked={choice === "amoled"} onClick={() => setChoice("amoled")}>AMOLED Dark</MenuItem>
+        <MenuItem onClick={() => setChoice("light")}>Reset preference</MenuItem>
+      </Popover>;
+    }
+    const el = render(<Choices />);
+    const panel = el.querySelector<HTMLElement>('[role="menu"]')!;
+    const choices = [...panel.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    const key = (key: string) => act(() => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })));
+
+    choices[0].focus();
+    key("ArrowDown");
+    expect(document.activeElement).toBe(choices[2]);
+    expect(choices[0].getAttribute("aria-checked")).toBe("true");
+    expect(choices[2].getAttribute("aria-checked")).toBe("false");
+    act(() => choices[2].click());
+    expect(choices[0].getAttribute("aria-checked")).toBe("false");
+    expect(choices[2].getAttribute("aria-checked")).toBe("true");
+
+    key("End");
+    expect(document.activeElement?.textContent).toBe("Reset preference");
+    expect(document.activeElement?.hasAttribute("aria-checked")).toBe(false);
+    key("ArrowDown");
+    expect(document.activeElement).toBe(choices[0]);
+    key("ArrowUp");
+    expect(document.activeElement?.textContent).toBe("Reset preference");
+    key("Home");
+    expect(document.activeElement).toBe(choices[0]);
+    expect(choices[1].getAttribute("aria-disabled")).toBe("true");
   });
 
   it("closes on Escape", () => {

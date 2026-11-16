@@ -1,6 +1,7 @@
 .theme {
   --bg0: #0e101c; --bg1: #141726; --bg2: #1c2033; --bg3: #292d43;
   --line: #33384e; --line-strong: #8287a4;
+  --control-line: var(--line);
   --ink: #f3f2ff; --ink-mute: #b8bdd5; --ink-faint: #a3aac7;
   --signal: #b7a1ff; --signal-strong: #ccbcff; --on-signal: #171026;
   --ok: #84d5a5; --err: #ff8fbb;
@@ -171,3 +172,10 @@
 @media (max-width: 1100px) { .orbitalArt { right: -100px; opacity: .25; } .headingCopy { max-width: 85%; } }
 @media (max-width: 680px) { .pageHeading { min-height: 0; padding-top: 0; padding-bottom: 24px; } .headingCopy { max-width: 100%; } .pageHeading h1 { font-size: 38px; } .orbitalArt { right: -160px; opacity: .16; } .eyebrow { font-size: 9px; margin-bottom: 12px; } .creatorFooter { margin-top: 32px; } }
 @media (prefers-reduced-motion: reduce) { .headingCopy { animation: none; } .navigation a, .table tbody tr { transition: none; } .navigation a:hover { transform: none; } }
+/* The console keeps its purple identity; neutral surfaces inherit the theme.
+   This class is also applied to Drawer/Dialog portal content. */
+:global(html[data-theme="amoled"]) .theme {
+  --bg0: inherit; --bg1: inherit; --bg2: inherit; --bg3: inherit;
+  --ink: inherit; --ink-mute: inherit; --ink-faint: inherit;
+  --line: inherit; --line-strong: inherit; --control-line: inherit;
+}

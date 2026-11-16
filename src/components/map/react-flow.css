@@ -1,2 +1,32 @@
 /* Keep Zenith's theme overrides above the lazily loaded library stylesheet. */
 @import "@xyflow/react/dist/style.css" layer(components);
+
+/* The library's default light palette must never own a part of the canvas.
+   These unlayered variables also win if React Flow adds its dark class; CSS
+   inheritance updates them immediately when the document theme changes. */
+.react-flow {
+  --xy-background-color: var(--bg0);
+  --xy-background-pattern-color: var(--line);
+  --xy-edge-stroke: var(--line-strong);
+  --xy-edge-stroke-selected: var(--signal);
+  --xy-connectionline-stroke: var(--signal);
+  --xy-node-color: var(--ink);
+  --xy-node-background-color: var(--bg2);
+  --xy-node-border: 1px solid var(--line);
+  --xy-node-group-background-color: var(--bg1);
+  --xy-node-boxshadow-hover: var(--shadow-1);
+  --xy-node-boxshadow-selected: 0 0 0 1px var(--signal);
+  --xy-handle-background-color: var(--line-strong);
+  --xy-handle-border-color: var(--bg2);
+  --xy-selection-background-color: var(--signal-dim);
+  --xy-selection-border: 1px dashed var(--signal);
+  --xy-controls-button-background-color: var(--bg2);
+  --xy-controls-button-background-color-hover: var(--bg3);
+  --xy-controls-button-color: var(--ink);
+  --xy-controls-button-color-hover: var(--ink);
+  --xy-controls-button-border-color: var(--line);
+  --xy-controls-box-shadow: var(--shadow-1);
+  --xy-edge-label-background-color: var(--bg3);
+  --xy-edge-label-color: var(--ink);
+  --xy-resize-background-color: var(--signal);
+}

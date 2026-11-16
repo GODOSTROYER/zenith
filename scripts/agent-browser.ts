@@ -511,15 +511,34 @@ async function main(): Promise<number> {
 
         /* --- expiry, and the ceiling --- */
 
-        const expiry = page.getByLabel(PAGE.expiry).first();
+        const expiry = page.getByRole("combobox", { name: PAGE.expiry }).first();
         if ((await expiry.count()) > 0) {
-          const value = await expiry.inputValue().catch(() => "");
+          // The shared Select exposes a themed combobox; its native form
+          // control is intentionally hidden from the accessibility tree.
+          // Check the choice a person sees, including the selected list option.
+          const value = (await expiry.innerText()).trim();
+          await expiry.press("ArrowDown");
+          const choices = page.getByRole("listbox", { name: PAGE.expiry });
+          await choices.waitFor({ state: "visible" });
+          const selected = choices.getByRole("option", { selected: true });
+          const selectedLabels = await selected.allTextContents();
           record(
             label,
             `the expiry defaults to ${DEFAULT_DAYS} days`,
-            value.includes(String(DEFAULT_DAYS)),
-            `the control reads ${JSON.stringify(value)} — the integrator's decision is ${DEFAULT_DAYS}, ceiling 30`
+            value === `${DEFAULT_DAYS} days` && selectedLabels.length === 1 &&
+              selectedLabels[0].trim() === `${DEFAULT_DAYS} days`,
+            `the control reads ${JSON.stringify(value)}, selected ${JSON.stringify(selectedLabels)} — the integrator's decision is ${DEFAULT_DAYS}, ceiling 30`
           );
+          const labels = await choices.getByRole("option").allTextContents();
+          const days = labels.map((one) => Number(/^(\d+) days?$/.exec(one.trim())?.[1]));
+          record(
+            label,
+            "the expiry choices stay inside the 30-day ceiling",
+            days.length > 0 && days.includes(DEFAULT_DAYS) && days.every((day) => Number.isInteger(day) && day >= 1 && day <= 30),
+            `offered ${JSON.stringify(labels.map((one) => one.trim()))}`
+          );
+          await expiry.press("Escape");
+          await choices.waitFor({ state: "hidden" });
         } else {
           record(label, "the expiry control is labelled", false, "no control matched an expiry label");
         }

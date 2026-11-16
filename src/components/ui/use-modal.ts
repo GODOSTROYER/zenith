@@ -69,6 +69,9 @@ export function useModal(open: boolean, onClose: () => void) {
     const onKey = (e: KeyboardEvent) => {
       if (overlays.at(-1) !== panel) return;
       if (e.key === "Escape") {
+        // Only Select owns an inner popup's first Escape (including its native
+        // event relay). Other comboboxes, such as command search, close normally.
+        if (e.target instanceof Element && e.target.closest('[data-select-trigger][aria-expanded="true"], [data-select-native][aria-expanded="true"]')) return;
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();

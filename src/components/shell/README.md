@@ -17,6 +17,11 @@ server registry. Product layouts do not import execution handlers to render
 navigation. The shell context keeps its identity when its inputs do not change.
 Route `loading.tsx` boundaries reuse `ScreenLoading` so the existing chrome
 remains interactive while the next screen loads.
+Each destination selects a contextual skeleton (overview, list, map, source,
+settings or conversation). Loading stays inside the content region; native
+Next navigation has no global click interception, brand curtain or minimum
+display time. One polite status announces the destination, and decorative
+placeholders use theme tokens with a static reduced-motion presentation.
 
 `chrome-slot.tsx` exposes only the context bar's DOM destination. Project
 controls portal there while retaining their ProjectProvider ancestry. The

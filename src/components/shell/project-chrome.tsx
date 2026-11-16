@@ -6,7 +6,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { ChevronRight, ShieldCheck } from "lucide-react";
 import { MenuItem, MenuNote, Popover } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScreenLoading } from "./screen-loading";
 import { useProjectData } from "./project-context";
 import { useShell } from "./shell-context";
 import { useChromeSlot } from "./chrome-slot";
@@ -113,9 +113,7 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
 }
 
 export function ProjectChromeFallback({ loading, message, fix }: { loading: boolean; message?: string; fix?: string }) {
-  if (loading) return <div className="space-y-5 p-7" role="status" aria-label="Loading project">
-    <Skeleton className="h-7 w-56" /><Skeleton className="h-12 w-full" /><Skeleton className="h-64 w-full" />
-  </div>;
+  if (loading) return <ScreenLoading label="project" variant="canvas" />;
   return <div className="grid h-full place-items-center p-6">
     <div className="max-w-[480px] border-t border-line pt-6">
       <p className="mb-3 text-[12px] text-err">Project unavailable</p>

@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-OPS-08",
+  "level": "operational_rehearsal",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3; fresh default-profile local stack (2 APIs, 2 workers) built from a clean checkout of feabd5a4 plus a scratch-only test-env patch (never merged), readiness 19/0/0; local mock GitHub/Slack signed by the stack CA; local kind cluster zenith-j2 for APR-3; in-process runs of the real product code from a clean checkout of feabd5a4 where marked; test values only; deviations listed in the checklist's release candidate pass section",
+  "command": "PROD-OPS-08 independent tester checklist (docs/build/production/verify/PROD-OPS-08-TESTER-CHECKLIST.md), all 37 probes, scripted by the agent on the tester's instruction against the operated local stack; one result line per probe in probe-results.txt",
+  "mode": "local",
+  "status": "passed",
+  "passed": 37,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-OPS-08/2026-11-16-operational-rehearsal-feabd5a4/lane-source-PROD-OPS-08.json",
+      "sha256": "c7403d0581d9558320342e28a77368dc157068fe785a82aa7383722d49055a56"
+    }
+  ]
+}

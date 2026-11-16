@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-06"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario ops-06, run id zlive-202611151837-c5d9; plan sha256 54066ac871bc4ab39cfb0fc9bf75f13c5dd6be6c3289b18307c010dad6daed0e",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 2b35c6e9cae0fc358c57505a58280d6c2ebde5000b4de2a75f6f5ab24d300b01; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611151837-c5d9",
+    "file": "evidence.json",
+    "sha256": "48021695394428dfcb170af41989f09d90fe5dfb504623682235f1a60138d343",
+    "packetSha256": "3f4fecba29c45c9c518f6b8f3248d8e810b8232167129bfc6e881d9b86726fd9"
+  },
+  "result": "OPS-06 proven on AWS: ZENITH_OPS06_CANARY was set through system.setSecret and deployed to ECS Fargate behind an ALB with two-person approval, served HTTP 200; the recorded OpenTofu state holds only the Secrets Manager reference and no copy of the value; a raw-byte scan of Docker's data root (container logs, volumes, written files), the runner temp and the checkout found the value only in its own control file"
+}

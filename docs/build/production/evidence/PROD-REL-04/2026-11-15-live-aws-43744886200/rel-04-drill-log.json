@@ -1,0 +1,44 @@
+[
+  {
+    "at": "2026-11-15T18:07:34.607Z",
+    "step": "A",
+    "event": "journal at kill: attempted=s3 closed=false counts={\"identity\":1,\"marker\":1,\"prior-leaks\":1,\"s3-preexist\":1,\"run-claim\":1,\"run-claim-read\":1,\"s3-create\":1}",
+    "ok": true
+  },
+  {
+    "at": "2026-11-15T18:07:34.608Z",
+    "step": "A",
+    "event": "step passed",
+    "ok": true
+  },
+  {
+    "at": "2026-11-15T18:07:42.346Z",
+    "step": "B",
+    "event": "resume finished: timedOut=false exit=3",
+    "ok": true
+  },
+  {
+    "at": "2026-11-15T18:07:42.346Z",
+    "step": "B",
+    "event": "step passed",
+    "ok": true
+  },
+  {
+    "at": "2026-11-15T18:07:48.211Z",
+    "step": "C",
+    "event": "replay refused at run-claim: exit=1",
+    "ok": true
+  },
+  {
+    "at": "2026-11-15T18:07:50.452Z",
+    "step": "C",
+    "event": "step passed",
+    "ok": true
+  },
+  {
+    "at": "2026-11-15T18:07:52.551Z",
+    "step": "D",
+    "event": "step passed",
+    "ok": true
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-04"
+  ],
+  "level": "operational_rehearsal",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, operational rehearsal (live) of the operator runbook, scenario mix-rehearsal, run id zlive-202611152212-4a79; plan sha256 af9aa7abcd864d9452f1ea36de1562ceb5fbf98acccf62cc63828abb1c70801a",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 44dc79904ba7d6ae63cda0e8822a79688fdf8370d21490f240a7459ac4bf16cf; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611152212-4a79",
+    "file": "evidence.json",
+    "sha256": "df7957800ce4b69f4ca84645067b52c7ca3b7483a5fe47029b8914c5a2d31470",
+    "packetSha256": "47c7ee9314622ab026a2d27d8bf8da9a100d3283a8b5daa06f694c3e928ac692"
+  },
+  "result": "PROD-MIX-04 operational rehearsal (live AWS sandbox, operator runbook MIXED-PARTITIONS.md and MIXED-RECOVERY.md sections 1 and 4) passed: with the producer succeeded and the consumer waiting for its output review, the operator cancelled the run (POST /api/platform/v1/operations/:id/mixed-run/cancel); the run reads partial and cancelled, with the producer in appliedWithoutRunCompletion, the consumer cancelled before it started, atomicity none, automatic compensation never and propose_teardown_for_human_approval among the next steps (propose_teardown_for_human_approval, review_replan), and AWS still holds the producer bucket and nothing of the consumer (nothing compensated); the product tore down all 3 parents, newest first: each run's teardown proposal (consumers first); each step's destroy opened in the child's own environment once its deploy activity settled (80 minutes after the last deploy), released, approved by a person and synced destroyed, one at a time (5 steps); releasing a producer before its consumer was refused (ordering_blocked); afterwards AWS shows no tagged bucket or function in any of the run's 6 environments. Approvals by an automated test approver through the browser path"
+}

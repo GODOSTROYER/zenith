@@ -1,0 +1,113 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "go/SHA256SUMS",
+      "digest": {
+        "sha256": "a79ebe987a6a2129dfac99e2ad365812c4f41c895ef4f2ef07e7ede5f611e5bd"
+      }
+    },
+    {
+      "name": "go/linux-amd64/zenith-runner",
+      "digest": {
+        "sha256": "82edc8bc1dabc9ad9d6695d844bc00e8e50c10efbb75107274863e4a79ee828a"
+      }
+    },
+    {
+      "name": "go/linux-amd64/zenithd",
+      "digest": {
+        "sha256": "daaf2facb12f592005b92775d1346abc7844331a12b8210af8401dae4c4a9286"
+      }
+    },
+    {
+      "name": "go/linux-arm64/zenith-runner",
+      "digest": {
+        "sha256": "3c70182e6942a5975c258491475f56bd8b8b8f5c6b7d673e6a982ad375214c93"
+      }
+    },
+    {
+      "name": "go/linux-arm64/zenithd",
+      "digest": {
+        "sha256": "cf29166d1dd9b5afb72b58ba0ce457b4b2acd1bcbabc9861685d1b6f344dcde1"
+      }
+    },
+    {
+      "name": "go/tools/zenith-release",
+      "digest": {
+        "sha256": "d694f16828527468e92e052cac0918b718152e4eebf99b0546b7390af4bd433a"
+      }
+    },
+    {
+      "name": "images/zenith-runner.oci.tar",
+      "digest": {
+        "sha256": "3a34577f3e8232781bccd6e54fa29a53bc1b3e115ffc5e19f71e9ffadf3dc010"
+      }
+    },
+    {
+      "name": "images/zenith-worker.oci.tar",
+      "digest": {
+        "sha256": "69a73f00739210e44e0d3e352bd7a9e0203b2c1e399aab30cefe957037ac3062"
+      }
+    },
+    {
+      "name": "images/zenith.oci.tar",
+      "digest": {
+        "sha256": "d586265b6c2d139f96fb74cf5341d81b4d9de55bf9f1ad85ab8352da64c8e8dc"
+      }
+    },
+    {
+      "name": "images/zenithd.oci.tar",
+      "digest": {
+        "sha256": "5a3aead314f9ad6f59df5e5ec61143cb86d42356a7966c428a755cbb9c931719"
+      }
+    },
+    {
+      "name": "sbom.cdx.json",
+      "digest": {
+        "sha256": "9019b690fd0b70e8055c06f0742b043a8f13837f02e5bab83e76b2d35eb7fea5"
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://tryzenith.cloud/build/release-workflow/v1",
+      "externalParameters": {
+        "repository": "https://github.com/saivedant169/zenith",
+        "ref": "refs/tags/v0.1.0-beta.2",
+        "workflow": ".github/workflows/release.yml"
+      },
+      "internalParameters": {
+        "runner": "github-actions"
+      },
+      "resolvedDependencies": [
+        {
+          "uri": "git+https://github.com/saivedant169/zenith@refs/tags/v0.1.0-beta.2",
+          "digest": {
+            "gitCommit": "feabd5a4d19db854f1b098125262e6f350d27344"
+          }
+        },
+        {
+          "name": "package-lock.json",
+          "digest": {
+            "sha256": "2fac078f25e011278cb17a1b197264b6b2691c53f7b2b60ae1b70cb363fba3eb"
+          }
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "https://github.com/saivedant169/zenith/.github/workflows/release.yml@refs/tags/v0.1.0-beta.2",
+        "version": {
+          "attestor": "zenith-release-workflow-self-asserted",
+          "note": "asserted by the release workflow and bound by the release signature; not a Sigstore or GitHub attestation"
+        }
+      },
+      "metadata": {
+        "invocationId": "https://github.com/saivedant169/zenith/actions/runs/43746372501",
+        "startedOn": "2026-11-15T18:35:33Z",
+        "finishedOn": "2026-11-15T18:35:33.388Z"
+      }
+    }
+  }
+}

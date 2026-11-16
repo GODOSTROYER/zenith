@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-04"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario teardown-01, run id zlive-202611151952-b091; plan sha256 382d795c1a86f9c5fcb8a99b2a8b9258f37f6a23e9c433cfbfced63c14c234f9",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 718584884b14953a4804e2eedd2cc873ed3e5c34de9836c0f03186793499f1ee; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611151952-b091",
+    "file": "evidence.json",
+    "sha256": "f1901c95b0c9a34721bba74a974e90239747328b27548c83260bb35d65a25775",
+    "packetSha256": "ed75bfd78efe3e64ce7e6bcfb87d028337d16187916f676d2605472f7aeeb81e"
+  },
+  "result": "TEARDOWN-01 teardown after deploy proven on AWS: one managed S3 bucket deployed with two-person browser approval and read back from the recorded state and the tagging inventory; the teardown review was refused for unsettled deploy activity right after the deploy and became available 86 minutes after it, once the execution worker had settled every earlier writer; the destroy was reviewed and approved in the browser and succeeded; the recorded state is empty and no resource tagged with the environment remains"
+}

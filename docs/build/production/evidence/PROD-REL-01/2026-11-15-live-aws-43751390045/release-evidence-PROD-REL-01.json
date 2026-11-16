@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-01",
+  "level": "live_sandbox",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 391e61fec6ff7ed0d0f6b9745deec5bd1dcba140122d29ab7e508d322963ee07; cleanup complete",
+  "command": "GitHub Actions live-acceptance.yml, scenario deploy-01, run id zlive-202611151915-a4eb; plan sha256 c7677987a0caa00e27cde4e7469bc4058ef9cf84f6d88725471953c85f7a40ed",
+  "mode": "live",
+  "status": "passed",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-01/2026-11-15-live-aws-43751390045/release-source-PROD-REL-01.json",
+      "sha256": "e18f7c1d2c6044e6f60f10b791bc855237059393c9c99c81c659ff46c1365aae"
+    }
+  ]
+}

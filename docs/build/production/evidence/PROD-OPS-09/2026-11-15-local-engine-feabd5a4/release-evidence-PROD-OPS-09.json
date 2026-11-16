@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-OPS-09",
+  "level": "local_engine",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); real Go toolchain go1.27.3 darwin/arm64 (Homebrew) with GOTOOLCHAIN=local builds go/cmd/zenith-release; gate ZENITH_TEST_GO; no network",
+  "command": "vitest run tests/supply-chain/sbom.test.ts --no-file-parallelism --maxWorkers=1",
+  "mode": "local",
+  "status": "passed",
+  "passed": 16,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-OPS-09/2026-11-15-local-engine-feabd5a4/lane-source-PROD-OPS-09.json",
+      "sha256": "7b81130a9d058a8a68714485bdafa4afecd3c4c1815c282d6d0ac9e344e00238"
+    }
+  ]
+}

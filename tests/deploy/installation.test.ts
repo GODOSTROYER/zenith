@@ -32,7 +32,7 @@ describe('supported installation structural preflight', () => {
     { id: 'placeholder', change: v => { v.environment.SUPABASE_SERVICE_ROLE_KEY = '<replace me>'; }, failure: 'SUPABASE_SERVICE_ROLE_KEY' },
     { id: 'non-TLS public origin', change: v => { v.environment.NEXT_PUBLIC_SITE_URL = 'http://127.0.0.1:36400'; }, failure: 'NEXT_PUBLIC_SITE_URL' },
     { id: 'nonverifying pooler TLS', change: v => { v.environment.SUPABASE_DB_URL = v.environment.SUPABASE_DB_URL.replace('verify-full', 'require'); }, failure: 'SUPABASE_DB_URL' },
-    { id: 'wrong pooler mode', change: v => { v.environment.SUPABASE_DB_URL = v.environment.SUPABASE_DB_URL.replace('6543', '5432'); }, failure: 'transaction-pooler' },
+    { id: 'wrong pooler mode', change: v => { v.environment.SUPABASE_DB_URL = v.environment.SUPABASE_DB_URL.replace(':6543/', ':5432/'); }, failure: 'transaction-pooler' },
     { id: 'TLS override parameter', change: v => { v.environment.SUPABASE_DB_URL += '&ssl=false'; }, failure: 'SUPABASE_DB_URL' },
     { id: 'nonverifying platform TLS', change: v => { v.environment.ZENITH_PLATFORM_DB_URL = v.environment.SUPABASE_DB_URL.replace('verify-full', 'require'); }, failure: 'platform-authority-is-product-database' },
     { id: 'separate database authority', change: v => { v.environment.ZENITH_PLATFORM_DB_URL = v.environment.SUPABASE_DB_URL.replace('aws-0-unit', 'aws-1-unit'); }, failure: 'platform-authority-is-product-database' },

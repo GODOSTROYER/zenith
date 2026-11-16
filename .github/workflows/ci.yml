@@ -96,7 +96,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drv1-private-source --validate .data-ci-lane/drv1-private-source.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drv1-private-source-evidence-${{ github.sha }}
           path: .data-ci-lane/drv1-private-source-evidence.json
@@ -149,7 +149,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drv1-update-rollback --validate .data-ci-lane/drv1-update-rollback.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drv1-update-rollback-evidence-${{ github.sha }}
           path: .data-ci-lane/drv1-update-rollback-evidence.json
@@ -202,7 +202,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drv2-drift-repair --validate .data-ci-lane/drv2-drift-repair.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drv2-drift-repair-evidence-${{ github.sha }}
           path: .data-ci-lane/drv2-drift-repair-evidence.json
@@ -255,7 +255,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drv2-crash-partition --validate .data-ci-lane/drv2-crash-partition.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drv2-crash-partition-evidence-${{ github.sha }}
           path: .data-ci-lane/drv2-crash-partition-evidence.json
@@ -309,7 +309,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs j15-operated-upgrade --validate .data-ci-lane/j15-operated-upgrade.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-j15-operated-upgrade-evidence-${{ github.sha }}
           path: .data-ci-lane/j15-operated-upgrade-evidence.json
@@ -362,7 +362,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs j15-operated-restore --validate .data-ci-lane/j15-operated-restore.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-j15-operated-restore-evidence-${{ github.sha }}
           path: .data-ci-lane/j15-operated-restore-evidence.json
@@ -416,7 +416,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drivers-d4-two-tenants --validate .data-ci-lane/drivers-d4-two-tenants.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drivers-d4-two-tenants-evidence-${{ github.sha }}
           path: .data-ci-lane/drivers-d4-two-tenants-evidence.json
@@ -474,7 +474,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drivers-d4-export --validate .data-ci-lane/drivers-d4-export.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drivers-d4-export-evidence-${{ github.sha }}
           path: .data-ci-lane/drivers-d4-export-evidence.json
@@ -528,7 +528,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs drivers-d4-adopt --validate .data-ci-lane/drivers-d4-adopt.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-drivers-d4-adopt-evidence-${{ github.sha }}
           path: .data-ci-lane/drivers-d4-adopt-evidence.json
@@ -772,7 +772,7 @@ jobs:
 
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-postgres-evidence-${{ github.sha }}
           path: .data-ci-lane/postgres-evidence.json
@@ -916,7 +916,7 @@ jobs:
 
       - name: Save theme screenshots and verification evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: theme-browser-evidence
           path: .data-theme-evidence/
@@ -1063,7 +1063,7 @@ jobs:
 
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-policy-evidence-${{ github.sha }}
           path: .data-ci-lane/policy-evidence.json
@@ -1164,7 +1164,7 @@ jobs:
 
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-tofu-evidence-${{ github.sha }}
           path: .data-ci-lane/tofu-evidence.json
@@ -1416,7 +1416,7 @@ jobs:
 
       - name: Preserve sanitized native guest evidence
         if: always() && steps.guest_evidence.outcome == 'success' && steps.guest_evidence.outputs.evidence_path != ''
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-linux-guest-evidence-${{ github.sha }}-${{ steps.native_guest.outputs.expected_attempt_id }}
           path: ${{ steps.guest_evidence.outputs.evidence_path }}
@@ -1446,7 +1446,7 @@ jobs:
 
       - name: Preserve sanitized real systemd evidence
         if: always() && steps.systemd_evidence.outcome == 'success' && steps.systemd_evidence.outputs.evidence_path != ''
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-linux-systemd-evidence-${{ github.sha }}-${{ steps.systemd_fixture.outputs.expected_attempt_id }}
           path: ${{ steps.systemd_evidence.outputs.evidence_path }}
@@ -1577,7 +1577,7 @@ jobs:
 
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-workflows-evidence-${{ github.sha }}
           path: .data-ci-lane/workflows-evidence.json
@@ -1606,7 +1606,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs workflow-history-replay --validate .data-ci-lane/workflow-history-replay-lane.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-workflow-history-replay-evidence-${{ github.sha }}
           path: .data-ci-lane/workflow-history-replay-evidence.json
@@ -1706,7 +1706,7 @@ jobs:
 
       - name: Preserve sanitized operation gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-${{ matrix.lane }}-evidence-${{ github.sha }}
           path: .data-ci-lane/${{ matrix.lane }}-evidence.json
@@ -1847,7 +1847,7 @@ jobs:
           supabase stop --workdir "${SUPABASE_WORKDIR:-.}" --no-backup || true
           docker ps -a --format '{{.Names}} {{.Status}}'
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: product-store-postgrest
@@ -1963,7 +1963,7 @@ jobs:
 
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-platform-postgres-evidence-${{ github.sha }}
           path: .data-ci-lane/platform-postgres-evidence.json
@@ -2184,7 +2184,7 @@ jobs:
 
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-recovery-evidence-${{ github.sha }}
           path: .data-ci-lane/recovery-evidence.json
@@ -2227,7 +2227,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs wave5-contract --validate .data-ci-lane/wave5-contract.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-wave5-contract-evidence-${{ github.sha }}
           path: .data-ci-lane/wave5-contract-evidence.json
@@ -2254,7 +2254,7 @@ jobs:
         run: node scripts/ci/run-gate.mjs adversarial --validate .data-ci-lane/adversarial.json --require-execution
       - name: Preserve sanitized gate evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: canonical-adversarial-evidence-${{ github.sha }}
           path: .data-ci-lane/adversarial-evidence.json

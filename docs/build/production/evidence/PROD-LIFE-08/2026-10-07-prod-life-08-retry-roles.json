@@ -1,0 +1,133 @@
+{
+  "id": "PROD-LIFE-08",
+  "commit": "730c7ce099160b6454a38a4b7510145c9bb826f0",
+  "status": "executed",
+  "exitCode": 0,
+  "refusal": null,
+  "passed": 312,
+  "failed": 0,
+  "skipped": 1,
+  "commandTargets": [
+    "tests/sources",
+    "tests/middleware/platform-bearer.test.ts",
+    "tests/controlplane/migrations.test.ts",
+    "tests/controlplane/tenancy.test.ts"
+  ],
+  "nodeVersion": "v22.23.3",
+  "heapMiB": 768,
+  "architecture": "native Darwin ARM64 with Docker ARM64 real PostgreSQL16.15, TLS verify-full",
+  "environmentScope": "isolated contract/real-PG leaf tests; no real Auth/default-stack/live-cloud proof",
+  "diskBeforeBytes": 24163971072,
+  "diskMinBytes": 24096956416,
+  "diskAfterBytes": 24153931776,
+  "elapsedSeconds": 68.3,
+  "rawLogs": "private only; not retained publicly",
+  "schema": 1,
+  "reportSha256": "1f1e4924792cc93aae6dc6829df942831a17d754f3a54a9a2878785c3e9dbdc1",
+  "perFile": [
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/controlplane/tenancy.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/middleware/platform-bearer.test.ts",
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-app.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-callback.test.ts",
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-inspect.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-lifecycle.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-migrations.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-runtime.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-store.test.ts",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/sources/github-webhook.test.ts",
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "pending": 0,
+      "todo": 0
+    }
+  ],
+  "unpassedCases": [
+    {
+      "file": "tests/sources/github-live.test.ts",
+      "name": "private GitHub App source (opt-in network) downloads the bound repository at a pinned commit with an ephemeral scoped token",
+      "status": "skipped"
+    }
+  ],
+  "scopeLimit": "Counts overlap other lanes and are not summed. No full default-stack, cloud, real Auth or installed customer-runner proof. Required acceptance remains open."
+}

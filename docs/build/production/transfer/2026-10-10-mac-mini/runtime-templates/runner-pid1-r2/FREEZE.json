@@ -1,0 +1,1806 @@
+{
+  "ready": false,
+  "sourceCommit": "28ea0b75c4c25047cf3e5221a9eb456cbb47d1f7",
+  "root": "/Users/saivedanthava/Desktop/zenith",
+  "sourceInputs": [
+    {
+      "file": "deploy/zenithd/acceptance/Dockerfile",
+      "sha256": "a8c253a76e363765717fedbf353755a369fb6bb8b64e9f2138f715055f073e24"
+    },
+    {
+      "file": "deploy/zenithd/acceptance/build.sh",
+      "sha256": "818745f944ef0af90b38c0b7d9fe90d80f1d86725be0189c62af789c072e6910"
+    },
+    {
+      "file": "deploy/zenithd/acceptance/cgroup-check.sh",
+      "sha256": "d92b120ab5ef02b67e9993f85b7f00cec6d0d3df14c4cec99d937263c377be52"
+    },
+    {
+      "file": "deploy/zenithd/zenithd.service",
+      "sha256": "e000da95e7602ebda98ce752b89162afa6c737b9e2cf1d24f148df22aa436fd3"
+    },
+    {
+      "file": "docs/build/production/verify/PROD-MACH-04.md",
+      "sha256": "6b601cd6f7d59d212cdeaa6dba820e922933ad6e06b9ad4e907021e8537f5710"
+    },
+    {
+      "file": "go/.gitattributes",
+      "sha256": "3c3ba03af3dc94520105adbbc0fd252f9c1da383af824a2e4a167369ec4ed215"
+    },
+    {
+      "file": "go/.gitignore",
+      "sha256": "c4077941dc9a13dfe2c9b8a2e566dcf9253f6e9071e2f982e14d3025471520af"
+    },
+    {
+      "file": "go/README.md",
+      "sha256": "d87cf1dce65540c583d6b39bdaad8d7fe36acddc3d98292e0fcb59f83130b251"
+    },
+    {
+      "file": "go/build.sh",
+      "sha256": "2c874722d4d65c4633fb5d2c1cf1828149004c4c96fe9ea018554183ade4cc7d"
+    },
+    {
+      "file": "go/cmd/zenith-release/main.go",
+      "sha256": "78730f1e1dcd1f6910f8cc144b687225285a2db3b5f5b30b947f39c6dadcc59c"
+    },
+    {
+      "file": "go/cmd/zenith-runner/main.go",
+      "sha256": "a93626846c106868def0dd66bfa2601d1b13d1b610a300a57f5ce49bdc2d117c"
+    },
+    {
+      "file": "go/cmd/zenithd/main.go",
+      "sha256": "339921f10ea26aa3d8d62d6a211cbdd547984089d42c894234e8316c32d7b8e6"
+    },
+    {
+      "file": "go/go.mod",
+      "sha256": "c88621f1eb7af919235bb595f9ca3a7a96127b4ca172a93a908dca608b19d9f6"
+    },
+    {
+      "file": "go/internal/agent/agent_test.go",
+      "sha256": "b978ee890e74aa6780460a838774061d16d1ced69f13c6734bd637d5577ae47c"
+    },
+    {
+      "file": "go/internal/agent/backoff.go",
+      "sha256": "982dabff512d9f0f8d7209fede68ec86fdf92ef3b06881e4f346f08981d467b7"
+    },
+    {
+      "file": "go/internal/agent/cli.go",
+      "sha256": "900bfbf04c25028a271187efabeef5476706370e98aef8a0e9b179cb5c7f9474"
+    },
+    {
+      "file": "go/internal/agent/client.go",
+      "sha256": "c825d923471abc9d7c82bc06fc84485807221f587ec3e7060775ec54a9a17780"
+    },
+    {
+      "file": "go/internal/agent/config.go",
+      "sha256": "a197b34f243929d911616ba9a725ce41f7f2655c89cbbd8725e0b54a9116a719"
+    },
+    {
+      "file": "go/internal/agent/core_test.go",
+      "sha256": "88e28e8f9dd0fa19882a0a45adabab10383c5a8f93c336cb1c2890db3fc8d6fa"
+    },
+    {
+      "file": "go/internal/agent/fakecp/fakecp.go",
+      "sha256": "647c8bb7dc737dad36114777fc91fc64d75bc8bed12a5394c4301344b75bdb7d"
+    },
+    {
+      "file": "go/internal/agent/identity.go",
+      "sha256": "7b003c067d2b9514ae398f02c90b1ff28542796ab6bed0bb6c9162aaca1b0347"
+    },
+    {
+      "file": "go/internal/agent/identity_open_windows_test.go",
+      "sha256": "9ff1114b3d7b4bbbaab0449d3a30870780c4be61c6b9dc1b699e0e0e66c55154"
+    },
+    {
+      "file": "go/internal/agent/identity_sync_unix.go",
+      "sha256": "832bad4b016db0cdf05944d0f7e3fce6b6514bd4b15c000efd81d963e27e8d50"
+    },
+    {
+      "file": "go/internal/agent/identity_sync_windows.go",
+      "sha256": "8279717467e6a25c6787ddbcf0aef67491701e0e3b4c069ea5eab978ff0064c2"
+    },
+    {
+      "file": "go/internal/agent/lifecycle.go",
+      "sha256": "0d364646fb63cb0e4c8a746ebfb7a14e43addd0fc487178b9074c189efc1fa2b"
+    },
+    {
+      "file": "go/internal/agent/lifecycle_test.go",
+      "sha256": "42498e552edd2a1332155ee22a445023ed647c4aeb1c88e568227049ae7c8ec6"
+    },
+    {
+      "file": "go/internal/agent/logsink.go",
+      "sha256": "812070a61469c1e3b578065be24038dfcd2e3d4f66a3c6f96d8093d0ef6353b3"
+    },
+    {
+      "file": "go/internal/agent/loop.go",
+      "sha256": "ff170ddcecdbe79894268e74acfba400c5ec741c83aa45fcbaf9785cc908e0eb"
+    },
+    {
+      "file": "go/internal/agent/main.go",
+      "sha256": "7b94bfc103f292099d87236c7442f33c1b1e4506745bef234ffcf2624fb22642"
+    },
+    {
+      "file": "go/internal/agent/register.go",
+      "sha256": "7413f0b3d96ca8fdbf13b33e99d352951d2fd0fbbdd847ca74a9a3dbfe5b4191"
+    },
+    {
+      "file": "go/internal/agent/rotation_internal_test.go",
+      "sha256": "ba8e0a5959df7f94cb67f4637947d306743b689d2d59f1ddc7b3a5300854b6fe"
+    },
+    {
+      "file": "go/internal/agent/spool/spool.go",
+      "sha256": "e597f0358df7380ba7b084d0a1a9f13ef4e1e6b99cb61587a606ea3221d6c833"
+    },
+    {
+      "file": "go/internal/agent/spool/spool_test.go",
+      "sha256": "754ec6320687cc0078a8b0e4807a02c769c098eac9b185dfc69d4f0f479ea8d7"
+    },
+    {
+      "file": "go/internal/agent/spool/sync_unix.go",
+      "sha256": "b95d3594a2c5eeb28a8c754630e37da0a9325aad76f307c726d0ae5245a4c37f"
+    },
+    {
+      "file": "go/internal/agent/spool/sync_windows.go",
+      "sha256": "9b59bd946fed2a6f4876a8a4637ae6341635da07127060735b5d50eda08bee81"
+    },
+    {
+      "file": "go/internal/agent/update/exec_unix.go",
+      "sha256": "d76746d0d0e852555be6263de2dbfb47ef76a593edb7bc9caa413896763740bc"
+    },
+    {
+      "file": "go/internal/agent/update/launcher.go",
+      "sha256": "9354ca33978477591b4f9578577a086b7227d85a4cf8ff3f3ded7d00bd63fcc8"
+    },
+    {
+      "file": "go/internal/agent/update/manager.go",
+      "sha256": "e45b6d4f00d9ff1c1f48e31d66c98f7adb2c27e8ff22649e459e3bebae1e522c"
+    },
+    {
+      "file": "go/internal/agent/update/state.go",
+      "sha256": "74f7be5bb1284761c9d57b4d432f2c3dadea5ecda8b7c3613aa7ec04b1c7b80c"
+    },
+    {
+      "file": "go/internal/agent/update/sync_unix.go",
+      "sha256": "22b8fedf36e48418342fdffa99840caa6cdf3d3b3ea8da17e1c63f7a3065e03a"
+    },
+    {
+      "file": "go/internal/agent/update/sync_windows.go",
+      "sha256": "dc22872d874398acbef5200f6d2438faf80f8ea6c79b44cc42bd2b45ad90059f"
+    },
+    {
+      "file": "go/internal/agent/update/update_test.go",
+      "sha256": "a5d5d9eacc39f7fbf8552e379e81dd34d7ea8d4e562ff36223a81b9cced7f666"
+    },
+    {
+      "file": "go/internal/agent/update_control_internal_test.go",
+      "sha256": "80fb108677b7f4ec0cadae06413e8e1d98010a6315862fdc4aca83c11384e734"
+    },
+    {
+      "file": "go/internal/agent/updatecmd.go",
+      "sha256": "18ab64ca83636b1c410852e10709967c8f30bd8d081f3ebb89587675957128fa"
+    },
+    {
+      "file": "go/internal/awsauth/creds.go",
+      "sha256": "96573b0814adb1e40a2efa8935e8ba3d7b1af98a7aca755d29ad97fad5beeddc"
+    },
+    {
+      "file": "go/internal/awsauth/creds_test.go",
+      "sha256": "cb71713b44ba1927894faaa50f879b06ac429c202c5f7a95197756cfc0885d3d"
+    },
+    {
+      "file": "go/internal/awsauth/sigv4.go",
+      "sha256": "490b5361f7010104ffde2d51c22bc7b833af34fab6808abd2c74d24e83358cc4"
+    },
+    {
+      "file": "go/internal/awsauth/sigv4_test.go",
+      "sha256": "6db9eebf122c389ca28455e25273dd6f59eb76a39c98c1c4f288bc9e27c9842e"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/NOTICE.md",
+      "sha256": "ef91feec9bed82c02d2dd4676bc9fc37fb1f31ae0b099174e1d7d8c319881e6b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.authz",
+      "sha256": "c462a3a2d431097d82a8d79f33377d573b44f6e1cd6f971aab63ca9f407df9a8"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.creq",
+      "sha256": "e99419459a677bc11de234014be3c4e72c1ea5b454ceb58b613061f5d7a162e8"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.req",
+      "sha256": "fae477dd1189a08df405404cd0b79a52ea11017e9736358ca379272cf77d4362"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.sts",
+      "sha256": "9ffef6b6145321aa60b195a54e16d56e57d249e97867372818b6be0c43eb2fc1"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.authz",
+      "sha256": "4fe5a63189af9a819464b28857b43bd2feeb85aa3115b6be2cb75316f05acb2a"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.creq",
+      "sha256": "a726db9b0df21c14f559d0a978e563112acb1b9e05476f0a6a1c7d68f28605c7"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.req",
+      "sha256": "83f5b26f5caf8b91f998228789091b4ddf62a1bdbe7e78c50c513c8c727a29c2"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.sts",
+      "sha256": "0108d35bd09f7f117e2101d06677ebccd51df2015fdd7284edc8ca49afab994b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.authz",
+      "sha256": "f9d9f0d99aece8847b2a342dd41b6ffc166243ff84d9bf25f9739d5ababef04b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.creq",
+      "sha256": "6a968768eefaa713e2a6b16b589a8ea192661f098f37349f4e2c0082757446f9"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.req",
+      "sha256": "b4b9262cd09f60ffbf47781a3b908007b4e198c62e3b9289a0639c8c0fa60f6b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.sts",
+      "sha256": "5aa8c0aeac75b71539d7554e880d53c6ea412ddc36543183f1672e7ad8a14dbe"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.authz",
+      "sha256": "5bfb281a7d2934291e697b7e43127bf14a60090634a7848ce88cff1475ef079e"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.creq",
+      "sha256": "2a0a97d02205e45ce2e994789806b19270cfbbb0921b278ccf58f5249ac42102"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.req",
+      "sha256": "8b619f2831e44ce8cd39fa55289a9cead7ae742e36919f6f977dab9dfd737c6b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.sts",
+      "sha256": "2530860ffa3c645b610c1b10bb7b511d59c274f6eee7eee2f92c70b2887cbd2d"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.authz",
+      "sha256": "dbbd8d99863de9b7960a646a564c6ab0a3f26e0eb2e3b82633505d449f3c6a6b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.creq",
+      "sha256": "1e24db194ed7d0eec2de28d7369675a243488e08526e8c1c73571282f7c517ab"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.req",
+      "sha256": "7f7dc8a867ed66cbf7f53f3b1cf58570e22211d43cfd3239391263e48f61f40f"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.sts",
+      "sha256": "793f582392d7ebc0e329de45693ab2679c4b036a1637fd09816030f4619a235a"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.authz",
+      "sha256": "fe6f49f1d92951d185f6b66cd76cf18de51dbab547163954c40b3efe795fd555"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.creq",
+      "sha256": "816cd5b414d056048ba4f7c5386d6e0533120fb1fcfa93762cf0fc39e2cf19e0"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.req",
+      "sha256": "64d4b86be62c3d78f6ba37ef1bc9ab89ba1e3b621ebc94dba3e7a178398c3703"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.sts",
+      "sha256": "003cbc3b1170b64f9cb91b6f5d8bc34c8880f68aa7aaccda1c8c89784685d75b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.authz",
+      "sha256": "1dd00bd96aa5ff0fde34fba16f68738e2f26e90acd60884b85dd472823cc239e"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.creq",
+      "sha256": "c968629d70850097a2d8781c9bf7edcb988b04cac14cca9be4acc3595f884606"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.req",
+      "sha256": "31b4149bf2c30bb563c3c85debbc5a5835d5a954bbb824a4e3b98ad98c78aa14"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.sts",
+      "sha256": "09ac38d6d7964913d081771f5fbee1523e7b99876c2a7e9904798b5a2a9d1fde"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.authz",
+      "sha256": "2a2126215831df4305140ec9b81e62fe490b21481bc5316099db2fb9c776ffe6"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.creq",
+      "sha256": "c30d4703d9f799439be92736156d47ccfb2d879ddf56f5befa6d1d6aab979177"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.req",
+      "sha256": "02f9dd4d04d90b3d7aa78c2ca2d54f1cabaca48a6572010cbf9317001f99265d"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.sts",
+      "sha256": "1e07a253b77c390af5524f8703b469939d1022a98e97de879f4a2ed14812f24c"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.authz",
+      "sha256": "38bb2c688ceb4229c559a76d34d3f4279b2203d25528b46b582dc827f56bde04"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.creq",
+      "sha256": "eb30c5bed55734080471a834cc727ae56beb50e5f39d1bff6d0d38cb192a7073"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.req",
+      "sha256": "38f37f70a65efd68242eddcac8f2deb9f25c8fb0a20cea6ff50059c536a6f379"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.sts",
+      "sha256": "df36326ee12b27c17280905db80c552f94e9f4869ca845de5f7aba1004513f73"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.authz",
+      "sha256": "05b3dcfecb3d97a31bc37b96c79fba9e5829fb41ee7e994519a569dccc4d3486"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.creq",
+      "sha256": "067b36aa60031588cea4a4cde1f21215227a047690c72247f1d70b32fbbfad2b"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.req",
+      "sha256": "509955df496ae2f4fdc25af95ccf5406099e4a2556523b7ed80f4fab21ac1869"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.sts",
+      "sha256": "cf288f2c6f975eafad67cb4bc9ce1c1bb3c6ddda46ed83e006ec48f133b8c665"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.authz",
+      "sha256": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.creq",
+      "sha256": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.req",
+      "sha256": "509955df496ae2f4fdc25af95ccf5406099e4a2556523b7ed80f4fab21ac1869"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.sts",
+      "sha256": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.authz",
+      "sha256": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.creq",
+      "sha256": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.req",
+      "sha256": "c16d80cb9db6663a0e92dd57fd2d88d56a98861882f42c49084aab81aeb48e51"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.sts",
+      "sha256": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.authz",
+      "sha256": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.creq",
+      "sha256": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.req",
+      "sha256": "64586168f0ec2cac5bb754028b02b98df711a8d3221b77b475c9f9dac2355260"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.sts",
+      "sha256": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.authz",
+      "sha256": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.creq",
+      "sha256": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.req",
+      "sha256": "8447d82296c4b889eeb625ef21cc0af7e8ae6a55e387b72a3a81485ba90abee9"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.sts",
+      "sha256": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.authz",
+      "sha256": "781605fa462904a35843fac45416b491c21d643111f6d5a9ff889158fd5e818c"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.creq",
+      "sha256": "214d50c111a8edc4819da6a636336472c916b5240f51e9a51b5c3305180cf702"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.req",
+      "sha256": "02de9ee8f36c35a60218e373a6015b973a53c67285b61886642024b19ef564d8"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.sts",
+      "sha256": "2835f7fac92431324cd0c5fa589554c49a3766ad30ab5bcecb865ebace06d0b2"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.authz",
+      "sha256": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.creq",
+      "sha256": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.req",
+      "sha256": "f2f45a7282382ffae5f386845dd670c6532fe9c2d3141f599e592dae96b90339"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.sts",
+      "sha256": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.authz",
+      "sha256": "1eb0dbdb3e7678a10232d89f26b0a9e84d6b93b1d544648e088ad7f76cc25064"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.creq",
+      "sha256": "cb96b4ac96d501f7c5c15bc6d67b3035061cfced4af6585ad927f7e6c985c015"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.req",
+      "sha256": "b73340f93c893597313ba490dcb342eb0a6df925e8db23a4f38ce52dd954cba5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.sts",
+      "sha256": "27bed0e57aed8d64d0448e73407daf8909ee0e56ca95b2f8973a1c94fff1b9f2"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.authz",
+      "sha256": "df4c57e8624a5b0f74e82efe48f55d81fafc07a64980ea4c1c49bd43e670ef7f"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.creq",
+      "sha256": "63ee75631ed7234ae61b5f736dfc7754cdccfedbff4b5128a915706ee9390d86"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.req",
+      "sha256": "9acee8d7748a54cfd727056270a7b59d607cfa5226e60e7f5d8815ab535e6c61"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.sts",
+      "sha256": "2e8d72a7e2c454df4e75a46801ccd0a35975a7b46424bda1b835755715852e69"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.authz",
+      "sha256": "d73e1ba700e51b87f44de324ab3775f6aabf82cd4ced5c32310b171700e52ef5"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.creq",
+      "sha256": "4053e45b5cef7cec5e17f736b1c12b3faf0388fd4c0bd24326386f132039ce5c"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.req",
+      "sha256": "bf21b16d41af5d9549b1e93c7d34bdd428de8e0adde4b094502f3460479a8d0c"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.sts",
+      "sha256": "b29511f03359b13f31acf574112625791ec83222ddeae79df78f183802170cc1"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.authz",
+      "sha256": "6db8105c28310d3ff345f55b99df1329a865dc028baa512bfb9bea1d06662d70"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.creq",
+      "sha256": "9368318c2967cf6de74404b30c65a91e8f6253e0a8659d6d5319f1a812f87d65"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.req",
+      "sha256": "589314a8a941c629d56147765b72e3b420bf730a7bfaf7c8a4c7189505a18e44"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.sts",
+      "sha256": "63908f392d491f7a43e8fd50a3b775e9adf30265af75c05159cba8d839c36c7a"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.authz",
+      "sha256": "7a43256234f30d900cee9641b2064d731d5e2be4c310a894637713dd7c6df535"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.creq",
+      "sha256": "553f88c9e4d10fc9e109e2aeb65f030801b70c2f6468faca261d401ae622fc87"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.req",
+      "sha256": "f6602fd96bc24fe964d47550456e8e117ccade2d639e16b14507b19e2c48aca6"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.sts",
+      "sha256": "73fd75fb7e71e1e9be6b5982cfe16f79f2a2ab9c33518a12183b481f28d25206"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.authz",
+      "sha256": "33e082ece5f264def401d930f8cebc30360a769eb9f1db7b1d0bd1238c31e202"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.creq",
+      "sha256": "c237e1b440d4c63c32ca95b5b99481081cb7b13c7e40434868e71567c1a882f6"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.req",
+      "sha256": "a7b72caac6f1184e4e54697935d89db921ebe539651f80b8e27648e20958b995"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.sts",
+      "sha256": "63bc10877d08fb9f46e95a03f2082a0539ebc2085ccb07fa9def20b0fe2e2b29"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.authz",
+      "sha256": "eba2330aede9b06a9894156fb4b917ae07b2cf638ecd16a80a5e6569eecf2eed"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.creq",
+      "sha256": "9d659678c1756bb3113e2ce898845a0a79dbbc57b740555917687f1b3340fbbd"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.req",
+      "sha256": "a2ee016974ea1928a038472cc70588b54014dbb983590b96611ba7e47b8e6af0"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.sts",
+      "sha256": "13275c2dab349dbf6475d0edf1566e296001bb62ba7a9d9d9128d7ca1b945190"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.authz",
+      "sha256": "7a43256234f30d900cee9641b2064d731d5e2be4c310a894637713dd7c6df535"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.creq",
+      "sha256": "553f88c9e4d10fc9e109e2aeb65f030801b70c2f6468faca261d401ae622fc87"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.req",
+      "sha256": "f6602fd96bc24fe964d47550456e8e117ccade2d639e16b14507b19e2c48aca6"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.sts",
+      "sha256": "73fd75fb7e71e1e9be6b5982cfe16f79f2a2ab9c33518a12183b481f28d25206"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.authz",
+      "sha256": "2504b1b0ce28df5832c5f0de0fb88d27bc7c94b2e06d140304d8e3a34d8d9f19"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.creq",
+      "sha256": "2e1cf7ed91881a30569e46552437e4156c823447bf1781b921b5d486c568dd1c"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.req",
+      "sha256": "19643e292b72b3a11213e202715272f77191b9d74b3604b1eff45e02f34ff6d0"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.sts",
+      "sha256": "c9ecdb85baee216f77b9257fd284e3ace1e211dde6f56893f865ba86d81c5428"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.authz",
+      "sha256": "29b6ae9c5c23974d525e67e4687d560328a25d762cc95637ed41366f5944016a"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.creq",
+      "sha256": "42a5e5bb34198acb3e84da4f085bb7927f2bc277ca766e6d19c73c2154021281"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.req",
+      "sha256": "3168a2c3b23e8d012052896debad562dc46676e8881fb6b5d4b36fd9d97e8fba"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.sts",
+      "sha256": "fedb5ec5dd53c464911b1336547143cbedcd85977740bd63b2a622489f5fc246"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/independent-vectors.json",
+      "sha256": "e3d6de1e47ab1b1b61fc93817356a8b3c312f801e551765e71bb19d25c755c44"
+    },
+    {
+      "file": "go/internal/awsauth/testdata/sigv4_reference.py",
+      "sha256": "b5582fd4f74d04b23e38801ec4fad2de91ca1f69f92cc3222d212aa79761448d"
+    },
+    {
+      "file": "go/internal/machine/audit.go",
+      "sha256": "2e2dec8a1809eb78e4f152d6f3e05f9cbc0da5fd96cfe3ccf762a00f60b103f5"
+    },
+    {
+      "file": "go/internal/machine/cli.go",
+      "sha256": "80a4d71adb2e01fc6f825c3068d017a4b7a1a559a526d65646274688fe3eb6a2"
+    },
+    {
+      "file": "go/internal/machine/config.go",
+      "sha256": "13c98ec68b4b944ef413aa64779122f0933e7aff93e4c158f610e5783784416d"
+    },
+    {
+      "file": "go/internal/machine/config_test.go",
+      "sha256": "80ee815c3bb87b0803472566b84c615a6e6ada256555e75ae402b9c65d7438fb"
+    },
+    {
+      "file": "go/internal/machine/e2e_test.go",
+      "sha256": "cdceff5a2dccecb9e04a4e35e5716376589604b6a6033be5acd2279518fc323e"
+    },
+    {
+      "file": "go/internal/machine/executor.go",
+      "sha256": "1568ba1d5b524520abcc7c79f90549cc5ad1edbce8e042dba93352337fa90ba8"
+    },
+    {
+      "file": "go/internal/machine/executor_test.go",
+      "sha256": "c2540ffc956ea944c376a716e4f42eef60a8f13df83239ebc853c3101dbaa86f"
+    },
+    {
+      "file": "go/internal/machine/ops/cmdrun.go",
+      "sha256": "a2b47ad405b64d53fc70171bca6ce4ec630689815805e23ffc33b3918701c845"
+    },
+    {
+      "file": "go/internal/machine/ops/disk_linux.go",
+      "sha256": "a36195e169321587a66c2d12d49292b3218a808297668272c395201f142b1371"
+    },
+    {
+      "file": "go/internal/machine/ops/disk_other.go",
+      "sha256": "f93619760aefabe71e3f819a6764083628d33582f29f45e721c16e80f72f57f2"
+    },
+    {
+      "file": "go/internal/machine/ops/docker.go",
+      "sha256": "09fb89262700ef51daec2cdf80c87909cb708d963dabe8bbeda96837cbd779f4"
+    },
+    {
+      "file": "go/internal/machine/ops/docker_test.go",
+      "sha256": "54d8027687ae42da25984a59a5c75de7dea8bf319104561463c8808014c690db"
+    },
+    {
+      "file": "go/internal/machine/ops/exec.go",
+      "sha256": "8dc8106ee827dd810dd7656cb997015ed9c97cb2f528e577a81c6a272067eb6e"
+    },
+    {
+      "file": "go/internal/machine/ops/exec_test.go",
+      "sha256": "edfcbbd5fbf092181ffb5a12bcd5f6c0fd92ff39e40b1fcc2f32e29151f0fc89"
+    },
+    {
+      "file": "go/internal/machine/ops/failure.go",
+      "sha256": "2f91b4c0a2ccd822d783377a3834f61d054de1dc1933f5279bbedfbd2fd1b90c"
+    },
+    {
+      "file": "go/internal/machine/ops/files.go",
+      "sha256": "05203c066e374121d155dae83430d0424ed956435b12ebb9600652f0d4f98a2c"
+    },
+    {
+      "file": "go/internal/machine/ops/files_linux.go",
+      "sha256": "cac8ac0b8e22a80bb060d7fd7d86ed1288e2fe7f56d8c395de4ed0bcd65f7262"
+    },
+    {
+      "file": "go/internal/machine/ops/files_linux_test.go",
+      "sha256": "bd2cdb1431596884dcbf1ecf1a97c322bd459b9a1df7822c3b9c81924e661dac"
+    },
+    {
+      "file": "go/internal/machine/ops/files_other.go",
+      "sha256": "b2eb4d1d41cb603b5fe0d7e302a03d2b2fd179cb3a4181588243c9f2339b0186"
+    },
+    {
+      "file": "go/internal/machine/ops/files_test.go",
+      "sha256": "032188ecfcb3a7e4a4d911abaaaa43d9d053f5e23eb1cdfd55888c7eb5b86009"
+    },
+    {
+      "file": "go/internal/machine/ops/fileupload.go",
+      "sha256": "e5922bf781e376b3852faef4af067c04e0d3fb82fecbddec1450a905a6b72287"
+    },
+    {
+      "file": "go/internal/machine/ops/fileupload_linux_test.go",
+      "sha256": "f7a033bc206436e51e53b1b39d74f13f717704e34e786338c2627d585e0e89d9"
+    },
+    {
+      "file": "go/internal/machine/ops/fileupload_other_test.go",
+      "sha256": "7d12ab7c80508a8b8626daaf0ae571c3a8c6bb1bd2396a451355f423fa9c9a61"
+    },
+    {
+      "file": "go/internal/machine/ops/fileupload_test.go",
+      "sha256": "b0407b9703f3a2c0e41891a338054f8d6c1891a718f34411b18c640c0f4631f7"
+    },
+    {
+      "file": "go/internal/machine/ops/filewrite.go",
+      "sha256": "b83e6615d5cd06d292ea9ccff6059da06e2cf37ebcb7cd58fcfd9cb96ebaecc1"
+    },
+    {
+      "file": "go/internal/machine/ops/filewrite_linux.go",
+      "sha256": "776f5c633076ae1b0830a777771dcce122466bb105be2c1c9b2966b6de77ac22"
+    },
+    {
+      "file": "go/internal/machine/ops/filewrite_linux_test.go",
+      "sha256": "e2d7783301f64b70224155a66a628d1559d5a039817b72d0a12d94a63d7da508"
+    },
+    {
+      "file": "go/internal/machine/ops/filewrite_other.go",
+      "sha256": "b81177fb72c6c9ef5dbaabbb96617d2d89afa30030e6c0b4c156d59b987978c8"
+    },
+    {
+      "file": "go/internal/machine/ops/filewrite_other_test.go",
+      "sha256": "bd7f6b75864280aad47773872ac7cc30c7b57fd54222db5852523ef3c1a669dc"
+    },
+    {
+      "file": "go/internal/machine/ops/filewrite_test.go",
+      "sha256": "cf4d834de4bacb57d0f6c91950edf69830462c32fd84d0db523c61610d2572bc"
+    },
+    {
+      "file": "go/internal/machine/ops/network.go",
+      "sha256": "98639e1c36eef21212b2adf8d5268a72522a8c36a9104feff8f533604ef45b96"
+    },
+    {
+      "file": "go/internal/machine/ops/network_test.go",
+      "sha256": "37665d405c7b765aba13070ede7daae9f9b67d1840a67caf58139c01c81a9801"
+    },
+    {
+      "file": "go/internal/machine/ops/ops.go",
+      "sha256": "92d1ee1d4ec1e2548e2397fabb30a40321f6968b05747d60e2c82f58efe8707e"
+    },
+    {
+      "file": "go/internal/machine/ops/ops_test.go",
+      "sha256": "7775c8e1b4a32c4a658b7b99897c2cb81be97e505c24e5b4f2fba41b3e802711"
+    },
+    {
+      "file": "go/internal/machine/ops/packageinstall.go",
+      "sha256": "a19aaaad78911f8f42b75ff259869492d8d7f0eb3e42d7da9eec3862d6380100"
+    },
+    {
+      "file": "go/internal/machine/ops/packageinstall_test.go",
+      "sha256": "2ec44f360a771b743ea78bc053351f6e492f34f5f5db5336bbb4f5a8ff6a992a"
+    },
+    {
+      "file": "go/internal/machine/ops/procfs.go",
+      "sha256": "003cf26a215c42f0a01f7abf7aec4b2b048ea0dde597a2f7fc32f58b807e2900"
+    },
+    {
+      "file": "go/internal/machine/ops/procfs_test.go",
+      "sha256": "08eb6cc3c533d082e272e08df6e08e3836d190292cd484ea12a86bf411d0a9aa"
+    },
+    {
+      "file": "go/internal/machine/ops/results_golden_test.go",
+      "sha256": "03ed1bdda90586982698b3e20afd13f8269f7aef4ec028e82c4ebc180c7d673c"
+    },
+    {
+      "file": "go/internal/machine/ops/serviceconfigure.go",
+      "sha256": "f540f9d63c5c238a21502e4cc1f544dea8ec8cb0feca1273d5ebfddf3e95555e"
+    },
+    {
+      "file": "go/internal/machine/ops/serviceconfigure_golden_linux_test.go",
+      "sha256": "f62396b1a2eb64180318cb96f1572fbf18f936f9c1f9373c43c513beabdd496a"
+    },
+    {
+      "file": "go/internal/machine/ops/serviceconfigure_golden_other_test.go",
+      "sha256": "908cf430f702d36efb1c006a4bd332f2a45eca13c9e6572ce0730939680a005f"
+    },
+    {
+      "file": "go/internal/machine/ops/serviceconfigure_linux_test.go",
+      "sha256": "bfb23728658dc0f61ac654aaca064301243b25f2baf16cf88af3aea6b3b1d692"
+    },
+    {
+      "file": "go/internal/machine/ops/serviceconfigure_systemd_linux_test.go",
+      "sha256": "ea33907477da9952306ecfa282e74f722347622f22dca2127843907edfc0061d"
+    },
+    {
+      "file": "go/internal/machine/ops/serviceconfigure_test.go",
+      "sha256": "36a4f5a014d4a60d941db4faf17dfcf68d48152b9c054491820072d5b3e3e91f"
+    },
+    {
+      "file": "go/internal/machine/ops/systemd.go",
+      "sha256": "17562c53a5c2dce9c300e148ce0fcc9230a1bef37a50691c0f9a2aa980db03c1"
+    },
+    {
+      "file": "go/internal/machine/package_archive.go",
+      "sha256": "8a29cb0c540b401116121c883fe7b3dfb819845f06a373e917f936b8128ba245"
+    },
+    {
+      "file": "go/internal/machine/package_archive_test.go",
+      "sha256": "d0d99db456a79b2a6173ee700f4059f055fd7d53205653d836394749141bc263"
+    },
+    {
+      "file": "go/internal/machine/package_helper.go",
+      "sha256": "faa4465760ecef55942eefc7f883fc5192c84d3318ce2ac2083d77c656867643"
+    },
+    {
+      "file": "go/internal/machine/package_helper_linux.go",
+      "sha256": "b803a6f0303aa99cea8175254c356f88312cf43b7cf0050f232feb441a5ead5f"
+    },
+    {
+      "file": "go/internal/machine/package_helper_linux_test.go",
+      "sha256": "b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331"
+    },
+    {
+      "file": "go/internal/machine/package_helper_other.go",
+      "sha256": "0322adff1424ae1087df78f6412990cd5e993101807d9bb425d186b21e08fd45"
+    },
+    {
+      "file": "go/internal/machine/package_helper_other_test.go",
+      "sha256": "9c5f8074bd8af4b7af67ea6622e7b9f88bb9a6657b8350f71018b49d020c1957"
+    },
+    {
+      "file": "go/internal/machine/package_helper_test.go",
+      "sha256": "bea3cd7dd6105a3a99cc4f81ce01636cd9ad72eaa8ebf19cb589598bf9955bf4"
+    },
+    {
+      "file": "go/internal/machine/package_native.go",
+      "sha256": "dc8fbd4b633c9723c34df5ae3f22f468ce97f11c4562296ee5c016f1fd4a6489"
+    },
+    {
+      "file": "go/internal/machine/package_native_test.go",
+      "sha256": "e0aa2221ea030fba56e6625a98ad2ddc9c56c423a6dfc986b0abe6a745e1243e"
+    },
+    {
+      "file": "go/internal/machine/serviceconfigure_systemd_linux_test.go",
+      "sha256": "eec749b257e9f54f74146401c58c9dff2c93e8f22bd1615252795c4323e09ef6"
+    },
+    {
+      "file": "go/internal/machine/serviceconfigure_test.go",
+      "sha256": "afd78a9018627b9b34619b692409faef4ce62bcfe2e89f510dec12ffdb7e8731"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/container.exec.json",
+      "sha256": "0fc973bce6aa3e9d641eca2a70215eb7deebc8ae07b1b2f0b55703676d14e645"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/container.inspect.json",
+      "sha256": "5839675e93a4846a914c8ccc3e9a5ec4487eb5cb76abf9210bb22eaa2d556863"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/container.list.json",
+      "sha256": "60ae3b4b1d9f93cfc1eb358e70f9c9c0729e0ee4f90bf7ba212a9716e5cbccdc"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/container.logs.json",
+      "sha256": "fa6dbd920ff383a2ea2e4474237ab7c0331441f7b547fd8399237f43f1cf87e7"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/failure.json",
+      "sha256": "dd5ab8db0129290f0458872e1a9c9393ccbf3b7c35124ac6bf7776db00668bf6"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.read-binary.json",
+      "sha256": "cf36b8164d3229ef9bc190be53f43aeba332a5de655961010669186d0fd4325b"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.read.json",
+      "sha256": "fa3386d2895e8296db6de1f9633bcb9ce0a2fe613168cf897b1bb2fda50f829d"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.upload.json",
+      "sha256": "80bb7a2bdde20ade7bf4fc757d85564c7679908b8e19093e3fca06506a97acb7"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.write-noop.json",
+      "sha256": "a212ae65c6522e83f89e10e04f6513da7d85793b4c46e29dede6df0fd29188d2"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.write-prior-refused.json",
+      "sha256": "54910321786a48854823326464380ae7fe7e6be35e0880302890b80758366ec6"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.write-replace.json",
+      "sha256": "98db30dcf3547d2391d5ac1e7dc3f627c4d37b2bafa5d6efd94198c6ce546246"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.write-uncertain.json",
+      "sha256": "7230640a389e3062bb4b16030714abc3498729be99d917240dc1498be3cd58c9"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/file.write.json",
+      "sha256": "8e142a3af9fb7eb9f89707138d4d762b10fd1d4ba43c53e94e8cfd49df589e27"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/machine.exec-failed.json",
+      "sha256": "d7afc4fb53b590b722451748c696b49d77b7259f02d1e2186c5e9f0a0d425137"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/machine.exec.json",
+      "sha256": "a6362464f481eae77bb2eb31196d2a7b31294988a490327fd685250817869e17"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/machine.inspect.json",
+      "sha256": "11cf1fa5aa5e5c44d774f95b77aa60e3b1de73c3263a2a6d4c75d25abb528fbc"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/machine.service.restart.json",
+      "sha256": "ca79b2074ce6a7500a54a22fa602008294afeae085fe5a716d009762dbc54ed2"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/network.dnsCheck-unresolved.json",
+      "sha256": "2baaa21407a8a1994dcb432ad245271ad12f9417b6bac950ea6680ca10debd95"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/network.dnsCheck.json",
+      "sha256": "95cc1240e8420fb61bab7f7ec72ed9f1ced5ab76b442d1bce5d122b6262cf21f"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/network.portCheck.json",
+      "sha256": "8236196c411af15f1fec6570c44d0f4f273f76bc2b729f56e8a071d72a94dcaa"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/package.install.json",
+      "sha256": "2ea59a0830cde2bf2f3440fed7d9e6b286a85fbb9aedbdb5b8fb0bbd2f9c0b76"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/process.list.json",
+      "sha256": "1c3555bf567775d775c858e93ba4a47f105d06ab955cea2ee3894d762050ecc9"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/service.configure.json",
+      "sha256": "09c39b4cde1482d75730fd0d3a93e862c752ee9505a6ee4d8bb2c2d7dae345f8"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/service.status.json",
+      "sha256": "f95465592b6bd04a8ad53b56e3c919e21b7a3920f560d5b022c499087a980b0e"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/system.logs.json",
+      "sha256": "3f1710307ebd9a302087f01ff060c4383ff63167a93de0ec3b435c640fff4e4c"
+    },
+    {
+      "file": "go/internal/machine/testdata/results/system.metrics.json",
+      "sha256": "e9ec7dee76a995706f8edbc0115477d2e67b3af87d1ed163b5fe9a1b1bf9adcb"
+    },
+    {
+      "file": "go/internal/miniyaml/miniyaml.go",
+      "sha256": "72809b8b51f0bb9c7a33b0b04b2bbabb2744ce2cc18fc799fec7233ebb5a5fd7"
+    },
+    {
+      "file": "go/internal/miniyaml/miniyaml_test.go",
+      "sha256": "d1844879a8751a86325ee3eb4bc1223f272a81528fa737ed75a5bfd21a571574"
+    },
+    {
+      "file": "go/internal/netguard/netguard.go",
+      "sha256": "8f22717226d6188481f7786d6bca039d511506cdbe1ebe21bfd9f30158fe1a4a"
+    },
+    {
+      "file": "go/internal/netguard/netguard_test.go",
+      "sha256": "4c882fa46bd2a986687f74fd0857e054dd2697d920e38fa80f77fdf8a2ee13aa"
+    },
+    {
+      "file": "go/internal/oci/allowlist.go",
+      "sha256": "634882ae638b7073b011c9504bb0a5a0c0c0dbd62e2f38121a4b0fe4b75aa312"
+    },
+    {
+      "file": "go/internal/oci/compartment.go",
+      "sha256": "69c3c43d58ec6fdb1f52904f9d3a5f33f0a6e370ce523f00b21f53ebd3d448eb"
+    },
+    {
+      "file": "go/internal/oci/logging_search.go",
+      "sha256": "499976afff1a0a5377dc814ca5ba2b1c320762c29058be3b6b54daa358971777"
+    },
+    {
+      "file": "go/internal/oci/monitoring.go",
+      "sha256": "c4ed7dba26b4ac00d62af14982c18f579ef58ab4c50f198303d07a85be23226a"
+    },
+    {
+      "file": "go/internal/oci/monitoring_test.go",
+      "sha256": "cd770b5600f66f517f3b6445f1361aa9b82b7b169c1be050e06c2228ae4188ec"
+    },
+    {
+      "file": "go/internal/oci/observability_test.go",
+      "sha256": "e2e942df9d2c75b4e291f1cd9bbe0ba1c54821232693b00b5875a3180f44c017"
+    },
+    {
+      "file": "go/internal/oci/oci_test.go",
+      "sha256": "bc33aa63078ea135b27694f9c284987a80cf86c08d9233884fb2a0240b4dbc95"
+    },
+    {
+      "file": "go/internal/oci/principal.go",
+      "sha256": "8423c636700ed5c75507c96dd0b50df35e04d7f024a1dfde40a4f807efe284f3"
+    },
+    {
+      "file": "go/internal/oci/principal_instance.go",
+      "sha256": "107cfd4f372be7679a8433e22836ca74b84ac8094884a59b8f635d6f056a665e"
+    },
+    {
+      "file": "go/internal/oci/principal_oke.go",
+      "sha256": "923cb733f388d99e2627c202a3ef803c8e4e83ec6f3682d7f6d82828994f0a5b"
+    },
+    {
+      "file": "go/internal/oci/principal_test.go",
+      "sha256": "da80c3b25b79882efb2c1e36c3a24b138d661def38efde243f0f48ddaafc00d2"
+    },
+    {
+      "file": "go/internal/oci/release_test.go",
+      "sha256": "77fc9c5106172d619eebce2394f2884ef1d96066ede018cfa0ea1448b2a0966d"
+    },
+    {
+      "file": "go/internal/oci/request.go",
+      "sha256": "49a3540046bfaef729710eab7e34774ae42126121559173a622255e454b86166"
+    },
+    {
+      "file": "go/internal/oci/sign.go",
+      "sha256": "10171b7bee2c263d84656174b546662347bdd18c905e181045e2559cdc462930"
+    },
+    {
+      "file": "go/internal/oci/testdata/allowlist.json",
+      "sha256": "82acc36105f93926e1d3fa1e63601463f076ff44313087232ff377ff18b03b43"
+    },
+    {
+      "file": "go/internal/oci/testdata/services.json",
+      "sha256": "b821ba5452b8a3ccd0579c8662a67297ebb5d20d663cb71db7bd799042299b3a"
+    },
+    {
+      "file": "go/internal/oci/testdata/signing-vector.json",
+      "sha256": "d9948d14c2b73e0bd410b617b2fbd0e26a73e06d8875087494f8cf4e0e830f47"
+    },
+    {
+      "file": "go/internal/proc/proc_other.go",
+      "sha256": "39d206b30977369035c81992662592f63d7d8b91d8804f18f9c4eea82249d5bd"
+    },
+    {
+      "file": "go/internal/proc/proc_unix.go",
+      "sha256": "eb9bb15afe0ffdb75ff7e286dfa967529b11ce3ca309dae34a6884d8e68284b7"
+    },
+    {
+      "file": "go/internal/protocol/const.go",
+      "sha256": "ff65849d11fb752220f503edce355d6ebfc077404ed74a94fa3c10afb78cfd8b"
+    },
+    {
+      "file": "go/internal/protocol/envelope.go",
+      "sha256": "416efce09ac471a0df20e6df898feb2703c07e5fa135519d4f4fce054547f813"
+    },
+    {
+      "file": "go/internal/protocol/errors.go",
+      "sha256": "aae1170506a808581681255c4b78c3440ae8daa6576c41e6092e1b5d88fe5f4f"
+    },
+    {
+      "file": "go/internal/protocol/jws.go",
+      "sha256": "5096ea20b72dd3e3ffd30eff7f599d6232a46296525d0061bbcd8c0ac62f1c66"
+    },
+    {
+      "file": "go/internal/protocol/jws_test.go",
+      "sha256": "f0327ea74f2ff3a9b42fa366548d35296511cb0d42347cb956d8698164ec07d5"
+    },
+    {
+      "file": "go/internal/protocol/protocoltest/protocoltest.go",
+      "sha256": "76cc066f767c79a8aed6d53d5a3e588e6ae14829a3e269850fc427bd2c251d1f"
+    },
+    {
+      "file": "go/internal/protocol/replay.go",
+      "sha256": "5e77b70d5535151b51f5fc31717249fe3294396d5700e96540011d03d8f69492"
+    },
+    {
+      "file": "go/internal/protocol/replay_test.go",
+      "sha256": "1750c47c894efd747a6c1a303f9f1d838e3990f8b1856196a7da5d5cde76a718"
+    },
+    {
+      "file": "go/internal/protocol/signing.go",
+      "sha256": "f636fddd3ab51fe8973a4ccbcdec85246a24c2633e40e28577e5ebdd8422c00c"
+    },
+    {
+      "file": "go/internal/protocol/signing_test.go",
+      "sha256": "ba820aa11bc07251796149d7f5eaf6cbd0b0112c8e0e8a233a17e19605c2a3a0"
+    },
+    {
+      "file": "go/internal/protocol/testdata/jws-vector.json",
+      "sha256": "e79bdcaaa1c4003d4a419d02a9ea73c3f8df6b6f87b5af1e661785dc3c5ad851"
+    },
+    {
+      "file": "go/internal/protocol/testdata/signing-vector.json",
+      "sha256": "dd58478064550bf8d564f2c81a37c3f4d9a7595d39384509f264537bf4ee1d4c"
+    },
+    {
+      "file": "go/internal/redact/redact.go",
+      "sha256": "2c3d6aa708298f7971ec58de2c0644eb555e8be5bf4297a1652235fd8216dd44"
+    },
+    {
+      "file": "go/internal/redact/redact_test.go",
+      "sha256": "a62ed3d9f46f2c3ca474ce5bf1e2d6e7141d04612e1909ed9a3144d856fccdc6"
+    },
+    {
+      "file": "go/internal/release/release.go",
+      "sha256": "0e87c0c7514acb4a89f2b9bfa9e8a8d7cfaea1d6e4009955c9ec1088ea69c7b9"
+    },
+    {
+      "file": "go/internal/release/release_test.go",
+      "sha256": "9eb7d5a1e1aade4ca75066e3eaa1701bf4a6656b79e042d24b14733f7d7665c0"
+    },
+    {
+      "file": "go/internal/runner/cli.go",
+      "sha256": "18edc9058c40f240faa2b6bd604d53cdeb22e7ea56946d9f3d0992e52a7b5850"
+    },
+    {
+      "file": "go/internal/runner/config.go",
+      "sha256": "f14be72d0f83c8c935d059d0e0dec24ad4e7f0e84780768363bc8f0c9503de5e"
+    },
+    {
+      "file": "go/internal/runner/custody.go",
+      "sha256": "296b5ba70c61cecd38bfdaa9e87ac57c484ac9c6bd8923fae79f8a1bc14619ba"
+    },
+    {
+      "file": "go/internal/runner/custody_test.go",
+      "sha256": "ffd06c341fec0153c94309239c272e1caa6a5de1bc9225190105c841cb0940c0"
+    },
+    {
+      "file": "go/internal/runner/e2e_test.go",
+      "sha256": "d6b69e2bddf6997600ae33224d97a87f9b976b31673c4913c8a94857044403b0"
+    },
+    {
+      "file": "go/internal/runner/executor.go",
+      "sha256": "5b02292dec573a93f4f90180750b9b8641e10d0898b59fe887a07d976dd5c9e1"
+    },
+    {
+      "file": "go/internal/runner/executor_test.go",
+      "sha256": "e664002eafaa7e1e7fe358cf0480be7d545f56a92caa7e6e16407cb90ef3198d"
+    },
+    {
+      "file": "go/internal/runner/kinds/aws_test.go",
+      "sha256": "ad01e2e168be624dda21dd46e7cdc48b2e37d3c1a361e26ce641e73eb3c40967"
+    },
+    {
+      "file": "go/internal/runner/kinds/awsaction.go",
+      "sha256": "b4d0ef856c7bd74d7cbf9bd1fd3389480b889aac0664eecdb590a048e3458529"
+    },
+    {
+      "file": "go/internal/runner/kinds/awshttp.go",
+      "sha256": "6276570b27ffab20b4176de5764808f7dfdf7e129c6af398cf4982e6324a4a3f"
+    },
+    {
+      "file": "go/internal/runner/kinds/k8s_test.go",
+      "sha256": "374c1375c8c9746b56cafa596352f6c7ec3bff87b8d19e7d5e889d2b030cff9f"
+    },
+    {
+      "file": "go/internal/runner/kinds/k8shttp.go",
+      "sha256": "2318f915b733492d1d00fa937d78dc81cab5b9bf5f6678ce9c51c7e5eeabd605"
+    },
+    {
+      "file": "go/internal/runner/kinds/kind.go",
+      "sha256": "ddffe0c23bf29882af0808e7a88e701ff537a476498e51fae413793e7cb6d1b7"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp.go",
+      "sha256": "34c2f28eaf2bdbc565f9c7879399ebbac16afc12f7028a534c14ed6364f2408c"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp_audit.go",
+      "sha256": "bc574f03f4e29758dcfc77ee91253a592735924262d2e222c75bb2edfddf7457"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp_config_test.go",
+      "sha256": "b8febb407e751e9c9ec2eb490bcb2d7b9967bb01a5857c863204cd5dc40f59e5"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp_readpost_test.go",
+      "sha256": "458c00f7a8e1e624113a52336b0f2e55f8cc7b0cd80d641e113a421663f228cf"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp_receipts.go",
+      "sha256": "bf9329dccbed2635b824306061d4a91ac305d45203f0afe0d7e362e91f0f1b49"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp_receipts_test.go",
+      "sha256": "1ad246162fec9d53218f42516bcf99a7359c69b03f154583d795f0e34fc134e7"
+    },
+    {
+      "file": "go/internal/runner/kinds/ocihttp_test.go",
+      "sha256": "5ff2a0773cb5520b10dcfe03441d3fe07e9cc1ba97e2cc48eadef18a2f4ed4a8"
+    },
+    {
+      "file": "go/internal/runner/kinds/probe.go",
+      "sha256": "4e1d6171ad26b08488bc68f2c3cc632f71db988282e0efb1f26268505d9c8d25"
+    },
+    {
+      "file": "go/internal/runner/kinds/probe_test.go",
+      "sha256": "35d086b5006cacb42af2222688e64cb23b9af3745d5568ae7c4c7dab11671cf0"
+    },
+    {
+      "file": "go/internal/runner/kinds/testdata/config-digest-ts-vector.json",
+      "sha256": "6a57337ee08384fc40c12080ebd853bbfc480e8c41a956038d133484ddf8a844"
+    },
+    {
+      "file": "go/internal/runner/kinds/testdata/config-digest-vector.json",
+      "sha256": "b4406894c0af3bc393e421c05d6e4bcd79a23f8aae1c36b863e0025cc1b1ff25"
+    },
+    {
+      "file": "go/internal/runner/kinds/tofu.go",
+      "sha256": "6d679e9ca13ff60e04e6cfc36ae2b8429b2dee42ae9b93c7b4915e1ce66abb76"
+    },
+    {
+      "file": "go/internal/runner/kinds/tofu_digest.go",
+      "sha256": "c047ecbbc79d58f8dfbdba2242654f5eade3e0a156712a0f24a4e09e32c30171"
+    },
+    {
+      "file": "go/internal/runner/kinds/tofu_digest_test.go",
+      "sha256": "2341a3550f384bf202b75d5b5f350f880bb8da084deba99c97a61f10781d4c56"
+    },
+    {
+      "file": "go/internal/runner/kinds/tofu_plans.go",
+      "sha256": "b567309d8c8d21b21ef14ec45d2995f28d10af88a4b666dea34e953806be715e"
+    },
+    {
+      "file": "go/internal/runner/kinds/tofu_test.go",
+      "sha256": "ce4ac64d0b3ece7795b430b8614da28d0f55303025f7c6c6cd0bbc14ff9617fb"
+    },
+    {
+      "file": "go/internal/runner/kinds/tofu_tmp_test.go",
+      "sha256": "e79ab062fe83c152f884bc5fa295cf52a0cf83dcaa475319d0cd2e12fe9c6dc8"
+    },
+    {
+      "file": "go/internal/runner/update/control.go",
+      "sha256": "6712f590b11b356423f669f236572d5a44186a5471c427801757450c485e98d9"
+    },
+    {
+      "file": "go/internal/runner/update/control_test.go",
+      "sha256": "92ca4354c4fb6b1fd2a71ab10b8ed630ccc99c35db0dfe0cc6769004feabcf28"
+    },
+    {
+      "file": "go/internal/runner/update/sync_unix.go",
+      "sha256": "67362b0ac501162418442ea1b6b1cdbebd0e70d62b02cf97e96a2ba5a028a88a"
+    },
+    {
+      "file": "go/internal/runner/update/sync_windows.go",
+      "sha256": "b4711398a32633158bccf8a900c858932668ba8860d18dea72db30e3d46ee177"
+    },
+    {
+      "file": "go/internal/runner/update/systemd_linux_test.go",
+      "sha256": "9edd64d14f28c6c029f2742da70b2e62a84531701f153a448735355a0e7860a7"
+    },
+    {
+      "file": "go/internal/runner/update/systemd_other_test.go",
+      "sha256": "9630a41dd739fd55f648a0def0e28ffc379d8a83a367b74d7e7d0599ef02c5cb"
+    },
+    {
+      "file": "go/internal/runner/update/systemd_test.go",
+      "sha256": "cb951473ca9553f2921113a70973e67276274242dabbe4b01e9e3cf30d54933c"
+    },
+    {
+      "file": "go/internal/version/version.go",
+      "sha256": "137586f0084304ad259c4d877e6aed35c10a27f62d6017d8d41a860e0a540739"
+    }
+  ],
+  "tools": {
+    "git": {
+      "path": "/usr/bin/git",
+      "sha256": "34129c71a01a74f7f3b2443521519b2e5447553fa187f5fcafaaf8c42cc192e2"
+    },
+    "go": {
+      "path": "/Users/saivedanthava/.codex/zenith-w8/tools/go/bin/go",
+      "sha256": "132b69336a1f809932a8a20b0201dbbb980e86e3a323ae32e893639d83d71598"
+    },
+    "python": {
+      "path": "/opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+      "sha256": "2477b47fa3ae65b9574eb18a15edb364e96948eaa1875ad3f1c80d780efc9c12"
+    },
+    "docker": {
+      "path": "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "sha256": "cd0cd28a3cd9a821c8741c08b3e3efd0d0d301f594fcde5dfa67caf8655c6f5c"
+    },
+    "buildx": {
+      "path": "/Applications/Docker.app/Contents/Resources/cli-plugins/docker-buildx",
+      "sha256": "81ce82e98fa2c061f6fff63522f786e544e2deb1136dde8933f79a3e511e5ad9"
+    }
+  },
+  "path": "/Users/saivedanthava/.codex/zenith-w8/tools/go/bin:/opt/homebrew/Cellar/python@3.14/3.14.5/Frameworks/Python.framework/Versions/3.14/bin:/Applications/Docker.app/Contents/Resources/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "goRoot": "/Users/saivedanthava/.codex/zenith-w8/tools/go",
+  "dockerPluginDir": "/Applications/Docker.app/Contents/Resources/cli-plugins",
+  "ownedGuardSha256": "9b0f9cfdea69697b6effa65c77d09762613fdc5496fb767c4fbb0d57fa27095c",
+  "setupHeadroomBytes": 2000000000,
+  "attemptByteCap": 4294967296,
+  "hostFloorBytes": 12000000000,
+  "builderMemoryBytes": 1073741824,
+  "testMemoryBytes": 536870912,
+  "limitations": [
+    "One genuine PID1 installed signed runner scenario only; local loopback fixture signing keys are not production authority.",
+    "Native source build and public module downloads; full package cache retained privately, not a fresh product install.",
+    "Ready false pending clean source rebind, exact source review, root resource admission; no workload executed."
+  ],
+  "goBuildInputs": {
+    "go/go.mod": "c88621f1eb7af919235bb595f9ca3a7a96127b4ca172a93a908dca608b19d9f6",
+    "go/cmd/zenith-release/main.go": "78730f1e1dcd1f6910f8cc144b687225285a2db3b5f5b30b947f39c6dadcc59c",
+    "go/cmd/zenithd/main.go": "339921f10ea26aa3d8d62d6a211cbdd547984089d42c894234e8316c32d7b8e6",
+    "go/cmd/zenith-runner/main.go": "a93626846c106868def0dd66bfa2601d1b13d1b610a300a57f5ce49bdc2d117c",
+    "go/internal/proc/proc_unix.go": "eb9bb15afe0ffdb75ff7e286dfa967529b11ce3ca309dae34a6884d8e68284b7",
+    "go/internal/proc/proc_other.go": "39d206b30977369035c81992662592f63d7d8b91d8804f18f9c4eea82249d5bd",
+    "go/internal/awsauth/creds_test.go": "cb71713b44ba1927894faaa50f879b06ac429c202c5f7a95197756cfc0885d3d",
+    "go/internal/awsauth/creds.go": "96573b0814adb1e40a2efa8935e8ba3d7b1af98a7aca755d29ad97fad5beeddc",
+    "go/internal/awsauth/sigv4.go": "490b5361f7010104ffde2d51c22bc7b833af34fab6808abd2c74d24e83358cc4",
+    "go/internal/awsauth/sigv4_test.go": "6db9eebf122c389ca28455e25273dd6f59eb76a39c98c1c4f288bc9e27c9842e",
+    "go/internal/runner/executor_test.go": "e664002eafaa7e1e7fe358cf0480be7d545f56a92caa7e6e16407cb90ef3198d",
+    "go/internal/runner/config.go": "f14be72d0f83c8c935d059d0e0dec24ad4e7f0e84780768363bc8f0c9503de5e",
+    "go/internal/runner/e2e_test.go": "d6b69e2bddf6997600ae33224d97a87f9b976b31673c4913c8a94857044403b0",
+    "go/internal/runner/custody_test.go": "ffd06c341fec0153c94309239c272e1caa6a5de1bc9225190105c841cb0940c0",
+    "go/internal/runner/cli.go": "18edc9058c40f240faa2b6bd604d53cdeb22e7ea56946d9f3d0992e52a7b5850",
+    "go/internal/runner/executor.go": "5b02292dec573a93f4f90180750b9b8641e10d0898b59fe887a07d976dd5c9e1",
+    "go/internal/runner/custody.go": "296b5ba70c61cecd38bfdaa9e87ac57c484ac9c6bd8923fae79f8a1bc14619ba",
+    "go/internal/runner/update/systemd_linux_test.go": "9edd64d14f28c6c029f2742da70b2e62a84531701f153a448735355a0e7860a7",
+    "go/internal/runner/update/sync_unix.go": "67362b0ac501162418442ea1b6b1cdbebd0e70d62b02cf97e96a2ba5a028a88a",
+    "go/internal/runner/update/systemd_other_test.go": "9630a41dd739fd55f648a0def0e28ffc379d8a83a367b74d7e7d0599ef02c5cb",
+    "go/internal/runner/update/control_test.go": "92ca4354c4fb6b1fd2a71ab10b8ed630ccc99c35db0dfe0cc6769004feabcf28",
+    "go/internal/runner/update/control.go": "6712f590b11b356423f669f236572d5a44186a5471c427801757450c485e98d9",
+    "go/internal/runner/update/sync_windows.go": "b4711398a32633158bccf8a900c858932668ba8860d18dea72db30e3d46ee177",
+    "go/internal/runner/update/systemd_test.go": "cb951473ca9553f2921113a70973e67276274242dabbe4b01e9e3cf30d54933c",
+    "go/internal/runner/kinds/ocihttp_readpost_test.go": "458c00f7a8e1e624113a52336b0f2e55f8cc7b0cd80d641e113a421663f228cf",
+    "go/internal/runner/kinds/tofu_test.go": "ce4ac64d0b3ece7795b430b8614da28d0f55303025f7c6c6cd0bbc14ff9617fb",
+    "go/internal/runner/kinds/tofu.go": "6d679e9ca13ff60e04e6cfc36ae2b8429b2dee42ae9b93c7b4915e1ce66abb76",
+    "go/internal/runner/kinds/kind.go": "ddffe0c23bf29882af0808e7a88e701ff537a476498e51fae413793e7cb6d1b7",
+    "go/internal/runner/kinds/awshttp.go": "6276570b27ffab20b4176de5764808f7dfdf7e129c6af398cf4982e6324a4a3f",
+    "go/internal/runner/kinds/aws_test.go": "ad01e2e168be624dda21dd46e7cdc48b2e37d3c1a361e26ce641e73eb3c40967",
+    "go/internal/runner/kinds/probe_test.go": "35d086b5006cacb42af2222688e64cb23b9af3745d5568ae7c4c7dab11671cf0",
+    "go/internal/runner/kinds/tofu_digest.go": "c047ecbbc79d58f8dfbdba2242654f5eade3e0a156712a0f24a4e09e32c30171",
+    "go/internal/runner/kinds/tofu_plans.go": "b567309d8c8d21b21ef14ec45d2995f28d10af88a4b666dea34e953806be715e",
+    "go/internal/runner/kinds/ocihttp_receipts.go": "bf9329dccbed2635b824306061d4a91ac305d45203f0afe0d7e362e91f0f1b49",
+    "go/internal/runner/kinds/tofu_tmp_test.go": "e79ab062fe83c152f884bc5fa295cf52a0cf83dcaa475319d0cd2e12fe9c6dc8",
+    "go/internal/runner/kinds/k8shttp.go": "2318f915b733492d1d00fa937d78dc81cab5b9bf5f6678ce9c51c7e5eeabd605",
+    "go/internal/runner/kinds/ocihttp_config_test.go": "b8febb407e751e9c9ec2eb490bcb2d7b9967bb01a5857c863204cd5dc40f59e5",
+    "go/internal/runner/kinds/probe.go": "4e1d6171ad26b08488bc68f2c3cc632f71db988282e0efb1f26268505d9c8d25",
+    "go/internal/runner/kinds/ocihttp_audit.go": "bc574f03f4e29758dcfc77ee91253a592735924262d2e222c75bb2edfddf7457",
+    "go/internal/runner/kinds/ocihttp_receipts_test.go": "1ad246162fec9d53218f42516bcf99a7359c69b03f154583d795f0e34fc134e7",
+    "go/internal/runner/kinds/k8s_test.go": "374c1375c8c9746b56cafa596352f6c7ec3bff87b8d19e7d5e889d2b030cff9f",
+    "go/internal/runner/kinds/tofu_digest_test.go": "2341a3550f384bf202b75d5b5f350f880bb8da084deba99c97a61f10781d4c56",
+    "go/internal/runner/kinds/awsaction.go": "b4d0ef856c7bd74d7cbf9bd1fd3389480b889aac0664eecdb590a048e3458529",
+    "go/internal/runner/kinds/ocihttp_test.go": "5ff2a0773cb5520b10dcfe03441d3fe07e9cc1ba97e2cc48eadef18a2f4ed4a8",
+    "go/internal/runner/kinds/ocihttp.go": "34c2f28eaf2bdbc565f9c7879399ebbac16afc12f7028a534c14ed6364f2408c",
+    "go/internal/miniyaml/miniyaml_test.go": "d1844879a8751a86325ee3eb4bc1223f272a81528fa737ed75a5bfd21a571574",
+    "go/internal/miniyaml/miniyaml.go": "72809b8b51f0bb9c7a33b0b04b2bbabb2744ce2cc18fc799fec7233ebb5a5fd7",
+    "go/internal/oci/release_test.go": "77fc9c5106172d619eebce2394f2884ef1d96066ede018cfa0ea1448b2a0966d",
+    "go/internal/oci/principal_oke.go": "923cb733f388d99e2627c202a3ef803c8e4e83ec6f3682d7f6d82828994f0a5b",
+    "go/internal/oci/observability_test.go": "e2e942df9d2c75b4e291f1cd9bbe0ba1c54821232693b00b5875a3180f44c017",
+    "go/internal/oci/compartment.go": "69c3c43d58ec6fdb1f52904f9d3a5f33f0a6e370ce523f00b21f53ebd3d448eb",
+    "go/internal/oci/principal.go": "8423c636700ed5c75507c96dd0b50df35e04d7f024a1dfde40a4f807efe284f3",
+    "go/internal/oci/principal_test.go": "da80c3b25b79882efb2c1e36c3a24b138d661def38efde243f0f48ddaafc00d2",
+    "go/internal/oci/request.go": "49a3540046bfaef729710eab7e34774ae42126121559173a622255e454b86166",
+    "go/internal/oci/monitoring.go": "c4ed7dba26b4ac00d62af14982c18f579ef58ab4c50f198303d07a85be23226a",
+    "go/internal/oci/oci_test.go": "bc33aa63078ea135b27694f9c284987a80cf86c08d9233884fb2a0240b4dbc95",
+    "go/internal/oci/principal_instance.go": "107cfd4f372be7679a8433e22836ca74b84ac8094884a59b8f635d6f056a665e",
+    "go/internal/oci/monitoring_test.go": "cd770b5600f66f517f3b6445f1361aa9b82b7b169c1be050e06c2228ae4188ec",
+    "go/internal/oci/logging_search.go": "499976afff1a0a5377dc814ca5ba2b1c320762c29058be3b6b54daa358971777",
+    "go/internal/oci/sign.go": "10171b7bee2c263d84656174b546662347bdd18c905e181045e2559cdc462930",
+    "go/internal/oci/allowlist.go": "634882ae638b7073b011c9504bb0a5a0c0c0dbd62e2f38121a4b0fe4b75aa312",
+    "go/internal/release/release_test.go": "9eb7d5a1e1aade4ca75066e3eaa1701bf4a6656b79e042d24b14733f7d7665c0",
+    "go/internal/release/release.go": "0e87c0c7514acb4a89f2b9bfa9e8a8d7cfaea1d6e4009955c9ec1088ea69c7b9",
+    "go/internal/agent/logsink.go": "812070a61469c1e3b578065be24038dfcd2e3d4f66a3c6f96d8093d0ef6353b3",
+    "go/internal/agent/register.go": "7413f0b3d96ca8fdbf13b33e99d352951d2fd0fbbdd847ca74a9a3dbfe5b4191",
+    "go/internal/agent/config.go": "a197b34f243929d911616ba9a725ce41f7f2655c89cbbd8725e0b54a9116a719",
+    "go/internal/agent/updatecmd.go": "18ab64ca83636b1c410852e10709967c8f30bd8d081f3ebb89587675957128fa",
+    "go/internal/agent/identity_sync_windows.go": "8279717467e6a25c6787ddbcf0aef67491701e0e3b4c069ea5eab978ff0064c2",
+    "go/internal/agent/core_test.go": "88e28e8f9dd0fa19882a0a45adabab10383c5a8f93c336cb1c2890db3fc8d6fa",
+    "go/internal/agent/backoff.go": "982dabff512d9f0f8d7209fede68ec86fdf92ef3b06881e4f346f08981d467b7",
+    "go/internal/agent/client.go": "c825d923471abc9d7c82bc06fc84485807221f587ec3e7060775ec54a9a17780",
+    "go/internal/agent/identity_sync_unix.go": "832bad4b016db0cdf05944d0f7e3fce6b6514bd4b15c000efd81d963e27e8d50",
+    "go/internal/agent/loop.go": "ff170ddcecdbe79894268e74acfba400c5ec741c83aa45fcbaf9785cc908e0eb",
+    "go/internal/agent/lifecycle.go": "0d364646fb63cb0e4c8a746ebfb7a14e43addd0fc487178b9074c189efc1fa2b",
+    "go/internal/agent/cli.go": "900bfbf04c25028a271187efabeef5476706370e98aef8a0e9b179cb5c7f9474",
+    "go/internal/agent/identity_open_windows_test.go": "9ff1114b3d7b4bbbaab0449d3a30870780c4be61c6b9dc1b699e0e0e66c55154",
+    "go/internal/agent/agent_test.go": "b978ee890e74aa6780460a838774061d16d1ced69f13c6734bd637d5577ae47c",
+    "go/internal/agent/identity.go": "7b003c067d2b9514ae398f02c90b1ff28542796ab6bed0bb6c9162aaca1b0347",
+    "go/internal/agent/lifecycle_test.go": "42498e552edd2a1332155ee22a445023ed647c4aeb1c88e568227049ae7c8ec6",
+    "go/internal/agent/rotation_internal_test.go": "ba8e0a5959df7f94cb67f4637947d306743b689d2d59f1ddc7b3a5300854b6fe",
+    "go/internal/agent/main.go": "7b94bfc103f292099d87236c7442f33c1b1e4506745bef234ffcf2624fb22642",
+    "go/internal/agent/update_control_internal_test.go": "80fb108677b7f4ec0cadae06413e8e1d98010a6315862fdc4aca83c11384e734",
+    "go/internal/agent/update/sync_unix.go": "22b8fedf36e48418342fdffa99840caa6cdf3d3b3ea8da17e1c63f7a3065e03a",
+    "go/internal/agent/update/exec_unix.go": "d76746d0d0e852555be6263de2dbfb47ef76a593edb7bc9caa413896763740bc",
+    "go/internal/agent/update/sync_windows.go": "dc22872d874398acbef5200f6d2438faf80f8ea6c79b44cc42bd2b45ad90059f",
+    "go/internal/agent/update/launcher.go": "9354ca33978477591b4f9578577a086b7227d85a4cf8ff3f3ded7d00bd63fcc8",
+    "go/internal/agent/update/update_test.go": "a5d5d9eacc39f7fbf8552e379e81dd34d7ea8d4e562ff36223a81b9cced7f666",
+    "go/internal/agent/update/state.go": "74f7be5bb1284761c9d57b4d432f2c3dadea5ecda8b7c3613aa7ec04b1c7b80c",
+    "go/internal/agent/update/manager.go": "e45b6d4f00d9ff1c1f48e31d66c98f7adb2c27e8ff22649e459e3bebae1e522c",
+    "go/internal/agent/spool/sync_unix.go": "b95d3594a2c5eeb28a8c754630e37da0a9325aad76f307c726d0ae5245a4c37f",
+    "go/internal/agent/spool/spool_test.go": "754ec6320687cc0078a8b0e4807a02c769c098eac9b185dfc69d4f0f479ea8d7",
+    "go/internal/agent/spool/spool.go": "e597f0358df7380ba7b084d0a1a9f13ef4e1e6b99cb61587a606ea3221d6c833",
+    "go/internal/agent/spool/sync_windows.go": "9b59bd946fed2a6f4876a8a4637ae6341635da07127060735b5d50eda08bee81",
+    "go/internal/agent/fakecp/fakecp.go": "647c8bb7dc737dad36114777fc91fc64d75bc8bed12a5394c4301344b75bdb7d",
+    "go/internal/protocol/jws_test.go": "f0327ea74f2ff3a9b42fa366548d35296511cb0d42347cb956d8698164ec07d5",
+    "go/internal/protocol/signing.go": "f636fddd3ab51fe8973a4ccbcdec85246a24c2633e40e28577e5ebdd8422c00c",
+    "go/internal/protocol/jws.go": "5096ea20b72dd3e3ffd30eff7f599d6232a46296525d0061bbcd8c0ac62f1c66",
+    "go/internal/protocol/replay.go": "5e77b70d5535151b51f5fc31717249fe3294396d5700e96540011d03d8f69492",
+    "go/internal/protocol/signing_test.go": "ba820aa11bc07251796149d7f5eaf6cbd0b0112c8e0e8a233a17e19605c2a3a0",
+    "go/internal/protocol/replay_test.go": "1750c47c894efd747a6c1a303f9f1d838e3990f8b1856196a7da5d5cde76a718",
+    "go/internal/protocol/const.go": "ff65849d11fb752220f503edce355d6ebfc077404ed74a94fa3c10afb78cfd8b",
+    "go/internal/protocol/envelope.go": "416efce09ac471a0df20e6df898feb2703c07e5fa135519d4f4fce054547f813",
+    "go/internal/protocol/errors.go": "aae1170506a808581681255c4b78c3440ae8daa6576c41e6092e1b5d88fe5f4f",
+    "go/internal/protocol/protocoltest/protocoltest.go": "76cc066f767c79a8aed6d53d5a3e588e6ae14829a3e269850fc427bd2c251d1f",
+    "go/internal/redact/redact.go": "2c3d6aa708298f7971ec58de2c0644eb555e8be5bf4297a1652235fd8216dd44",
+    "go/internal/redact/redact_test.go": "a62ed3d9f46f2c3ca474ce5bf1e2d6e7141d04612e1909ed9a3144d856fccdc6",
+    "go/internal/version/version.go": "137586f0084304ad259c4d877e6aed35c10a27f62d6017d8d41a860e0a540739",
+    "go/internal/machine/package_helper.go": "faa4465760ecef55942eefc7f883fc5192c84d3318ce2ac2083d77c656867643",
+    "go/internal/machine/package_archive_test.go": "d0d99db456a79b2a6173ee700f4059f055fd7d53205653d836394749141bc263",
+    "go/internal/machine/executor_test.go": "c2540ffc956ea944c376a716e4f42eef60a8f13df83239ebc853c3101dbaa86f",
+    "go/internal/machine/config.go": "13c98ec68b4b944ef413aa64779122f0933e7aff93e4c158f610e5783784416d",
+    "go/internal/machine/audit.go": "2e2dec8a1809eb78e4f152d6f3e05f9cbc0da5fd96cfe3ccf762a00f60b103f5",
+    "go/internal/machine/e2e_test.go": "cdceff5a2dccecb9e04a4e35e5716376589604b6a6033be5acd2279518fc323e",
+    "go/internal/machine/package_archive.go": "8a29cb0c540b401116121c883fe7b3dfb819845f06a373e917f936b8128ba245",
+    "go/internal/machine/package_helper_other.go": "0322adff1424ae1087df78f6412990cd5e993101807d9bb425d186b21e08fd45",
+    "go/internal/machine/cli.go": "80a4d71adb2e01fc6f825c3068d017a4b7a1a559a526d65646274688fe3eb6a2",
+    "go/internal/machine/package_native.go": "dc8fbd4b633c9723c34df5ae3f22f468ce97f11c4562296ee5c016f1fd4a6489",
+    "go/internal/machine/package_helper_linux.go": "b803a6f0303aa99cea8175254c356f88312cf43b7cf0050f232feb441a5ead5f",
+    "go/internal/machine/executor.go": "1568ba1d5b524520abcc7c79f90549cc5ad1edbce8e042dba93352337fa90ba8",
+    "go/internal/machine/config_test.go": "80ee815c3bb87b0803472566b84c615a6e6ada256555e75ae402b9c65d7438fb",
+    "go/internal/machine/package_helper_linux_test.go": "b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331",
+    "go/internal/machine/package_helper_other_test.go": "9c5f8074bd8af4b7af67ea6622e7b9f88bb9a6657b8350f71018b49d020c1957",
+    "go/internal/machine/package_helper_test.go": "bea3cd7dd6105a3a99cc4f81ce01636cd9ad72eaa8ebf19cb589598bf9955bf4",
+    "go/internal/machine/package_native_test.go": "e0aa2221ea030fba56e6625a98ad2ddc9c56c423a6dfc986b0abe6a745e1243e",
+    "go/internal/machine/serviceconfigure_test.go": "afd78a9018627b9b34619b692409faef4ce62bcfe2e89f510dec12ffdb7e8731",
+    "go/internal/machine/serviceconfigure_systemd_linux_test.go": "eec749b257e9f54f74146401c58c9dff2c93e8f22bd1615252795c4323e09ef6",
+    "go/internal/machine/ops/disk_other.go": "f93619760aefabe71e3f819a6764083628d33582f29f45e721c16e80f72f57f2",
+    "go/internal/machine/ops/serviceconfigure.go": "f540f9d63c5c238a21502e4cc1f544dea8ec8cb0feca1273d5ebfddf3e95555e",
+    "go/internal/machine/ops/serviceconfigure_linux_test.go": "bfb23728658dc0f61ac654aaca064301243b25f2baf16cf88af3aea6b3b1d692",
+    "go/internal/machine/ops/files.go": "05203c066e374121d155dae83430d0424ed956435b12ebb9600652f0d4f98a2c",
+    "go/internal/machine/ops/exec_test.go": "edfcbbd5fbf092181ffb5a12bcd5f6c0fd92ff39e40b1fcc2f32e29151f0fc89",
+    "go/internal/machine/ops/results_golden_test.go": "03ed1bdda90586982698b3e20afd13f8269f7aef4ec028e82c4ebc180c7d673c",
+    "go/internal/machine/ops/network_test.go": "37665d405c7b765aba13070ede7daae9f9b67d1840a67caf58139c01c81a9801",
+    "go/internal/machine/ops/docker.go": "09fb89262700ef51daec2cdf80c87909cb708d963dabe8bbeda96837cbd779f4",
+    "go/internal/machine/ops/fileupload.go": "e5922bf781e376b3852faef4af067c04e0d3fb82fecbddec1450a905a6b72287",
+    "go/internal/machine/ops/filewrite_test.go": "cf4d834de4bacb57d0f6c91950edf69830462c32fd84d0db523c61610d2572bc",
+    "go/internal/machine/ops/filewrite_linux.go": "776f5c633076ae1b0830a777771dcce122466bb105be2c1c9b2966b6de77ac22",
+    "go/internal/machine/ops/fileupload_other_test.go": "7d12ab7c80508a8b8626daaf0ae571c3a8c6bb1bd2396a451355f423fa9c9a61",
+    "go/internal/machine/ops/fileupload_linux_test.go": "f7a033bc206436e51e53b1b39d74f13f717704e34e786338c2627d585e0e89d9",
+    "go/internal/machine/ops/exec.go": "8dc8106ee827dd810dd7656cb997015ed9c97cb2f528e577a81c6a272067eb6e",
+    "go/internal/machine/ops/systemd.go": "17562c53a5c2dce9c300e148ce0fcc9230a1bef37a50691c0f9a2aa980db03c1",
+    "go/internal/machine/ops/serviceconfigure_golden_other_test.go": "908cf430f702d36efb1c006a4bd332f2a45eca13c9e6572ce0730939680a005f",
+    "go/internal/machine/ops/files_linux.go": "cac8ac0b8e22a80bb060d7fd7d86ed1288e2fe7f56d8c395de4ed0bcd65f7262",
+    "go/internal/machine/ops/serviceconfigure_golden_linux_test.go": "f62396b1a2eb64180318cb96f1572fbf18f936f9c1f9373c43c513beabdd496a",
+    "go/internal/machine/ops/fileupload_test.go": "b0407b9703f3a2c0e41891a338054f8d6c1891a718f34411b18c640c0f4631f7",
+    "go/internal/machine/ops/ops_test.go": "7775c8e1b4a32c4a658b7b99897c2cb81be97e505c24e5b4f2fba41b3e802711",
+    "go/internal/machine/ops/network.go": "98639e1c36eef21212b2adf8d5268a72522a8c36a9104feff8f533604ef45b96",
+    "go/internal/machine/ops/packageinstall.go": "a19aaaad78911f8f42b75ff259869492d8d7f0eb3e42d7da9eec3862d6380100",
+    "go/internal/machine/ops/files_test.go": "032188ecfcb3a7e4a4d911abaaaa43d9d053f5e23eb1cdfd55888c7eb5b86009",
+    "go/internal/machine/ops/failure.go": "2f91b4c0a2ccd822d783377a3834f61d054de1dc1933f5279bbedfbd2fd1b90c",
+    "go/internal/machine/ops/docker_test.go": "54d8027687ae42da25984a59a5c75de7dea8bf319104561463c8808014c690db",
+    "go/internal/machine/ops/packageinstall_test.go": "2ec44f360a771b743ea78bc053351f6e492f34f5f5db5336bbb4f5a8ff6a992a",
+    "go/internal/machine/ops/ops.go": "92d1ee1d4ec1e2548e2397fabb30a40321f6968b05747d60e2c82f58efe8707e",
+    "go/internal/machine/ops/disk_linux.go": "a36195e169321587a66c2d12d49292b3218a808297668272c395201f142b1371",
+    "go/internal/machine/ops/cmdrun.go": "a2b47ad405b64d53fc70171bca6ce4ec630689815805e23ffc33b3918701c845",
+    "go/internal/machine/ops/filewrite.go": "b83e6615d5cd06d292ea9ccff6059da06e2cf37ebcb7cd58fcfd9cb96ebaecc1",
+    "go/internal/machine/ops/files_other.go": "b2eb4d1d41cb603b5fe0d7e302a03d2b2fd179cb3a4181588243c9f2339b0186",
+    "go/internal/machine/ops/procfs.go": "003cf26a215c42f0a01f7abf7aec4b2b048ea0dde597a2f7fc32f58b807e2900",
+    "go/internal/machine/ops/files_linux_test.go": "bd2cdb1431596884dcbf1ecf1a97c322bd459b9a1df7822c3b9c81924e661dac",
+    "go/internal/machine/ops/filewrite_linux_test.go": "e2d7783301f64b70224155a66a628d1559d5a039817b72d0a12d94a63d7da508",
+    "go/internal/machine/ops/filewrite_other.go": "b81177fb72c6c9ef5dbaabbb96617d2d89afa30030e6c0b4c156d59b987978c8",
+    "go/internal/machine/ops/serviceconfigure_test.go": "36a4f5a014d4a60d941db4faf17dfcf68d48152b9c054491820072d5b3e3e91f",
+    "go/internal/machine/ops/filewrite_other_test.go": "bd7f6b75864280aad47773872ac7cc30c7b57fd54222db5852523ef3c1a669dc",
+    "go/internal/machine/ops/procfs_test.go": "08eb6cc3c533d082e272e08df6e08e3836d190292cd484ea12a86bf411d0a9aa",
+    "go/internal/machine/ops/serviceconfigure_systemd_linux_test.go": "ea33907477da9952306ecfa282e74f722347622f22dca2127843907edfc0061d",
+    "go/internal/netguard/netguard_test.go": "4c882fa46bd2a986687f74fd0857e054dd2697d920e38fa80f77fdf8a2ee13aa",
+    "go/internal/netguard/netguard.go": "8f22717226d6188481f7786d6bca039d511506cdbe1ebe21bfd9f30158fe1a4a"
+  },
+  "sourceContractSha256": "730eb0d752c4238064f34fd9b3b2cf8633eed44e292d9d97a0c48cca704fb2c0",
+  "completeGoTree": {
+    "go/go.mod": "c88621f1eb7af919235bb595f9ca3a7a96127b4ca172a93a908dca608b19d9f6",
+    "go/README.md": "d87cf1dce65540c583d6b39bdaad8d7fe36acddc3d98292e0fcb59f83130b251",
+    "go/build.sh": "2c874722d4d65c4633fb5d2c1cf1828149004c4c96fe9ea018554183ade4cc7d",
+    "go/.gitignore": "c4077941dc9a13dfe2c9b8a2e566dcf9253f6e9071e2f982e14d3025471520af",
+    "go/.gitattributes": "3c3ba03af3dc94520105adbbc0fd252f9c1da383af824a2e4a167369ec4ed215",
+    "go/cmd/zenith-release/main.go": "78730f1e1dcd1f6910f8cc144b687225285a2db3b5f5b30b947f39c6dadcc59c",
+    "go/cmd/zenithd/main.go": "339921f10ea26aa3d8d62d6a211cbdd547984089d42c894234e8316c32d7b8e6",
+    "go/cmd/zenith-runner/main.go": "a93626846c106868def0dd66bfa2601d1b13d1b610a300a57f5ce49bdc2d117c",
+    "go/internal/proc/proc_unix.go": "eb9bb15afe0ffdb75ff7e286dfa967529b11ce3ca309dae34a6884d8e68284b7",
+    "go/internal/proc/proc_other.go": "39d206b30977369035c81992662592f63d7d8b91d8804f18f9c4eea82249d5bd",
+    "go/internal/awsauth/creds_test.go": "cb71713b44ba1927894faaa50f879b06ac429c202c5f7a95197756cfc0885d3d",
+    "go/internal/awsauth/creds.go": "96573b0814adb1e40a2efa8935e8ba3d7b1af98a7aca755d29ad97fad5beeddc",
+    "go/internal/awsauth/sigv4.go": "490b5361f7010104ffde2d51c22bc7b833af34fab6808abd2c74d24e83358cc4",
+    "go/internal/awsauth/sigv4_test.go": "6db9eebf122c389ca28455e25273dd6f59eb76a39c98c1c4f288bc9e27c9842e",
+    "go/internal/awsauth/testdata/sigv4_reference.py": "b5582fd4f74d04b23e38801ec4fad2de91ca1f69f92cc3222d212aa79761448d",
+    "go/internal/awsauth/testdata/independent-vectors.json": "e3d6de1e47ab1b1b61fc93817356a8b3c312f801e551765e71bb19d25c755c44",
+    "go/internal/awsauth/testdata/NOTICE.md": "ef91feec9bed82c02d2dd4676bc9fc37fb1f31ae0b099174e1d7d8c319881e6b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.req": "38f37f70a65efd68242eddcac8f2deb9f25c8fb0a20cea6ff50059c536a6f379",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.creq": "eb30c5bed55734080471a834cc727ae56beb50e5f39d1bff6d0d38cb192a7073",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.sts": "df36326ee12b27c17280905db80c552f94e9f4869ca845de5f7aba1004513f73",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-utf8-query/get-vanilla-utf8-query.authz": "38bb2c688ceb4229c559a76d34d3f4279b2203d25528b46b582dc827f56bde04",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.req": "64d4b86be62c3d78f6ba37ef1bc9ab89ba1e3b621ebc94dba3e7a178398c3703",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.sts": "003cbc3b1170b64f9cb91b6f5d8bc34c8880f68aa7aaccda1c8c89784685d75b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.authz": "fe6f49f1d92951d185f6b66cd76cf18de51dbab547163954c40b3efe795fd555",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-key-case/get-vanilla-query-order-key-case.creq": "816cd5b414d056048ba4f7c5386d6e0533120fb1fcfa93762cf0fc39e2cf19e0",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.sts": "0108d35bd09f7f117e2101d06677ebccd51df2015fdd7284edc8ca49afab994b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.req": "83f5b26f5caf8b91f998228789091b4ddf62a1bdbe7e78c50c513c8c727a29c2",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.authz": "4fe5a63189af9a819464b28857b43bd2feeb85aa3115b6be2cb75316f05acb2a",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-trim/get-header-value-trim.creq": "a726db9b0df21c14f559d0a978e563112acb1b9e05476f0a6a1c7d68f28605c7",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.req": "02f9dd4d04d90b3d7aa78c2ca2d54f1cabaca48a6572010cbf9317001f99265d",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.sts": "1e07a253b77c390af5524f8703b469939d1022a98e97de879f4a2ed14812f24c",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.creq": "c30d4703d9f799439be92736156d47ccfb2d879ddf56f5befa6d1d6aab979177",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-unreserved/get-vanilla-query-unreserved.authz": "2a2126215831df4305140ec9b81e62fe490b21481bc5316099db2fb9c776ffe6",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.creq": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.authz": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.req": "509955df496ae2f4fdc25af95ccf5406099e4a2556523b7ed80f4fab21ac1869",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla/get-vanilla.sts": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.authz": "7a43256234f30d900cee9641b2064d731d5e2be4c310a894637713dd7c6df535",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.creq": "553f88c9e4d10fc9e109e2aeb65f030801b70c2f6468faca261d401ae622fc87",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.req": "f6602fd96bc24fe964d47550456e8e117ccade2d639e16b14507b19e2c48aca6",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-after/post-sts-header-after.sts": "73fd75fb7e71e1e9be6b5982cfe16f79f2a2ab9c33518a12183b481f28d25206",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.authz": "33e082ece5f264def401d930f8cebc30360a769eb9f1db7b1d0bd1238c31e202",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.creq": "c237e1b440d4c63c32ca95b5b99481081cb7b13c7e40434868e71567c1a882f6",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.sts": "63bc10877d08fb9f46e95a03f2082a0539ebc2085ccb07fa9def20b0fe2e2b29",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-sts-token/post-sts-header-before/post-sts-header-before.req": "a7b72caac6f1184e4e54697935d89db921ebe539651f80b8e27648e20958b995",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.authz": "f9d9f0d99aece8847b2a342dd41b6ffc166243ff84d9bf25f9739d5ababef04b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.creq": "6a968768eefaa713e2a6b16b589a8ea192661f098f37349f4e2c0082757446f9",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.sts": "5aa8c0aeac75b71539d7554e880d53c6ea412ddc36543183f1672e7ad8a14dbe",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-unreserved/get-unreserved.req": "b4b9262cd09f60ffbf47781a3b908007b4e198c62e3b9289a0639c8c0fa60f6b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.creq": "e99419459a677bc11de234014be3c4e72c1ea5b454ceb58b613061f5d7a162e8",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.sts": "9ffef6b6145321aa60b195a54e16d56e57d249e97867372818b6be0c43eb2fc1",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.authz": "c462a3a2d431097d82a8d79f33377d573b44f6e1cd6f971aab63ca9f407df9a8",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-header-value-multiline/get-header-value-multiline.req": "fae477dd1189a08df405404cd0b79a52ea11017e9736358ca379272cf77d4362",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.authz": "2504b1b0ce28df5832c5f0de0fb88d27bc7c94b2e06d140304d8e3a34d8d9f19",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.creq": "2e1cf7ed91881a30569e46552437e4156c823447bf1781b921b5d486c568dd1c",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.req": "19643e292b72b3a11213e202715272f77191b9d74b3604b1eff45e02f34ff6d0",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded-parameters/post-x-www-form-urlencoded-parameters.sts": "c9ecdb85baee216f77b9257fd284e3ace1e211dde6f56893f865ba86d81c5428",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.sts": "73fd75fb7e71e1e9be6b5982cfe16f79f2a2ab9c33518a12183b481f28d25206",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.authz": "7a43256234f30d900cee9641b2064d731d5e2be4c310a894637713dd7c6df535",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.req": "f6602fd96bc24fe964d47550456e8e117ccade2d639e16b14507b19e2c48aca6",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla/post-vanilla.creq": "553f88c9e4d10fc9e109e2aeb65f030801b70c2f6468faca261d401ae622fc87",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.authz": "29b6ae9c5c23974d525e67e4687d560328a25d762cc95637ed41366f5944016a",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.sts": "fedb5ec5dd53c464911b1336547143cbedcd85977740bd63b2a622489f5fc246",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.req": "3168a2c3b23e8d012052896debad562dc46676e8881fb6b5d4b36fd9d97e8fba",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-x-www-form-urlencoded/post-x-www-form-urlencoded.creq": "42a5e5bb34198acb3e84da4f085bb7927f2bc277ca766e6d19c73c2154021281",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.creq": "1e24db194ed7d0eec2de28d7369675a243488e08526e8c1c73571282f7c517ab",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.sts": "793f582392d7ebc0e329de45693ab2679c4b036a1637fd09816030f4619a235a",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.authz": "dbbd8d99863de9b7960a646a564c6ab0a3f26e0eb2e3b82633505d449f3c6a6b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-empty-query-key/get-vanilla-empty-query-key.req": "7f7dc8a867ed66cbf7f53f3b1cf58570e22211d43cfd3239391263e48f61f40f",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.sts": "63908f392d491f7a43e8fd50a3b775e9adf30265af75c05159cba8d839c36c7a",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.creq": "9368318c2967cf6de74404b30c65a91e8f6253e0a8659d6d5319f1a812f87d65",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.authz": "6db8105c28310d3ff345f55b99df1329a865dc028baa512bfb9bea1d06662d70",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-header-key-sort/post-header-key-sort.req": "589314a8a941c629d56147765b72e3b420bf730a7bfaf7c8a4c7189505a18e44",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.sts": "cf288f2c6f975eafad67cb4bc9ce1c1bb3c6ddda46ed83e006ec48f133b8c665",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.authz": "05b3dcfecb3d97a31bc37b96c79fba9e5829fb41ee7e994519a569dccc4d3486",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.creq": "067b36aa60031588cea4a4cde1f21215227a047690c72247f1d70b32fbbfad2b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-with-session-token/get-vanilla-with-session-token.req": "509955df496ae2f4fdc25af95ccf5406099e4a2556523b7ed80f4fab21ac1869",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.sts": "2530860ffa3c645b610c1b10bb7b511d59c274f6eee7eee2f92c70b2887cbd2d",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.req": "8b619f2831e44ce8cd39fa55289a9cead7ae742e36919f6f977dab9dfd737c6b",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.authz": "5bfb281a7d2934291e697b7e43127bf14a60090634a7848ce88cff1475ef079e",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-utf8/get-utf8.creq": "2a0a97d02205e45ce2e994789806b19270cfbbb0921b278ccf58f5249ac42102",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.authz": "eba2330aede9b06a9894156fb4b917ae07b2cf638ecd16a80a5e6569eecf2eed",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.req": "a2ee016974ea1928a038472cc70588b54014dbb983590b96611ba7e47b8e6af0",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.sts": "13275c2dab349dbf6475d0edf1566e296001bb62ba7a9d9d9128d7ca1b945190",
+    "go/internal/awsauth/testdata/aws4_testsuite/post-vanilla-query/post-vanilla-query.creq": "9d659678c1756bb3113e2ce898845a0a79dbbc57b740555917687f1b3340fbbd",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.req": "31b4149bf2c30bb563c3c85debbc5a5835d5a954bbb824a4e3b98ad98c78aa14",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.authz": "1dd00bd96aa5ff0fde34fba16f68738e2f26e90acd60884b85dd472823cc239e",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.creq": "c968629d70850097a2d8781c9bf7edcb988b04cac14cca9be4acc3595f884606",
+    "go/internal/awsauth/testdata/aws4_testsuite/get-vanilla-query-order-value/get-vanilla-query-order-value.sts": "09ac38d6d7964913d081771f5fbee1523e7b99876c2a7e9904798b5a2a9d1fde",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.req": "f2f45a7282382ffae5f386845dd670c6532fe9c2d3141f599e592dae96b90339",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.authz": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.sts": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash/get-slash.creq": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.req": "b73340f93c893597313ba490dcb342eb0a6df925e8db23a4f38ce52dd954cba5",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.sts": "27bed0e57aed8d64d0448e73407daf8909ee0e56ca95b2f8973a1c94fff1b9f2",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.authz": "1eb0dbdb3e7678a10232d89f26b0a9e84d6b93b1d544648e088ad7f76cc25064",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slashes/get-slashes.creq": "cb96b4ac96d501f7c5c15bc6d67b3035061cfced4af6585ad927f7e6c985c015",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.req": "9acee8d7748a54cfd727056270a7b59d607cfa5226e60e7f5d8815ab535e6c61",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.authz": "df4c57e8624a5b0f74e82efe48f55d81fafc07a64980ea4c1c49bd43e670ef7f",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.creq": "63ee75631ed7234ae61b5f736dfc7754cdccfedbff4b5128a915706ee9390d86",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-space/get-space.sts": "2e8d72a7e2c454df4e75a46801ccd0a35975a7b46424bda1b835755715852e69",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.req": "64586168f0ec2cac5bb754028b02b98df711a8d3221b77b475c9f9dac2355260",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.sts": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.authz": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative/get-relative.creq": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.req": "02de9ee8f36c35a60218e373a6015b973a53c67285b61886642024b19ef564d8",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.authz": "781605fa462904a35843fac45416b491c21d643111f6d5a9ff889158fd5e818c",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.sts": "2835f7fac92431324cd0c5fa589554c49a3766ad30ab5bcecb865ebace06d0b2",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-pointless-dot/get-slash-pointless-dot.creq": "214d50c111a8edc4819da6a636336472c916b5240f51e9a51b5c3305180cf702",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.authz": "d73e1ba700e51b87f44de324ab3775f6aabf82cd4ced5c32310b171700e52ef5",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.req": "bf21b16d41af5d9549b1e93c7d34bdd428de8e0adde4b094502f3460479a8d0c",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.sts": "b29511f03359b13f31acf574112625791ec83222ddeae79df78f183802170cc1",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-special-character/get-special-character.creq": "4053e45b5cef7cec5e17f736b1c12b3faf0388fd4c0bd24326386f132039ce5c",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.sts": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.creq": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.authz": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-slash-dot-slash/get-slash-dot-slash.req": "8447d82296c4b889eeb625ef21cc0af7e8ae6a55e387b72a3a81485ba90abee9",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.authz": "ac00b2338dafc370cb18f2cd25477a28f41c4bbba4696ced42fdf078c6e139f5",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.req": "c16d80cb9db6663a0e92dd57fd2d88d56a98861882f42c49084aab81aeb48e51",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.creq": "bb579772317eb040ac9ed261061d46c1f17a8133879d6129b6e1c25292927e63",
+    "go/internal/awsauth/testdata/aws4_testsuite/normalize-path/get-relative-relative/get-relative-relative.sts": "9fea9fcbf5a67a7393fb14fd3c1b6e80d4f55dbbddad4302bb6905c0decd5570",
+    "go/internal/runner/executor_test.go": "e664002eafaa7e1e7fe358cf0480be7d545f56a92caa7e6e16407cb90ef3198d",
+    "go/internal/runner/config.go": "f14be72d0f83c8c935d059d0e0dec24ad4e7f0e84780768363bc8f0c9503de5e",
+    "go/internal/runner/e2e_test.go": "d6b69e2bddf6997600ae33224d97a87f9b976b31673c4913c8a94857044403b0",
+    "go/internal/runner/custody_test.go": "ffd06c341fec0153c94309239c272e1caa6a5de1bc9225190105c841cb0940c0",
+    "go/internal/runner/cli.go": "18edc9058c40f240faa2b6bd604d53cdeb22e7ea56946d9f3d0992e52a7b5850",
+    "go/internal/runner/executor.go": "5b02292dec573a93f4f90180750b9b8641e10d0898b59fe887a07d976dd5c9e1",
+    "go/internal/runner/custody.go": "296b5ba70c61cecd38bfdaa9e87ac57c484ac9c6bd8923fae79f8a1bc14619ba",
+    "go/internal/runner/update/systemd_linux_test.go": "9edd64d14f28c6c029f2742da70b2e62a84531701f153a448735355a0e7860a7",
+    "go/internal/runner/update/sync_unix.go": "67362b0ac501162418442ea1b6b1cdbebd0e70d62b02cf97e96a2ba5a028a88a",
+    "go/internal/runner/update/systemd_other_test.go": "9630a41dd739fd55f648a0def0e28ffc379d8a83a367b74d7e7d0599ef02c5cb",
+    "go/internal/runner/update/control_test.go": "92ca4354c4fb6b1fd2a71ab10b8ed630ccc99c35db0dfe0cc6769004feabcf28",
+    "go/internal/runner/update/control.go": "6712f590b11b356423f669f236572d5a44186a5471c427801757450c485e98d9",
+    "go/internal/runner/update/sync_windows.go": "b4711398a32633158bccf8a900c858932668ba8860d18dea72db30e3d46ee177",
+    "go/internal/runner/update/systemd_test.go": "cb951473ca9553f2921113a70973e67276274242dabbe4b01e9e3cf30d54933c",
+    "go/internal/runner/kinds/ocihttp_readpost_test.go": "458c00f7a8e1e624113a52336b0f2e55f8cc7b0cd80d641e113a421663f228cf",
+    "go/internal/runner/kinds/tofu_test.go": "ce4ac64d0b3ece7795b430b8614da28d0f55303025f7c6c6cd0bbc14ff9617fb",
+    "go/internal/runner/kinds/tofu.go": "6d679e9ca13ff60e04e6cfc36ae2b8429b2dee42ae9b93c7b4915e1ce66abb76",
+    "go/internal/runner/kinds/kind.go": "ddffe0c23bf29882af0808e7a88e701ff537a476498e51fae413793e7cb6d1b7",
+    "go/internal/runner/kinds/awshttp.go": "6276570b27ffab20b4176de5764808f7dfdf7e129c6af398cf4982e6324a4a3f",
+    "go/internal/runner/kinds/aws_test.go": "ad01e2e168be624dda21dd46e7cdc48b2e37d3c1a361e26ce641e73eb3c40967",
+    "go/internal/runner/kinds/probe_test.go": "35d086b5006cacb42af2222688e64cb23b9af3745d5568ae7c4c7dab11671cf0",
+    "go/internal/runner/kinds/tofu_digest.go": "c047ecbbc79d58f8dfbdba2242654f5eade3e0a156712a0f24a4e09e32c30171",
+    "go/internal/runner/kinds/tofu_plans.go": "b567309d8c8d21b21ef14ec45d2995f28d10af88a4b666dea34e953806be715e",
+    "go/internal/runner/kinds/ocihttp_receipts.go": "bf9329dccbed2635b824306061d4a91ac305d45203f0afe0d7e362e91f0f1b49",
+    "go/internal/runner/kinds/tofu_tmp_test.go": "e79ab062fe83c152f884bc5fa295cf52a0cf83dcaa475319d0cd2e12fe9c6dc8",
+    "go/internal/runner/kinds/k8shttp.go": "2318f915b733492d1d00fa937d78dc81cab5b9bf5f6678ce9c51c7e5eeabd605",
+    "go/internal/runner/kinds/ocihttp_config_test.go": "b8febb407e751e9c9ec2eb490bcb2d7b9967bb01a5857c863204cd5dc40f59e5",
+    "go/internal/runner/kinds/probe.go": "4e1d6171ad26b08488bc68f2c3cc632f71db988282e0efb1f26268505d9c8d25",
+    "go/internal/runner/kinds/ocihttp_audit.go": "bc574f03f4e29758dcfc77ee91253a592735924262d2e222c75bb2edfddf7457",
+    "go/internal/runner/kinds/ocihttp_receipts_test.go": "1ad246162fec9d53218f42516bcf99a7359c69b03f154583d795f0e34fc134e7",
+    "go/internal/runner/kinds/k8s_test.go": "374c1375c8c9746b56cafa596352f6c7ec3bff87b8d19e7d5e889d2b030cff9f",
+    "go/internal/runner/kinds/tofu_digest_test.go": "2341a3550f384bf202b75d5b5f350f880bb8da084deba99c97a61f10781d4c56",
+    "go/internal/runner/kinds/awsaction.go": "b4d0ef856c7bd74d7cbf9bd1fd3389480b889aac0664eecdb590a048e3458529",
+    "go/internal/runner/kinds/ocihttp_test.go": "5ff2a0773cb5520b10dcfe03441d3fe07e9cc1ba97e2cc48eadef18a2f4ed4a8",
+    "go/internal/runner/kinds/ocihttp.go": "34c2f28eaf2bdbc565f9c7879399ebbac16afc12f7028a534c14ed6364f2408c",
+    "go/internal/runner/kinds/testdata/config-digest-vector.json": "b4406894c0af3bc393e421c05d6e4bcd79a23f8aae1c36b863e0025cc1b1ff25",
+    "go/internal/runner/kinds/testdata/config-digest-ts-vector.json": "6a57337ee08384fc40c12080ebd853bbfc480e8c41a956038d133484ddf8a844",
+    "go/internal/miniyaml/miniyaml_test.go": "d1844879a8751a86325ee3eb4bc1223f272a81528fa737ed75a5bfd21a571574",
+    "go/internal/miniyaml/miniyaml.go": "72809b8b51f0bb9c7a33b0b04b2bbabb2744ce2cc18fc799fec7233ebb5a5fd7",
+    "go/internal/oci/release_test.go": "77fc9c5106172d619eebce2394f2884ef1d96066ede018cfa0ea1448b2a0966d",
+    "go/internal/oci/principal_oke.go": "923cb733f388d99e2627c202a3ef803c8e4e83ec6f3682d7f6d82828994f0a5b",
+    "go/internal/oci/observability_test.go": "e2e942df9d2c75b4e291f1cd9bbe0ba1c54821232693b00b5875a3180f44c017",
+    "go/internal/oci/compartment.go": "69c3c43d58ec6fdb1f52904f9d3a5f33f0a6e370ce523f00b21f53ebd3d448eb",
+    "go/internal/oci/principal.go": "8423c636700ed5c75507c96dd0b50df35e04d7f024a1dfde40a4f807efe284f3",
+    "go/internal/oci/principal_test.go": "da80c3b25b79882efb2c1e36c3a24b138d661def38efde243f0f48ddaafc00d2",
+    "go/internal/oci/request.go": "49a3540046bfaef729710eab7e34774ae42126121559173a622255e454b86166",
+    "go/internal/oci/monitoring.go": "c4ed7dba26b4ac00d62af14982c18f579ef58ab4c50f198303d07a85be23226a",
+    "go/internal/oci/oci_test.go": "bc33aa63078ea135b27694f9c284987a80cf86c08d9233884fb2a0240b4dbc95",
+    "go/internal/oci/principal_instance.go": "107cfd4f372be7679a8433e22836ca74b84ac8094884a59b8f635d6f056a665e",
+    "go/internal/oci/monitoring_test.go": "cd770b5600f66f517f3b6445f1361aa9b82b7b169c1be050e06c2228ae4188ec",
+    "go/internal/oci/logging_search.go": "499976afff1a0a5377dc814ca5ba2b1c320762c29058be3b6b54daa358971777",
+    "go/internal/oci/sign.go": "10171b7bee2c263d84656174b546662347bdd18c905e181045e2559cdc462930",
+    "go/internal/oci/allowlist.go": "634882ae638b7073b011c9504bb0a5a0c0c0dbd62e2f38121a4b0fe4b75aa312",
+    "go/internal/oci/testdata/services.json": "b821ba5452b8a3ccd0579c8662a67297ebb5d20d663cb71db7bd799042299b3a",
+    "go/internal/oci/testdata/signing-vector.json": "d9948d14c2b73e0bd410b617b2fbd0e26a73e06d8875087494f8cf4e0e830f47",
+    "go/internal/oci/testdata/allowlist.json": "82acc36105f93926e1d3fa1e63601463f076ff44313087232ff377ff18b03b43",
+    "go/internal/release/release_test.go": "9eb7d5a1e1aade4ca75066e3eaa1701bf4a6656b79e042d24b14733f7d7665c0",
+    "go/internal/release/release.go": "0e87c0c7514acb4a89f2b9bfa9e8a8d7cfaea1d6e4009955c9ec1088ea69c7b9",
+    "go/internal/agent/logsink.go": "812070a61469c1e3b578065be24038dfcd2e3d4f66a3c6f96d8093d0ef6353b3",
+    "go/internal/agent/register.go": "7413f0b3d96ca8fdbf13b33e99d352951d2fd0fbbdd847ca74a9a3dbfe5b4191",
+    "go/internal/agent/config.go": "a197b34f243929d911616ba9a725ce41f7f2655c89cbbd8725e0b54a9116a719",
+    "go/internal/agent/updatecmd.go": "18ab64ca83636b1c410852e10709967c8f30bd8d081f3ebb89587675957128fa",
+    "go/internal/agent/identity_sync_windows.go": "8279717467e6a25c6787ddbcf0aef67491701e0e3b4c069ea5eab978ff0064c2",
+    "go/internal/agent/core_test.go": "88e28e8f9dd0fa19882a0a45adabab10383c5a8f93c336cb1c2890db3fc8d6fa",
+    "go/internal/agent/backoff.go": "982dabff512d9f0f8d7209fede68ec86fdf92ef3b06881e4f346f08981d467b7",
+    "go/internal/agent/client.go": "c825d923471abc9d7c82bc06fc84485807221f587ec3e7060775ec54a9a17780",
+    "go/internal/agent/identity_sync_unix.go": "832bad4b016db0cdf05944d0f7e3fce6b6514bd4b15c000efd81d963e27e8d50",
+    "go/internal/agent/loop.go": "ff170ddcecdbe79894268e74acfba400c5ec741c83aa45fcbaf9785cc908e0eb",
+    "go/internal/agent/lifecycle.go": "0d364646fb63cb0e4c8a746ebfb7a14e43addd0fc487178b9074c189efc1fa2b",
+    "go/internal/agent/cli.go": "900bfbf04c25028a271187efabeef5476706370e98aef8a0e9b179cb5c7f9474",
+    "go/internal/agent/identity_open_windows_test.go": "9ff1114b3d7b4bbbaab0449d3a30870780c4be61c6b9dc1b699e0e0e66c55154",
+    "go/internal/agent/agent_test.go": "b978ee890e74aa6780460a838774061d16d1ced69f13c6734bd637d5577ae47c",
+    "go/internal/agent/identity.go": "7b003c067d2b9514ae398f02c90b1ff28542796ab6bed0bb6c9162aaca1b0347",
+    "go/internal/agent/lifecycle_test.go": "42498e552edd2a1332155ee22a445023ed647c4aeb1c88e568227049ae7c8ec6",
+    "go/internal/agent/rotation_internal_test.go": "ba8e0a5959df7f94cb67f4637947d306743b689d2d59f1ddc7b3a5300854b6fe",
+    "go/internal/agent/main.go": "7b94bfc103f292099d87236c7442f33c1b1e4506745bef234ffcf2624fb22642",
+    "go/internal/agent/update_control_internal_test.go": "80fb108677b7f4ec0cadae06413e8e1d98010a6315862fdc4aca83c11384e734",
+    "go/internal/agent/update/sync_unix.go": "22b8fedf36e48418342fdffa99840caa6cdf3d3b3ea8da17e1c63f7a3065e03a",
+    "go/internal/agent/update/exec_unix.go": "d76746d0d0e852555be6263de2dbfb47ef76a593edb7bc9caa413896763740bc",
+    "go/internal/agent/update/sync_windows.go": "dc22872d874398acbef5200f6d2438faf80f8ea6c79b44cc42bd2b45ad90059f",
+    "go/internal/agent/update/launcher.go": "9354ca33978477591b4f9578577a086b7227d85a4cf8ff3f3ded7d00bd63fcc8",
+    "go/internal/agent/update/update_test.go": "a5d5d9eacc39f7fbf8552e379e81dd34d7ea8d4e562ff36223a81b9cced7f666",
+    "go/internal/agent/update/state.go": "74f7be5bb1284761c9d57b4d432f2c3dadea5ecda8b7c3613aa7ec04b1c7b80c",
+    "go/internal/agent/update/manager.go": "e45b6d4f00d9ff1c1f48e31d66c98f7adb2c27e8ff22649e459e3bebae1e522c",
+    "go/internal/agent/spool/sync_unix.go": "b95d3594a2c5eeb28a8c754630e37da0a9325aad76f307c726d0ae5245a4c37f",
+    "go/internal/agent/spool/spool_test.go": "754ec6320687cc0078a8b0e4807a02c769c098eac9b185dfc69d4f0f479ea8d7",
+    "go/internal/agent/spool/spool.go": "e597f0358df7380ba7b084d0a1a9f13ef4e1e6b99cb61587a606ea3221d6c833",
+    "go/internal/agent/spool/sync_windows.go": "9b59bd946fed2a6f4876a8a4637ae6341635da07127060735b5d50eda08bee81",
+    "go/internal/agent/fakecp/fakecp.go": "647c8bb7dc737dad36114777fc91fc64d75bc8bed12a5394c4301344b75bdb7d",
+    "go/internal/protocol/jws_test.go": "f0327ea74f2ff3a9b42fa366548d35296511cb0d42347cb956d8698164ec07d5",
+    "go/internal/protocol/signing.go": "f636fddd3ab51fe8973a4ccbcdec85246a24c2633e40e28577e5ebdd8422c00c",
+    "go/internal/protocol/jws.go": "5096ea20b72dd3e3ffd30eff7f599d6232a46296525d0061bbcd8c0ac62f1c66",
+    "go/internal/protocol/replay.go": "5e77b70d5535151b51f5fc31717249fe3294396d5700e96540011d03d8f69492",
+    "go/internal/protocol/signing_test.go": "ba820aa11bc07251796149d7f5eaf6cbd0b0112c8e0e8a233a17e19605c2a3a0",
+    "go/internal/protocol/replay_test.go": "1750c47c894efd747a6c1a303f9f1d838e3990f8b1856196a7da5d5cde76a718",
+    "go/internal/protocol/const.go": "ff65849d11fb752220f503edce355d6ebfc077404ed74a94fa3c10afb78cfd8b",
+    "go/internal/protocol/envelope.go": "416efce09ac471a0df20e6df898feb2703c07e5fa135519d4f4fce054547f813",
+    "go/internal/protocol/errors.go": "aae1170506a808581681255c4b78c3440ae8daa6576c41e6092e1b5d88fe5f4f",
+    "go/internal/protocol/testdata/jws-vector.json": "e79bdcaaa1c4003d4a419d02a9ea73c3f8df6b6f87b5af1e661785dc3c5ad851",
+    "go/internal/protocol/testdata/signing-vector.json": "dd58478064550bf8d564f2c81a37c3f4d9a7595d39384509f264537bf4ee1d4c",
+    "go/internal/protocol/protocoltest/protocoltest.go": "76cc066f767c79a8aed6d53d5a3e588e6ae14829a3e269850fc427bd2c251d1f",
+    "go/internal/redact/redact.go": "2c3d6aa708298f7971ec58de2c0644eb555e8be5bf4297a1652235fd8216dd44",
+    "go/internal/redact/redact_test.go": "a62ed3d9f46f2c3ca474ce5bf1e2d6e7141d04612e1909ed9a3144d856fccdc6",
+    "go/internal/version/version.go": "137586f0084304ad259c4d877e6aed35c10a27f62d6017d8d41a860e0a540739",
+    "go/internal/machine/package_helper.go": "faa4465760ecef55942eefc7f883fc5192c84d3318ce2ac2083d77c656867643",
+    "go/internal/machine/package_archive_test.go": "d0d99db456a79b2a6173ee700f4059f055fd7d53205653d836394749141bc263",
+    "go/internal/machine/executor_test.go": "c2540ffc956ea944c376a716e4f42eef60a8f13df83239ebc853c3101dbaa86f",
+    "go/internal/machine/config.go": "13c98ec68b4b944ef413aa64779122f0933e7aff93e4c158f610e5783784416d",
+    "go/internal/machine/audit.go": "2e2dec8a1809eb78e4f152d6f3e05f9cbc0da5fd96cfe3ccf762a00f60b103f5",
+    "go/internal/machine/e2e_test.go": "cdceff5a2dccecb9e04a4e35e5716376589604b6a6033be5acd2279518fc323e",
+    "go/internal/machine/package_archive.go": "8a29cb0c540b401116121c883fe7b3dfb819845f06a373e917f936b8128ba245",
+    "go/internal/machine/package_helper_other.go": "0322adff1424ae1087df78f6412990cd5e993101807d9bb425d186b21e08fd45",
+    "go/internal/machine/cli.go": "80a4d71adb2e01fc6f825c3068d017a4b7a1a559a526d65646274688fe3eb6a2",
+    "go/internal/machine/package_native.go": "dc8fbd4b633c9723c34df5ae3f22f468ce97f11c4562296ee5c016f1fd4a6489",
+    "go/internal/machine/package_helper_linux.go": "b803a6f0303aa99cea8175254c356f88312cf43b7cf0050f232feb441a5ead5f",
+    "go/internal/machine/executor.go": "1568ba1d5b524520abcc7c79f90549cc5ad1edbce8e042dba93352337fa90ba8",
+    "go/internal/machine/config_test.go": "80ee815c3bb87b0803472566b84c615a6e6ada256555e75ae402b9c65d7438fb",
+    "go/internal/machine/package_helper_linux_test.go": "b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331",
+    "go/internal/machine/package_helper_other_test.go": "9c5f8074bd8af4b7af67ea6622e7b9f88bb9a6657b8350f71018b49d020c1957",
+    "go/internal/machine/package_helper_test.go": "bea3cd7dd6105a3a99cc4f81ce01636cd9ad72eaa8ebf19cb589598bf9955bf4",
+    "go/internal/machine/package_native_test.go": "e0aa2221ea030fba56e6625a98ad2ddc9c56c423a6dfc986b0abe6a745e1243e",
+    "go/internal/machine/serviceconfigure_test.go": "afd78a9018627b9b34619b692409faef4ce62bcfe2e89f510dec12ffdb7e8731",
+    "go/internal/machine/serviceconfigure_systemd_linux_test.go": "eec749b257e9f54f74146401c58c9dff2c93e8f22bd1615252795c4323e09ef6",
+    "go/internal/machine/testdata/results/machine.service.restart.json": "ca79b2074ce6a7500a54a22fa602008294afeae085fe5a716d009762dbc54ed2",
+    "go/internal/machine/testdata/results/network.dnsCheck.json": "95cc1240e8420fb61bab7f7ec72ed9f1ced5ab76b442d1bce5d122b6262cf21f",
+    "go/internal/machine/testdata/results/file.read-binary.json": "cf36b8164d3229ef9bc190be53f43aeba332a5de655961010669186d0fd4325b",
+    "go/internal/machine/testdata/results/network.dnsCheck-unresolved.json": "2baaa21407a8a1994dcb432ad245271ad12f9417b6bac950ea6680ca10debd95",
+    "go/internal/machine/testdata/results/system.logs.json": "3f1710307ebd9a302087f01ff060c4383ff63167a93de0ec3b435c640fff4e4c",
+    "go/internal/machine/testdata/results/container.list.json": "60ae3b4b1d9f93cfc1eb358e70f9c9c0729e0ee4f90bf7ba212a9716e5cbccdc",
+    "go/internal/machine/testdata/results/file.write-prior-refused.json": "54910321786a48854823326464380ae7fe7e6be35e0880302890b80758366ec6",
+    "go/internal/machine/testdata/results/process.list.json": "1c3555bf567775d775c858e93ba4a47f105d06ab955cea2ee3894d762050ecc9",
+    "go/internal/machine/testdata/results/file.write-uncertain.json": "7230640a389e3062bb4b16030714abc3498729be99d917240dc1498be3cd58c9",
+    "go/internal/machine/testdata/results/file.write-noop.json": "a212ae65c6522e83f89e10e04f6513da7d85793b4c46e29dede6df0fd29188d2",
+    "go/internal/machine/testdata/results/service.configure.json": "09c39b4cde1482d75730fd0d3a93e862c752ee9505a6ee4d8bb2c2d7dae345f8",
+    "go/internal/machine/testdata/results/machine.inspect.json": "11cf1fa5aa5e5c44d774f95b77aa60e3b1de73c3263a2a6d4c75d25abb528fbc",
+    "go/internal/machine/testdata/results/file.read.json": "fa3386d2895e8296db6de1f9633bcb9ce0a2fe613168cf897b1bb2fda50f829d",
+    "go/internal/machine/testdata/results/machine.exec-failed.json": "d7afc4fb53b590b722451748c696b49d77b7259f02d1e2186c5e9f0a0d425137",
+    "go/internal/machine/testdata/results/network.portCheck.json": "8236196c411af15f1fec6570c44d0f4f273f76bc2b729f56e8a071d72a94dcaa",
+    "go/internal/machine/testdata/results/file.write-replace.json": "98db30dcf3547d2391d5ac1e7dc3f627c4d37b2bafa5d6efd94198c6ce546246",
+    "go/internal/machine/testdata/results/container.logs.json": "fa6dbd920ff383a2ea2e4474237ab7c0331441f7b547fd8399237f43f1cf87e7",
+    "go/internal/machine/testdata/results/container.exec.json": "0fc973bce6aa3e9d641eca2a70215eb7deebc8ae07b1b2f0b55703676d14e645",
+    "go/internal/machine/testdata/results/failure.json": "dd5ab8db0129290f0458872e1a9c9393ccbf3b7c35124ac6bf7776db00668bf6",
+    "go/internal/machine/testdata/results/file.upload.json": "80bb7a2bdde20ade7bf4fc757d85564c7679908b8e19093e3fca06506a97acb7",
+    "go/internal/machine/testdata/results/package.install.json": "2ea59a0830cde2bf2f3440fed7d9e6b286a85fbb9aedbdb5b8fb0bbd2f9c0b76",
+    "go/internal/machine/testdata/results/service.status.json": "f95465592b6bd04a8ad53b56e3c919e21b7a3920f560d5b022c499087a980b0e",
+    "go/internal/machine/testdata/results/container.inspect.json": "5839675e93a4846a914c8ccc3e9a5ec4487eb5cb76abf9210bb22eaa2d556863",
+    "go/internal/machine/testdata/results/system.metrics.json": "e9ec7dee76a995706f8edbc0115477d2e67b3af87d1ed163b5fe9a1b1bf9adcb",
+    "go/internal/machine/testdata/results/file.write.json": "8e142a3af9fb7eb9f89707138d4d762b10fd1d4ba43c53e94e8cfd49df589e27",
+    "go/internal/machine/testdata/results/machine.exec.json": "a6362464f481eae77bb2eb31196d2a7b31294988a490327fd685250817869e17",
+    "go/internal/machine/ops/disk_other.go": "f93619760aefabe71e3f819a6764083628d33582f29f45e721c16e80f72f57f2",
+    "go/internal/machine/ops/serviceconfigure.go": "f540f9d63c5c238a21502e4cc1f544dea8ec8cb0feca1273d5ebfddf3e95555e",
+    "go/internal/machine/ops/serviceconfigure_linux_test.go": "bfb23728658dc0f61ac654aaca064301243b25f2baf16cf88af3aea6b3b1d692",
+    "go/internal/machine/ops/files.go": "05203c066e374121d155dae83430d0424ed956435b12ebb9600652f0d4f98a2c",
+    "go/internal/machine/ops/exec_test.go": "edfcbbd5fbf092181ffb5a12bcd5f6c0fd92ff39e40b1fcc2f32e29151f0fc89",
+    "go/internal/machine/ops/results_golden_test.go": "03ed1bdda90586982698b3e20afd13f8269f7aef4ec028e82c4ebc180c7d673c",
+    "go/internal/machine/ops/network_test.go": "37665d405c7b765aba13070ede7daae9f9b67d1840a67caf58139c01c81a9801",
+    "go/internal/machine/ops/docker.go": "09fb89262700ef51daec2cdf80c87909cb708d963dabe8bbeda96837cbd779f4",
+    "go/internal/machine/ops/fileupload.go": "e5922bf781e376b3852faef4af067c04e0d3fb82fecbddec1450a905a6b72287",
+    "go/internal/machine/ops/filewrite_test.go": "cf4d834de4bacb57d0f6c91950edf69830462c32fd84d0db523c61610d2572bc",
+    "go/internal/machine/ops/filewrite_linux.go": "776f5c633076ae1b0830a777771dcce122466bb105be2c1c9b2966b6de77ac22",
+    "go/internal/machine/ops/fileupload_other_test.go": "7d12ab7c80508a8b8626daaf0ae571c3a8c6bb1bd2396a451355f423fa9c9a61",
+    "go/internal/machine/ops/fileupload_linux_test.go": "f7a033bc206436e51e53b1b39d74f13f717704e34e786338c2627d585e0e89d9",
+    "go/internal/machine/ops/exec.go": "8dc8106ee827dd810dd7656cb997015ed9c97cb2f528e577a81c6a272067eb6e",
+    "go/internal/machine/ops/systemd.go": "17562c53a5c2dce9c300e148ce0fcc9230a1bef37a50691c0f9a2aa980db03c1",
+    "go/internal/machine/ops/serviceconfigure_golden_other_test.go": "908cf430f702d36efb1c006a4bd332f2a45eca13c9e6572ce0730939680a005f",
+    "go/internal/machine/ops/files_linux.go": "cac8ac0b8e22a80bb060d7fd7d86ed1288e2fe7f56d8c395de4ed0bcd65f7262",
+    "go/internal/machine/ops/serviceconfigure_golden_linux_test.go": "f62396b1a2eb64180318cb96f1572fbf18f936f9c1f9373c43c513beabdd496a",
+    "go/internal/machine/ops/fileupload_test.go": "b0407b9703f3a2c0e41891a338054f8d6c1891a718f34411b18c640c0f4631f7",
+    "go/internal/machine/ops/ops_test.go": "7775c8e1b4a32c4a658b7b99897c2cb81be97e505c24e5b4f2fba41b3e802711",
+    "go/internal/machine/ops/network.go": "98639e1c36eef21212b2adf8d5268a72522a8c36a9104feff8f533604ef45b96",
+    "go/internal/machine/ops/packageinstall.go": "a19aaaad78911f8f42b75ff259869492d8d7f0eb3e42d7da9eec3862d6380100",
+    "go/internal/machine/ops/files_test.go": "032188ecfcb3a7e4a4d911abaaaa43d9d053f5e23eb1cdfd55888c7eb5b86009",
+    "go/internal/machine/ops/failure.go": "2f91b4c0a2ccd822d783377a3834f61d054de1dc1933f5279bbedfbd2fd1b90c",
+    "go/internal/machine/ops/docker_test.go": "54d8027687ae42da25984a59a5c75de7dea8bf319104561463c8808014c690db",
+    "go/internal/machine/ops/packageinstall_test.go": "2ec44f360a771b743ea78bc053351f6e492f34f5f5db5336bbb4f5a8ff6a992a",
+    "go/internal/machine/ops/ops.go": "92d1ee1d4ec1e2548e2397fabb30a40321f6968b05747d60e2c82f58efe8707e",
+    "go/internal/machine/ops/disk_linux.go": "a36195e169321587a66c2d12d49292b3218a808297668272c395201f142b1371",
+    "go/internal/machine/ops/cmdrun.go": "a2b47ad405b64d53fc70171bca6ce4ec630689815805e23ffc33b3918701c845",
+    "go/internal/machine/ops/filewrite.go": "b83e6615d5cd06d292ea9ccff6059da06e2cf37ebcb7cd58fcfd9cb96ebaecc1",
+    "go/internal/machine/ops/files_other.go": "b2eb4d1d41cb603b5fe0d7e302a03d2b2fd179cb3a4181588243c9f2339b0186",
+    "go/internal/machine/ops/procfs.go": "003cf26a215c42f0a01f7abf7aec4b2b048ea0dde597a2f7fc32f58b807e2900",
+    "go/internal/machine/ops/files_linux_test.go": "bd2cdb1431596884dcbf1ecf1a97c322bd459b9a1df7822c3b9c81924e661dac",
+    "go/internal/machine/ops/filewrite_linux_test.go": "e2d7783301f64b70224155a66a628d1559d5a039817b72d0a12d94a63d7da508",
+    "go/internal/machine/ops/filewrite_other.go": "b81177fb72c6c9ef5dbaabbb96617d2d89afa30030e6c0b4c156d59b987978c8",
+    "go/internal/machine/ops/serviceconfigure_test.go": "36a4f5a014d4a60d941db4faf17dfcf68d48152b9c054491820072d5b3e3e91f",
+    "go/internal/machine/ops/filewrite_other_test.go": "bd7f6b75864280aad47773872ac7cc30c7b57fd54222db5852523ef3c1a669dc",
+    "go/internal/machine/ops/procfs_test.go": "08eb6cc3c533d082e272e08df6e08e3836d190292cd484ea12a86bf411d0a9aa",
+    "go/internal/machine/ops/serviceconfigure_systemd_linux_test.go": "ea33907477da9952306ecfa282e74f722347622f22dca2127843907edfc0061d",
+    "go/internal/netguard/netguard_test.go": "4c882fa46bd2a986687f74fd0857e054dd2697d920e38fa80f77fdf8a2ee13aa",
+    "go/internal/netguard/netguard.go": "8f22717226d6188481f7786d6bca039d511506cdbe1ebe21bfd9f30158fe1a4a"
+  },
+  "preparationInputs": {
+    "run.candidate.py": "85a748a6300eecae59ae1e6c887a1bb07671d69fde8d5f1e69c7205af9ea035e",
+    "owned_guard.py": "9b0f9cfdea69697b6effa65c77d09762613fdc5496fb767c4fbb0d57fa27095c",
+    "SOURCE-CONTRACT.candidate.json": "4c6686c1e9aa66e4164055b1e49517bee753f8cc43d1c1336442290e10e56295"
+  },
+  "packetInputs": {
+    "owned_guard.py": "9b0f9cfdea69697b6effa65c77d09762613fdc5496fb767c4fbb0d57fa27095c",
+    "SOURCE-CONTRACT.json": "730eb0d752c4238064f34fd9b3b2cf8633eed44e292d9d97a0c48cca704fb2c0"
+  },
+  "status": "SOURCE_BOUND_REQUIRES_ROOT_ADMISSION",
+  "tree": "454a416b9b8a6b0d39b89206c1339c3b451d0a23",
+  "predecessor": {
+    "controllerSha256": "b27875149576dbdf360944acf05a6fbbefcb9f226b406e9a10a8f263e8d86ab3",
+    "freezeSha256": "dc0b34e15e77db32b815de0ee72e5bbabb9b88955f77e9812786cdbc53151b11"
+  },
+  "revision": "R2 exact containerd owned-image digest and explicit image-absence cleanup proof"
+}

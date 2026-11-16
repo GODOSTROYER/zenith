@@ -1,0 +1,59 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-REL-01"
+  ],
+  "mode": "contract",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 318,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/release/orchestrator.test.ts tests/release/dossier.test.ts tests/release/status.test.ts tests/release/acceptance-scenarios.test.ts tests/release/local-targets.test.ts tests/release/drivers-d2.test.ts tests/release/operated-drivers.test.ts tests/acceptance/evidence.test.ts tests/ci/release-gates.test.ts tests/ci/lane-report.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/release/orchestrator.test.ts",
+      "sha256": "67398e186df50862691c80197a28cb98fdfd145aec135e0f6ad3790f6babad22"
+    },
+    {
+      "path": "tests/release/dossier.test.ts",
+      "sha256": "0f1ed03d57dc3ef506b893e8a864a86091e6d82878c647b89def7354222d42c3"
+    },
+    {
+      "path": "tests/release/status.test.ts",
+      "sha256": "2548592daa65b36d7a580eb9670ceb248e19335cbc24bf9940ea4955848c578a"
+    },
+    {
+      "path": "tests/release/acceptance-scenarios.test.ts",
+      "sha256": "ae29193533ffb1924e1ccac4c4b2f976c3b6a3c99cb943e0202be1692e3b6bab"
+    },
+    {
+      "path": "tests/release/local-targets.test.ts",
+      "sha256": "b49aebafcd1722ec3180d0d6286b480b2fb5d2936dd474a4b688ad6ab059bf33"
+    },
+    {
+      "path": "tests/release/drivers-d2.test.ts",
+      "sha256": "696c0faab38c3e5b5172439751f0d96cb25831f2d9d18b9e8d1f18b6af4d7105"
+    },
+    {
+      "path": "tests/release/operated-drivers.test.ts",
+      "sha256": "21f0069ee02afd808d8ea7471b7747bb1b5fb672cf6ca0be0b1796842c2a533d"
+    },
+    {
+      "path": "tests/acceptance/evidence.test.ts",
+      "sha256": "0ae8298f7ca26549f9447796c90e2d3f3821a892e65d83ba66b650aa4f4fd00c"
+    },
+    {
+      "path": "tests/ci/release-gates.test.ts",
+      "sha256": "c45daa6dddddb32d7cd7b89e435d32aff4c3f7aa3526875dee731e5bcdadbb59"
+    },
+    {
+      "path": "tests/ci/lane-report.test.ts",
+      "sha256": "152ee1b158474fe1ee7f681b6ff07687858156df90eb5076b318f2900e6e4086"
+    }
+  ]
+}

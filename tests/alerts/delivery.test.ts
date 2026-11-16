@@ -325,6 +325,21 @@ describe("webhook egress policy", () => {
     }
   });
 
+  it("delivers through the real pinned transport to a hostname (OPS-08 F5)", async () => {
+    // A hostname, not an IP literal, so Node calls the pinned lookup — with `all: true` under autoSelectFamily.
+    const server = http.createServer((_req, res) => { res.writeHead(204); res.end(); });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as net.AddressInfo;
+    process.env[WEBHOOK_ALLOW_INSECURE_ENV] = "1";
+    try {
+      const result = await deliverToChannel(channel({ id: "named", target: `http://localhost:${port}/hooks` }), msg);
+      expect(result.error).toBeUndefined();
+      expect(result.ok).toBe(true);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it("stops reading an oversized response", async () => {
     const calls: RequestInit[] = [];
     WEBHOOK_TRANSPORT.request = async (_target, _body, _headers, _signal) => {

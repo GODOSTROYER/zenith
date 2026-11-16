@@ -1,0 +1,83 @@
+{
+  "integratedCommit": "733f81f8581f24b8a0de5ed658e18b14df4d7c78",
+  "testedCommit": "95b20403e2394eeeaf874d16f601e5d8ed7a154f",
+  "sourceTree": "8f963e5b0f144a0f9452571b661871a730407c2f",
+  "integratedAndTestedCommitTreesEqual": true,
+  "node": "22.23.3",
+  "architecture": "native Darwin ARM64",
+  "scope": "Three full CI filesystem/model test files; no worker image, Go engine, database or cloud acceptance.",
+  "tests": {
+    "passed": 437,
+    "failed": 0,
+    "skipped": 6,
+    "exit": 0
+  },
+  "skips": [
+    {
+      "file": "ci/packaged-workers.test.ts",
+      "name": "native process supervisor [actual Linux Node; no Docker] keeps a successful reserved group passing only after actual child settlement",
+      "reason": "Requires actual Linux Node; this focused run executed native Darwin ARM64."
+    },
+    {
+      "file": "ci/packaged-workers.test.ts",
+      "name": "native process supervisor [actual Linux Node; no Docker] retains exact nonzero completion with verified settlement",
+      "reason": "Requires actual Linux Node; this focused run executed native Darwin ARM64."
+    },
+    {
+      "file": "ci/packaged-workers.test.ts",
+      "name": "native process supervisor [actual Linux Node; no Docker] refuses a zero-exit parent with a surviving inherited child and settles that descendant before returning",
+      "reason": "Requires actual Linux Node; this focused run executed native Darwin ARM64."
+    },
+    {
+      "file": "ci/packaged-workers.test.ts",
+      "name": "native process supervisor [actual Linux Node; no Docker] timeout settles actual inherited children before permitting failed-result cleanup",
+      "reason": "Requires actual Linux Node; this focused run executed native Darwin ARM64."
+    },
+    {
+      "file": "ci/packaged-workers.test.ts",
+      "name": "native process supervisor [actual Linux Node; no Docker] external cancellation settles actual inherited children before permitting failed-result cleanup",
+      "reason": "Requires actual Linux Node; this focused run executed native Darwin ARM64."
+    },
+    {
+      "file": "ci/packaged-workers.test.ts",
+      "name": "native process supervisor [actual Linux Node; no Docker] a TERM-resistant owned group cannot manufacture a settled receipt or enable cleanup",
+      "reason": "Requires actual Linux Node; this focused run executed native Darwin ARM64."
+    }
+  ],
+  "rawReportSha256": "bc6d4f9ddbec3d5e4b90bbdd0b20c34ff0f27fcdb7187d50254a358d8b42c144",
+  "compiler": {
+    "exit": 0,
+    "heapMiB": 5120,
+    "earlierAttempts": [
+      {
+        "heapMiB": 2048,
+        "exit": 134,
+        "reason": "heap exhaustion"
+      },
+      {
+        "heapMiB": 4096,
+        "exit": 134,
+        "reason": "heap exhaustion"
+      },
+      {
+        "heapMiB": 5120,
+        "exit": 2,
+        "reason": "three missing NODE_ENV fixture type errors"
+      },
+      {
+        "heapMiB": 5120,
+        "exit": 2,
+        "reason": "three widened NODE_ENV fixture type errors"
+      }
+    ]
+  },
+  "affectedEslintExit": 0,
+  "actionlint": {
+    "version": "1.7.12",
+    "exit": 0
+  },
+  "dependencyMode": "Explicit symlink to current c7 clean npm installation for targeted checks only.",
+  "completeGate": false,
+  "freshPushedCi": "not run",
+  "requirementsClosed": []
+}

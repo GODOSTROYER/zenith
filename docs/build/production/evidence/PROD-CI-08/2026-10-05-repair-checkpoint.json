@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "testedCandidate": "387b0efe06c53e893831fb3268092128e0969a27",
+  "publishedBaseline": "3ed037b95b7ac15e0647f24363f1727078b3ee87",
+  "candidateCommits": [
+    "387b0efe06c53e893831fb3268092128e0969a27 PROD-LIFE-11 Require human approval for referenced ownership metadata claims",
+    "f8b9e6ad0f92ee5421d96dcbed35dad63bf7bc86 PROD-OBS-04 Verify canonical maintenance composition through durable adapter",
+    "549b71db5649f73ccf48d41d4db3920ab50254f5 PROD-LIFE-08 Preserve GitHub revocation epochs and pinned source rejection",
+    "e51e8cdd5fb165925d4c624cb50047fa3b8ee1fb PROD-CI-05 Bind runner fixture approvals to sanitized custody projection",
+    "97c4ac864b14b54a376513ad53649eff817be470 PROD-CI-05 Exercise envelope byte limits without secret-shaped bulk fixtures",
+    "8fa40a64f433a3fa5026e8afdb54a885a3a928b6 PROD-CI-05 Require sanitized runner error projection",
+    "bb2a9eacaaa5a32ccc542fbe3fbdcd15f012be66 PROD-CI-08 Model critical worker composition in codec controls",
+    "3f26a0bd91a1b836f751696287088a609dc9d18a PROD-LIFE-09 Keep metadata adoption human approved within ownership policy",
+    "8c7e431c83ca7b9d768d6c375883426ae64d5085 PROD-CI-05 Align portability contracts and client import controls",
+    "470507e183d6551a47e1f8b24cb9784e6e84e59f PROD-MACH-05 Bound sanitizer scans and redact plugin credentials",
+    "4db249d37d78fe6a06165445eccbc0e36d0dcf25 PROD-CI-05 Verify scoped AWS runner fixtures through connection lifecycle",
+    "e285f66885858c0352165f19625e8af93a6e25ea PROD-CI-08: verify current Linux cohorts without changing historical obligations",
+    "ca2dce4bb7179b8728e589f705fbf375386f2f85 PROD-CI-05: enforce unattended denial for ownership capabilities",
+    "eddff244f00f6dd019d8a009d80fb3d3872898a3 PROD-CI-05: flush terminal journey updates before checking polling",
+    "71c0f6924443ecefa97bc18d2c8044a2a687ec5c PROD-CI-08: test upgrades against their historical schema",
+    "a7db58ef28de24409fd1a469425125f09e5ded6a PROD-CI-05: bind agent test cleanup to its own run",
+    "dbf8db3fa7ef32fe05fcd89921dd9b8b335984d3 PROD-CI-08: assert complete provider build attestations",
+    "a92a24557a09aabdd55f55295d4c2de4035b3e13 PROD-CI-05: correct current operator wiring checks and source encoding",
+    "766a0d091aefbb7306c9aa6a4f8d15003bd84f29 PROD-CI-08: preserve strict CI requirements across new cohorts",
+    "0c72227ff4e4c794af81b8aec72db58a9825f622 PROD-CI-09: restore packaged worker context safely",
+    "ec2047bb926b6680bf314c0d1d8cd84e3a34f255 PROD-CI-05: fix guest operation contracts and result fixtures",
+    "cf2de24f52f5bf3f3fae174340e2c74a10be78e5 PROD-CI-05: fix optimizer boundaries and reconcile fixtures",
+    "46c62ca774681e00f4e5497097d6a9ef4e6bf725 PROD-CI-08: fix saved plan custody and startup wiring",
+    "45142f580a773f765378e0e63c20fafb9fcb6330 PROD-CI-08: fix database ownership and migration contracts"
+  ],
+  "reports": [
+    {
+      "report": "p4-adoption-root-r1.json",
+      "passed": 47,
+      "failed": 0,
+      "skipped": 0,
+      "total": 47,
+      "commit": "387b0efe06c53e893831fb3268092128e0969a27"
+    },
+    {
+      "report": "failed20-clean-candidate-root-r1.json",
+      "passed": 605,
+      "failed": 1,
+      "skipped": 2,
+      "total": 608,
+      "commit": "f8b9e6ad0f92ee5421d96dcbed35dad63bf7bc86"
+    }
+  ],
+  "compiler": {
+    "exit": 0,
+    "heapGiB": 4,
+    "commit": "387b0efe06c53e893831fb3268092128e0969a27"
+  },
+  "fullLint": {
+    "exit": 0,
+    "commit": "387b0efe06c53e893831fb3268092128e0969a27"
+  },
+  "releaseVerdict": "Incomplete; no new verified requirement; full unit, real dependency lanes and fresh remote CI pending",
+  "architecture": "macOS ARM64 native for compiler/lint; no Linux or nativeAMD64 inference",
+  "rawLogs": "not retained in repository",
+  "native100": {
+    "commit": "387b0efe06c53e893831fb3268092128e0969a27",
+    "passed": 100,
+    "failed": 0,
+    "skipped": 0,
+    "required": 100,
+    "matched": 100
+  },
+  "portabilityNetwork": {
+    "commit": "387b0efe06c53e893831fb3268092128e0969a27",
+    "passed": 12,
+    "failed": 1,
+    "skipped": 0,
+    "cause": "Non-TLS disposable server URI omitted explicit sslmode=disable. Production TLS guard unchanged. Reviewed helper correction and rerun pending."
+  },
+  "environment": {
+    "Node": "22.23.3",
+    "npm": "10.9.9",
+    "Go": "1.27.1 GOTOOLCHAIN=local",
+    "OpenTofu": "1.12.5",
+    "OPA": "1.19.1",
+    "PostgreSQL": "16.15 disposable local server",
+    "Temporal CLI": "1.9.1",
+    "kind": "0.33.0",
+    "kubectl": "1.37.0",
+    "architecture": "macOS ARM64 native; disposable PostgreSQL Linux ARM64 native; no native AMD64 inference"
+  },
+  "remainingGates": [
+    "Complete clean unit successor",
+    "Remaining PostgreSQL/Temporal matrix, strict validation and owned cleanup",
+    "Fresh kind55",
+    "Native Linux guest152 and supervisor6",
+    "Packaged worker22 each native architecture",
+    "Exact pushed main/native CI every job",
+    "Authorized browser/default application acceptance"
+  ],
+  "fixCommitRequirementCorrection": "3f26a0bd message names LIFE-09; metadata adoption belongs LIFE-11. History retained; evidence mapped to LIFE-11."
+}

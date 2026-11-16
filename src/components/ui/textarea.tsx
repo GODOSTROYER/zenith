@@ -28,7 +28,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         "ui-textarea w-full resize-y rounded-card border bg-bg1 p-3 text-[13px] leading-[1.6] text-ink focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2",
         "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
         "placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-55",
-        f.invalid ? "border-err" : "border-line hover:border-line-strong focus-visible:border-signal",
+        f.invalid ? "border-err" : "border-control-line hover:border-line-strong focus-visible:border-signal",
         mono && "font-mono",
         className
       )}

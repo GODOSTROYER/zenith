@@ -38,15 +38,22 @@ const audit = { fail: false, calls: 0 };
  * except the two "deferred commit" cases runs the real, unchanged path.
  */
 const commit = { deferred: false, fail: false, calls: 0 };
+const businessSave = { fail: false, calls: 0 };
+const SAVE_CANARY = "private-save-exception-canary";
 
 vi.mock("@/lib/db/store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db/store")>();
   return {
     ...actual,
     isPostgres: () => commit.deferred,
+    save: (projectId?: string) => {
+      businessSave.calls++;
+      if (businessSave.fail) throw new Error(SAVE_CANARY);
+      actual.save(projectId);
+    },
     flushPendingAsync: async () => {
       commit.calls++;
-      if (commit.fail) throw new Error("postgrest unreachable");
+      if (commit.fail) throw new Error(SAVE_CANARY);
       return actual.flushPendingAsync();
     },
     appendAuditAsync: async (
@@ -61,7 +68,7 @@ vi.mock("@/lib/db/store", async (importOriginal) => {
 });
 
 type ActionContext = import("@/lib/actions/core").ActionContext;
-const { defineAction, runAction } = await import("@/lib/actions/core");
+const { defineAction, runAction, withActionOutcomes, actionPersistenceUnconfirmed } = await import("@/lib/actions/core");
 const { db, flush, resetDb, save } = await import("@/lib/db/store");
 
 const WS = "ws-idempotency";
@@ -120,6 +127,8 @@ beforeEach(() => {
   commit.deferred = false;
   commit.fail = false;
   commit.calls = 0;
+  businessSave.fail = false;
+  businessSave.calls = 0;
   (globalThis as { __zenithIdem?: Map<string, unknown> }).__zenithIdem = new Map();
 });
 
@@ -214,23 +223,32 @@ describe("a deferred commit with no request scope to settle it", () => {
     expect(executions).toBe(1);
   });
 
-  it("retains nothing when the commit fails, and the retry re-executes", async () => {
+  it("holds an unconfirmed mutation when the commit fails and refuses to execute the retry", async () => {
     commit.deferred = true;
     commit.fail = true;
 
     const failed = await exec({ tag: "one" }, "key-deferred-fail");
     expect(failed.result?.ok).toBe(false);
-    expect(failed.result?.error).toMatch(/^commit_failed:/);
+    expect(failed.result?.error).toMatch(/^persistence_unconfirmed:/);
+    expect(failed.result?.data).toEqual({ tag: "one" });
+    expect(JSON.stringify(failed)).not.toContain(SAVE_CANARY);
+    expect(audit.calls).toBe(1);
     expect(failed.idempotency).toMatchObject({ applied: true, replayed: false });
     expect(executions).toBe(1);
 
-    // Nothing was retained, so the identical request runs again instead of
-    // being answered with the success that never reached the store.
+    const stillFailing = await exec({ tag: "one" }, "key-deferred-fail");
+    expect(stillFailing.result?.error).toMatch(/^persistence_unconfirmed:/);
+    expect(executions).toBe(1); expect(commit.calls).toBe(1);
+
+    // A product write failure cannot prove that an already returned native
+    // effect rolled back. Restoring the store does not authorize execution.
     commit.fail = false;
     const retry = await exec({ tag: "one" }, "key-deferred-fail");
-    expect(retry.result?.ok).toBe(true);
+    expect(retry.result?.ok).toBe(false);
+    expect(retry.result?.error).toMatch(/^persistence_unconfirmed:/);
     expect(retry.idempotency).toMatchObject({ replayed: false });
-    expect(executions).toBe(2);
+    expect(executions).toBe(1);
+    expect(commit.calls).toBe(1);
   });
 });
 
@@ -286,5 +304,114 @@ describe("an audit write that fails", () => {
     expect(run.result?.error).toBe("provider refused");
     save();
     flush();
+  });
+});
+
+
+describe("returned mutations whose persistence is unconfirmed", () => {
+  it("keeps only the produced outcome and attempts audit through a persistent final save failure", async () => {
+    businessSave.fail = true;
+    const first = await exec({ tag: "one" }, "save-uncertain");
+    expect(first.result).toMatchObject({ ok: false, data: { tag: "one" }, error: expect.stringMatching(/^persistence_unconfirmed:/) });
+    expect(JSON.stringify(first)).not.toContain(SAVE_CANARY);
+    expect(first.idempotency).toMatchObject({ replayed: false });
+    expect(businessSave.calls).toBe(1); expect(audit.calls).toBe(1); expect(executions).toBe(1);
+    const blocked = await exec({ tag: "one" }, "save-uncertain");
+    expect(blocked.result).toBe(first.result); expect(blocked.idempotency?.replayed).toBe(false);
+    expect(businessSave.calls).toBe(1); expect(audit.calls).toBe(1); expect(executions).toBe(1);
+    businessSave.fail = false;
+    expect((await exec({ tag: "one" }, "save-uncertain")).result).toBe(first.result);
+    expect(executions).toBe(1);
+  });
+
+  it("keeps uncertainty scoped by actor and key and refuses changed input or environment under the same key", async () => {
+    businessSave.fail = true;
+    await exec({ tag: "one" }, "uncertain-scope");
+    expect((await exec({ tag: "two" }, "uncertain-scope")).result?.error).toMatch(/^idempotency_conflict:/);
+    expect((await exec({ tag: "one" }, "uncertain-scope", { environmentId: "other-environment" })).result?.error).toMatch(/^idempotency_conflict:/);
+    businessSave.fail = false;
+    expect((await exec({ tag: "one" }, "uncertain-scope", { actor: { type: "user", id: "u-bob", name: "Bob" } })).result?.ok).toBe(true);
+    expect((await exec({ tag: "one" }, "different-key")).result?.ok).toBe(true);
+    expect(executions).toBe(3);
+  });
+
+  it("never promotes a final save failure when a surrounding request scope commits", async () => {
+    commit.deferred = true; businessSave.fail = true;
+    const first = await withActionOutcomes(async scope => {
+      const result = await exec({ tag: "one" }, "uncertain-final-save"); scope.commit(); return result;
+    });
+    businessSave.fail = false;
+    const retry = await exec({ tag: "one" }, "uncertain-final-save");
+    expect(retry.result).toBe(first.result); expect(retry.result?.ok).toBe(false);
+    expect(retry.idempotency?.replayed).toBe(false); expect(executions).toBe(1); expect(commit.calls).toBe(0);
+  });
+
+  it("abandoned request settlement refuses re-execution and exposes no successful replay", async () => {
+    commit.deferred = true;
+    await withActionOutcomes(async scope => {
+      const first = await exec({ tag: "one" }, "abandoned"); expect(first.result?.ok).toBe(true);
+      const waiting = await exec({ tag: "one" }, "abandoned"); expect(waiting.result?.error).toMatch(/^idempotency_in_flight:/);
+      scope.abandon(); scope.commit();
+    });
+    const retry = await exec({ tag: "one" }, "abandoned");
+    expect(retry.result).toMatchObject({ ok: false, data: { tag: "one" }, error: expect.stringMatching(/^persistence_unconfirmed:/) });
+    expect(retry.idempotency?.replayed).toBe(false); expect(executions).toBe(1); expect(commit.calls).toBe(0);
+  });
+
+  it("copied outcomes and caller-like error strings cannot originate the private uncertainty state", async () => {
+    for (const kind of ["genuine", "copied", "unbranded"] as const) {
+      let calls = 0;
+      const actionId = `test.uncertain-origin-${kind}`;
+      defineAction({ id: actionId, title: "Modeled outcome", category: "system", risk: "low", requiredRole: "admin", mutates: true,
+        input: z.object({}), plan: () => ({ summary: "origin", details: [], costDeltaUsd: 0, risk: "low", warnings: [], requiresApproval: false }),
+        execute: () => {
+          calls++;
+          const genuine = actionPersistenceUnconfirmed({ ok: true, summary: SAVE_CANARY, error: SAVE_CANARY, data: { owningId: "modeled-owning-id" } });
+          return kind === "genuine" ? genuine : kind === "copied" ? { ...genuine }
+            : { ok: false, summary: "Modeled refusal.", error: "persistence_unconfirmed", data: { owningId: "modeled-owning-id" } };
+        } });
+      const first = await runAction(actionId, ctx, {}, { mode: "execute", idempotencyKey: "origin-key" });
+      const retry = await runAction(actionId, ctx, {}, { mode: "execute", idempotencyKey: "origin-key" });
+      expect(first.result?.ok).toBe(false); expect(first.result?.data).toEqual({ owningId: "modeled-owning-id" });
+      expect(JSON.stringify(first)).not.toContain(SAVE_CANARY); expect(calls).toBe(1);
+      expect(retry.result).toBe(first.result); expect(retry.idempotency?.replayed).toBe(kind !== "genuine");
+    }
+  });
+
+  it("confirmed request settlement preserves the clean retained success path", async () => {
+    commit.deferred = true;
+    const first = await withActionOutcomes(async scope => {
+      const result = await exec({ tag: "one" }, "settled"); scope.commit(); return result;
+    });
+    const retry = await exec({ tag: "one" }, "settled");
+    expect(retry.result).toBe(first.result); expect(retry.result?.ok).toBe(true);
+    expect(retry.idempotency?.replayed).toBe(true); expect(executions).toBe(1);
+  });
+
+  it("pins unconfirmed outcomes beyond the ordinary replay TTL and refuses bounded capacity before another effect", async () => {
+    businessSave.fail = true;
+    for (let index = 0; index < 499; index++) {
+      expect((await exec({ tag: "one" }, `uncertain-${index}`)).result?.error).toMatch(/^persistence_unconfirmed:/);
+    }
+    expect(executions).toBe(499);
+    let outerExecutions = 0;
+    defineAction({ id: "test.reentrant", title: "Nested mutation", category: "system", risk: "low", requiredRole: "admin", mutates: true,
+      input: z.object({}), plan: () => ({ summary: "nested", details: [], costDeltaUsd: 0, risk: "low", warnings: [], requiresApproval: false }),
+      execute: async () => {
+        outerExecutions++;
+        const nested = await exec({ tag: "nested" }, "nested-at-capacity");
+        expect(nested.result?.error).toMatch(/^idempotency_capacity:/);
+        return { ok: false, summary: "Nested admission refused." };
+      } });
+    const outer = await runAction("test.reentrant", ctx, {}, { mode: "execute", idempotencyKey: "outer-slot" });
+    expect(outer.result?.error).toMatch(/^persistence_unconfirmed:/);
+    expect(outerExecutions).toBe(1); expect(executions).toBe(499);
+    businessSave.fail = false;
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 600_001);
+    try {
+      expect((await exec({ tag: "one" }, "uncertain-0")).result?.error).toMatch(/^persistence_unconfirmed:/);
+      expect((await exec({ tag: "one" }, "new-after-capacity")).result?.error).toMatch(/^idempotency_capacity:/);
+      expect(executions).toBe(499);
+    } finally { clock.mockRestore(); }
   });
 });

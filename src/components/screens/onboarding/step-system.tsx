@@ -419,7 +419,7 @@ export function StepSystem({
               options={FORMATS.map((f) => ({ value: f.value, label: f.label, title: f.title }))}
             />
             <div className="flex items-center gap-2">
-              <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:text-ink focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal">
+              <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-ctl border border-control-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:text-ink focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal">
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 Choose a file
                 <input

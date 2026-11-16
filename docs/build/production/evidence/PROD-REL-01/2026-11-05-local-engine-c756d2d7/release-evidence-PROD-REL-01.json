@@ -1,0 +1,20 @@
+{
+  "format": "zenith.release-evidence.v1",
+  "requirementId": "PROD-REL-01",
+  "level": "local_engine",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, committed Supabase migrations applied first by scripts/ci/apply-supabase-migrations.sh, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL ZENITH_TEST_TEMPORAL ZENITH_TEST_TEMPORAL_CLI ZENITH_TEST_TEMPORAL_DOWNLOAD ZENITH_REPLAY_LANE ZENITH_TEST_NETWORK; Temporal CLI 1.9.1 official darwin_arm64 build, release checksum verified; Temporal SDK time-skipping test server downloaded by the SDK (ZENITH_TEST_TEMPORAL_DOWNLOAD); the release orchestrator local_engine lane files of scripts/release/scenarios.ts except tests/runners/late-effect-receipts.test.ts (per-lane structural skips) and tests/portability/postgres-engine.test.ts (its opt-in ZENITH_TEST_POSTGRES_URL lane is not run by CI and failed here)",
+  "command": "vitest run --no-file-parallelism --maxWorkers=1 over the 60 test files listed in files",
+  "mode": "local",
+  "status": "passed",
+  "passed": 1033,
+  "failed": 0,
+  "skipped": 0,
+  "exitCode": 0,
+  "sources": [
+    {
+      "path": "docs/build/production/evidence/PROD-REL-01/2026-11-05-local-engine-c756d2d7/lane-source-PROD-REL-01.json",
+      "sha256": "97655630ba5f37ca72e459de76cfdc31f836c668919341332f391d7048c1cbd6"
+    }
+  ]
+}

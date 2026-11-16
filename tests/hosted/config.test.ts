@@ -11,16 +11,48 @@
  * `SUPABASE_DB_URL` carries a password, so the last test asserts the thing
  * that matters about it: a rejected value never appears in the error text.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { isolatedDataDir } from "./_fixtures";
 
 isolatedDataDir("zenith-hosted-config-");
 
 const { hostedConfig, hostedStoreKind } = await import("@/lib/hosted/config");
-const { assertHostedPreconditions } = await import("@/lib/hosted/index");
+const { assertHostedPreconditions, nodeMeetsFloor } = await import("@/lib/hosted/index");
 const { env } = await import("@/lib/env");
+const supabase = await import("@/lib/supabase/env");
 
 const KEYS = ["ZENITH_HOSTED_STORE", "ZENITH_ARTIFACT_BUCKET", "SUPABASE_DB_URL"] as const;
+
+describe("hosted Node admission", () => {
+  it.each([
+    ["20.19.0", false], ["22.16.0", false], ["22.22.1", false],
+    ["22.22.2", true], ["22.23.3", true], ["23.0.0", false],
+    ["24.19.0", false], ["22.22.2suffix", false],
+  ])("checks the supported stable range for %s", (version, supported) => {
+    expect(nodeMeetsFloor(version)).toBe(supported);
+  });
+
+  it("fails hosted boot on an unsupported Node while preserving local demo admission", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(process.versions, "node")!;
+    const identity = vi.spyOn(supabase, "isSupabaseConfigured").mockReturnValue(true);
+    try {
+      vi.stubEnv("ZENITH_HOSTED_MODE", "1");
+      for (const version of ["22.22.1", "23.0.0"]) {
+        Object.defineProperty(process.versions, "node", { ...descriptor, value: version });
+        expect(() => assertHostedPreconditions()).toThrow(/requires Node >=22\.22\.2 <23/);
+      }
+      Object.defineProperty(process.versions, "node", { ...descriptor, value: "22.22.2" });
+      expect(() => assertHostedPreconditions()).not.toThrow();
+      Object.defineProperty(process.versions, "node", { ...descriptor, value: "22.16.0" });
+      vi.stubEnv("ZENITH_HOSTED_MODE", "0");
+      expect(() => assertHostedPreconditions()).not.toThrow();
+    } finally {
+      Object.defineProperty(process.versions, "node", descriptor);
+      identity.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+});
 
 afterEach(async () => {
   for (const key of KEYS) delete process.env[key];

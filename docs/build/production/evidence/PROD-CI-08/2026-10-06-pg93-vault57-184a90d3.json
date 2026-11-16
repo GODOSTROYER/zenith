@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "184a90d3f1621f098623eb95525619cb9c2f0f85",
+  "status": "passed_executed_gates_only",
+  "scope": "Actual disposable PostgreSQL16.15 canonical PG93 and whole vault rewrap suite; no other lane or cloud/default API claim.",
+  "postgres": {
+    "passed": 379,
+    "failed": 0,
+    "skipped": 0,
+    "requiredIdentities": 93,
+    "requiredIdentitySha256": "5e126769198bb1175154ff743a75bb07d14c0b4121f146d196c866dad7cf5ad2",
+    "newJournalIdentities": 13,
+    "exit": 0,
+    "strictValidationExit": 0,
+    "reportSha256": "2f83f1ec38cc03bf71b13b6c640980a6fffa4570c6a36579395c499e8c3dc65c",
+    "evidenceSha256": "db1b9984bd608b49ef0b15fa2354fdfd0fbd82e24a447db1c9d73de69400a141",
+    "receiptSourceBindingComplete": true
+  },
+  "vaultRewrap": {
+    "passed": 57,
+    "failed": 0,
+    "skipped": 0,
+    "nativeCases": 1,
+    "nativeStatuses": [
+      "passed"
+    ],
+    "exit": 0,
+    "reportSha256": "8ed7cef7ca160e272c38200bef474ffbb746d8d88d053779392968d52a50c268"
+  },
+  "cleanup": {
+    "ownedContainerAbsent": true,
+    "ownedVolumesAbsent": true,
+    "baselineImagesPreserved": true,
+    "newImageAbsent": true
+  },
+  "originalReceiptSha256": "145291c036f618f02a73c05e030bd7608d9b38b3161b381878219459716d7e44",
+  "noUnsettledChildOrDockerDelivery": true,
+  "noSummedCounts": true,
+  "noOtherLaneDefaultApiCloudOrReleaseClaim": true
+}

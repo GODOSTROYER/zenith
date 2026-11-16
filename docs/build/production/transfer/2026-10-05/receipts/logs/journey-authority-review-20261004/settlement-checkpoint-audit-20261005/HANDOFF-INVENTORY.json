@@ -1,0 +1,846 @@
+{
+  "status": "SOURCE_CHECKPOINT_INVENTORY_ONLY",
+  "baseTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "hypotheticalCombinedSourceTree": "08c15b2e87b08a3df9f5041c4448bf5fc6aa97bb",
+  "count": 166,
+  "baseHandoffCount": 165,
+  "allBaseHandoffsRetained": true,
+  "changedByB3": [
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+  ],
+  "addedByPartialA11": [
+    "docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md"
+  ],
+  "paths": {
+    "docs/build/handoffs/AGENT-SCHEMA-INITIALIZER-FIXTURES-20261004.md": {
+      "bytes": 2556,
+      "mode": 420,
+      "sha256": "a5bd179e3e694d34a9188dee10369c06e07c5f8444d246c4901f5680804765d9"
+    },
+    "docs/build/handoffs/APPLY-CURRENT-AUTHORITY-FIXTURE-20261004.md": {
+      "bytes": 6109,
+      "mode": 420,
+      "sha256": "5812c2fd4f8778ccf512878310177cc5519f7359dfcb3a71dc31068e35b75557"
+    },
+    "docs/build/handoffs/APPLY-CURRENT-AUTHORITY-GATE-20261004.md": {
+      "bytes": 4639,
+      "mode": 420,
+      "sha256": "bd229bc777ced1459aa5f799e0cd83f33b819c180006ae82a78f25d4c7906ce7"
+    },
+    "docs/build/handoffs/APPROVED-SOURCE-20261003.md": {
+      "bytes": 10474,
+      "mode": 420,
+      "sha256": "a82c3e4e8921487999cff9e4446f23ba569ca30d6f5d337d5378768f61ea572e"
+    },
+    "docs/build/handoffs/APPROVED-SOURCE-GATES-20261004.md": {
+      "bytes": 4526,
+      "mode": 420,
+      "sha256": "fe3850ca31f05fbc145f81a19bc3347005a3b32b262c7ebe0830da1569484bcb"
+    },
+    "docs/build/handoffs/AWS-BOUNDARY-PREFLIGHT-20261004.md": {
+      "bytes": 11009,
+      "mode": 420,
+      "sha256": "a0bfcf3c309ed4874ea3658240f8721568f0e3806bd50b520fb0c8db10266983"
+    },
+    "docs/build/handoffs/AWS-PREFLIGHT-SESSION-20261004.md": {
+      "bytes": 8896,
+      "mode": 420,
+      "sha256": "6f11853bdb03ef3ddf1def8561fba13ee3ddadef915729808e584abc67e21cb5"
+    },
+    "docs/build/handoffs/CLEANUP-DISPATCH-CORRECTIONS-20261005.md": {
+      "bytes": 3964,
+      "mode": 420,
+      "sha256": "8011e89e2b44d1e281a91b989b7eee311fb7ca5fe52fe75bd0adcbe8dd5ee263"
+    },
+    "docs/build/handoffs/CLEANUP-PAIRED-NATIVE-FIXTURES-20261005.md": {
+      "bytes": 3449,
+      "mode": 420,
+      "sha256": "5f2a5eab404edfa5b43d99f9f72fc8eb1d227a23574eff21838d641d4e7b5bda"
+    },
+    "docs/build/handoffs/CLEANUP-SCHEMA-FIXTURES-20261005.md": {
+      "bytes": 4350,
+      "mode": 420,
+      "sha256": "447ed94caf90a53cc25e3b5936f3b8002222fd03bd7ef53769582c421b2b6910"
+    },
+    "docs/build/handoffs/COHERENT-UNIT-FIXTURES-20261004.md": {
+      "bytes": 1217,
+      "mode": 420,
+      "sha256": "e1bacdaf34d4c0c8d61cf4aae42de17815407d86d901bd7ee0456ba83b8d7c25"
+    },
+    "docs/build/handoffs/COMBINED-REGRESSIONS-20261004.md": {
+      "bytes": 3906,
+      "mode": 420,
+      "sha256": "6935f9c08f7def93cef350e755239ef678eef62e1e4c70807ea7f9c2aa0d20a3"
+    },
+    "docs/build/handoffs/COST-CATALOG-20261005.md": {
+      "bytes": 4095,
+      "mode": 420,
+      "sha256": "87dd469f9071355d2ea72e31fa20316d8166601bc5de4bd1c9350b19d57648b7"
+    },
+    "docs/build/handoffs/COST-COMPLETENESS-20261005.md": {
+      "bytes": 4579,
+      "mode": 420,
+      "sha256": "61804a23aa119489fc485a9159265b40be7f5dfec41e7de483117081d0485a5d"
+    },
+    "docs/build/handoffs/CURRENT-GRANT-FIXTURES-20261004.md": {
+      "bytes": 4816,
+      "mode": 420,
+      "sha256": "9aeb2e76b534c13431f9b46f183affaff34f37956672e2d3fe59c786406312e6"
+    },
+    "docs/build/handoffs/DEFAULT-SOURCE-RUNTIME-20261004.md": {
+      "bytes": 6798,
+      "mode": 420,
+      "sha256": "38ae5c9d7b08594eb0f4cd98d6bdb840783dd491a3d6a4e57a9bf26879658ee3"
+    },
+    "docs/build/handoffs/DEFAULT-SOURCE-RUNTIME-GATE-20261004.md": {
+      "bytes": 4376,
+      "mode": 420,
+      "sha256": "1e3578c8e23699ffcb455ea561bbbae5c7d93aa69d5716bb03fd57970e9bf879"
+    },
+    "docs/build/handoffs/EXECUTION-LEASE-TENANT-SCOPE-20261004.md": {
+      "bytes": 2997,
+      "mode": 420,
+      "sha256": "388c773750d629f7f4c33c79b0d5b3d1d165f20cbad398b1191e0d921ec35de8"
+    },
+    "docs/build/handoffs/FIRST-SOURCE-LEASE-BINDING-20261004.md": {
+      "bytes": 5688,
+      "mode": 420,
+      "sha256": "c3055722624c5f04b93d5529754d139f7e806f5004b6e7c11046439218f35a13"
+    },
+    "docs/build/handoffs/FULL-GATE-FIXTURES-20261004.md": {
+      "bytes": 3155,
+      "mode": 420,
+      "sha256": "bcf7bd5ff97b85836d155b7ba6adf574041ce2d0c408e0073ca245786c872c42"
+    },
+    "docs/build/handoffs/G2-NATIVE-GATES-20261004.md": {
+      "bytes": 11335,
+      "mode": 420,
+      "sha256": "0cf9d13d6a3943d1a7fd2d2a596078b8249d2c23606212e090ff6f5d07345d40"
+    },
+    "docs/build/handoffs/GUEST-FILE-UPLOAD-20261005.md": {
+      "bytes": 7842,
+      "mode": 420,
+      "sha256": "efaeea68f0c4ef8d03a530594e296fb4ad16423f0da6f40aa8219ebeebe6cd4e"
+    },
+    "docs/build/handoffs/GUEST-PACKAGE-INSTALL-20261005.md": {
+      "bytes": 22255,
+      "mode": 420,
+      "sha256": "39efeac17bc4270fdfec2eb4cdd42226727f4639e503296ef8eab9fd8746d464"
+    },
+    "docs/build/handoffs/GUEST-PACKAGE-NATIVE-GATES-20261005.md": {
+      "bytes": 10222,
+      "mode": 420,
+      "sha256": "168e6be8a04eb42f207b42abca004073fa2cec9f26b5e0fd009b21e3ef2a9a33"
+    },
+    "docs/build/handoffs/GUEST-UPLOAD-NATIVE-GATES-20261005.md": {
+      "bytes": 5583,
+      "mode": 420,
+      "sha256": "99955e6f28765262273ff1b153a54cf3da3ec67558555422960ee7c37e0819cf"
+    },
+    "docs/build/handoffs/INTENT-ENGINE-FIXTURES-20261003.md": {
+      "bytes": 4531,
+      "mode": 420,
+      "sha256": "a1c21b4b03b58bb896cc6cd0e8948e6508cbdd00988e459aee2c220e2a1e65ed"
+    },
+    "docs/build/handoffs/KUBERNETES-CONNECTION-LINK-20261004.md": {
+      "bytes": 13240,
+      "mode": 420,
+      "sha256": "8b460b70f677895206c82b1b78879cce492ac89e1225a3ae12713422609a0ac5"
+    },
+    "docs/build/handoffs/KUBERNETES-GUEST-SESSION-20261003.md": {
+      "bytes": 5348,
+      "mode": 420,
+      "sha256": "05b60ea99c8fcb8148d64d0cc2592e1175030e406ca348aae4526b71161aee1c"
+    },
+    "docs/build/handoffs/KUBERNETES-ONBOARDING-GATES-20261004.md": {
+      "bytes": 5122,
+      "mode": 420,
+      "sha256": "ab2e77d66f20925b765601632d36db984d847e637d8c2c294260bd1f536cb3a7"
+    },
+    "docs/build/handoffs/KUBERNETES-VAULT-TARGET-BINDING-20261004.md": {
+      "bytes": 3626,
+      "mode": 420,
+      "sha256": "1eba5c49de75d5cfd9ed0d5e02b320561704de69b199bbaa403d374c3cd67c0e"
+    },
+    "docs/build/handoffs/KUBERNETES-VERIFICATION-PRECISION-20261004.md": {
+      "bytes": 4673,
+      "mode": 420,
+      "sha256": "2d42d3abe7322620fc81f251ed303eb27dcc3b4f8530902b3254e0b934521472"
+    },
+    "docs/build/handoffs/MCP-ADMISSION-FIXTURES-20261004.md": {
+      "bytes": 6827,
+      "mode": 420,
+      "sha256": "7c53a11edb397b7a93faa0e20874ae871f986aabfa24a111963c3e84178f3afe"
+    },
+    "docs/build/handoffs/MCP-DURABLE-ADMISSION-20261004.md": {
+      "bytes": 23290,
+      "mode": 420,
+      "sha256": "1de353f77449dbe66a2c4eee4696542fbfbd34c39d34cd4ba519ad7c0835beb9"
+    },
+    "docs/build/handoffs/MIGRATION-TENANCY-FIXTURES-20261004.md": {
+      "bytes": 4872,
+      "mode": 420,
+      "sha256": "84a20d86a2be96a5598b7b9d638b7d18db9e342c29c0866c33abe625c8504b75"
+    },
+    "docs/build/handoffs/MIXED-CHILD-CUSTODY-20261004.md": {
+      "bytes": 6224,
+      "mode": 420,
+      "sha256": "23f1b56ddb24c6de2b5c54c1e373a296f8103e7b17e3c6d3b3a65d9e0dbcb87a"
+    },
+    "docs/build/handoffs/MIXED-CHILD-FIXTURE-JSON-20261004.md": {
+      "bytes": 2703,
+      "mode": 420,
+      "sha256": "dd3e8548816a3f7ccf07143fb44bafbc0632a68284533d2cdc406a9729825e9d"
+    },
+    "docs/build/handoffs/NATIVE-CLEANUP-WRITER-GATES-20261005.md": {
+      "bytes": 4213,
+      "mode": 420,
+      "sha256": "32b2b6bc35486b6fa857b7207583e51b3f372cc200e35fcc1b3d18442ca6954f"
+    },
+    "docs/build/handoffs/NATIVE-CREDENTIAL-FACTORY-20261004.md": {
+      "bytes": 3792,
+      "mode": 420,
+      "sha256": "135670748f0a806d60475cec1dc7c66a3b6fb1e5e0d34d4dad632d33137a85c1"
+    },
+    "docs/build/handoffs/NATIVE-INTEGRATION-DISPATCH-20261004.md": {
+      "bytes": 13277,
+      "mode": 420,
+      "sha256": "55a458c8180c75d9382ba4ded71727802d46b8cbdcc307363374729ae34d675d"
+    },
+    "docs/build/handoffs/NATIVE-MAINTENANCE-CUSTODY-GATES-20261004.md": {
+      "bytes": 5071,
+      "mode": 420,
+      "sha256": "5a53dfaf988996d43c49677872059bce782068b52a387b7108754c400373bdad"
+    },
+    "docs/build/handoffs/NATIVE-OAUTH-DISPATCH-20261004.md": {
+      "bytes": 14593,
+      "mode": 420,
+      "sha256": "de76233e753bdcb647a73d6c9d554e5eba595464d3a63e0777e093ccd86a3d73"
+    },
+    "docs/build/handoffs/NATIVE-OAUTH-DISPATCH-GATES-20261004.md": {
+      "bytes": 3956,
+      "mode": 420,
+      "sha256": "c4898df380366c7fc1aee0f5efdd445d92a4ddf0c0808d4a052e05722762ae0f"
+    },
+    "docs/build/handoffs/NATIVE-OAUTH-DISPATCH-GATES-CI-JOB-CORRECTION-20261004.md": {
+      "bytes": 1943,
+      "mode": 420,
+      "sha256": "24a34aa377ee941f49e7d377280cef6f7bb6dd1c7342be91e23afcc29e1a5223"
+    },
+    "docs/build/handoffs/NATIVE-OAUTH-GRANT-GATES-20261004.md": {
+      "bytes": 5662,
+      "mode": 420,
+      "sha256": "c3e2d844220c367ee862cb1528b970ab9cf5b83dd1f8ed7f47e24ec15b10e91b"
+    },
+    "docs/build/handoffs/NATIVE-OAUTH-GRANTS-20261004.md": {
+      "bytes": 13725,
+      "mode": 420,
+      "sha256": "94569b26a7315ae781a406c0bf65132ba8e3e3d7f608371d2eafe25c822b2642"
+    },
+    "docs/build/handoffs/NON-AWS-DNS-TEARDOWN-20261004.md": {
+      "bytes": 4538,
+      "mode": 420,
+      "sha256": "4e235db990c6c567cd053d685c34566d84c2667072c54a6a487258cc5ce45ca7"
+    },
+    "docs/build/handoffs/OAUTH-LINK-SCHEMA-FIXTURE-20261004.md": {
+      "bytes": 1891,
+      "mode": 420,
+      "sha256": "8c01327761af8430f088e99c0d88ed806f4f8ef26adcaea132298b82818cb22e"
+    },
+    "docs/build/handoffs/OPERATION-PAGE-REVIEW-20261004.md": {
+      "bytes": 3463,
+      "mode": 420,
+      "sha256": "ca033636c88415ccfa96eaa2e9bc9ad2d3bcd7a6f616787593059b1371e7488c"
+    },
+    "docs/build/handoffs/PACKAGED-DRAIN-CORRECTION-20261004.md": {
+      "bytes": 8317,
+      "mode": 420,
+      "sha256": "71cc2cae58195b12bd67f70322e67fbc3cd158862680d06ad23123e59ff6e34e"
+    },
+    "docs/build/handoffs/PACKAGED-INFLIGHT-SHUTDOWN-20261004.md": {
+      "bytes": 6430,
+      "mode": 420,
+      "sha256": "46ad26ac6a08d2e950fb38e18c6988061bf3c13d15270cb055544ae6fee943c9"
+    },
+    "docs/build/handoffs/PACKAGED-OPERATION-20261003.md": {
+      "bytes": 22695,
+      "mode": 420,
+      "sha256": "96e974a32800eefb689e37fd482932912b3c856eca37825cb5962e87c01643b3"
+    },
+    "docs/build/handoffs/PACKAGED-SHUTDOWN-AUTHORITY-20261004.md": {
+      "bytes": 5267,
+      "mode": 420,
+      "sha256": "5b5c624a4bd817590177970ee4c811e72c3723c03c70f3ee8cf78acfbaa76492"
+    },
+    "docs/build/handoffs/PACKAGED-SHUTDOWN-CI-FIXTURE-20261004.md": {
+      "bytes": 2618,
+      "mode": 420,
+      "sha256": "daa39d9dedcb8e29733a47fb0ba60556b1df9b44efe0aaac987eb1b99e8bc06f"
+    },
+    "docs/build/handoffs/PACKAGED-SHUTDOWN-TEST-GUARD-20261004.md": {
+      "bytes": 1992,
+      "mode": 420,
+      "sha256": "4231d16a6593b45a25dad7cfab1e866d1027df3e5bfc2e9786345a5c04abd579"
+    },
+    "docs/build/handoffs/PACKAGED-WORKER-NATIVE-CI-20261004.md": {
+      "bytes": 15804,
+      "mode": 420,
+      "sha256": "263a8ed3e5fd7fa22e5a246724eec216d48b196787a5e2f45af70fb7748d8d20"
+    },
+    "docs/build/handoffs/PLAN-NATIVE-AUTHORITY-CORRECTIONS-20261004.md": {
+      "bytes": 5588,
+      "mode": 420,
+      "sha256": "e4ebf2f5105bf50aa420eea011adfd3b200445bb5b49a53e403b1b1ed9fe4ac7"
+    },
+    "docs/build/handoffs/PLAN-NATIVE-AUTHORITY-CORRECTIONS-R2-20261004.md": {
+      "bytes": 4099,
+      "mode": 420,
+      "sha256": "500d581dbbcabc19d596a07763e9403e28e09e98296d1aff8e1c2cdd3a85bf66"
+    },
+    "docs/build/handoffs/PLAN-PRODUCT-DISPATCH-AUTHORITY-20261004.md": {
+      "bytes": 11042,
+      "mode": 420,
+      "sha256": "c271ab74595a33f0834263b792f7eee64ee214b4ba108fd292379de4c4e875b1"
+    },
+    "docs/build/handoffs/PLAN-PRODUCT-NATIVE-GATES-20261004.md": {
+      "bytes": 5010,
+      "mode": 420,
+      "sha256": "3d7f21bdf3fc4a7d032baff22c8001fb5de524dfeef64e412140d4fbc4430c31"
+    },
+    "docs/build/handoffs/PLAN-RETENTION-DRY-RUN-20261004.md": {
+      "bytes": 7827,
+      "mode": 420,
+      "sha256": "7541a3576ed942469f97edb049325ccad8121502f28a9b71bb85e685cd69e688"
+    },
+    "docs/build/handoffs/PLAN-SOURCE-DISPATCH-AUTHORITY-20261004.md": {
+      "bytes": 9212,
+      "mode": 420,
+      "sha256": "879f183623c51cda1db27d56d59188e397afcf15544b86ecc9065ae249a16ab1"
+    },
+    "docs/build/handoffs/PLATFORM-AGENT-SCHEMA-INIT-20261004.md": {
+      "bytes": 6032,
+      "mode": 420,
+      "sha256": "c3a31a03c599ef1edf3bc32ad305d5c5616ce136e4af9c2163da11d3343eb216"
+    },
+    "docs/build/handoffs/PLATFORM-COVERAGE-GATE-DETECTION-20261004.md": {
+      "bytes": 2997,
+      "mode": 420,
+      "sha256": "70f7aa039dd7b13b4a4afe9cd6fc2e8e89603cc386c2dbb5c3ae25b2ffe76517"
+    },
+    "docs/build/handoffs/PLATFORM-ROLE-ORDER-20261004.md": {
+      "bytes": 4687,
+      "mode": 420,
+      "sha256": "906bb3a2752e861026ff84f7754adb39b7699f67b55c307d379249796e75b826"
+    },
+    "docs/build/handoffs/PRODUCT-PLAN-REVIEW-20261004.md": {
+      "bytes": 4343,
+      "mode": 420,
+      "sha256": "96f3080f83c12ce03a14c6e82eea2576712ffd7849802749e6e65a3f8f8e33c1"
+    },
+    "docs/build/handoffs/README.md": {
+      "bytes": 670,
+      "mode": 420,
+      "sha256": "d1d0e10dfde5d099f74462b65fad60c4f764f73d54876ae3c9e4e35880b444e5"
+    },
+    "docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md": {
+      "bytes": 5556,
+      "mode": 420,
+      "sha256": "cb50fe7fd24535e2cb1d9c175a32a9a18cca77f2f556276eaf58c6a55ae0e6db"
+    },
+    "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md": {
+      "sha256": "b2a2536ed715ea1c233fa274a10a5ef89fb8df58c3979843e3dfc1a5f5a78f37",
+      "bytes": 9014,
+      "mode": 420
+    },
+    "docs/build/handoffs/SOURCE-FIXTURE-COMPATIBILITY-20261004.md": {
+      "bytes": 5874,
+      "mode": 420,
+      "sha256": "97f61b23f4e04d6602b0b154f919104aaf53d8374ba2adfd2cf22aadfb166f67"
+    },
+    "docs/build/handoffs/SQL-PLAN-PREDICATE-AUDIT-20261004.md": {
+      "bytes": 7136,
+      "mode": 420,
+      "sha256": "8c9110c0f98cfad51e1b6c6b28b33dbdb84030f19576cde2f0635cac0b1cbcef"
+    },
+    "docs/build/handoffs/WORKER-BUILD-CACHE-20261004.md": {
+      "bytes": 3305,
+      "mode": 420,
+      "sha256": "70e325111f946be9c7c45e9492ab9b458dd612c9a0ac91d881de1987c5f26710"
+    },
+    "docs/build/handoffs/WORKER-CODEC-FIXTURE-20261004.md": {
+      "bytes": 4753,
+      "mode": 420,
+      "sha256": "e2c3077585d46bf000d6d9e9618857b70d15e2799a02d4a4efa1834eb119c6e9"
+    },
+    "docs/build/handoffs/WORKER-UNIT-AUTHORITY-FIXTURES-20261004.md": {
+      "bytes": 4698,
+      "mode": 420,
+      "sha256": "8ea7bd6a91fd5f2161ad7b03b2e39c4c9dc90534eb025248c2e225d099dd105b"
+    },
+    "docs/build/handoffs/WORKFLOW-NATIVE-PREREQUISITES-20261005.md": {
+      "bytes": 3341,
+      "mode": 420,
+      "sha256": "7729f50d7f067b41045a560fafe4ea35f2a31778a38a40ffb48ff502e17b818e"
+    },
+    "docs/build/handoffs/WS-APPROVAL-FLOW.md": {
+      "bytes": 7598,
+      "mode": 420,
+      "sha256": "67ac307b48f00b4641d0cf009faf9f967619885a14dc0420517d9b275abd6e07"
+    },
+    "docs/build/handoffs/WS-APPWIRE.md": {
+      "bytes": 4775,
+      "mode": 420,
+      "sha256": "d53c3172921d6455c93ff60e0297b9ac025988aae3351394354189b418c649f7"
+    },
+    "docs/build/handoffs/WS-AWS-BOUNDARY-MORE.md": {
+      "bytes": 4088,
+      "mode": 420,
+      "sha256": "00ed9009d2cc3ea1f227d390e2220bb174ad9f96510086e62e972d2b102c04a0"
+    },
+    "docs/build/handoffs/WS-AWS-BOUNDARY-SPLIT.md": {
+      "bytes": 3900,
+      "mode": 420,
+      "sha256": "8740f0ba1cd79fdb3fe3a4bca9e773f0e670c03bbb22076bd5aa62b0fa88ab22"
+    },
+    "docs/build/handoffs/WS-AWS-BUILD-BOUNDARY.md": {
+      "bytes": 4299,
+      "mode": 420,
+      "sha256": "071086f15899ea72b7bc44d101b2d79ffbc80d63be0feccebd7eba7447326167"
+    },
+    "docs/build/handoffs/WS-AWS-EKS-READS.md": {
+      "bytes": 3415,
+      "mode": 420,
+      "sha256": "582f4f90a8928230ad1a322c3cf88c14b35987ffdd9551d6ffd54f369e187eb5"
+    },
+    "docs/build/handoffs/WS-AWS-INTEGRATE.md": {
+      "bytes": 6067,
+      "mode": 420,
+      "sha256": "ea627c7c08c0f65d10e8662136354e082acfaae8d3fc871a8244cc28cd062c5c"
+    },
+    "docs/build/handoffs/WS-AWS-MORE.md": {
+      "bytes": 2273,
+      "mode": 420,
+      "sha256": "de6bf320c5df8161c3d510fef6a640b2870b348319deb7bf4043ac149bab950b"
+    },
+    "docs/build/handoffs/WS-AWS-SNS-READS.md": {
+      "bytes": 3321,
+      "mode": 420,
+      "sha256": "c58078310c7730bea9d52a9c3055301b85bb64a6038cfcec7278531ae0270158"
+    },
+    "docs/build/handoffs/WS-AZURE-MORE.md": {
+      "bytes": 2807,
+      "mode": 420,
+      "sha256": "b3bf6d42c658cedd85967c036ad7e1207def1e3ae04932a9f369247c65ff3410"
+    },
+    "docs/build/handoffs/WS-AZURE-SOURCE-WIRE.md": {
+      "bytes": 2745,
+      "mode": 420,
+      "sha256": "1af031b9885907ccf018e0b3a3ae46a16ad6d37ec294340f84528ee2c0351939"
+    },
+    "docs/build/handoffs/WS-BRIDGE.md": {
+      "bytes": 36474,
+      "mode": 420,
+      "sha256": "b222e8653423ed9fe56ad4f7392d6930a677e0184bd99feb64fa861ec951d052"
+    },
+    "docs/build/handoffs/WS-BUILD-AWS-SOURCE.md": {
+      "bytes": 1758,
+      "mode": 420,
+      "sha256": "1e2ee48d0ea166b19430d936ef265b0b5ef6cc2b432d49f2e2a660388839616b"
+    },
+    "docs/build/handoffs/WS-BUILD-AZURE.md": {
+      "bytes": 3380,
+      "mode": 420,
+      "sha256": "21ab3aaa02436e69dfead174c233e31d69118618b78acb0dd160f7dbce5b0866"
+    },
+    "docs/build/handoffs/WS-BUILD-GCP.md": {
+      "bytes": 3486,
+      "mode": 420,
+      "sha256": "5e2341c5a7c2359df7e5907a9e1a5395683dc7e815ea901d1e69faf9401e61d4"
+    },
+    "docs/build/handoffs/WS-BUILD-MULTI.md": {
+      "bytes": 2447,
+      "mode": 420,
+      "sha256": "107167269cec42d552903ce31cc5648ca194bd1d76a6f26ee239d8ccb95cf94e"
+    },
+    "docs/build/handoffs/WS-BUILD-SOURCE.md": {
+      "bytes": 3326,
+      "mode": 420,
+      "sha256": "029a127403478ddff10358794081e2c69a366ae5d248c41c95f83a3b2e91a90d"
+    },
+    "docs/build/handoffs/WS-BUILD-WIRE.md": {
+      "bytes": 2850,
+      "mode": 420,
+      "sha256": "8de4eedc79194377e4b95b628c8e1b4e969eb85376c16cd88c59c27c385c4189"
+    },
+    "docs/build/handoffs/WS-CI-2.md": {
+      "bytes": 2231,
+      "mode": 420,
+      "sha256": "0ad17afdeb6476e7ac947011bb49d33cd74f32c219950578740dd2b25f856430"
+    },
+    "docs/build/handoffs/WS-CLI.md": {
+      "bytes": 2721,
+      "mode": 420,
+      "sha256": "9c1393b9bd3616f71708772898b88a3a12726629548cc79adfb3861383f95594"
+    },
+    "docs/build/handoffs/WS-COMPOSE.md": {
+      "bytes": 7509,
+      "mode": 420,
+      "sha256": "75d52c4c9ebfb2470c75623357053c8d517f95a634608a5f518d383daefb6c8a"
+    },
+    "docs/build/handoffs/WS-DB-LEDGER.md": {
+      "bytes": 3134,
+      "mode": 420,
+      "sha256": "41bd12f38288f9bafa5d0a78fdb9b2bbe80ffad1cc8e861949d6f18ffef482ee"
+    },
+    "docs/build/handoffs/WS-DESTROY-GUARDS.md": {
+      "bytes": 3324,
+      "mode": 420,
+      "sha256": "eeb5e7a02ed2fecdc83fbbefb89627e9f8be2ec49635770ced73f1c254b9610b"
+    },
+    "docs/build/handoffs/WS-DESTROY-K8S.md": {
+      "bytes": 3310,
+      "mode": 420,
+      "sha256": "ff9d8a74c7b127da82e9706cfa4d337eb39d5ee7d1a1e17870fe9275220ac4c3"
+    },
+    "docs/build/handoffs/WS-DESTROY-PROPOSE.md": {
+      "bytes": 4196,
+      "mode": 420,
+      "sha256": "17bdbc121b03ca5986f718c48e73509d2a00f14275bfc17d4ba276fc5f5b2532"
+    },
+    "docs/build/handoffs/WS-DESTROY-REVIEW.md": {
+      "bytes": 3137,
+      "mode": 420,
+      "sha256": "bf6ed1c32e5e806d818ac6b46bb48b70ac3b052a52111f70466fed85133e6757"
+    },
+    "docs/build/handoffs/WS-DESTROY-UI.md": {
+      "bytes": 3201,
+      "mode": 420,
+      "sha256": "aeb0193134abaced060afb1336289e9c7405eb06b13014cd0883f0add0883f8e"
+    },
+    "docs/build/handoffs/WS-DESTROY-WIRE.md": {
+      "bytes": 3453,
+      "mode": 420,
+      "sha256": "7f4f19ba49952ec53af151dbb132df365d0690f875889e4ce4d417eaf84764b2"
+    },
+    "docs/build/handoffs/WS-DESTROY.md": {
+      "bytes": 4609,
+      "mode": 420,
+      "sha256": "31a80f52c79048c59adc53e01d302034a401be3f257dc8323b456b00d73e4a32"
+    },
+    "docs/build/handoffs/WS-DNS-GUARDS-CLOUDS.md": {
+      "bytes": 2618,
+      "mode": 420,
+      "sha256": "68ca49d1924c7f232fd2c9c01569e3142450ceae0d9848448a765f6d2991cd04"
+    },
+    "docs/build/handoffs/WS-DOCS-SYNC-2.md": {
+      "bytes": 4559,
+      "mode": 420,
+      "sha256": "cd1ecbda8db3569dbeaddaec743fac50fd6fc5aef666d78181533c8e1103c7d2"
+    },
+    "docs/build/handoffs/WS-DOCS-SYNC.md": {
+      "bytes": 3275,
+      "mode": 420,
+      "sha256": "be82aed99ccb174596bd0d40e0e32da83637830ce81031322286afd8d0c258d0"
+    },
+    "docs/build/handoffs/WS-DRIVER-FIX.md": {
+      "bytes": 3558,
+      "mode": 420,
+      "sha256": "60e937f25a69cb38ffb1945d549218e07328082dccd2696af0c1d6f81031b309"
+    },
+    "docs/build/handoffs/WS-EPHEMERAL.md": {
+      "bytes": 3614,
+      "mode": 420,
+      "sha256": "3662b94e7c0fc8147630e1caa7bf002961f6ad32bbaf1a517f63808190ce5610"
+    },
+    "docs/build/handoffs/WS-FIX-CI.md": {
+      "bytes": 2994,
+      "mode": 420,
+      "sha256": "e81009f6d60468028db12495b29628caecc57ad44270a97c1f9dd0af1da62511"
+    },
+    "docs/build/handoffs/WS-FIX-CREDS.md": {
+      "bytes": 3245,
+      "mode": 420,
+      "sha256": "f497fe9db47867b52282364b3b46b14c177abc06d89113d02fb95317a45f13e7"
+    },
+    "docs/build/handoffs/WS-FIX-EPHEMERAL-REAL.md": {
+      "bytes": 1854,
+      "mode": 420,
+      "sha256": "671415a6b224ebe3dae7dc9da31462ab0b4677d961b325c6deeca01bccbff5a9"
+    },
+    "docs/build/handoffs/WS-FIX-JOURNEY.md": {
+      "bytes": 3469,
+      "mode": 420,
+      "sha256": "7f4261766b671d0d92b4e9065f847fae71d0d1a8e3afa20edb4327a5f2bc7a94"
+    },
+    "docs/build/handoffs/WS-FIX-OCI-MYSQL-REAL.md": {
+      "bytes": 1633,
+      "mode": 420,
+      "sha256": "72de11d06115d2887223fb644d38c53141ff8e74967b9c61eb6ae4fc5554a597"
+    },
+    "docs/build/handoffs/WS-GITHUB-SOURCE.md": {
+      "bytes": 2909,
+      "mode": 420,
+      "sha256": "a7614525c4736fac3b2f89cfe71bba19084442cda62b73429824c1ad4196930f"
+    },
+    "docs/build/handoffs/WS-GO-OCI.md": {
+      "bytes": 3960,
+      "mode": 420,
+      "sha256": "11fda20a5321d388af74302e741184c745bfaccfa189d2967175a3cfd0fac818"
+    },
+    "docs/build/handoffs/WS-IMAGE-PINS.md": {
+      "bytes": 2498,
+      "mode": 420,
+      "sha256": "a7bcfb1eec589713ef37f3c88c79f9e3c9a7a0adec886f7f75c6e9bbab1d1040"
+    },
+    "docs/build/handoffs/WS-INTEGRATE-W6.md": {
+      "bytes": 4110,
+      "mode": 420,
+      "sha256": "490d5b325b88740916201a1336a4c0ca133c7fdcdafdda0329b7d98fd483e3d4"
+    },
+    "docs/build/handoffs/WS-K8S-CONTRACT.md": {
+      "bytes": 2972,
+      "mode": 420,
+      "sha256": "e9633a64715bd55812a4baa4da1240e4e1903c4594731274d0b0ad17709b0d3e"
+    },
+    "docs/build/handoffs/WS-K8S-IDENTITY.md": {
+      "bytes": 2007,
+      "mode": 420,
+      "sha256": "2c5382d4fd81adc687daceaa0968aa67b4cd7fd518889be5fd412ed822134a71"
+    },
+    "docs/build/handoffs/WS-LIVE.md": {
+      "bytes": 36345,
+      "mode": 420,
+      "sha256": "bbcc2885e1050852e930259bf67521670cf8868c42ec25f7ff1aa4c936460a74"
+    },
+    "docs/build/handoffs/WS-MACH-ALIGN.md": {
+      "bytes": 6195,
+      "mode": 420,
+      "sha256": "8136014f5092b82174e0bfa78af3fb8397c2e34d7a9008f0842c8cbe389abf20"
+    },
+    "docs/build/handoffs/WS-MACH-CLOUDS.md": {
+      "bytes": 2039,
+      "mode": 420,
+      "sha256": "6c2835cc746d9233182265544ab4d7062c1a4678914e36680f738764f1c41923"
+    },
+    "docs/build/handoffs/WS-MACHINE-PORT.md": {
+      "bytes": 2839,
+      "mode": 420,
+      "sha256": "261669184a357e08e7b6ab85cc3c7226d0a8eab9a962bc06de71c3b56d32a568"
+    },
+    "docs/build/handoffs/WS-MANIFEST-V2.md": {
+      "bytes": 3681,
+      "mode": 420,
+      "sha256": "c1c5e77628d9417c26e5b2e088f269ee0f5d2f1cfce904fdfff0a4e439c365d4"
+    },
+    "docs/build/handoffs/WS-MCP-OAUTH.md": {
+      "bytes": 3128,
+      "mode": 420,
+      "sha256": "47247fcc2aa7568381adcba3c715045cd4b924216c96412f1eb50ee9e6ca2f69"
+    },
+    "docs/build/handoffs/WS-MCP.md": {
+      "bytes": 32746,
+      "mode": 420,
+      "sha256": "5c1bf7e3c302901a5b63ed5e176a2db00335abfbd9a8c175825338f084b3a4a0"
+    },
+    "docs/build/handoffs/WS-OBS-WIRE.md": {
+      "bytes": 2756,
+      "mode": 420,
+      "sha256": "9727e6080f67f7718d327d6df2de5681788864571f393c67028b114508c33232"
+    },
+    "docs/build/handoffs/WS-OCI-GO.md": {
+      "bytes": 3287,
+      "mode": 420,
+      "sha256": "07d7a7c56888cc3b490fdba1d904626c7ec374eb8e8a3a7c5db85cedc44be759"
+    },
+    "docs/build/handoffs/WS-OCI-MORE.md": {
+      "bytes": 2749,
+      "mode": 420,
+      "sha256": "e47b49cbcefe37e9f94e9fd885cf9bd3c9f914d4b92249dd790708b2e5364408"
+    },
+    "docs/build/handoffs/WS-OCI-READJOBS.md": {
+      "bytes": 3339,
+      "mode": 420,
+      "sha256": "a9aa37c979c087af62ab83ce40cda0e593c8551ca57a2764993bff3f249e2374"
+    },
+    "docs/build/handoffs/WS-OCI-SESSIONS.md": {
+      "bytes": 3480,
+      "mode": 420,
+      "sha256": "457954891bc1664b7d855b3db651b3ed7abc980f429986f7ecc2543393ebeb48"
+    },
+    "docs/build/handoffs/WS-OCI-SIGNALS-WIRE.md": {
+      "bytes": 4355,
+      "mode": 420,
+      "sha256": "0db25407aa46fcedb735df5b8aa1b730e6046905f449cd0856d343985c47f46e"
+    },
+    "docs/build/handoffs/WS-OPS.md": {
+      "bytes": 2246,
+      "mode": 420,
+      "sha256": "367fc069af9984db7def4bab70c8f8b7d99782b67ea8541dfdb12f21ab64118d"
+    },
+    "docs/build/handoffs/WS-PLACE-WIRE.md": {
+      "bytes": 4479,
+      "mode": 420,
+      "sha256": "efd3917f7f0846d35c61c0d84795646bfa4b9d5acbe1b87df5e306f0417ebec9"
+    },
+    "docs/build/handoffs/WS-POLICY-DELETE.md": {
+      "bytes": 2252,
+      "mode": 420,
+      "sha256": "5ec1c8804960e6d241eb4d602481a85ab65fcc7ef346d8f841ad2268d1a33e36"
+    },
+    "docs/build/handoffs/WS-REF.md": {
+      "bytes": 5791,
+      "mode": 420,
+      "sha256": "5704a062632f4fabe6fc3c3011d41eb8d4d02456139047a6744977f244e4fb12"
+    },
+    "docs/build/handoffs/WS-RELEASE-K8S.md": {
+      "bytes": 2655,
+      "mode": 420,
+      "sha256": "5d761c8f5535dd5017400eaef85a9957025dde39d0f6c19e7cf5063881931429"
+    },
+    "docs/build/handoffs/WS-RELEASE-OCI.md": {
+      "bytes": 2827,
+      "mode": 420,
+      "sha256": "b320222145f2ca405a6d13a1385ddab66ee4d35eb4b84a684f63d6f14c627a8a"
+    },
+    "docs/build/handoffs/WS-SEC-LEAKS.md": {
+      "bytes": 2452,
+      "mode": 420,
+      "sha256": "347c1a1db2181e2d3759dc88c3bae274ba02ff6ca9cf9ea56feca72a6834d553"
+    },
+    "docs/build/handoffs/WS-SEC-POLICY.md": {
+      "bytes": 2677,
+      "mode": 420,
+      "sha256": "bc64297957514f564d28cbc792eeb9c2ab9f5a54d880d26d44a8b6e6bba3a91a"
+    },
+    "docs/build/handoffs/WS-SEC.md": {
+      "bytes": 41843,
+      "mode": 420,
+      "sha256": "fbcaaaadb1b623b82c8a2c1276a0c3d4cfb6116dfe8282f44409631c1ec3653c"
+    },
+    "docs/build/handoffs/WS-SECRET-SYNC.md": {
+      "bytes": 3922,
+      "mode": 420,
+      "sha256": "1a82071588724941c03f5e38d6acb6add684ac51d7a3515b5b5f3205235da2f6"
+    },
+    "docs/build/handoffs/WS-TEMPORAL-CODEC.md": {
+      "bytes": 3287,
+      "mode": 420,
+      "sha256": "e55d91d1a6805417860ddc63a40248dd459c8e71eb670e625a825cd0f233ccb4"
+    },
+    "docs/build/handoffs/WS-TEMPORAL-MTLS.md": {
+      "bytes": 2486,
+      "mode": 420,
+      "sha256": "53003551dbf8af82d44de16259078503d704e35654818bac74ccc8a255732cd1"
+    },
+    "docs/build/handoffs/WS-TOFU-2.md": {
+      "bytes": 4969,
+      "mode": 420,
+      "sha256": "272b0e93c68c9dc0a64667eea019418dd228c1f75c707b5445ffbb4b96a3a78e"
+    },
+    "docs/build/handoffs/WS-TOFU-SEC.md": {
+      "bytes": 7214,
+      "mode": 420,
+      "sha256": "3b7c742f6e8c5ae06b0f0b62f1094af80af4139fd57fa17b6924d88dd5b53f19"
+    },
+    "docs/build/handoffs/WS-TRUST-WIRE.md": {
+      "bytes": 3254,
+      "mode": 420,
+      "sha256": "937431b5af187a2e1b39979561f67df01980bb42c136e13b4964d335aab82003"
+    },
+    "docs/build/handoffs/WS-UI-WIRE.md": {
+      "bytes": 3847,
+      "mode": 420,
+      "sha256": "bb4461e636c91439dbc0190eb376016dcf3a4adf78c4ecba06cdd88c4330678d"
+    },
+    "docs/build/handoffs/WS-VAULT-REWRAP.md": {
+      "bytes": 2729,
+      "mode": 420,
+      "sha256": "e4ffe2d12032e2f9333636922e99d2a81435345d2f9ed06fd943882f862fbb57"
+    },
+    "docs/build/handoffs/WS-ZM-TEARDOWN.md": {
+      "bytes": 3306,
+      "mode": 420,
+      "sha256": "9af89433f39d29f1f8b1c9004699cc71d23db6cd21da88128ca26604444e151b"
+    },
+    "docs/build/handoffs/WS-ZM-TLS.md": {
+      "bytes": 1898,
+      "mode": 420,
+      "sha256": "368b872476cd995abe6da5b7e6f94d32f516d768c9e034e6db0cf2033870db93"
+    },
+    "docs/build/handoffs/WS-ZM-WIRE.md": {
+      "bytes": 3259,
+      "mode": 420,
+      "sha256": "fe58e9fb812c836b4ecbcec12addda644112d0a3a19d9e09d2cc95676e9c586c"
+    },
+    "docs/build/production/handoffs/2026-10-02/AGENT-STATUS.md": {
+      "bytes": 1987,
+      "mode": 420,
+      "sha256": "e3a089dde6ae57f448ed9f585257b11bc0229bd2992b3b053a514e5f0f0255e0"
+    },
+    "docs/build/production/handoffs/2026-10-02/ALL-TASKS.md": {
+      "bytes": 13793,
+      "mode": 420,
+      "sha256": "d20b38e4503f81b8ba32f9cb1a70d9742528e2d996460e125ae338b5f321929c"
+    },
+    "docs/build/production/handoffs/2026-10-02/CANONICAL-REPAIR.md": {
+      "bytes": 2518,
+      "mode": 420,
+      "sha256": "75ea6f01a49d1707c75b74e153aad996a31bdc5f62cb524559bbe4c70a397ada"
+    },
+    "docs/build/production/handoffs/2026-10-02/CI-CORRECTION.md": {
+      "bytes": 2016,
+      "mode": 420,
+      "sha256": "60fc7299d71609387eb60b5bdf24ebe071dc310feb7bd899bcdbf2552692d177"
+    },
+    "docs/build/production/handoffs/2026-10-02/CI-OWNER-SNAPSHOT.md": {
+      "bytes": 2377,
+      "mode": 420,
+      "sha256": "ab0dc55cbcaa0d01b5f6e63f8a351bb8af3c53e7dff05bd7530cc07032bc9782"
+    },
+    "docs/build/production/handoffs/2026-10-02/ECS-REPLICA-REPAIR.md": {
+      "bytes": 14930,
+      "mode": 420,
+      "sha256": "62cb50b260bd712b0f4112cd6b8dca623eef900cd730c95e887887c93647d107"
+    },
+    "docs/build/production/handoffs/2026-10-02/PAUSE.md": {
+      "bytes": 5343,
+      "mode": 420,
+      "sha256": "e58c3bb689d95b4824ae3a7e1eaed4c9192822c1d2efe0710d5822736bd5acb3"
+    },
+    "docs/build/production/handoffs/2026-10-02/REMOTE-CI.md": {
+      "bytes": 12344,
+      "mode": 420,
+      "sha256": "63bac303d52446814474cef3895318b2d227c8a835a5e60b7b674a5eb9f76784"
+    },
+    "docs/build/production/handoffs/2026-10-03/ACCEPTANCE-CLEANUP.md": {
+      "bytes": 3598,
+      "mode": 420,
+      "sha256": "a8d306f3e52884ec2b92a7f3d3e1bef77cca6ecd73b1782ac37a33dd555f10ff"
+    },
+    "docs/build/production/handoffs/2026-10-03/DURABLE-PLAN-HANDOFF.md": {
+      "bytes": 12012,
+      "mode": 420,
+      "sha256": "239eca024f4fe80e8e991ef794d40f9181ecdd79a59d4c242a98886a53532df9"
+    },
+    "docs/build/production/handoffs/2026-10-03/REGRESSION-CHECKPOINT.md": {
+      "bytes": 19311,
+      "mode": 420,
+      "sha256": "69a29f71025d9e7c80604a9b36be82db07578b93921f1200f527c7ab3ef5f493"
+    },
+    "docs/build/production/handoffs/2026-10-05-ACTION-BRIDGE-HUMAN-KUBERNETES.md": {
+      "bytes": 1790,
+      "mode": 420,
+      "sha256": "10da5730a3d277edec8263152f88b89a70e86c0e5748422da9c1a9bc152a0c3a"
+    },
+    "docs/build/production/handoffs/2026-10-05-CLEANUP-QUIESCENCE.md": {
+      "bytes": 3791,
+      "mode": 420,
+      "sha256": "a8132fca28726979ed693fecb2bd22189afc70f2e98da7ffe24a5c3c9058ea78"
+    },
+    "docs/build/production/handoffs/2026-10-05-NATIVE-CLEANUP-WRITER-BARRIER.md": {
+      "bytes": 8072,
+      "mode": 420,
+      "sha256": "f45f575e6b6ee4a8e5e09394906a02ff300735360aea6af56f31290e22a0a5ac"
+    }
+  }
+}

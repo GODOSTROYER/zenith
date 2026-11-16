@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "evidenceLabel": "local_operated_rehearsal",
+  "scenarioId": "crash-partition",
+  "runId": "r1-crash-partition-0",
+  "sourceCommit": "f436e3dbeda2f40007301bd05d23048b10ec70b0",
+  "sourceDigest": "903d3e8820c4bcd72bba9deb2ba507bb59b850042177e63ce860558d386fe26d",
+  "dirty": false,
+  "checks": [
+    {
+      "id": "prerequisites",
+      "status": "passed"
+    },
+    {
+      "id": "approved-workload",
+      "status": "passed"
+    },
+    {
+      "id": "crash-injected",
+      "status": "passed"
+    },
+    {
+      "id": "outage-traffic",
+      "status": "passed"
+    },
+    {
+      "id": "restart-readback",
+      "status": "passed"
+    },
+    {
+      "id": "partition-injected",
+      "status": "passed"
+    },
+    {
+      "id": "partition-no-write",
+      "status": "passed"
+    },
+    {
+      "id": "survivor-readback",
+      "status": "passed"
+    },
+    {
+      "id": "writers-serialized",
+      "status": "passed"
+    },
+    {
+      "id": "stale-writer-no-duplicate",
+      "status": "passed"
+    },
+    {
+      "id": "cleanup",
+      "status": "passed"
+    }
+  ],
+  "limits": [
+    "Owned lean J1 stack and J2 kind workload only; no live cloud or production acceptance.",
+    "SIGKILL and Docker network disconnection exercise queued workflow recovery and competing environment writers. In-flight provider delivery ambiguity and mixed-provider outages remain separate gated lanes."
+  ],
+  "readbacks": [
+    {
+      "target": "baseline",
+      "sha256": "5bcb0b4cc8172e96efc6bd0b13ff873cbc87d87fffb78cd3362087fedc77072a"
+    },
+    {
+      "target": "outage",
+      "sha256": "5bcb0b4cc8172e96efc6bd0b13ff873cbc87d87fffb78cd3362087fedc77072a"
+    },
+    {
+      "target": "restarted",
+      "sha256": "7c818ccd0eed1e3a6bc063c3e2e504f9894638eab4856d7eb732bcd69b7a5d3f"
+    },
+    {
+      "target": "partition",
+      "sha256": "7c818ccd0eed1e3a6bc063c3e2e504f9894638eab4856d7eb732bcd69b7a5d3f"
+    },
+    {
+      "target": "survivor",
+      "sha256": "e2dc7dc3627c9e22dd4bb890a2dc1c0ab1252ce88f7c59f52cd0948dc05cc447"
+    },
+    {
+      "target": "writers",
+      "sha256": "67157f84ab4d274123afa671d8fa71ff6bb698d1617ce08dac002604b136789e"
+    },
+    {
+      "target": "rejoined",
+      "sha256": "e13b38b26168eedfde238dea7222065ff2c3f0223fce247b28e0a5a76c855567"
+    }
+  ]
+}

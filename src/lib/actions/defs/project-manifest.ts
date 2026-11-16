@@ -7,10 +7,11 @@
  */
 import { z } from "zod";
 import { defineAction, type ActionPlan } from "@/lib/actions/core";
-import { diffManifests, validateManifest } from "@/lib/domain/graph";
-import { contentHash, Manifest, type Project } from "@/lib/domain/types";
+import { diffManifests } from "@/lib/domain/graph";
+import { contentHash, type AnyManifest, type Project } from "@/lib/domain/types";
+import { parseEditableManifest } from "./_manifest";
 import { save } from "@/lib/db/store";
-import { requireProject } from "./_shared";
+import { manifestLossNote, requireProject } from "./_shared";
 
 /**
  * The optimistic-concurrency token for a working copy.
@@ -20,12 +21,17 @@ import { requireProject } from "./_shared";
  * under the editor. Key order does not affect it, so a client that
  * re-serializes the manifest still matches.
  */
-export const manifestHash = (m: Manifest): string => contentHash(m);
+export const manifestHash = (m: AnyManifest): string => contentHash(m);
 
 const Input = z.object({
   projectId: z.string().optional(),
   /** the full replacement manifest, as edited in the Source view */
-  manifest: z.unknown(),
+  manifest: z.unknown().superRefine((raw, ctx) => {
+    // Refuse before runAction can audit caller-supplied invalid/secret text.
+    const parsed = parseEditableManifest(raw);
+    if (!parsed.ok) for (const issue of parsed.errors.slice(0, 8))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: issue.path.split("."), message: issue.message });
+  }),
   /**
    * `manifestHash` of the working copy this edit started from. Omit to force
    * the write (the map and single-field editors read and write in one turn);
@@ -72,22 +78,16 @@ function blockedPlan(err: unknown): ActionPlan {
   };
 }
 
-function parseManifest(raw: unknown): { manifest?: Manifest; errors: string[] } {
-  const parsed = Manifest.safeParse(raw);
-  if (!parsed.success) {
+function parseManifest(raw: unknown): { manifest?: AnyManifest; errors: string[] } {
+  const parsed = parseEditableManifest(raw);
+  if (!parsed.ok) {
     return {
-      errors: parsed.error.issues
+      errors: parsed.errors
         .slice(0, 8)
-        .map((i) => `${i.path.join(".") || "manifest"}: ${i.message}`),
+        .map((i) => `${i.path || "manifest"}: ${i.message}`),
     };
   }
-  const issues = validateManifest(parsed.data).filter((i) => i.level === "error");
-  if (issues.length) {
-    return {
-      errors: issues.map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`),
-    };
-  }
-  return { manifest: parsed.data, errors: [] };
+  return { manifest: parsed.manifest, errors: [] };
 }
 
 defineAction<Input>({
@@ -182,19 +182,21 @@ defineAction<Input>({
         error: stale,
       };
     const cs = diffManifests(project.workingManifest, manifest);
+    const loss = manifestLossNote(project.workingManifest, manifest);
     project.workingManifest = manifest;
     save();
     return {
       ok: true,
-      summary:
+      summary: (
         cs.items.length === 0
           ? "Source saved — no effective changes."
-          : `Source saved — ${cs.items.length} change${cs.items.length === 1 ? "" : "s"} staged for the next deploy.`,
+          : `Source saved — ${cs.items.length} change${cs.items.length === 1 ? "" : "s"} staged for the next deploy.`) + loss,
       data: {
         changes: cs.items.length,
         costDeltaUsd: cs.totalCostDeltaUsd,
         /** the token to send as `expectedHash` on the next save */
         manifestHash: manifestHash(manifest),
+        warnings: cs.warnings,
       },
     };
   },

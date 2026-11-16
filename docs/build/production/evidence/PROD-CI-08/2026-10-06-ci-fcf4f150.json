@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "commit": "fcf4f1508c2ea17723a38eed78d0ef5a1e6abf40",
+  "mainRun": 37365101604,
+  "mainConclusion": "failure",
+  "jobCounts": {
+    "failure": 1,
+    "cancelled": 9,
+    "success": 6
+  },
+  "jobs": [
+    {
+      "id": 111948244609,
+      "name": "verify",
+      "conclusion": "failure"
+    },
+    {
+      "id": 111948244673,
+      "name": "hosted",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244717,
+      "name": "build",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244723,
+      "name": "operation-gates (workflow-intents)",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244748,
+      "name": "generated",
+      "conclusion": "success"
+    },
+    {
+      "id": 111948244751,
+      "name": "platform-postgres",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244812,
+      "name": "workflows",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244834,
+      "name": "tofu",
+      "conclusion": "success"
+    },
+    {
+      "id": 111948244853,
+      "name": "supply-chain",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244859,
+      "name": "postgres",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948244951,
+      "name": "ledger",
+      "conclusion": "success"
+    },
+    {
+      "id": 111948244962,
+      "name": "agent",
+      "conclusion": "success"
+    },
+    {
+      "id": 111948244975,
+      "name": "docker",
+      "conclusion": "success"
+    },
+    {
+      "id": 111948244980,
+      "name": "policy",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 111948245012,
+      "name": "go",
+      "conclusion": "success"
+    },
+    {
+      "id": 111948245057,
+      "name": "operation-gates (reconciliation)",
+      "conclusion": "cancelled"
+    }
+  ],
+  "unit": {
+    "passed": 19386,
+    "failed": 5,
+    "skipped": 1515,
+    "failedSource": "tests/ci/gate-manifest.test.ts",
+    "cause": "Reviewed fixture lifetime changes left five stale source-model assertions. Narrow correction80482e41 has370 targeted passes, lint/compiler pass; fresh whole CI remains required."
+  },
+  "nativeWorkers": {
+    "runId": 37365101534,
+    "amd64": {
+      "passed": 22,
+      "failed": 0,
+      "native": true,
+      "cleanupComplete": true
+    },
+    "arm64": {
+      "passed": 22,
+      "failed": 0,
+      "native": true,
+      "cleanupComplete": true
+    }
+  },
+  "guest": {
+    "architecture": "native Linux amd64",
+    "requiredRacePassed": 148,
+    "requiredRootPassed": 4,
+    "goldensPassed": true
+  },
+  "tofu": {
+    "passed": 3916,
+    "failed": 0,
+    "skipped": 18,
+    "requiredGroupsPassed": 27
+  },
+  "environment": {
+    "node": "22.23.3",
+    "go": "1.27.1",
+    "tofu": "1.12.5"
+  },
+  "receiptSha256": "3e9a15d6a481235b5c4acb07920928328b0de32abc246de2ae3f29cdbb5c4f89",
+  "scope": "Main run failed; nine cancelled lanes are unverified. Counts overlap other lanes and cannot be summed. Native workers and guest evidence do not establish systemd acceptance or production approval.",
+  "successorCorrection": {
+    "commit": "80482e411205d16dc4fae565202922f58ab7bad4",
+    "evidence": "docs/build/production/evidence/PROD-CI-05/2026-10-06-gate-fixture-contract.json",
+    "completeCi": "pending"
+  }
+}

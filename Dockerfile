@@ -8,11 +8,13 @@
 # https://github.com/vercel/next.js/tree/canary/examples/with-docker
 
 # ---------------------------------- deps ------------------------------------
-FROM node:22-alpine AS deps
+FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS deps
 # Next's SWC binaries want glibc symbols that musl does not provide alone.
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
+# The lint toolchain's minimatch 3.x API over patched minimatch 11 (package.json overrides); npm ci links it.
+COPY vendor/minimatch3-compat ./vendor/minimatch3-compat
 # Frozen (`ci`, not `install`) and script-free: no dependency's install/postinstall
 # runs while the image is built, so a compromised transitive package cannot bake
 # itself into the image. Nothing in this tree needs a lifecycle script — the only
@@ -27,7 +29,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 # --------------------------------- builder ----------------------------------
-FROM node:22-alpine AS builder
+FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -47,11 +49,14 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_TELEMETRY_DISABLED=1
 
+# next build type-checks the complete source graph, which exceeds Node's default heap.
+# Build stage only: the runner stage does not inherit this.
+ENV NODE_OPTIONS=--max-old-space-size=5120
 # Compile with the public brand/font assets included in the build context.
 RUN mkdir -p public && npm run build
 
 # ---------------------------------- runner ----------------------------------
-FROM node:22-alpine AS runner
+FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

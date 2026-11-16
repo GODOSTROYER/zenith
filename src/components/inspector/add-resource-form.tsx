@@ -9,6 +9,7 @@ import { PlanFirst } from "./plan-first";
 import { SizeField } from "./editor-parts";
 import { nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import type { Resource, ServiceSize } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 
 const RESOURCE_OPTIONS = [
   { value: "postgres", label: "PostgreSQL — relational database" },
@@ -34,7 +35,7 @@ export function AddResourceForm({ onCreated }: AddResourceFormProps) {
 
   const resourceMonthlyUsd = nodeMonthlyCostUsd(
     {
-      ...project.workingManifest,
+      ...v1View(project.workingManifest),
       resources: [
         {
           id: "draft",
@@ -73,7 +74,6 @@ export function AddResourceForm({ onCreated }: AddResourceFormProps) {
         help="Optional — connecting now injects the configuration into that service straight away."
       >
         <Select
-          placeholder="Nothing yet"
           value={bindTo}
           onChange={(e) => setBindTo(e.target.value)}
           options={[

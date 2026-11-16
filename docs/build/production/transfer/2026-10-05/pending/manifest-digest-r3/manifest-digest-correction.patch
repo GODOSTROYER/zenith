@@ -1,0 +1,75 @@
+diff --git a/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md b/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md
+index b13c20e..f314240 100644
+--- a/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md
++++ b/docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md
+@@ -19,3 +19,7 @@ Root verification must use pinned Node22, one worker, fresh owning PostgreSQL sc
+ Outside-owned follow-ups are exact mandatory gate registration, the SQL AST composer rebind for final receipt and settlement predicates, schema/table-count and tenancy classifications, canonical initializer schema16/Supabase0018 verification, and the owned Linux physical-alias fixture. The root must compose these without changing historical migrations or weakening existing native1059, PostgreSQL80, Linux123 or packaged22 requirements. No cloud, API, service, Docker, installation, publication or commit was performed by this author.
+ 
+ Revision1 and its source rejection remain immutable. Revision2 adds nine accessor/origin controls to the original45 settlement controls. The incomplete-cleanup control now expects its fake dispose callback to remain unentered because the earlier finally descriptor guard refuses it; its actual accepted state, missing receipt, uncertainty and non-replay assertions are preserved. The five current-role wait controls install their explicit directory wait from the third genuine plan inspector callback instead of altering the runner prototype between completed runs; actual tool/state, removed directories, independent mutations and final authority assertions remain required. All execution remains unrun.
++
++Revision3 follows the root's failed native100 run (60 passed, 40 failed, zero skipped). The standalone binding used the engine's formatted JSON hash for `manifestDigest`, while the immutable native artifact row uses the canonical control-plane digest. Their inequality refused the repository dispatch before the apply child; the outer attempted-dispatch wrapper reported an unconfirmed outcome while the rolled-back use remained ready. Revision3 uses the canonical digest only for standalone manifest binding and its authentication comparison. Existing artifact cipher references, settlement reference/digest domains, backend/config/executable/target digests and every current-authority predicate stay unchanged.
++
++The existing real original-byte positive now requires the authenticated receipt's manifest digest to equal the immutable artifact row. The two existing producer method-shadow cases require the exact canonical-origin refusal, zero shadow callback calls, absent state and settlement, and the unchanged original artifact row. All100 names, the original46 bodies, the genuine wait controls and getter/provenance/approval/cleanup/uncertainty assertions are retained. This source-only correction does not establish that all40 failures are cured. The original report and both prior freezes remain historical evidence; independent review, root compiler/lint and the actual PostgreSQL/OpenTofu100 successor are required. Exact gate source-hash rebinding is outside this three-path packet.
+diff --git a/src/lib/tofu/engine.ts b/src/lib/tofu/engine.ts
+index 3073f36..2cd96cd 100644
+--- a/src/lib/tofu/engine.ts
++++ b/src/lib/tofu/engine.ts
+@@ -14,6 +14,7 @@ import type { ResourceNode } from "@/lib/resources/types";
+ import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
+ import { assertWorkspaceIntact } from "@/lib/tofu/workspace";
+ import { stableJson } from "@/lib/tofu/stable";
++import { digest } from "@/lib/controlplane/digest";
+ import type { Sealed, VaultCipher } from "@/lib/secrets";
+ import type { TofuExecutableIdentity } from "@/lib/tofu/binary";
+ import { isCleanedTofuRun, isCanonicalStandaloneRun, canonicalStandaloneCommandsMatch,canonicalStandaloneProducerMatch, MAX_PLAN_BYTES, TofuRunner, type TofuRun } from "@/lib/tofu/runner";
+@@ -381,7 +382,7 @@ async function applyWithAdmission(
+           if (!initialTarget || target.targetDigest !== initialTarget.targetDigest || target.stateDigest !== initialTarget.stateDigest) standaloneRefusal();
+           binding = immutable({ workspaceId: admission.custody.workspaceId, projectId: admission.custody.projectId,
+             environmentId: admission.custody.environmentId, operationId: admission.custody.operationId,
+-            attemptId: admission.attemptId, manifestDigest: objectHash(manifest), rawSha256: manifest.rawSha256,
++            attemptId: admission.attemptId, manifestDigest: digest(manifest), rawSha256: manifest.rawSha256,
+             backendDigest: manifest.backendDigest, targetDigest: target.targetDigest, holder: admission.lease.holder, fenceToken: admission.lease.fenceToken });
+           standalone.prepared(original, binding);
+         }
+@@ -458,7 +459,7 @@ export function createPlanEngineAuthority(cipher:VaultCipher, resolve: (original
+     try {
+       const value: unknown = JSON.parse(cipher.open(receipt.binding.workspaceId, settlementRef(receipt.binding), receipt.sealed).value);
+       if (!plain(value) || value.format !== "zenith.tofu.standalone-settlement.v1" || objectHash(value) !== receipt.settlementDigest
+-        || objectHash(manifest) !== receipt.binding.manifestDigest || manifest.rawSha256 !== receipt.binding.rawSha256
++        || digest(manifest) !== receipt.binding.manifestDigest || manifest.rawSha256 !== receipt.binding.rawSha256
+         || manifest.backendDigest !== receipt.binding.backendDigest || value.executableDigest !== objectHash(manifest.executable)
+         || value.configDigest !== manifest.configDigest || value.lockDigest !== manifest.lockDigest || value.purpose !== manifest.purpose
+         || typeof value.stateDigest !== "string" || !/^[a-f0-9]{64}$/.test(value.stateDigest) || !/^[a-f0-9]{64}$/.test(String(value.stateViewDigest))
+diff --git a/tests/controlplane/cleanup-writer-barriers.test.ts b/tests/controlplane/cleanup-writer-barriers.test.ts
+index f3dbce5..d00f1cf 100644
+--- a/tests/controlplane/cleanup-writer-barriers.test.ts
++++ b/tests/controlplane/cleanup-writer-barriers.test.ts
+@@ -558,6 +558,7 @@ describe.skipIf(!PG_URL)("native cleanup writer barrier [postgres; modeled hoste
+     const s=await standalone(),result=await consumeSavedNativePlan(db,s.original.saved,s.original.access);
+     expect(result.result.apply.exitCode).toBe(0);expect(result.originalSha).toBe(s.original.saved.row.manifest.rawSha256);
+     const rows=await settled(s);expect(rows).toHaveLength(1);expect(rows[0].receipt.binding.rawSha256).toBe(s.original.saved.row.manifest.rawSha256);
++    expect(rows[0].receipt.binding.manifestDigest).toBe(s.original.saved.row.manifest_digest);
+     expect(rows[0].receipt.sealed.ciphertext).not.toContain(s.scope.root);expect(rows[0].receipt).not.toHaveProperty("targetPath");
+     await expect(observer.query("update platform.standalone_plan_settlements set settlement_digest=$3 where workspace_id=$1 and operation_id=$2",[s.scope.workspaceId,s.original.op.id,digest("altered")])).rejects.toThrow();
+     await expect(consumeSavedNativePlan(db,s.original.saved,s.original.access)).rejects.toThrow();
+@@ -743,14 +744,17 @@ describe.skipIf(!PG_URL)("native cleanup writer barrier [postgres; modeled hoste
+ 
+   it.each(["init","plan"] as const)("registered finite producer refuses own %s method with backend override before command launch",async method=>{
+     const s=await standalone(),descriptor=Object.getOwnPropertyDescriptor(TofuRunner.prototype,"run")!,actual=TofuRunner.prototype.run,command=Object.getOwnPropertyDescriptor(TofuRun.prototype,"command")!.value;
++    let shadowCalls=0;
+     Object.defineProperty(TofuRunner.prototype,"run",{...descriptor,value:async function(this:TofuRunner,workspace:Parameters<TofuRunner["run"]>[0],context:Parameters<TofuRunner["run"]>[1],body:Parameters<TofuRunner["run"]>[2]){
+       Object.defineProperty(TofuRunner.prototype,"run",descriptor);return actual.call(this,workspace,context,async run=>{
+-        Object.defineProperty(run,method,{value:async()=>command.call(run,method,[method,"-backend-config=path=/foreign/terraform.tfstate"]),configurable:true});return body(run);
++        Object.defineProperty(run,method,{value:async()=>{shadowCalls++;return command.call(run,method,[method,"-backend-config=path=/foreign/terraform.tfstate"]);},configurable:true});return body(run);
+       });
+     }});
+-    try{await expect(s.original.saved.runtime.tofu.planWorkspace(s.original.saved.workspace,undefined,{custody:s.original.access.custody,normalize:{fingerprintKey:s.original.saved.fingerprint}})).rejects.toThrow("settlement");}
++    try{await expect(s.original.saved.runtime.tofu.planWorkspace(s.original.saved.workspace,undefined,{custody:s.original.access.custody,normalize:{fingerprintKey:s.original.saved.fingerprint}})).rejects.toMatchObject({name:"Error",message:"Canonical standalone run origin changed."});}
+     finally{Object.defineProperty(TofuRunner.prototype,"run",descriptor);}
+-    expect(await readFile(path.join(s.scope.root,"terraform.tfstate")).catch(()=>null)).toBeNull();expect(await settled(s)).toHaveLength(0);
++    expect(shadowCalls).toBe(0);expect(await readFile(path.join(s.scope.root,"terraform.tfstate")).catch(()=>null)).toBeNull();expect(await settled(s)).toHaveLength(0);
++    const stored=(await observer.query<artifacts.ArtifactRow>("select * from platform.plan_artifacts where workspace_id=$1 and operation_id=$2",[s.scope.workspaceId,s.original.op.id]))[0];
++    expect(stored).toEqual(s.original.saved.row);
+   },300000);
+ 
+   it.each(["accessor","replacement target"] as const)("registered finite producer refuses %s init fields changed during the prelaunch filesystem wait",async change=>{

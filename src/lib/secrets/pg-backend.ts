@@ -33,7 +33,7 @@ interface SecretMetaColumn {
   updatedBy?: string;
 }
 
-function fromRow(row: Record<string, unknown>): SecretRecord {
+export function secretRecordFromRow(row: Record<string, unknown>): SecretRecord {
   const meta = (row.meta ?? {}) as SecretMetaColumn;
   const updatedAt = meta.updatedAt ?? String(row.updated_at ?? "");
   return {
@@ -51,6 +51,8 @@ function fromRow(row: Record<string, unknown>): SecretRecord {
     ciphertext: String(row.ciphertext ?? ""),
   };
 }
+
+const fromRow = secretRecordFromRow;
 
 const toRow = (workspaceId: string, record: SecretRecord): Record<string, unknown> => ({
   workspace_id: workspaceId,
@@ -162,6 +164,19 @@ export const PostgresSecretsAsync: AsyncSecretsBackend = {
       body: [toRow(workspaceId, record)],
       prefer: "resolution=merge-duplicates,return=minimal",
     });
+  },
+
+  async putIfAbsent(workspaceId, record) {
+    const { rows } = await restAsync({
+      method: "POST", table: TABLE, op: "write",
+      path: `${TABLE}?on_conflict=workspace_id,ref`,
+      body: [toRow(workspaceId, record)],
+      prefer: "resolution=ignore-duplicates,return=representation",
+    });
+    if (rows.length) return fromRow(rows[0]);
+    const prior = await PostgresSecretsAsync.get(workspaceId, record.ref);
+    if (!prior) throw new Error("The generated secret disappeared during creation.");
+    return prior;
   },
 
   async remove(workspaceId, ref) {

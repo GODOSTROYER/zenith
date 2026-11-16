@@ -1,0 +1,39 @@
+{
+  "sourceCommit": "228573330c718464b181eb5f3abc6a90c3f4ed50",
+  "status": "passed",
+  "receiptSha256": "01766f4ec7422b2c7f592fb3be01739613c64d48301944be8683e9bcfc3b9059",
+  "helperSha256": "8c041740913024a014fca5fe54236373126fdf27aa2e78d3fce6e2877a1a017f",
+  "sourceFingerprintSha256": "225a994f5c288a108f9a9c7d578f0cf06ce11a69edfa38b2a1d7fa13c470ccef",
+  "environment": {
+    "node": "22.23.3",
+    "kind": "0.33.0",
+    "kubectl": "1.37.0",
+    "architecture": "local native Linux ARM64 kind cluster on Docker Desktop"
+  },
+  "suites": {
+    "provider": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "a67ba10302d91d2be851231b73e8e2c10eba3b9b7d938ae480478c06bf99fc26"
+    },
+    "release": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "2cccdd37f4b5e0b512487504cec890a5580a63cd98ceb89de04d7f9663c3a7cd"
+    },
+    "guest": {
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "77af99cc90c3d15cf3e03f0dcfd108598dcfb64180e6ea24ffe19a4b7d3e85b7"
+    }
+  },
+  "ownedCleanupComplete": true,
+  "limits": [
+    "Local kind55 only; no managed-cloud/default-API/systemd/full-guest152/full-workers proof.",
+    "Eight real API controls use a PGlite tenant ledger and signed fixture claims; browser/current-human SQL authorization is unproved.",
+    "Default kind CNI does not prove NetworkPolicy enforcement."
+  ]
+}

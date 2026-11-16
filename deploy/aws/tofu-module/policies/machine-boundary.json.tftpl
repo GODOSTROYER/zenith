@@ -1,0 +1,125 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:UpdateInstanceInformation",
+        "ssm:ListInstanceAssociations",
+        "ssm:PutComplianceItems",
+        "ssm:DescribeAssociation",
+        "ssm:UpdateAssociationStatus",
+        "ssm:UpdateInstanceAssociationStatus"
+      ],
+      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+          ]
+        },
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:ListAssociations",
+        "ssm:GetManifest",
+        "ssm:PutInventory",
+        "ssm:PutConfigurePackageResult",
+        "ssm:GetDeployablePatchSnapshotForInstance",
+        "ec2messages:GetEndpoint",
+        "ec2messages:GetMessages",
+        "ec2messages:SendReply",
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+        "ec2messages:AcknowledgeMessage",
+        "ec2messages:DeleteMessage",
+        "ec2messages:FailMessage"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:DescribeAssociation",
+        "ssm:UpdateAssociationStatus",
+        "ssm:UpdateInstanceAssociationStatus",
+        "ssm:GetDocument",
+        "ssm:DescribeDocument"
+      ],
+      "Resource": [
+        "arn:${partition}:ssm:*:${account_id}:association/*",
+        "arn:${partition}:ssm:*::document/*",
+        "arn:${partition}:ssm:*:${account_id}:document/Zenith-*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+      ],
+      "Resource": "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "account:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": "iam:*",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "${state_bucket_arn}",
+        "${state_bucket_arn}/*"
+      ]
+    }
+  ]
+}

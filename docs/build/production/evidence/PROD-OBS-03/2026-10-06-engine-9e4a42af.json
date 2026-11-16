@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-OBS-03",
+  "publicationStatus": "proposed_private_draft_for_root_review",
+  "testedCommit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+  "reviewedSuccessor": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+  "runId": 37398213464,
+  "runAttempt": 1,
+  "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464",
+  "criterion": "Deduplication/hysteresis/cooldowns/attempt and blast-radius limits/windows/escalation/postmortem; inconclusive diagnosis escalates, repair storms and autoscaler conflicts blocked.",
+  "requiredEvidence": [
+    "contract",
+    "local_engine"
+  ],
+  "proposedConclusion": "literal contract and local-engine clauses supported within the stated scope; root owns the ledger decision",
+  "sourceReuse": {
+    "successorChangedOnly": [
+      "tests/machines/runbook-routes.test.ts",
+      "tests/observability/local-telemetry-engine.test.ts"
+    ],
+    "reviewedIncidentPolicyStoreAndControllerInputsUnchanged": true,
+    "noWholeSuccessorRuntimeClaim": true
+  },
+  "evidence": {
+    "contract": {
+      "command": "node scripts/ci/run-gate.mjs core --run --step unit",
+      "files": [
+        {
+          "file": "tests/incidents/stability.test.ts",
+          "exportedWholeFileSummary": {
+            "tests": 37,
+            "skipped": 0,
+            "successMarker": true
+          },
+          "rawIndividualCaseIdsExported": false
+        },
+        {
+          "file": "tests/reconcile/stability.test.ts",
+          "exportedWholeFileSummary": {
+            "tests": 10,
+            "skipped": 0,
+            "successMarker": true
+          },
+          "rawIndividualCaseIdsExported": false
+        }
+      ],
+      "result": "Passing exported whole-file summaries: incident policy/investigator37 tests; reconcile controller/PGlite adapter10 tests;0 skips for either file. Counts are separate and are not summed.",
+      "individualCaseIdsExported": false
+    },
+    "local_engine": {
+      "command": "node scripts/ci/run-gate.mjs platform-postgres --run; node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution",
+      "group": {
+        "file": "tests/controlplane/incident-stability.test.ts",
+        "backend": "postgres",
+        "counts": {
+          "total": 35,
+          "passed": 35,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "status": "passed"
+      },
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "tofu": "1.12.5"
+      },
+      "observedExitCode": 0,
+      "sourceBinding": "matched",
+      "environmentBinding": "matched",
+      "rawIndividualCaseIdsExported": false,
+      "standardArtifactLimitation": "The required file/backend group exports35 passed, not35 individually named status records."
+    },
+    "supportingLanes": [
+      {
+        "lane": "reconciliation",
+        "counts": {
+          "total": 38,
+          "passed": 38,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 26,
+        "scope": "Actual PostgreSQL/Temporal scheduler and composition controls; no attribution of an end-to-end incident remediation start."
+      },
+      {
+        "lane": "workflow-intents",
+        "counts": {
+          "total": 156,
+          "passed": 156,
+          "failed": 0,
+          "skipped": 0,
+          "unknown": 0
+        },
+        "requiredGroups": 141,
+        "scope": "Actual workflow-intent authority/replay controls; remediation-specific prepare/claim admission is source-only in this mapping."
+      }
+    ]
+  },
+  "clauseMapping": [
+    {
+      "clause": "deduplication and hysteresis",
+      "source": [
+        "src/lib/incidents/stability.ts:142",
+        "src/lib/incidents/stability.ts:160",
+        "src/lib/controlplane/db/repos/incident-stability.ts:194"
+      ],
+      "proof": "Scoped fingerprint; row lock and partial-unique race dedup; three bad/five good; concurrent observers and unknown/flapping/recurrence tested by actual PostgreSQL group."
+    },
+    {
+      "clause": "cooldowns",
+      "source": [
+        "src/lib/incidents/stability.ts:303",
+        "src/lib/incidents/stability.ts:328",
+        "src/lib/controlplane/db/repos/incident-stability.ts:375"
+      ],
+      "proof": "Bounded exponential failure backoff and fingerprint history; settled failure remains blocked until expiry; real SQL reservation tests and pure boundary cases."
+    },
+    {
+      "clause": "attempt and blast-radius limits; repair storms",
+      "source": [
+        "src/lib/incidents/stability.ts:308",
+        "src/lib/controlplane/db/repos/incident-stability.ts:429"
+      ],
+      "proof": "Three attempts, risk/blast caps, one in-flight, per-environment/workspace window and distinct-resource limits. Transactional per-workspace advisory lock; actual twelve-way and six-incident storm refusals. Pure100 proposal and workspace/environment cap boundaries."
+    },
+    {
+      "clause": "maintenance windows",
+      "source": [
+        "src/lib/incidents/stability.ts:319",
+        "src/lib/controlplane/db/repos/incident-stability.ts:548"
+      ],
+      "proof": "Active scoped windows suppress reservations, explicit retry-after, cancel/expiry and foreign workspace/environment behavior tested on actual PostgreSQL."
+    },
+    {
+      "clause": "escalation and inconclusive diagnosis",
+      "source": [
+        "src/lib/incidents/stability.ts:408",
+        "src/lib/incidents/investigate.ts:150",
+        "src/lib/controlplane/db/repos/incident-stability.ts:493",
+        "src/lib/controlplane/db/repos/incident-stability.ts:535"
+      ],
+      "proof": "Unknown/low-confidence diagnosis, cap exhaustion and age escalate; resolved and confident controls; durable record/event idempotence and unacknowledged/first acknowledgement readback tested. Investigator local controlled-port join returns required escalation and no remediation for inconclusive diagnosis."
+    },
+    {
+      "clause": "postmortem",
+      "source": [
+        "src/lib/incidents/stability.ts:464",
+        "src/lib/controlplane/db/repos/incident-stability.ts:635"
+      ],
+      "proof": "Built from stored investigation/attempt facts, automatically recorded on five-good resolution; tenant scoped, unresolved refusal, immutable repeat digest and identified/undetermined roots tested."
+    },
+    {
+      "clause": "autoscaler conflicts blocked",
+      "source": [
+        "src/lib/incidents/stability.ts:375",
+        "src/lib/incidents/remediation.ts:478"
+      ],
+      "proof": "Address/short-name/conservative unresolved target graph detection feeds service.scale gate. Genuine investigator with controlled telemetry suppresses scale, exposes autoscaler_conflict and escalation; actual PostgreSQL reservation refuses supplied conflict. No live autoscaler claimed."
+    },
+    {
+      "clause": "reachability within local engine scope",
+      "source": [
+        "src/lib/reconcile/platform/index.ts:57",
+        "src/lib/reconcile/core.ts:243",
+        "src/lib/reconcile/repair.ts:288",
+        "src/lib/reconcile/platform/stability.ts:58",
+        "src/lib/controlplane/db/repos/workflow-start-intents.ts:292"
+      ],
+      "proof": "Production composition always wires observation and atomic reservation before broker proposal. Ten passing reconcile stability tests exercise controller fail-closed/order/binding with modeled broker and genuine PGlite adapter. Actual PG35 tests bind/sync operation outcomes. Remediation-specific prepare/claim query is inspected source, not a demonstrated end-to-end start."
+    }
+  ],
+  "limits": [
+    "Remediation-specific prepare/claim admission and its exact bound-attempt query are inspected source, not an end-to-end executed remediation start.",
+    "Escalation evidence is durable record/event plus local engine decisions, not paging delivery or an acknowledge UI. These are not added to the literal acceptance criterion.",
+    "Controlled telemetry/broker ports are labeled; no default production journey, live cloud, provider mutation, installed daemon or HA acceptance.",
+    "Counts overlap wider CI lanes and are never summed. Prior failures remain retained.",
+    "No requirement or release status is changed by this proposed evidence file."
+  ],
+  "evidenceBindings": {
+    "independentReviewSha256": "3b5f875b9ce163f2c956d6a82490232dafcf445150799446decab2789f94a1d0",
+    "final18JobObservationSha256": "9f2e2dcf95880866b25e44aa4681d5bcb6b3352d2d2f70780516f9e0a2e3cbf9",
+    "platformSanitizedSha256": "67bd5cc7ccab806fb85558a324140335a86d9d12877cc07277364d32fa8ca382",
+    "reconciliationSanitizedSha256": "787fb7dbd99bfb127e90cf2e40eccc8658c7cfd60b228ada1ac4d48e242eb6ad",
+    "workflowIntentsSanitizedSha256": "1b88be6e91e777244f0106c9d2031b5e420e6b66d7e04140c67d835fa34416ef",
+    "privateUnitLogSha256": "5cc6ae36ee3ccdd8c2b95593cf645bb15fbf1c0bbb0fec6c110a60e4445924e4"
+  },
+  "portableRawMaterial": "Raw logs and individual diagnostic values are not included."
+}

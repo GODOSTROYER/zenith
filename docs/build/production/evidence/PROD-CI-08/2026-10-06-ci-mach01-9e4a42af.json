@@ -1,0 +1,860 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+  "branch": "codex/production-2026-10-02",
+  "observedAtUtc": "2026-10-06T01:43:04.150739+00:00",
+  "status": "ALL_18_CURRENT_SOURCE_JOBS_TERMINAL_SUCCESS",
+  "scope": "Fresh exact-source CI and native MACH01 fixture evidence. Root accepted ordered CI repair and inspected current MACH01 artifacts. Proposed ledger changes await root integration and independent final review; no release approval.",
+  "sourceBinding": {
+    "gitTree": "ec9f972a739a5e2af7bd2b92a3ce67745613918e",
+    "wholeGitFileCount": 4469,
+    "wholeGitByteModeSymlinkAggregateSha256": "764a79728b37a9b55f26fbeeca5096adffe1cc808a38725ef117d7fcc9a1e2ed",
+    "currentFingerprints": {
+      ".github/workflows/packaged-workers.yml": {
+        "sha256": "b21133a30a4f5da09e214246f1ad94333f755883b79c22c60f8a3d254da09786",
+        "gitMode": "100644",
+        "bytes": 2522
+      },
+      "package-lock.json": {
+        "sha256": "daf1845592887828963e70daf08bbe0bf1542567e5a25b9b6be41eb245994ac4",
+        "gitMode": "100644",
+        "bytes": 472049
+      },
+      "scripts/acceptance/packaged-worker.mjs": {
+        "sha256": "fd80ce4ba890c848836a695e590ef296e455a64a57e53f6eeeca4d86afe712c0",
+        "gitMode": "100644",
+        "bytes": 124317
+      },
+      "scripts/ci/gate-manifest.mjs": {
+        "sha256": "244f56bf7ae0458703ee879a5251129c0cbf09d963a206b841eacbbea762be4f",
+        "gitMode": "100644",
+        "bytes": 327118
+      },
+      "scripts/ci/packaged-worker-native.mjs": {
+        "sha256": "be61a4958451f35bde65c9f3ed608c420015667413a1cf0051211b9ed605937e",
+        "gitMode": "100644",
+        "bytes": 67735
+      },
+      "scripts/ci/service-configure-systemd-fixtures.py": {
+        "sha256": "de4c1e0b4ea79936bae3cd5f6085cd874b141e5b5029451c03b527ba6affd620",
+        "gitMode": "100644",
+        "bytes": 16573
+      },
+      "tests/ci/gate-manifest.test.ts": {
+        "sha256": "8e006ca79b4371853083db25ccfcca3c895da7f61bd604e808403b72e829af5f",
+        "gitMode": "100644",
+        "bytes": 220829
+      }
+    }
+  },
+  "main": {
+    "runId": 37398213464,
+    "attempt": 1,
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 112059153521,
+        "name": "postgres",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153521"
+      },
+      {
+        "id": 112059153640,
+        "name": "build",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153640"
+      },
+      {
+        "id": 112059153688,
+        "name": "docker",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153688"
+      },
+      {
+        "id": 112059153690,
+        "name": "tofu",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153690"
+      },
+      {
+        "id": 112059153725,
+        "name": "verify",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153725"
+      },
+      {
+        "id": 112059153727,
+        "name": "operation-gates (workflow-intents)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153727"
+      },
+      {
+        "id": 112059153734,
+        "name": "agent",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153734"
+      },
+      {
+        "id": 112059153737,
+        "name": "platform-postgres",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153737"
+      },
+      {
+        "id": 112059153760,
+        "name": "ledger",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153760"
+      },
+      {
+        "id": 112059153769,
+        "name": "generated",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153769"
+      },
+      {
+        "id": 112059153771,
+        "name": "go",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153771"
+      },
+      {
+        "id": 112059153802,
+        "name": "workflows",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153802"
+      },
+      {
+        "id": 112059153805,
+        "name": "operation-gates (reconciliation)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153805"
+      },
+      {
+        "id": 112059153829,
+        "name": "hosted",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153829"
+      },
+      {
+        "id": 112059153873,
+        "name": "policy",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153873"
+      },
+      {
+        "id": 112059153893,
+        "name": "supply-chain",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464/job/112059153893"
+      }
+    ],
+    "jobCounts": {
+      "success": 16
+    },
+    "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
+  },
+  "native": {
+    "runId": 37398213671,
+    "attempt": 1,
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 112059154414,
+        "name": "packaged-worker (amd64, ubuntu-24.04)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213671/job/112059154414"
+      },
+      {
+        "id": 112059154567,
+        "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213671/job/112059154567"
+      }
+    ],
+    "jobCounts": {
+      "success": 2
+    },
+    "observations": [
+      {
+        "platform": "linux/amd64",
+        "jobId": 112059154414,
+        "artifactId": 11384542539,
+        "actualAttempt": 1,
+        "evidenceSha256": "df1b71c76d13be5ed58b9a2c76a969fc5628e1321dc82cec16372d8915c05f11",
+        "status": "passed",
+        "childExit": 0,
+        "requiredUnique": 22,
+        "allPassed": true,
+        "emulated": false,
+        "node": "22.23.3",
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "sourceInputSha256": "7fcf0bcc01aa82f8eb89e05297812c0521ef775fd8c6147099ab19a9ec979cf1",
+        "acceptanceHarnessSha256": "fd80ce4ba890c848836a695e590ef296e455a64a57e53f6eeeca4d86afe712c0",
+        "manifestSha256": "172d0e203256b2f1d0f318bfa6c74bdd455226201cb64ad2005ad99691ea0cd9",
+        "minimumObservedFreeGiB": 80.49
+      },
+      {
+        "platform": "linux/arm64",
+        "jobId": 112059154567,
+        "artifactId": 11383963549,
+        "actualAttempt": 1,
+        "evidenceSha256": "da17f4ed04fad9d5cd7b81091dabc106311e93a571416c6ca243d72b4e144618",
+        "status": "passed",
+        "childExit": 0,
+        "requiredUnique": 22,
+        "allPassed": true,
+        "emulated": false,
+        "node": "22.23.3",
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "sourceInputSha256": "7fcf0bcc01aa82f8eb89e05297812c0521ef775fd8c6147099ab19a9ec979cf1",
+        "acceptanceHarnessSha256": "fd80ce4ba890c848836a695e590ef296e455a64a57e53f6eeeca4d86afe712c0",
+        "manifestSha256": "0f7a98ded6aaeefb29d3e292c8cb0a44f9525d9d92fcff33622a4cedbb5717ff",
+        "minimumObservedFreeGiB": 102.41
+      }
+    ],
+    "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213671"
+  },
+  "verify": {
+    "jobId": 112059153725,
+    "tests": {
+      "passed": 19436,
+      "failed": 0,
+      "skipped": 1519,
+      "total": 20955
+    },
+    "testFiles": {
+      "passed": 871,
+      "failed": 0,
+      "skipped": 49,
+      "total": 920
+    },
+    "steps": {
+      "Typecheck": "success",
+      "Lint": "success",
+      "Unit suites (Node and DOM projects)": "success",
+      "Smoke": "success",
+      "Verify Gimbal assets": "success"
+    },
+    "completeCountsExported": true
+  },
+  "go": {
+    "jobId": 112059153771,
+    "guestArtifactId": 11384086995,
+    "guestEvidenceSha256": "1241a3f4521d0b502f2cc961c5559f02bb202e6dbf0649564f8924608550b600",
+    "requiredRacePassed": 148,
+    "requiredDirectRootPackagePassed": 4,
+    "requiredGuestTotalUniquePassed": 152,
+    "allFiveRuntimeGoldenGenerationAndComparisonPhasesExitZero": true,
+    "systemdArtifactId": 11383727207,
+    "systemdEvidenceSha256": "db0763ad1d9648252ed42d16ac4fe961e82efa3028cdc67a5d8ffbc58327a89f",
+    "requiredSystemdUniquePassed": 15,
+    "orderedOpsParentAndLeaves": 8,
+    "orderedSignedParentAndLeaves": 7,
+    "actualArchitecture": "linux/amd64",
+    "systemdTestPrivileges": {
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "zero",
+      "noNewPrivs": true
+    },
+    "fixedCleanupTransport": {
+      "role": "fixed-fixture-cleanup-transport",
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "E/P/I/A-zero",
+      "noNewPrivs": false
+    },
+    "cleanup": {
+      "systemd": "cleaned",
+      "canonicalFourRoots": "absent",
+      "systemdCleanupReceiptSha256": "cf202e15149c3a8b50dfb2260c7ebd1ae92b123e16e103f7cdffc1992af2b8b4",
+      "directRootPackage": "complete"
+    },
+    "wholeGitSourceByteModeSymlinkAggregateIndependentlyReproduced": "764a79728b37a9b55f26fbeeca5096adffe1cc808a38725ef117d7fcc9a1e2ed",
+    "wholeGitFileCount": 4469,
+    "tools": {
+      "node": "22.23.3",
+      "go": "1.27.1",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "zero",
+      "noNewPrivs": true
+    },
+    "interop": {
+      "command": "npx vitest run tests/machines/go-results.test.ts --maxWorkers=2",
+      "tests": {
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "total": 27
+      },
+      "testFiles": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "total": 1
+      }
+    },
+    "crossbuild": {
+      "actualTargetRows": {
+        "amd64": true,
+        "arm64": true
+      },
+      "cgo": 0,
+      "command": "go build -trimpath ./...",
+      "shellFailClosed": "set -euo pipefail",
+      "completedJobConclusion": "success"
+    },
+    "detailedStepExportLimit": "The Go job API detailed steps array was empty; exact terminal-log projection independently confirms interoperability27/0/0 and both CGO0 build targets."
+  },
+  "canonicalLanes": [
+    {
+      "lane": "postgres",
+      "sanitizedEvidenceSha256": "f0bccb0a3745003adbddf34fd964894e6c5c71ad36a4ce2ee8dd24cefef16b0e",
+      "counts": {
+        "total": 322,
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 80,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "policy",
+      "sanitizedEvidenceSha256": "a136a5d6232bbe41499c93188f5b10c0314707dfc0f334a41f0eb934050c6869",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 7,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "opa": "1.19.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "reconciliation",
+      "sanitizedEvidenceSha256": "787fb7dbd99bfb127e90cf2e40eccc8658c7cfd60b228ada1ac4d48e242eb6ad",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 26,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "workflow-intents",
+      "sanitizedEvidenceSha256": "1b88be6e91e777244f0106c9d2031b5e420e6b66d7e04140c67d835fa34416ef",
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 141,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "tofu",
+      "sanitizedEvidenceSha256": "d276af32995cecaf332a787d4f79572767b38d79a8ab84c155746a5036d70384",
+      "counts": {
+        "total": 3934,
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 27,
+      "sourceFingerprintsMatched": true,
+      "freshExitCode": 0,
+      "runtimeAndEffectiveEnvironmentMatched": true,
+      "expectedTools": {
+        "node": "22.23.3",
+        "tofu": "1.12.5"
+      },
+      "caseIdentityLimit": "not-exported-by-standard-vitest-json"
+    },
+    {
+      "lane": "workflows",
+      "sanitizedEvidenceSha256": "2ad0bf739aa3fd4e09d91918d0f63c882be900eceaec8026d704e8b14b99287f",
+      "counts": {
+        "total": 1273,
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 60,
+      "requiredBackendDistribution": null,
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "currentGitGateAndLockHashesMatched": true,
+      "matchedFreshRuntimeEnvironmentExit": true
+    },
+    {
+      "lane": "platform-postgres",
+      "sanitizedEvidenceSha256": "67bd5cc7ccab806fb85558a324140335a86d9d12877cc07277364d32fa8ca382",
+      "counts": {
+        "total": 3042,
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "requiredUniquePassed": 1124,
+      "requiredBackendDistribution": {
+        "postgres": 1107,
+        "not-declared": 17
+      },
+      "expectedTools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "tofu": "1.12.5"
+      },
+      "currentGitGateAndLockHashesMatched": true,
+      "matchedFreshRuntimeEnvironmentExit": true
+    }
+  ],
+  "realBrowserGates": [
+    {
+      "job": "hosted",
+      "jobId": 112059153829,
+      "conclusion": "success",
+      "requiredCommand": "npx tsx scripts/hosted-browser.ts",
+      "scope": "Owned hosted recipient fixture journey in a real browser; no live-cloud/default production-interface approval",
+      "browserVersion": "not exported in inspected terminal metadata"
+    },
+    {
+      "job": "agent",
+      "jobId": 112059153734,
+      "conclusion": "success",
+      "requiredCommand": "npm run agent:browser",
+      "scope": "Owned linked-agent approval-screen fixture in a real browser; no default registered native-machine journey claim",
+      "browserVersion": "not exported in inspected terminal metadata"
+    }
+  ],
+  "mach01": {
+    "rootContentCheckReceiptSha256": "a67e9ebeb814c3b767b50d931cc46668cbfc1a0facae87031574a13f3a377ea5",
+    "guestArtifactSha256": "1241a3f4521d0b502f2cc961c5559f02bb202e6dbf0649564f8924608550b600",
+    "systemdArtifactSha256": "db0763ad1d9648252ed42d16ac4fe961e82efa3028cdc67a5d8ffbc58327a89f",
+    "guestRequired": {
+      "race": 148,
+      "directRootPackage": 4,
+      "uniqueRequiredPassed": 152,
+      "goldenRequiredLeavesSeparatelyMatched": 2,
+      "allFiveGoldenPhasesExitZero": true
+    },
+    "systemdRequired": {
+      "orderedOpsParentAndLeaves": 8,
+      "orderedSignedParentAndLeaves": 7,
+      "uniqueRequiredPassed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    "actualArchitecture": "linux/amd64 native",
+    "testIdentity": {
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "zero",
+      "noNewPrivs": true
+    },
+    "fixedCleanupTransport": {
+      "role": "fixed-fixture-cleanup-transport",
+      "uid": 1001,
+      "gid": 1001,
+      "capabilities": "E/P/I/A-zero",
+      "noNewPrivs": false
+    },
+    "cleanup": {
+      "systemd": "cleaned",
+      "canonicalFourRoots": "absent",
+      "systemdCleanupReceiptSha256": "cf202e15149c3a8b50dfb2260c7ebd1ae92b123e16e103f7cdffc1992af2b8b4",
+      "directRootPackage": "complete"
+    },
+    "packageFixture": {
+      "apparmorFixtureOverride": true,
+      "emulated": false,
+      "arch": "amd64"
+    },
+    "phaseSeparation": "The race and actual systemd tests run unprivileged. The four native package controls use their separate owned direct-root fixture; the AppArmor fixture override is explicit. Cleanup transport NNPfalse does not represent test isolation.",
+    "limits": [
+      "Real Linux filesystem/systemd/polkit/default executor and signed replay under an owned inert unit; control-plane issuer is modeled.",
+      "Inert unit does not consume application configuration. Installed daemon/default API/browser approval/live cloud/HA journeys remain unproved."
+    ]
+  },
+  "componentReuse": {
+    "kind": {
+      "runtimeSourceSha": "228573330c718464b181eb5f3abc6a90c3f4ed50",
+      "status": "passed",
+      "receiptSha256": "01766f4ec7422b2c7f592fb3be01739613c64d48301944be8683e9bcfc3b9059",
+      "helperSha256": "8c041740913024a014fca5fe54236373126fdf27aa2e78d3fce6e2877a1a017f",
+      "sourceFingerprintSha256": "225a994f5c288a108f9a9c7d578f0cf06ce11a69edfa38b2a1d7fa13c470ccef",
+      "environment": {
+        "node": "22.23.3",
+        "kind": "0.33.0",
+        "kubectl": "1.37.0",
+        "architecture": "local native Linux ARM64 kind cluster on Docker Desktop"
+      },
+      "suites": {
+        "provider": {
+          "passed": 6,
+          "failed": 0,
+          "skipped": 0,
+          "reportSha256": "a67ba10302d91d2be851231b73e8e2c10eba3b9b7d938ae480478c06bf99fc26"
+        },
+        "release": {
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0,
+          "reportSha256": "2cccdd37f4b5e0b512487504cec890a5580a63cd98ceb89de04d7f9663c3a7cd"
+        },
+        "guest": {
+          "passed": 48,
+          "failed": 0,
+          "skipped": 0,
+          "reportSha256": "77af99cc90c3d15cf3e03f0dcfd108598dcfb64180e6ea24ffe19a4b7d3e85b7"
+        }
+      },
+      "ownedCleanupComplete": true,
+      "exactUnchangedGitInputPathsComparedTo9e": [
+        "src",
+        "package.json",
+        "package-lock.json",
+        "vitest.config.ts",
+        "vitest.setup.ts",
+        "tsconfig.json",
+        "tests/providers/kubernetes/kind.test.ts",
+        "tests/providers/kubernetes/release-kind.test.ts",
+        "tests/machines/kubernetes-kind.test.ts"
+      ],
+      "unchangedBytesModes": true,
+      "scope": "Historical228 execution retained only for unchanged component inputs; these6/1/48 results are not fresh9e runtime and are not added to current CI lane totals.",
+      "limits": [
+        "Local kind55 only; no managed-cloud/default-API/systemd/full-guest152/full-workers proof.",
+        "Eight real API controls use a PGlite tenant ledger and signed fixture claims; browser/current-human SQL authorization is unproved.",
+        "Default kind CNI does not prove NetworkPolicy enforcement."
+      ]
+    },
+    "priorMacExecution": {
+      "runtimeSourceSha": "56aeb01a0bfd306df9135223540c592c12676fd8",
+      "record": "docs/build/production/evidence/PROD-CI-08/2026-10-06-local-56aeb01a.json",
+      "executionLocation": "native Darwin ARM64",
+      "scope": "Historical separately recorded local static/unit/Go/generated/security/policy/OpenTofu gate, not a fresh Mac run on9e. Current contract and actual engine evidence here are hosted native Linux."
+    }
+  },
+  "toolsAndLocations": {
+    "freshEngineVersionBindings": {
+      "node": "22.23.3",
+      "go": "1.27.1",
+      "postgres": "16.15",
+      "temporalCLI": "1.9.1",
+      "opa": "1.19.1",
+      "openTofu": "1.12.5"
+    },
+    "nodeInstall": "Successful clean npm ci --ignore-scripts from the current committed package-lock on hosted CI",
+    "npmVersion": "not exported in inspected current sanitized records",
+    "dockerVersion": "not exported in inspected current sanitized records",
+    "kindAndKubectlVersions": "Only scoped historical kind environment is recorded under componentReuse",
+    "nativeWorkerPlatforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "emulatedWorkerEvidence": false,
+    "freshMacExecutionOn9e": false
+  },
+  "historicalFailurePreserved": {
+    "source99db": "Previous fresh AMD attempt failed, checks empty/zero exported mandatory statuses, all cleanup6true; ARM22passed. Original receipts immutable.",
+    "causalLimit": "Current source removes demonstrated status/body split and both fresh native architectures passed. Exact previous second response/cause remains unknown; no unique historical-cause claim."
+  },
+  "evidenceBindings": {
+    "independentFinalObservationSha256": "9f2e2dcf95880866b25e44aa4681d5bcb6b3352d2d2f70780516f9e0a2e3cbf9",
+    "rootTerminalPerJobReceiptSha256": "dccc980d77e433d7288c33949759346dbc25d236b1482016a9e25b6a0a925c60",
+    "rootMach01ContentCheckSha256": "a67e9ebeb814c3b767b50d931cc46668cbfc1a0facae87031574a13f3a377ea5",
+    "independentCiAcceptanceRecommendationSha256": "ca17c6569a48a72aa42dc7fd949596158b7a34885929c2f1bef5d3f981972a59",
+    "currentCanonicalReceiptSha256": {
+      "main-status-final.json": "47c33ab545882594b394e0cbe0ab7fd904ac7e0f3f87f34205dc8d0573453b32",
+      "main-jobs-5.json": "136a9f530e62c70c04de7c55f8476b406e093322c711de4efc7b9aa6a01bc8fb",
+      "native-status-final.json": "ab085fcad50e8415c8fb8065636cf95395a5e0f5f555ae85d089c9d2e682a2fc",
+      "native-jobs-3.json": "2c98f5dd92df66f534983df7b783638771ffd5f6f786bd3bb5ea3920982fda8f",
+      "EXPECTED-SOURCE-BINDING.json": "0b6f50b610dc350186afaed927074f3b3228205bb28773287715bacbf8f9a63f",
+      "EXPECTED-NATIVE-COPY-BINDING.json": "92cbf74326a68c95b691391402f6ac37ce99b97def2ec74f1ab76231346e67f1",
+      "GO-SYSTEMD-REVIEW.json": "3adfac110f15cbce9f52ba426d19d90db544bd5ac0968d55e7bbc78b3feef97e",
+      "GO-INTEROP-CROSSBUILD-SUPPLEMENT.json": "6d0fd8e250f8eff8c7d91dd617dd5b863a3295eaabbd80509f52c95e42cfa2be",
+      "VERIFY-SUMMARY.json": "092c578123cf52fb4d298aca65918b0a762ef2c729d2f0afa195fd099a68751b",
+      "FIRST-CANONICAL-EVIDENCE.json": "e08de26ad738f5f0dc1cdca370d255679c140910e054a161487a710df9de6c27",
+      "WORKFLOWS-REVIEW.json": "171f9fef4f02436d0339a6b033533762cdeeef3f1d75d731073a2eb999580c08",
+      "PLATFORM-REVIEW.json": "3d45e8cd951f3ad3446c9c90221dd9b9caa49c4d085fc44e979e991d4b9bc152",
+      "NATIVE-REVIEW.json": "5bb73256031c941fec019bb5c23b0f32ea40e5ffc46a75dd684b97c9fe2df204"
+    }
+  },
+  "limits": [
+    "All current jobs and exported outcomes are fresh exact9e attempt1. Historical failures remain retained; no uniquely proven prior AMD response/cause is claimed.",
+    "Unit, parent/leaf Go events, canonical lanes, native100, goldens, browser and kind scopes overlap and are never summed. Skips are observed statuses; mandatory identities require their own passed matches.",
+    "Native100 is within the strict1124 platform cohort; no separate fresh100 report or additional passed total is fabricated.",
+    "Standard sanitized Vitest reports omit raw stable per-case IDs; the exact strict required matcher rows, source/tool/effective-environment/execution origin and complete counts were independently checked.",
+    "Hosted native Linux disposable engine evidence satisfies the scoped local_engine level alongside remote CI evidence; no current Mac engine execution is invented.",
+    "The original package AppArmor fixture override and cleanup transport NoNewPrivs false are explicit and separate from unprivileged capability-zero NNPtrue systemd tests.",
+    "No raw logs, credential values, connection strings, absolute home paths or arbitrary diagnostic payloads are published.",
+    "No installed daemon/default API, universal current-owner exclusion, managed NetworkPolicy, live provider, measured optimization, HA, commercial or release readiness claim.",
+    "MACH03 route42, OBS02 loopback6, JOIN8 and critical scheduling2 plus mandatory registration remain separate held/test packets; their runtime is not attributed to this9e CI run."
+  ],
+  "requirementDispositionProposal": {
+    "status": "ROOT_INTEGRATION_AND_INDEPENDENT_FINAL_REVIEW_REQUIRED",
+    "testedSourceSha": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+    "proposedRows": [
+      {
+        "id": "PROD-CI-05",
+        "state": "verified",
+        "implementationStatus": "verified_9e4a42af",
+        "evidenceToAppend": [
+          {
+            "level": "contract",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Current canonical manifest/report/refusal/privacy controls are within successful unit19436 passed/0 failed/1519 observed skipped; current typecheck/lint and generated jobs passed. Mandatory missing/failed/skipped/zero/source/environment/origin checks remain strict.",
+            "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+          },
+          {
+            "level": "local_engine",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Actual current disposable PostgreSQL322/0/0 all80, platform3034/0/8 all1124, Temporal1273/0/0 all60 and native source/attempt-bound engine artifacts admitted; only sanitized evidence published. Overlapping counts not summed.",
+            "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+          }
+        ]
+      },
+      {
+        "id": "PROD-CI-08",
+        "state": "verified",
+        "implementationStatus": "verified_9e4a42af",
+        "evidenceToAppend": [
+          {
+            "level": "contract",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Current clean locked install, typecheck/lint/generated/migration inventories and unit19436/0/1519 passed; exact skipped statuses retained.",
+            "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+          },
+          {
+            "level": "local_engine",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Fresh hosted native engines: PG322/0/0, platform3034/0/8, workflows1273/0/0, reconciliation38/0/0, intents156/0/0, OPA238/0/0, OpenTofu3916/0/18; guest152, ordered systemd15, interoperability27/0/0, both CGO0 builds, native22each and all owned cleanup passed. Real browser jobs passed. Unchanged-input historical kind228 provider6/release1/guest48 reused only under original runtime source.",
+            "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+          },
+          {
+            "level": "remote_ci",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Exact9e attempt1 main16/16 and both native jobs terminal success; current unit19436/0/1519, Smoke/Gimbal and all mandatory content validators passed; no carried status or summed overlap.",
+            "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json",
+            "runId": 37398213464,
+            "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
+          }
+        ]
+      },
+      {
+        "id": "PROD-CI-09",
+        "state": "verified",
+        "implementationStatus": "verified_9e4a42af",
+        "evidenceToAppend": [
+          {
+            "level": "remote_ci",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Normal nonprotected branch push of exact9e; all16 main and both native jobs terminal success on attempt1. Source-bound artifacts, current guest152/systemd15/native22each and owned cleanup independently inspected; historical failures and external release gates remain visible.",
+            "command": "Complete canonical source/tool/environment/execution-bound gate and sanitized artifact review; current main/native terminal observation",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json",
+            "runId": 37398213464,
+            "url": "https://github.com/GODOSTROYER/zenith/actions/runs/37398213464"
+          }
+        ]
+      },
+      {
+        "id": "PROD-MACH-01",
+        "state": "verified",
+        "implementationStatus": "verified_9e4a42af",
+        "evidenceToAppend": [
+          {
+            "level": "contract",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Current typed configuration/atomic file/symlink/allowlist/backup/postcondition and signed refusal contracts are within the inspected current unit and Go gates; no skipped required native scenario substituted.",
+            "command": "Canonical guest --run/--select-current plus ordered systemd --run-systemd/--select-current-systemd and both owned cleanup proofs",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+          },
+          {
+            "level": "local_engine",
+            "commit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+            "result": "Fresh native LinuxAMD64 guest148 race plus4 direct-root package controls match152 required; all five golden phases and ordered real systemd15 (ops8 then signed7), systemd cleanup/canonical four-root absence passed. Actual systemd identity UID/GID1001/caps0/NNPtrue; fixed cleanup NNPfalse and package AppArmor fixture override explicit. Inert unit/modeled CP issuer; no default installed-daemon/API/cloud claim.",
+            "command": "Canonical guest --run/--select-current plus ordered systemd --run-systemd/--select-current-systemd and both owned cleanup proofs",
+            "environment": {
+              "node": "22.23.3",
+              "Go": "1.27.1 GOTOOLCHAIN=local",
+              "PostgreSQL": "16.15",
+              "TemporalCLI": "1.9.1",
+              "OPA": "1.19.1",
+              "OpenTofu": "1.12.5",
+              "architecture": "fresh hosted native Linux AMD64 guest and AMD64/ARM64 workers; no emulation; historical kind/Mac scopes separately labeled"
+            },
+            "logs": "docs/build/production/evidence/PROD-CI-08/2026-10-06-ci-mach01-9e4a42af.json"
+          }
+        ]
+      }
+    ],
+    "preservation": {
+      "all78IdsAcceptanceRequiredEvidenceAndDependencies": "unchanged",
+      "priorEvidence": "append-only; retain every existing entry",
+      "topLevelMetadata": "unchanged",
+      "other74Rows": "byte-preserved except mechanical rendering outside this proposal",
+      "releaseStatus": {
+        "implementationComplete": false,
+        "sandboxVerified": false,
+        "pilotReady": false,
+        "productionApproved": false
+      },
+      "beforeLedgerSha256": "72527989d2c10be3cbd56f0985eb532adaa0a71262f76b16a796d23f63002ec8"
+    },
+    "countIfRootAppliesOnlyTheseFourRows": {
+      "verified": 10,
+      "in_progress": 40,
+      "planned": 28,
+      "total": 78
+    }
+  }
+}

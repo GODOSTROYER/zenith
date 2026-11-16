@@ -12,9 +12,12 @@ const mocks = vi.hoisted(() => ({
   admit: vi.fn(),
   admitted: vi.fn(),
   consumeRateLimit: vi.fn(),
+  mfaClaims: vi.fn(), mfaUser: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: mocks.session }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://auth.test", SUPABASE_PUBLIC_KEY: "synthetic-publishable-key", isSupabaseConfigured: () => true }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: { getClaims: mocks.mfaClaims, getUser: mocks.mfaUser } }) }));
 vi.mock("@/lib/waitlist/repository", () => ({ waitlistRepository: mocks.repository }));
 vi.mock("@/lib/server/request", () => ({
   route: () => { throw new Error("Waitlist routes must not bootstrap a workspace or require product admission."); },
@@ -84,6 +87,10 @@ beforeEach(() => {
   vi.stubEnv("ZENITH_WAITLIST_RATE_LIMIT_SECRET", "test-waitlist-rate-limit-secret-0123456789");
   vi.stubEnv("ZENITH_WAITLIST_TRUSTED_IP_HEADER", undefined);
   mocks.session.mockResolvedValue(operator);
+  mocks.mfaClaims.mockResolvedValue({ data: { claims: { sub: OPERATOR, aal: "aal2", exp: Date.now() / 1000 + 600,
+    amr: [{ method: "totp", timestamp: Date.now() / 1000 }] } }, error: null });
+  mocks.mfaUser.mockResolvedValue({ data: { user: { id: OPERATOR, email_confirmed_at: new Date().toISOString(),
+    factors: [{ factor_type: "totp", status: "verified" }] } }, error: null });
   mocks.repository.mockResolvedValue({
     join: mocks.join,
     list: mocks.list,
@@ -325,8 +332,42 @@ describe("operator FIFO batch admission", () => {
   });
 
   it("caps admission body bytes even when Content-Length understates the size", async () => {
-    const response = await admit(rawPost("/api/admin/waitlist/admit", JSON.stringify({ count: 1, requestId: REQUEST_ID }).padEnd(8193, " "), { "content-length": "1" }));
+    const response = await admit(rawPost("/api/admin/waitlist/admit", JSON.stringify({ count: 1, requestId: REQUEST_ID }).padEnd(8193, " "), { origin: ORIGIN, "content-length": "1" }));
     expect(response.status).toBe(413);
     expect(mocks.admit).not.toHaveBeenCalled();
+  });
+});
+
+describe("sameOrigin behind a port mapping or proxy", () => {
+  const request = (url: string, origin: string | undefined, site?: string) => new NextRequest(url, { method: "POST",
+    headers: { ...(origin ? { origin } : {}), ...(site ? { "sec-fetch-site": site } : {}) } });
+  const withOrigins = (values: Record<string, string | undefined>, run: () => void) => {
+    const saved = { ZENITH_PLATFORM_ORIGIN: process.env.ZENITH_PLATFORM_ORIGIN, ZENITH_AGENT_ORIGIN: process.env.ZENITH_AGENT_ORIGIN };
+    for (const [key, value] of Object.entries(values)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    try { run(); } finally { for (const [key, value] of Object.entries(saved)) if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  };
+
+  it("accepts the configured public origin although the server binds another address", async () => {
+    const { sameOrigin } = await import("@/lib/waitlist/http");
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: undefined, ZENITH_AGENT_ORIGIN: "http://127.0.0.1:36400" }, () => {
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/api/admin/ops/retention/preview", "http://127.0.0.1:36400"))).not.toThrow();
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/api/admin/ops/retention/preview", "http://0.0.0.0:3400"))).toThrow("same site");
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/x", "https://evil.example"))).toThrow("same site");
+    });
+  });
+
+  it("prefers ZENITH_PLATFORM_ORIGIN, refuses a malformed configured origin and still refuses cross-site", async () => {
+    const { sameOrigin } = await import("@/lib/waitlist/http");
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: "https://zenith.example", ZENITH_AGENT_ORIGIN: "http://127.0.0.1:36400" }, () => {
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/x", "https://zenith.example"))).not.toThrow();
+      expect(() => sameOrigin(request("http://0.0.0.0:3400/x", "http://127.0.0.1:36400"))).toThrow("same site");
+    });
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: "https://zenith.example/path", ZENITH_AGENT_ORIGIN: undefined }, () => {
+      expect(() => sameOrigin(request("https://zenith.example/x", "https://zenith.example"))).toThrow("same site");
+    });
+    withOrigins({ ZENITH_PLATFORM_ORIGIN: undefined, ZENITH_AGENT_ORIGIN: undefined }, () => {
+      expect(() => sameOrigin(request("https://zenith.example/x", "https://zenith.example"))).not.toThrow();
+      expect(() => sameOrigin(request("https://zenith.example/x", undefined, "cross-site"))).toThrow("same site");
+    });
   });
 });

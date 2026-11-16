@@ -289,3 +289,19 @@ export const exportRegion = (env: Environment) => {
 
 /** `<project>-<environment>`, the default for `var.name_prefix`. */
 export const namePrefix = (env: Environment) => `${projectSlug(env)}-${String(env.name ?? "")}`;
+
+/**
+ * ELB caps load balancer and target group names at 32 characters. A name that
+ * would be longer is cut to its first `LB_NAME_KEEP` characters, "-", and the
+ * first `LB_HASH_HEX` hex characters of the SHA-1 of the full name — 32 in all,
+ * stable across applies, and different for different full names, so two long
+ * service names sharing a head stay distinct.
+ *
+ * The cut is written into the HCL (`local.lb_names` in alb.tf) rather than
+ * made here, because the prefix is `var.name_prefix` and the user can override
+ * it in terraform.tfvars: a length decided against the default would be wrong
+ * the moment they did. A name of 32 characters or fewer is used unchanged.
+ */
+export const LB_NAME_MAX = 32;
+export const LB_HASH_HEX = 6;
+export const LB_NAME_KEEP = LB_NAME_MAX - LB_HASH_HEX - 1;

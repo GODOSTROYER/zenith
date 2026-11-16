@@ -1,0 +1,141 @@
+[
+  {
+    "path": ".github/workflows/ci.yml",
+    "before": {
+      "sha256": "5d9c7e12c1f5378b5116f4a162fcb2dd27eaf4103a7a9a163721130ab4951333",
+      "bytes": 57673,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "cd8805b53cbd20f21a8f643e063433ef781c4e6d64ae9e030b7f82835ef5240c",
+      "bytes": 57727,
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/ci/gate-manifest.mjs",
+    "before": {
+      "sha256": "16e9a62f501d05c3ba9aaff315a24d321e507f2ca7947c748a85a07b237d6a18",
+      "bytes": 303902,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "f00137c644bb6e3635a9ea9ef70ee0df4a890920f9e1bc9c3bbfb6e69be25ac1",
+      "bytes": 320735,
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/ci/apply-supabase-migrations.sh",
+    "before": {
+      "sha256": "7e8c49a8e0c74dc5ea7b1f1766893b3d39151a8f905ada88405970650c82e7b6",
+      "bytes": 19425,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "6b54552eeb39b97322b58594a43cf89bb96dcb9a7e2c3285ab226d99b156fd72",
+      "bytes": 19462,
+      "mode": 420
+    }
+  },
+  {
+    "path": "tests/ci/gate-manifest.test.ts",
+    "before": {
+      "sha256": "374fad5ea00bc361782a5837231bb30ed0e674424912f794bce91ced25e3fdf8",
+      "bytes": 184575,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "93f2e7b07f14b7e6e70e167c18482917f0a9282539b8e153b5514d148ae04724",
+      "bytes": 192922,
+      "mode": 420
+    }
+  },
+  {
+    "path": "tests/ci/platform-coverage.test.ts",
+    "before": {
+      "sha256": "482577079e0e44ca520057b09d44cca8f81761efb2a9cea3ca2452aa133b44a2",
+      "bytes": 53083,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "88ddf4ed217d2958ada6e7cf6d199bb2aeb5553aa312975647048d3bf3c6e66a",
+      "bytes": 55981,
+      "mode": 420
+    }
+  },
+  {
+    "path": "tests/ci/guest-file-write-gate.test.ts",
+    "before": {
+      "sha256": "e56759725f1f6dc092e0d5b4203402501628b06370b96551c37f70e3d47e3d79",
+      "bytes": 77890,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "4fd8db363cd69123612a7c85b0e794fa33b84ff8e20e504669ebca120b1650c8",
+      "bytes": 77890,
+      "mode": 420
+    }
+  },
+  {
+    "path": "tests/controlplane/migrations.test.ts",
+    "before": {
+      "sha256": "0627169af5edf31bb50d5a5d64585d3114f69de358a34a5d3d7604ed98f319df",
+      "bytes": 51919,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "4814827290d286183e2bfeaf6a47240da23b3836cce70357839a0b8717a5e0ac",
+      "bytes": 55181,
+      "mode": 420
+    }
+  },
+  {
+    "path": "tests/controlplane/tenancy.test.ts",
+    "before": {
+      "sha256": "eb9e715e10bc998085aee7020f0f28bb54dc8cdf7e5fe3568edb8c0bc042b784",
+      "bytes": 60163,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "99cdf902e20be29dd86c636cd6ef7aa9c5a077c5c6d64a9d47efe704b6b00c3b",
+      "bytes": 60629,
+      "mode": 420
+    }
+  },
+  {
+    "path": "tests/security/controlplane-sql-scoping.test.ts",
+    "before": {
+      "sha256": "6ba065fe058e9948159f874ffee53786845ae274d4aa0b7aab6000216fb679ca",
+      "bytes": 45066,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "26d0900194e08447b4d036d878be8ced80f42d8a4343211488c59487ea35a1bb",
+      "bytes": 58811,
+      "mode": 420
+    }
+  },
+  {
+    "path": "docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md",
+    "before": null,
+    "after": {
+      "sha256": "cb50fe7fd24535e2cb1d9c175a32a9a18cca77f2f556276eaf58c6a55ae0e6db",
+      "bytes": 5556,
+      "mode": 420
+    }
+  },
+  {
+    "path": "docs/platform/operations/DEPLOYING.md",
+    "before": {
+      "sha256": "e725a8a2d38535655619144577bf734cacda87fa5f73fe070d44e302d5ba4650",
+      "bytes": 78672,
+      "mode": 420
+    },
+    "after": {
+      "sha256": "b472504ea40e3e4eadcb40754e7a6b2824e8e04610567d3e7230c72868ec874c",
+      "bytes": 79205,
+      "mode": 420
+    }
+  }
+]

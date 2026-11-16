@@ -1,0 +1,16 @@
+{
+  "args": {
+    "unit": "nginx.service"
+  },
+  "operation": "machine.service.restart",
+  "result": {
+    "ok": true,
+    "data": {
+      "activeState": "active",
+      "mainPid": 42,
+      "restarted": true,
+      "subState": "running",
+      "unit": "nginx.service"
+    }
+  }
+}

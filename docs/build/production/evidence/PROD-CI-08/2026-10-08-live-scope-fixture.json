@@ -1,0 +1,36 @@
+{
+  "scope": "Two targeted test suites. No cloud calls or full gate claim.",
+  "baseCommit": "0cc97c4ad395aabd621167371e5fe1776a1cb956",
+  "sourceFile": "tests/release/live-scope-coverage.test.ts",
+  "sourceSha256": "67d9d419f3ed74fce5df30a651cec417c2b28c257d01f7bdf879f2912f6ee1b6",
+  "passed": 174,
+  "failed": 0,
+  "skipped": 0,
+  "reportSha256": "398e33f9acdd573bcdf261a5aaf34200807d65394a29c9b4f229d4f487ad53b3",
+  "checks": {
+    "vitestExit": 0,
+    "eslintExit": 0,
+    "diffCheckExit": 0,
+    "independentReview": "accepted"
+  },
+  "files": [
+    {
+      "file": "tests/ci/release-gates.test.ts",
+      "passed": 120,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "file": "tests/release/live-scope-coverage.test.ts",
+      "passed": 54,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "integratedCommit": "a15dbd817f69976548b3e594777c205de352fa0c",
+  "environment": {
+    "node": "22.23.3",
+    "os": "macOS",
+    "architecture": "native ARM64"
+  }
+}

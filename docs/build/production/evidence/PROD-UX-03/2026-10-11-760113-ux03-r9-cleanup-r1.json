@@ -1,0 +1,43 @@
+{
+  "schema": "zenith.ux03-cleanup-only.v1",
+  "source_sha": "76011357944f9ccda33ba0c33a0fc7b660f12b8f",
+  "source_freeze_sha256": "f6a65a481df07826f409970a41f79aee9e04d95538b7e7769fb04256a0032650",
+  "scope": "cleanup-only; no R9 test or acceptance result",
+  "prior_r9_attempt": {
+    "outcome": "refused-after-image-pull-before-tests",
+    "accepted_run_receipt": false,
+    "pull_exit_code": 0,
+    "failure_code": "approved-image-post-pull-platform-or-digest-mismatch",
+    "image_id": "sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
+    "observed_reference": "node@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392",
+    "tests_started": false,
+    "execution_report_sha256": "3a95fda33da6c976ae3136c554612324104356e4645992e4c51455ee29d38694"
+  },
+  "cleanup_only": {
+    "status": "complete",
+    "removed_exact_image_reference": true,
+    "forced_removal": false,
+    "baseline_image_count": 13,
+    "full_baseline_restored": true,
+    "plugin_container_inventory_empty": true,
+    "plugin_volume_inventory_empty": true,
+    "cleanup_commands_passed": 15,
+    "historical_held_commands_passed": 43,
+    "strict_custody_passed": true,
+    "host_floor_passed": true,
+    "docker_vm_floor_passed": true,
+    "accepted_run_receipt": false,
+    "receipt_sha256": "7f4e21485838b844bea54fb6dad6dd9a24bf5b138d2ca30c4427b06b6036ae09"
+  },
+  "root_lock_resolution": {
+    "full_baseline_restored": true,
+    "historical_r9_remains_refused": true,
+    "preserved_refusal_marker": true,
+    "owned_lock_restored_empty_after_proof": true,
+    "sha256": "01860165b71fd5e8c0c1f2febdaa4ab68ca84c92b444a8802ae5664efa6c6802"
+  },
+  "next_attempt": {
+    "r10_canonical_alias_fix": "running",
+    "result": "pending"
+  }
+}

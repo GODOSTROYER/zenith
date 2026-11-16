@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "authorization": {
+    "decision": "DEC-STARTUP",
+    "date": "2026-10-07",
+    "scope": "Disposable local default API/server startup only",
+    "cloudApproved": false
+  },
+  "checkoutCommit": "a370b508f4f81db4b98e85297312f51e23c0c8cc",
+  "servedArtifact": {
+    "buildIdSha256": "5eec634cd6804a7f57f2dbba348596d5f77d1e04026b5251a76329103d30916b",
+    "standaloneInventorySha256": "4bb5373339f9168a7f3ada053d38c8658920d3a1bc356e5e68cb7eb0e6de4ae1",
+    "staticInventorySha256": "4a49b3b3a8bb060e427f852a856273c1b7c2065db3ce59f387f129e2e4f4cafe",
+    "originEstablished": false,
+    "description": "Existing warmed standalone build copied into private runtime; source origin not established. This is not exact-source clean installation or packaged API acceptance."
+  },
+  "environment": {
+    "node": "v22.23.3",
+    "chrome": "155.0.8059.26",
+    "architecture": "native Darwin ARM64",
+    "browser": "Actual Google Chrome through Playwright; axe WCAG2 A/AA and WCAG2.1 A/AA tags"
+  },
+  "actualResults": {
+    "http": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    "browser": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "controls": {
+      "scope": "warmed-build-unconfigured-read-only-controls",
+      "http": [
+        {
+          "id": "unconfigured_has_no_authenticated_session",
+          "passed": true,
+          "status": 200,
+          "configured": false,
+          "signedIn": false
+        },
+        {
+          "id": "default_mcp_origin_unconfigured",
+          "passed": true,
+          "status": 503,
+          "code": "origin_configuration"
+        }
+      ],
+      "browser": [
+        {
+          "id": "unconfigured_login_structure_two_viewports",
+          "passed": true,
+          "viewports": [
+            {
+              "width": 1280,
+              "passed": true
+            },
+            {
+              "width": 375,
+              "passed": true
+            }
+          ]
+        },
+        {
+          "id": "demo_link_keyboard_reachable_without_activation",
+          "passed": true,
+          "viewports": [
+            {
+              "width": 1280,
+              "passed": true,
+              "stops": 3,
+              "linkActivated": false
+            },
+            {
+              "width": 375,
+              "passed": true,
+              "stops": 3,
+              "linkActivated": false
+            }
+          ]
+        },
+        {
+          "id": "limited_login_axe_scan",
+          "passed": true,
+          "viewports": [
+            {
+              "width": 1280,
+              "violations": 0
+            },
+            {
+              "width": 375,
+              "violations": 0
+            }
+          ]
+        }
+      ],
+      "browserFailures": {
+        "externalRequests": 0,
+        "blockedNonPublicRequests": 6,
+        "pageErrors": 0
+      },
+      "accessibility": [
+        {
+          "width": 1280,
+          "violations": [],
+          "total": 0
+        },
+        {
+          "width": 375,
+          "violations": [],
+          "total": 0
+        }
+      ],
+      "status": "PASSED"
+    },
+    "parentExitCode": 0,
+    "cleanup": {
+      "checksGroupAbsent": true,
+      "checksSettled": true,
+      "chromeGroupAbsent": true,
+      "chromeSettled": true,
+      "loopbackPortsAbsent": true,
+      "nextGroupAbsent": true,
+      "nextSettled": true,
+      "privateRootAbsent": true
+    },
+    "cleanupComplete": true
+  },
+  "bindings": {
+    "helperSha256": "470ce252f4e7ae22669648754ea228f8fca1ee20f037dedb6d8adc03966342ac",
+    "freezeSha256": "34202c26e627358339add0fe8cd9603e954c9a0e609afd19c75f99a1fbbc0031",
+    "checksSha256": "c3d665ed6ab439808ebd75054777e9f82d761177a2323c685cf1d924f107c82c",
+    "receiptSha256": "70aa0867ec46a2f28553dec13ca6c6cf1072fc4b219b3765230d20ae5ea0989a",
+    "controlsSha256": "e8c3a074f65c25b74e823ac88ee840b38ac6cb88e14797c2671946ea6086515e"
+  },
+  "previousAttempt": {
+    "result": "FAILED: 1 HTTP passed, 1 HTTP failed; 3 browser controls unexecuted, not skipped",
+    "parentExitCode": 1,
+    "receiptSha256": "9acc2f2e07395fe0af8da461152a99730d9bef645e78af56c63fecc48258b2d4",
+    "rootCause": "Harness expected control_disabled, but checkOrigin precedes requireEnabled and missing origin produces exact origin_configuration. Cleanup checked zombie group before reaping child. Production code unchanged.",
+    "recoverySha256": "68db8feddd17b5f57073f218b2d6a6e5cc12965a2f48b4cdb409dfb9bbd0218e",
+    "allProcessesAndPortsAbsent": true,
+    "ownedPrivateRootRemovedSeparately": true,
+    "originalFailurePreserved": true
+  },
+  "remaining": [
+    "Real authenticated default installer/browser/operator journey not executed; private real Supabase Auth/PostgREST and verified-TLS transaction pooler configuration unavailable",
+    "Shipped seven-GiB API/worker/PG/Temporal ceiling exceeds current 5.786-GiB Docker allocation before Supabase",
+    "Default scoped telemetry endpoints and machine-health production wiring remain builder prerequisites",
+    "Live cloud, DNS/private GitHub App, retention/business/signoff not approved"
+  ],
+  "requirementPromoted": false,
+  "independentActualReview": {
+    "sha256": "e1c488a851cc270ca33211ced0411ac0f54c27369dc052bed5d980b38459c4b2",
+    "verdict": "ACCEPTED_SCOPED_ACTUAL_EVIDENCE",
+    "scope": "Five real public unconfigured warm-build controls, previous failure/recovery preserved, actual owned process/port/root absence independently read back"
+  }
+}

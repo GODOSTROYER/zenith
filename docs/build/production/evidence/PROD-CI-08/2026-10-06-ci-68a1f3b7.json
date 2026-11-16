@@ -1,0 +1,519 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+  "verdict": "failed",
+  "main": {
+    "runId": 37358119644,
+    "allJobsTerminal": true,
+    "jobConclusions": {
+      "success": 14,
+      "failure": 2
+    },
+    "jobs": [
+      {
+        "id": 111925620452,
+        "name": "build",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620795,
+        "name": "policy",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620830,
+        "name": "agent",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620876,
+        "name": "tofu",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620895,
+        "name": "operation-gates (workflow-intents)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620930,
+        "name": "docker",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620931,
+        "name": "operation-gates (reconciliation)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620957,
+        "name": "verify",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620987,
+        "name": "postgres",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925620993,
+        "name": "hosted",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925621032,
+        "name": "workflows",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925621311,
+        "name": "platform-postgres",
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 111925621360,
+        "name": "go",
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 111925621455,
+        "name": "generated",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925621474,
+        "name": "ledger",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 111925621485,
+        "name": "supply-chain",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "canonicalLanes": [
+    {
+      "lane": "linux-guest",
+      "jobId": 111925621360,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "failed",
+      "platform": "linux",
+      "architecture": "amd64",
+      "tools": {
+        "node": "22.23.3",
+        "go": "1.27.1",
+        "GOOS": "linux",
+        "GOARCH": "amd64"
+      },
+      "requiredCount": 152,
+      "race": {
+        "commandExitCode": 0,
+        "termination": "exit",
+        "validation": "failed",
+        "problems": [
+          "malformed"
+        ],
+        "counts": {
+          "packages": 17,
+          "testEvents": 1107,
+          "parents": 71,
+          "leaves": 1036,
+          "passedLeaves": 1033,
+          "failedLeaves": 0,
+          "skippedLeaves": 3
+        },
+        "requiredCount": 148,
+        "requiredPassed": 148,
+        "reportSha256": "ade5a1be6f93f3eeddadcad894647c461e815cb444d8bab1c4932b036e07c8fd"
+      },
+      "rootPackage4AndGoldensExecuted": false,
+      "malformedOffendingLineAvailable": false,
+      "sanitizedArtifactSha256": "0f543057c5664423e292dcff091b3b479e244b15abe94cffe1d1172f5795e1dd"
+    },
+    {
+      "lane": "operation-gates (reconciliation)",
+      "jobId": 111925620931,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "passed",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredCount": 26,
+      "requiredStatuses": {
+        "passed": 26
+      },
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 0,
+      "sanitizedArtifactSha256": "0c3eba9c0e80a59f72eee94fcfa26a6eec01a4e37bf9d5d9efe1e08972661ba4",
+      "sourceAndExecutionBindingsMatched": true
+    },
+    {
+      "lane": "operation-gates (workflow-intents)",
+      "jobId": 111925620895,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "passed",
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredCount": 141,
+      "requiredStatuses": {
+        "passed": 141
+      },
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 0,
+      "sanitizedArtifactSha256": "c93a247a4f272b54f7608117d2eb51c1b02cabac27726f0ee80f4a7e3ff248f5",
+      "sourceAndExecutionBindingsMatched": true
+    },
+    {
+      "lane": "platform-postgres",
+      "jobId": 111925621311,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "failed",
+      "counts": {
+        "total": 3024,
+        "passed": 2977,
+        "failed": 39,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "requiredCount": 1124,
+      "requiredStatuses": {
+        "unverified": 1124
+      },
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "tofu": "1.12.5"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 1,
+      "sanitizedArtifactSha256": "0f196722a0504f5aeb53efbf4d46a4b38de7a47d263e8b4be0728a0b778fc13f",
+      "sourceAndExecutionBindingsMatched": true
+    },
+    {
+      "lane": "policy",
+      "jobId": 111925620795,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "passed",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredCount": 7,
+      "requiredStatuses": {
+        "passed": 7
+      },
+      "tools": {
+        "node": "22.23.3",
+        "opa": "1.19.1"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 0,
+      "sanitizedArtifactSha256": "ae292713ff76663178a079e34b21372147a42eda66b86c7af6c45c8f99d1b07e",
+      "sourceAndExecutionBindingsMatched": true
+    },
+    {
+      "lane": "postgres",
+      "jobId": 111925620987,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "passed",
+      "counts": {
+        "total": 322,
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredCount": 80,
+      "requiredStatuses": {
+        "passed": 80
+      },
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 0,
+      "sanitizedArtifactSha256": "112b06e4a68c382ca755d182d4e672eb7de66662c22f027e19602ab236c486a8",
+      "sourceAndExecutionBindingsMatched": true
+    },
+    {
+      "lane": "tofu",
+      "jobId": 111925620876,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "passed",
+      "counts": {
+        "total": 3934,
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18,
+        "unknown": 0
+      },
+      "requiredCount": 27,
+      "requiredStatuses": {
+        "passed": 27
+      },
+      "tools": {
+        "node": "22.23.3",
+        "tofu": "1.12.5"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 0,
+      "sanitizedArtifactSha256": "164bd8ec189a39649fdf9feff96c864e4932b6ce2322eeafa4a7028073e38557",
+      "sourceAndExecutionBindingsMatched": true
+    },
+    {
+      "lane": "workflows",
+      "jobId": 111925621032,
+      "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+      "verdict": "passed",
+      "counts": {
+        "total": 1273,
+        "passed": 1273,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredCount": 60,
+      "requiredStatuses": {
+        "passed": 60
+      },
+      "tools": {
+        "node": "22.23.3",
+        "postgres": "16.15",
+        "temporal": "1.9.1"
+      },
+      "platform": "linux",
+      "architecture": "x64",
+      "observedExitCode": 0,
+      "sanitizedArtifactSha256": "c2c42385683bd7346f0b77e10e688fdb6f4acec5203878583e354c516732ad2d",
+      "sourceAndExecutionBindingsMatched": true
+    }
+  ],
+  "fullUnit": {
+    "passed": 19387,
+    "failed": 0,
+    "skipped": 1515,
+    "total": 20902,
+    "filesPassed": 871,
+    "filesWholeSkipped": 49,
+    "filesTotal": 920,
+    "durationSeconds": 1708.88,
+    "durationScope": "Vitest reported duration; excludes setup/typecheck/lint/smoke/assets",
+    "skipFileObservations": 117,
+    "skipCardinalitiesReconcile": true,
+    "exactSkippedLeafIdentitiesAvailable": false,
+    "skipIdentityLimit": "Default reporter exports source-bound file identities and cardinalities, not the full skipped leaf-name list. No unit JSON artifact is uploaded by this job; file observations are not promoted to leaf identities or native acceptance.",
+    "sourceCommit": "68a1f3b7c9c476ac037b8db6cb147c7f8e06f3c4",
+    "receiptSha256": "06125b04d2a55ccf536f003b690809f26a4592d2e88cc9597433304fcc9fbd2f"
+  },
+  "nativeWorkers": {
+    "runId": 37358119744,
+    "verdict": "failed",
+    "allJobsTerminal": true,
+    "requiredCheckCountPerArchitecture": 22,
+    "jobs": [
+      {
+        "architecture": "arm64",
+        "jobId": 111925619473,
+        "jobConclusion": "success",
+        "artifactStatus": "passed",
+        "observedNativeArchitecture": "arm64",
+        "processArchitecture": "arm64",
+        "emulated": false,
+        "observedNodeVersion": "22.23.3",
+        "sourceAndManifestHashesIndependentlyMatch": true,
+        "reportedPassedChecks": [
+          "native-architecture",
+          "fresh-source-image",
+          "actual-entrypoint",
+          "private-tls-custody",
+          "temporal-mtls-positive-and-negative",
+          "owned-namespace",
+          "startup-refusals",
+          "readiness-and-liveness",
+          "owned-reconcile-schedule",
+          "permitted-read-operation",
+          "packaged-assets-and-plan-retention",
+          "sql-prerequisite-outage-and-recovery",
+          "store-outage-and-recovery",
+          "temporal-outage-and-recovery",
+          "durable-temporal-restart",
+          "operator-pause-and-resume",
+          "actual-inflight-drain-and-fresh-worker",
+          "idle-drain",
+          "private-files-and-owned-services-cleanup",
+          "owned-builder-cache-cleanup",
+          "owned-context-cleanup",
+          "baseline-preserved"
+        ],
+        "missingPassedCheckEvidence": [],
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "childExitCode": 0,
+        "failurePhase": null,
+        "childFailure": null,
+        "sanitizedSha256": "ff509cc668f27696856e50f25706c54f1cf3f93ee17c1518fd8f9b12ba9817c2"
+      },
+      {
+        "architecture": "amd64",
+        "jobId": 111925619817,
+        "jobConclusion": "failure",
+        "artifactStatus": "failed",
+        "observedNativeArchitecture": "amd64",
+        "processArchitecture": "x64",
+        "emulated": false,
+        "observedNodeVersion": "22.23.3",
+        "sourceAndManifestHashesIndependentlyMatch": true,
+        "reportedPassedChecks": [],
+        "missingPassedCheckEvidence": [
+          "native-architecture",
+          "fresh-source-image",
+          "actual-entrypoint",
+          "private-tls-custody",
+          "temporal-mtls-positive-and-negative",
+          "owned-namespace",
+          "startup-refusals",
+          "readiness-and-liveness",
+          "owned-reconcile-schedule",
+          "permitted-read-operation",
+          "packaged-assets-and-plan-retention",
+          "sql-prerequisite-outage-and-recovery",
+          "store-outage-and-recovery",
+          "temporal-outage-and-recovery",
+          "durable-temporal-restart",
+          "operator-pause-and-resume",
+          "actual-inflight-drain-and-fresh-worker",
+          "idle-drain",
+          "private-files-and-owned-services-cleanup",
+          "owned-builder-cache-cleanup",
+          "owned-context-cleanup",
+          "baseline-preserved"
+        ],
+        "cleanup": {
+          "builderAbsent": true,
+          "builderContainerAbsent": true,
+          "cacheVolumeAbsent": true,
+          "baselinePreserved": true,
+          "wrapperPrivateFilesRemoved": true,
+          "ownedContextAbsent": true
+        },
+        "childExitCode": 1,
+        "failurePhase": "actual-packaged-worker",
+        "childFailure": {
+          "phase": "inflight-fresh-worker-recovery",
+          "workerCategory": "unavailable"
+        },
+        "sanitizedSha256": "ccc6779c55252e9f336f185c634dc303cadc7109f81a96037a7b6d98e4e40888"
+      }
+    ],
+    "limits": "ARM64 has all22 passed-check evidence. AMD64 exports no partial passed-check count; do not infer how many checks executed."
+  },
+  "receiptSha256": "9ca12c4a420e185f4f4af8034051691c7038129580f9839523482474ae1532f0",
+  "limits": [
+    "Per-report counts overlap and are not summed.",
+    "Published68a remains failed in Go, platform PostgreSQL and native AMD64. Later source reviews or local runs do not alter those observations.",
+    "No hosted/cloud/default API or release acceptance is inferred."
+  ],
+  "pendingCorrections": [
+    {
+      "commit": "60e671778fc819e6205f8c44bd487f6b2d86a6b8",
+      "correction": "Native suite database and backend-root lifetime",
+      "status": "actual_native100_and_full_local_platform_lane_passed_3346_remote_linux_pending"
+    },
+    {
+      "commit": "3346e4d4aa2ebd7ef4f1ec0ef6a10277e1c38f70",
+      "correction": "Four existing Go package lifecycles",
+      "status": "source_reviewed_targeted_models_passed_current_native_CI_acceptance_pending"
+    }
+  ],
+  "pendingAmd64Diagnostic": {
+    "commit": "7d1a89fb7813fcfb7ece2a78f05ae49af3281308",
+    "scope": "Fixed existing failure categories only; recovery semantics and all22 checks unchanged",
+    "status": "independently_reviewed_133_models_passed_6_mac_runtime_prerequisite_skips_native_cause_and_fresh_run_pending"
+  },
+  "preservation": {
+    "verificationOrderUnchanged": true,
+    "verificationOrderIds": [
+      "PROD-CI-05",
+      "PROD-CI-08",
+      "PROD-CI-09",
+      "PROD-MACH-01",
+      "PROD-MACH-03",
+      "PROD-OBS-02",
+      "PROD-OBS-03",
+      "PROD-LIFE-02",
+      "PROD-LIFE-12",
+      "PROD-COST-03",
+      "PROD-OBS-04",
+      "PROD-LIFE-01",
+      "PROD-LIFE-08",
+      "PROD-LIFE-09",
+      "PROD-LIFE-10",
+      "PROD-LIFE-11",
+      "PROD-MACH-04",
+      "PROD-MACH-05",
+      "PROD-UX-01",
+      "PROD-UX-03"
+    ],
+    "requirementCount": 78,
+    "requirementStateCounts": {
+      "verified": 6,
+      "in_progress": 44,
+      "planned": 28
+    },
+    "requirementStatePromotion": false,
+    "releasePromotion": false,
+    "verificationOrderSource": "docs/build/production/HANDOFF-VERIFIER.md"
+  }
+}

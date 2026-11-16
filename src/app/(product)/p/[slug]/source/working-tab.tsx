@@ -10,7 +10,8 @@ import { AlertTriangle, Check, Info } from "lucide-react";
 import type { ActionPlan } from "@/lib/actions/core";
 import { planAction } from "@/lib/client/api";
 import { diffManifests, validateManifest, type ValidationIssue } from "@/lib/domain/graph";
-import { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
+import { parseEditableManifest } from "@/lib/actions/defs/_manifest";
 import { fmtUsd } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -42,7 +43,7 @@ type ParseState =
   | { kind: "idle" }
   | { kind: "checking" }
   | { kind: "error"; message: string; site?: JsonErrorSite }
-  | { kind: "ok"; manifest: Manifest; issues: ValidationIssue[] };
+  | { kind: "ok"; manifest: AnyManifest; issues: ValidationIssue[] };
 
 /** One pass, no array of N strings — this runs on every keystroke. */
 function countLines(s: string): number {
@@ -65,7 +66,7 @@ export function WorkingTab({
 }: {
   active: boolean;
   json: string;
-  manifest: Manifest;
+  manifest: AnyManifest;
   /** concurrency token for `json` — travels with it, never apart from it */
   manifestHash: string;
   projectId: string;
@@ -124,19 +125,19 @@ export function WorkingTab({
       setParse({ kind: "error", ...describeJsonError(source, e) });
       return;
     }
-    const parsed = Manifest.safeParse(raw);
-    if (!parsed.success) {
-      const first = parsed.error.issues[0];
+    const parsed = parseEditableManifest(raw);
+    if (!parsed.ok) {
+      const first = parsed.errors[0];
       setParse({
         kind: "error",
-        message: `${first.path.join(".") || "manifest"}: ${first.message}. ${parsed.error.issues.length - 1} other schema problem(s).`,
+        message: `${first.path || "manifest"}: ${first.message}. ${parsed.errors.length - 1} other schema problem(s).`,
       });
       return;
     }
     setParse({
       kind: "ok",
-      manifest: parsed.data,
-      issues: validateManifest(parsed.data),
+      manifest: parsed.manifest,
+      issues: validateManifest(parsed.manifest),
     });
   }, []);
 
@@ -279,7 +280,7 @@ export function WorkingTab({
               since a soft-wrapped line would take two rows in the textarea and
               one in the gutter. Height follows the viewport (S14).
             */}
-            <div className="overflow-hidden rounded-card border border-line bg-bg2 focus-within:border-signal">
+            <div className="ui-source-editor overflow-hidden rounded-card border border-control-line bg-bg2 focus-within:border-signal">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-bg1 px-4 py-2.5">
                 <span className="font-mono text-[12px] text-ink-mute">zenith.manifest.json</span>
                 <span role="status" className={`flex items-center gap-1.5 text-[12px] ${dirty ? "text-warn" : "text-ok"}`}>{dirty ? <><span aria-hidden="true">●</span> Unsaved text</> : <><Check className="h-3.5 w-3.5" aria-hidden="true" /> Saved working copy</>}</span>
@@ -424,8 +425,8 @@ export function WorkingTab({
                   <div role="status" className="space-y-1">
                     <p className={costDisagrees ? "text-warn" : "text-ink"}>
                       {costDisagrees
-                        ? `The two disagree: this page shows ${fmtUsd(changeset.totalCostDeltaUsd)}/month, the server's plan says ${fmtUsd(serverPlan.costDeltaUsd)}/month. Trust the server's — reload the page to pick up whatever changed underneath.`
-                        : `Agreed: both make it ${fmtUsd(serverPlan.costDeltaUsd)}/month different.`}
+                        ? `The two disagree: this page estimates ${fmtUsd(changeset.totalCostDeltaUsd)}/month, the server's plan estimates ${fmtUsd(serverPlan.costDeltaUsd)}/month. Trust the server's — reload the page to pick up whatever changed underneath.`
+                        : `Agreed: both estimate it makes it ${fmtUsd(serverPlan.costDeltaUsd)}/month different.`}
                     </p>
                     <p className="text-ink-mute">{serverPlan.summary}</p>
                     {serverPlan.warnings.map((w) => (

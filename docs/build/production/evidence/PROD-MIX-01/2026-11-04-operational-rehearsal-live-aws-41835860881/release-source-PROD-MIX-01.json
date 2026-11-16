@@ -1,0 +1,25 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "8888743fa1369b5b9af14011942f15d384233547",
+  "mode": "live",
+  "requirements": [
+    "PROD-MIX-01"
+  ],
+  "level": "operational_rehearsal",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, operational rehearsal (live) of the operator runbook, scenario mix-rehearsal, run id zlive-202611041311-8de0; plan sha256 49c6e6ff215e6d1ded82dd3047e7b3153e5755fe5cd2a692abed2a8a6e842186",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 8cc1c82db8c1fab31e79737faadfa8504cd91d713e8bcf1a3b47ad7528178f15; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611041311-8de0",
+    "file": "evidence.json",
+    "sha256": "4b5ae572b8a88c7db6b33d7570bfb1ab988ad177e4e27731ae0fed6e6281a8c5",
+    "packetSha256": "d7565f64e6b6542ce6b513b2d6500e43b18283c6e529f2c9fb06a0257839d26b"
+  },
+  "result": "PROD-MIX-01 operational rehearsal (live AWS sandbox, operator runbook MIXED-PARTITIONS.md and MIXED-RECOVERY.md sections 1 and 4) passed: a plan whose child on the -live2 connection consumed a typed output of a child on the -live connection, with no declared connectivity, was refused (plan_refused); an independent plan put one child on each connection in two partitions, both succeeded with receipts linking their child operations, and by independent readback each environment holds exactly one tagged bucket of its own and each child's OpenTofu state is in its own connection's state bucket only; the -live2 connection was then revoked through connection.revoke (status revoked) and a new plan on it was refused (connection_unverified). Approvals by an automated test approver through the browser path"
+}

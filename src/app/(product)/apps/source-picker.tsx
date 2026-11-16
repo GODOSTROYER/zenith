@@ -137,7 +137,7 @@ export function SourcePicker({ value, onChange, disabled = false, className }: S
             type="file"
             accept=".tar.gz,.tgz,application/gzip,application/x-gzip"
             aria-label="Choose a .tar.gz archive"
-            className="mt-3 block w-full text-[12.5px] text-ink-mute file:mr-3 file:rounded-ctl file:border file:border-line file:bg-bg2 file:px-2.5 file:py-1.5 file:text-[12.5px] file:text-ink hover:file:bg-bg3"
+            className="mt-3 block w-full text-[12.5px] text-ink-mute file:mr-3 file:rounded-ctl file:border file:border-control-line file:bg-bg2 file:px-2.5 file:py-1.5 file:text-[12.5px] file:text-ink hover:file:bg-bg3"
             onChange={(event) => {
               const chosen = event.target.files?.[0];
               onChange(chosen ? { kind: "tarball", file: chosen } : null);

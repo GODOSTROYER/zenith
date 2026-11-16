@@ -42,7 +42,7 @@ per path is in `docs/OWNERSHIP.md`; the deliberate exceptions are in
 
 ## Product tokens (see globals.css — never hardcode in shared primitives)
 
-- Surfaces: `bg0` page · `bg1` chrome · `bg2` card · `bg3` overlay; 1px `line` hairlines; shadows only on raised/overlay surfaces.
+- Surfaces: `bg0` page · `bg1` chrome · `bg2` card · `bg3` overlay; 1px `line` hairlines; `control-line` identifies input/control boundaries; shadows only on raised/overlay surfaces.
 - Ink: `ink` / `ink-mute` / `ink-faint`.
 - Brand: `signal` (actions, focus, primary buttons), `nav-accent` (Navigator only).
 - Status axis (independent of brand): `ok` `warn` `err` `info`; `prod` amber identifies production environments (ring + chip) everywhere they appear.
@@ -52,7 +52,23 @@ per path is in `docs/OWNERSHIP.md`; the deliberate exceptions are in
 
 12 metadata · 13 secondary · 14 body · 16 emphasized · 18 project/card title · 20 section · 34 product page title (30 mobile) · 44 onboarding display. Prefer sentence case for table headers and task headings.
 
-Product pages share responsive 20px/28px gutters. A persistent collapsible 208px rail (60px compact) and 56px context bar replace stacked navigation. The selected workspace, project and environment remain visible; production is explicitly labeled. Controls are 32/36px on desktop and at least 44px on coarse pointers; mobile inputs use 16px text. Root-level tokens theme portals as well as screens. Ordinary sections use rules; elevation belongs to detached overlays. `tests/ui/theme-contrast.test.ts` checks base and tinted status surfaces in both themes.
+Product pages share responsive 20px/28px gutters. A persistent collapsible 208px rail (60px compact) and 56px context bar replace stacked navigation. The selected workspace, project and environment remain visible; production is explicitly labeled. Controls are 32/36px on desktop and at least 44px on coarse pointers; mobile inputs use 16px text. Root-level tokens theme portals as well as screens. Ordinary sections use rules; elevation belongs to detached overlays. `tests/ui/theme-contrast.test.ts` checks base and tinted status surfaces in all three themes.
+
+### AMOLED Dark
+
+AMOLED is the existing Dark identity on true black, with near-black chrome,
+cards and overlays. `bg0` is `#000000`; `bg1`, `bg2` and `bg3` remain distinct.
+Brand and status colors inherit Dark. Reading white is slightly softened;
+control borders, essential diagram lines and focus indicators retain at least
+3:1 contrast. Hairlines distinguish detached panels where a black shadow alone
+cannot. Do not replace meaningful colors with glow or flatten the surface levels.
+
+The existing menu offers Light, Dark, AMOLED Dark and System. `zenith-theme`
+continues to hold the preference; System resolves to Light or Dark. A shared
+prepaint script applies the preference before the first rendered frame, and a
+root `ThemeSync` lifecycle keeps controls, other tabs and OS changes in sync.
+Theme preferences are local to the browser; there is no account preference API.
+See [AMOLED implementation and verification](AMOLED.md) for coverage and checks.
 
 ## Landing language and scope
 
@@ -71,8 +87,11 @@ on porcelain, porcelain on ink, vermilion under the pointer), segmented pills,
 outline chips, round icon tiles, hairline text links. Radii: cards 28 px,
 tiles 20 px, controls 14 px, pills 999. The sky (`space-hero.module.css`)
 runs from ink through the vermilion horizon to a peach `#ffdcc4`; nothing on
-the page is blue or violet. The landing does not follow the product's
-light/dark toggle; it is the same page for everyone.
+the page is blue or violet. The original porcelain/night composition stays
+unchanged in Light and Dark. An explicit AMOLED preference replaces its page
+ground and UI surfaces with the application palette, including floating glass,
+interactive diagrams and the waitlist dialog. Decorative sky artwork and
+provider logos retain their identity.
 
 Manrope variable (600–700 for headlines) is the landing body and display face;
 Instrument Serif italic is kept for accents; the existing JetBrains Mono

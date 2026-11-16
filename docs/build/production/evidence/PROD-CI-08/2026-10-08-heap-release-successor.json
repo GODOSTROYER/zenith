@@ -1,0 +1,32 @@
+{
+  "integratedCommit": "59fe02bee566b244dc458b33cc58e34281994078",
+  "scope": "Compiler heap and release fixture successor. Not complete combined gates or runtime acceptance.",
+  "compiler": {
+    "baseCommit": "ea8f7093d01d0e1f40ee5a665d75e9a4461529eb",
+    "heapMiB": 5120,
+    "exitCode": 0,
+    "durationSeconds": 12.62,
+    "minimumFreeBytes": 18271997952,
+    "endSourceBinding": true,
+    "groupAbsent": true
+  },
+  "compilerReceiptSha256": "7e4f8fe0bee10e4d65f10282d6e241f03a343f3acc88da81b1d7241a7ee17b93",
+  "releaseFixtures": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "sourceSha256": "bd0bb6f7b577a423f9cff6d3657ac7accb1cb7e94d721fff94e411a485209614",
+    "reportSha256": "37cb102500a5afcab24087848f3ce742e990f7c5b759007abbd1e7c18610cb21"
+  },
+  "heapGuardFixtures": {
+    "passed": 120,
+    "failed": 0,
+    "skipped": 0
+  },
+  "limitations": [
+    "Compiler ran before subsequent single release fixture edit; earlier complete compiler remains independently recorded.",
+    "Next build and image memory failures remain unverified.",
+    "Full published CI remains 10 successful and 14 failed jobs.",
+    "Linux counterpart, PID1 and default journeys remain open."
+  ]
+}

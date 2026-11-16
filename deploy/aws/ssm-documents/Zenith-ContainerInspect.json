@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith container.inspect: a fixed allowlist of docker inspect fields (never the environment). Read-only. Output format zenith.container.inspect/v1.",
+  "parameters": {
+    "container": {
+      "type": "String",
+      "description": "Docker container id or name.",
+      "allowedPattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+      "maxChars": 128,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "container=\"${SSM_container-}\"",
+          "case \"$container\" in ''|-*|*[!A-Za-z0-9_.-]*) die 64 'invalid container (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "[ \"${#container}\" -le 128 ] || die 64 'invalid container'",
+          "command -v docker >/dev/null 2>&1 || die 69 'docker is not available on this machine'",
+          "g() { printf '%s%s%s%s%s' '{' '{' \"$1\" '}' '}'; }",
+          "t=$(printf '\\t')",
+          "fmt=\"$(g .Id)$t$(g .Name)$t$(g .Config.Image)$t$(g .State.Status)$t$(g .State.Running)$t$(g .State.OOMKilled)$t$(g .State.ExitCode)$t$(g .State.StartedAt)$t$(g .State.FinishedAt)$t$(g .RestartCount)$t$(g 'if .State.Health')$(g .State.Health.Status)$(g end)\"",
+          "out=$(docker inspect --type container --format \"$fmt\" -- \"$container\" 2>&1)",
+          "rc=$?",
+          "if [ \"$rc\" -ne 0 ]; then",
+          "  case \"$out\" in *[Nn]o\\ such\\ container*) die 66 'no such container' ;; esac",
+          "  die 69 \"docker inspect failed: $(printf '%s' \"$out\" | head -c 300)\"",
+          "fi",
+          "echo 'zenith.container.inspect/v1'",
+          "printf 'inspect=%s\\n' \"$out\"",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

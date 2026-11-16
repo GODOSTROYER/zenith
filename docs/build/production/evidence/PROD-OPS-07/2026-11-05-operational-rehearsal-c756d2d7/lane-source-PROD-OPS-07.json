@@ -1,0 +1,23 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-OPS-07"
+  ],
+  "mode": "local",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); Docker 29.8.2, Supabase CLI 2.75.0 (release checksum verified), Temporal CLI 1.9.1; fresh lean J1 default stack built from a clean checkout of the commit (scripts/acceptance/default-stack/up.mjs, readiness 16/0/0), test browser pinned to the stack edge keys (SPKI allowlist), no keychain trust; real browser identities; gates ZENITH_LOCAL_OPS_REHEARSAL ZENITH_DEFAULT_STACK_DIRECTORY ZENITH_DEFAULT_MAILPIT_URL",
+  "command": "vitest run tests/acceptance/ops07-rehearsal.operated.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/acceptance/ops07-rehearsal.operated.test.ts",
+      "sha256": "940cd04907ba8d7cdaab9a008aa8c1a9fa565f116e795d26fc5d9f0bf1349718"
+    }
+  ]
+}

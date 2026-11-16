@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "kind": "zenith_r16_skip_scope_summary",
+  "sourceSha": "cf299647df8551f246e04021a8784a7742b06749",
+  "runStatus": "refused_hard_process_custody_violation",
+  "wrapperExitCode": 2,
+  "acceptedRun": false,
+  "currentRun": {
+    "totalIdentities": 26510,
+    "passed": 24567,
+    "failed": 0,
+    "skipped": 1943,
+    "runtimeReportedSkips": 220,
+    "explicitModeSkips": 1723
+  },
+  "historicalComparison": {
+    "skippedIdentityMultisetUnchanged": true,
+    "priorAcceptedRunIsHistoricalOnly": true
+  },
+  "skipReasonLimit": "The retained identity ledger does not contain every runtime skip reason; exact unmet prerequisites are not claimed.",
+  "sourceAuditSha256": "35a268f404ce4a0f71bf02e18a9b3ce7bdce204ae724f26bfdf986d4cff1fbe7",
+  "priorIdentityLedgerSha256": "fb7ec6431368bcdac5bb53dc32691aac0fd6a58b182f3506eb72d01179d91a85",
+  "priorVitestReportSha256": "159c22b164d6b4fcab9afb1581073ffd5f77e9930a98ef1a7207339f0a6f134b",
+  "acceptanceClaim": false,
+  "scopeLimit": "The unchanged skipped-identity set is a historical comparison only. It does not remedy the current hard custody refusal or convert this attempt into an accepted run."
+}

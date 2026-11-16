@@ -1,0 +1,32 @@
+.placeholder {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  /* Ink mixed into a surface stays visible on porcelain as well as true black. */
+  background: color-mix(in srgb, var(--ink) 10%, var(--bg1));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .placeholder {
+    animation: breathe 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .placeholder {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+@media (forced-colors: active) {
+  .placeholder {
+    background: GrayText;
+    forced-color-adjust: none;
+  }
+}

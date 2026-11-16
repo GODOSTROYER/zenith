@@ -1,0 +1,31 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-OPS-08"
+  ],
+  "mode": "local",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 89,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); disposable PostgreSQL 16.15-alpine (digest cf78e766) in Docker on loopback, fresh database migrated by the checkout's scripts/platform/migrate.ts, removed afterwards; gates ZENITH_TEST_PLATFORM_PG_URL",
+  "command": "vitest run tests/adversarial/cross-tenant.test.ts tests/adversarial/approvals-forgery.test.ts tests/adversarial/role-escalation.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/adversarial/cross-tenant.test.ts",
+      "sha256": "bc1460b49ec852c0c3612b29d3acff12c70e177fde01a16d15a1009cada59569"
+    },
+    {
+      "path": "tests/adversarial/approvals-forgery.test.ts",
+      "sha256": "99ce241a3ca2f9a12266bd4004a2f22265d75739164b179a6e1b0e8ca222ec79"
+    },
+    {
+      "path": "tests/adversarial/role-escalation.test.ts",
+      "sha256": "7a27c364227da12dde5eb90d4ed37dcaffe2ccae789d8324c33a396a244fc754"
+    }
+  ]
+}

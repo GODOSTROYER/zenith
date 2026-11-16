@@ -1,0 +1,24 @@
+{
+  "commit": "58c4e192dfc3bbbf717e28b6769130cdde83714d",
+  "failedCICommit": "d90fca08ea224ac16cdc70318f74a44dd97a1ce9",
+  "failedCIRun": 37796491251,
+  "rootCause": "Strict packaged COPY inventory rejected newly copied SLO file before image build.",
+  "rootReproduction": {
+    "beforeExit": 1,
+    "beforeError": "Packaged Docker COPY inventory differs from its source binding.",
+    "afterExit": 0
+  },
+  "tests": {
+    "passed": 136,
+    "failed": 0,
+    "skipped": 6,
+    "reportSha256": "a2fbdecdd5c16aa671ca2a0c23ab02070eaddf6fcde75e00abd1c673914bfcf4"
+  },
+  "source": {
+    "scripts/acceptance/packaged-worker.mjs": "3ed010fb0438e7222780a5b1d45d398fb1719ec367f272fc9becb40c33bbe425",
+    "tests/ci/packaged-workers.test.ts": "2685272e41ebd521dfb583a6c143c83895818857576315705d0a4a3cf4f0a4f0"
+  },
+  "controls": "Exact copied SLO bytes change digest; missing, directory and symlink substitutes refuse. Existing bounds and strict COPY inventory preserved.",
+  "verification": "Root independent source review, full affected suite, ESLint and diff check passed.",
+  "remaining": "Six actual Linux process controls and fresh packaged worker images/runtime/CI remain open."
+}

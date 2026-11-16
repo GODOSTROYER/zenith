@@ -7,6 +7,7 @@
  */
 import {
   type Binding,
+  type AnyManifest,
   type ChangeItem,
   type Changeset,
   type Manifest,
@@ -14,12 +15,13 @@ import {
   type Service,
 } from "./types";
 import { monthlyCostUsd, nodeMonthlyCostUsd } from "@/lib/cost/pricing";
+import { v1View, v2OnlySections } from "@/lib/resources/upgrade";
 
 export type NodeRef =
   | { type: "service"; node: Service }
   | { type: "resource"; node: Resource };
 
-export function findNode(m: Manifest, nodeId: string): NodeRef | undefined {
+export function findNode(m: AnyManifest, nodeId: string): NodeRef | undefined {
   const s = m.services.find((s) => s.id === nodeId);
   if (s) return { type: "service", node: s };
   const r = m.resources.find((r) => r.id === nodeId);
@@ -27,7 +29,7 @@ export function findNode(m: Manifest, nodeId: string): NodeRef | undefined {
   return undefined;
 }
 
-export function nodeName(m: Manifest, nodeId: string): string {
+export function nodeName(m: AnyManifest, nodeId: string): string {
   return (
     findNode(m, nodeId)?.node.name ??
     m.routes.find((r) => r.id === nodeId)?.host ??
@@ -36,7 +38,7 @@ export function nodeName(m: Manifest, nodeId: string): string {
 }
 
 /** Env vars a binding injects into its `from` service. Deterministic. */
-export function bindingEnv(m: Manifest, b: Binding): { key: string; from: string }[] {
+export function bindingEnv(m: AnyManifest, b: Binding): { key: string; from: string }[] {
   const target = findNode(m, b.to);
   if (!target) return [];
   const P = target.node.name.replace(/-/g, "_").toUpperCase();
@@ -68,6 +70,8 @@ export function bindingEnv(m: Manifest, b: Binding): { key: string; from: string
 
 export interface ValidationIssue {
   level: "error" | "warning";
+  /** Dotted field path; safe to render without reflecting the invalid value. */
+  path?: string;
   nodeId?: string;
   message: string;
   /** what to do about it — every error names its fix */
@@ -75,17 +79,20 @@ export interface ValidationIssue {
 }
 
 /** Structural validation. Every error message names the fix. */
-export function validateManifest(m: Manifest): ValidationIssue[] {
+export function validateManifest(manifest: AnyManifest): ValidationIssue[] {
+  const m = v1View(manifest);
   const issues: ValidationIssue[] = [];
   const ids = new Set<string>();
   const names = new Set<string>();
 
-  for (const n of [...m.services, ...m.resources]) {
-    if (ids.has(n.id)) issues.push({ level: "error", nodeId: n.id, message: `Duplicate node id "${n.id}".` });
+  for (const [i, n] of [...m.services, ...m.resources].entries()) {
+    const path = i < m.services.length ? `services.${i}` : `resources.${i - m.services.length}`;
+    if (ids.has(n.id)) issues.push({ level: "error", path: `${path}.id`, nodeId: n.id, message: `Duplicate node id "${n.id}".` });
     ids.add(n.id);
     if (names.has(n.name))
       issues.push({
         level: "error",
+        path: `${path}.name`,
         nodeId: n.id,
         message: `Two nodes share the name "${n.name}".`,
         fix: "Rename one of them; names must be unique within a project.",
@@ -93,14 +100,14 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
     names.add(n.name);
   }
 
-  for (const b of m.bindings) {
+  for (const [i, b] of m.bindings.entries()) {
     const from =
       findNode(m, b.from) ?? (m.routes.find((r) => r.id === b.from) ? "route" : undefined);
     const to = findNode(m, b.to);
     if (!from)
-      issues.push({ level: "error", message: `Binding ${b.id} points from a node that no longer exists.`, fix: "Delete the binding." });
+      issues.push({ level: "error", path: `bindings.${i}.from`, message: `Binding ${b.id} points from a node that no longer exists.`, fix: "Delete the binding." });
     if (!to)
-      issues.push({ level: "error", message: `Binding ${b.id} points to a node that no longer exists.`, fix: "Delete the binding." });
+      issues.push({ level: "error", path: `bindings.${i}.to`, message: `Binding ${b.id} points to a node that no longer exists.`, fix: "Delete the binding." });
   }
 
   for (const r of m.routes) {
@@ -114,10 +121,11 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
       });
   }
 
-  for (const s of m.services) {
+  for (const [i, s] of m.services.entries()) {
     if (s.kind === "web" && !s.port)
       issues.push({
         level: "error",
+        path: `services.${i}.port`,
         nodeId: s.id,
         message: `Web service "${s.name}" has no port.`,
         fix: "Set the port your app listens on (e.g. 3000).",
@@ -125,6 +133,7 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
     if (s.kind === "cron" && !s.schedule)
       issues.push({
         level: "error",
+        path: `services.${i}.schedule`,
         nodeId: s.id,
         message: `Scheduled job "${s.name}" has no schedule.`,
         fix: "Set a cron expression, e.g. */15 * * * *.",
@@ -133,12 +142,13 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
 
   /* Two routes claiming the same host + path. The second never gets traffic. */
   const seenHosts = new Map<string, string>();
-  for (const r of m.routes) {
+  for (const [i, r] of m.routes.entries()) {
     const key = `${r.host.toLowerCase()}${r.pathPrefix}`;
     const first = seenHosts.get(key);
     if (first)
       issues.push({
         level: "error",
+        path: `routes.${i}.host`,
         nodeId: r.id,
         message: `Two routes serve ${r.host}${r.pathPrefix === "/" ? "" : r.pathPrefix}.`,
         fix: `Give this route a different host or path prefix, or delete it — ${first} already claims that address.`,
@@ -159,15 +169,16 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
   }
 
   /* A hand-written env var whose key a binding also injects: which wins is undefined. */
-  for (const s of m.services) {
+  for (const [i, s] of m.services.entries()) {
     const injected = new Map<string, string>();
     for (const b of m.bindings.filter((b) => b.from === s.id))
       for (const e of bindingEnv(m, b)) injected.set(e.key, e.from);
-    for (const e of s.env) {
+    for (const [j, e] of s.env.entries()) {
       const from = injected.get(e.key);
       if (!from) continue;
       issues.push({
         level: "error",
+        path: `services.${i}.env.${j}.key`,
         nodeId: s.id,
         message: `"${s.name}" sets ${e.key} by hand, and its binding to ${from} injects the same key.`,
         fix: `Rename or remove ${s.name}'s own ${e.key} — which value wins at deploy time is not defined.`,
@@ -176,8 +187,8 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
   }
 
   /* Env vars with nothing behind them. */
-  for (const s of m.services)
-    for (const e of s.env) {
+  for (const [i, s] of m.services.entries())
+    for (const [j, e] of s.env.entries()) {
       // `vault:` references are Zenith's own store, which this function cannot
       // read: validation is pure and runs in the browser, and the store is a
       // server file. Whether a value is actually there is answered where it
@@ -195,6 +206,7 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
       } else if (e.value === undefined)
         issues.push({
           level: "error",
+          path: `services.${i}.env.${j}.value`,
           nodeId: s.id,
           message: `"${s.name}" declares ${e.key} with neither a value nor a secret reference.`,
           fix: `Give ${e.key} a value, point it at a secret, or remove it.`,
@@ -243,7 +255,9 @@ export const isStatefulKind = (kind: string | undefined): boolean => STATEFUL.in
  * This is what the Plan drawer renders — every item carries an explanation
  * and a cost delta, so nothing changes silently.
  */
-export function diffManifests(deployed: Manifest, working: Manifest): Changeset {
+export function diffManifests(deployedManifest: AnyManifest, workingManifest: AnyManifest): Changeset {
+  const deployed = v1View(deployedManifest);
+  const working = v1View(workingManifest);
   const items: ChangeItem[] = [];
 
   type Collection = "services" | "resources" | "routes" | "bindings";
@@ -308,13 +322,44 @@ export function diffManifests(deployed: Manifest, working: Manifest): Changeset 
     }
   }
 
+  // Whole-document settings have no V1 node. Their review describes fields,
+  // never argv or native config values, and makes no provider cost claim.
+  const fields = fieldDiffs(manifestSettings(deployedManifest), manifestSettings(workingManifest))
+    .filter((f) => JSON.stringify(sortedSettings(f.before)) !== JSON.stringify(sortedSettings(f.after)));
+  if (fields.length) items.push({
+    op: "update", nodeType: "manifest", nodeId: "manifest", nodeName: "Manifest settings",
+    fields: fields.map((f) => ({ field: f.field, before: f.before === undefined ? undefined : "configured", after: f.after === undefined ? undefined : "configured" })),
+    explanation: `Updates manifest settings: ${fields.map((f) => f.field).join(", ")}.`,
+    costDeltaUsd: 0, risk: "medium",
+  });
   const totalCostDeltaUsd = round2(items.reduce((a, i) => a + i.costDeltaUsd, 0));
   const warnings: string[] = [];
   if (items.some((i) => i.op === "delete" && i.risk === "high"))
     warnings.push("This plan deletes stateful resources. Their data will be destroyed.");
+  if (fields.some((f) => f.field !== "version"))
+    warnings.push("V2 settings are included in this change. The product cost estimate covers V1 services and resources; it does not price placement, native nodes or provider tuning.");
+  if (deployedManifest.version === 2 && workingManifest.version === 1) {
+    const dropped = v2OnlySections(deployedManifest);
+    if (dropped.length) warnings.push(`Saving V1 drops V2-only sections: ${dropped.join(", ")}.`);
+  }
   const projectedMonthlyUsd = round2(monthlyCostUsd(working));
 
   return { items, totalCostDeltaUsd, projectedMonthlyUsd, warnings };
+}
+
+function manifestSettings(m: AnyManifest): object {
+  return m.version === 1 ? { version: 1 } : {
+    version: 2, placement: m.placement, constraints: m.constraints, policies: m.policies,
+    nodePlacement: m.nodePlacement, providerConfig: m.providerConfig, native: m.native, release: m.release,
+  };
+}
+
+function sortedSettings(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortedSettings);
+  if (value && typeof value === "object") return Object.fromEntries(
+    Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, sortedSettings(entry)])
+  );
+  return value;
 }
 
 function displayName(m: Manifest, nodeType: ChangeItem["nodeType"], nid: string): string {

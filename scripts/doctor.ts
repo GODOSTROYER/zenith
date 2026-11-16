@@ -15,6 +15,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { decodeSecretKey, SECRET_KEY_FIX, SMTP_FIX } from "../src/lib/env";
 import { isSupabaseConfigured, SUPABASE_URL } from "../src/lib/supabase/env";
+import { nodeIsSupported, SUPPORTED_NODE_RANGE } from "../src/lib/node-runtime";
 
 type Status = "ok" | "warn" | "fail";
 
@@ -34,15 +35,14 @@ const val = (key: string): string => (process.env[key] ?? "").trim();
 /* --------------------------------- checks ---------------------------------- */
 
 function nodeAndNpm(): Check[] {
-  const major = Number(process.versions.node.split(".")[0]);
   const node: Check =
-    major >= 20
+    nodeIsSupported(process.versions.node)
       ? { label: "Node", status: "ok", detail: `v${process.versions.node}` }
       : {
           label: "Node",
           status: "fail",
-          detail: `v${process.versions.node} — Zenith needs 20 or newer (Next 15 and the --env-file flags this repo's scripts use).`,
-          fix: "Install Node 20+ from https://nodejs.org (or `nvm install 22`), then re-run.",
+          detail: `v${process.versions.node} — Zenith requires ${SUPPORTED_NODE_RANGE} for the locked toolchain.`,
+          fix: "Install supported Node 22 from https://nodejs.org (or `nvm install 22.23.3`), then re-run.",
         };
 
   // Already in the environment when launched as `npm run doctor`, which is the
@@ -242,6 +242,25 @@ function dataDir(dir: string): Check {
       };
 }
 
+/** Agent OAuth: the configured issuer must publish RFC 8414 metadata Zenith can work with (PROD-UX-02). */
+async function agentOAuth(): Promise<Check | undefined> {
+  const issuer = val("ZENITH_AGENT_OAUTH_ISSUER");
+  if (!issuer) return undefined;
+  try {
+    const { fetchAuthorizationServerMetadata, checkAuthorizationServerMetadata } = await import("../src/lib/agent-access/oauth/as-metadata");
+    const found = await fetchAuthorizationServerMetadata(issuer);
+    if (!found) return { label: "Agent OAuth", status: "warn", detail: `no RFC 8414 / OpenID metadata reachable for ${issuer}.`, fix: "Check ZENITH_AGENT_OAUTH_ISSUER and that the issuer serves /.well-known/oauth-authorization-server or /.well-known/openid-configuration." };
+    const findings = checkAuthorizationServerMetadata(issuer, found.metadata, { jwksUrl: val("ZENITH_AGENT_OAUTH_JWKS") || undefined });
+    const failures = findings.filter((f) => f.level === "fail");
+    if (failures.length) return { label: "Agent OAuth", status: "fail", detail: failures.map((f) => f.message).join(" "), fix: "Fix the authorization server or ZENITH_AGENT_OAUTH_ISSUER / ZENITH_AGENT_OAUTH_JWKS so clients can complete the flow." };
+    return findings.length
+      ? { label: "Agent OAuth", status: "warn", detail: findings.map((f) => f.message).join(" "), fix: "Optional: address the notes above for the smoothest MCP client experience." }
+      : { label: "Agent OAuth", status: "ok", detail: `issuer ${issuer} metadata is valid.` };
+  } catch (err) {
+    return { label: "Agent OAuth", status: "warn", detail: (err instanceof Error ? err.message : String(err)).slice(0, 200), fix: "Check ZENITH_AGENT_OAUTH_ISSUER." };
+  }
+}
+
 /* ---------------------------------- main ----------------------------------- */
 
 async function main() {
@@ -267,6 +286,8 @@ async function main() {
   }
 
   checks.push(docker(), await localstack(endpoint), supabase(), secretKey(), smtp(), dataDir(data));
+  const oauth = await agentOAuth();
+  if (oauth) checks.push(oauth);
 
   const width = Math.max(...checks.map((c) => c.label.length));
   console.log("\nZenith doctor\n");

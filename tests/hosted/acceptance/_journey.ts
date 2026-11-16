@@ -378,6 +378,7 @@ export async function signIn(
     host: appHost(app.slug, port),
     path: `${url.pathname}${url.search}`,
     accept: "text/html",
+    cookie: `__Host-zenith_login=${state}`,
   });
   const res = await m.gateway.handleGateway(req, params);
   if (res.status !== 303)

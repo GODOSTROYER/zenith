@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "d887c7b7653fd954e491c39587f1271fbca72976",
+  "sourceTree": "2b847bea1dd660bfa8ced8913f52bfd67d90f4ec",
+  "scriptSha256": "321b54c4831190f9182c4134fb3937e34622b7a00f35642a7e3beb0e1a1fe6be",
+  "node": "22.23.3",
+  "heapMiB": 1536,
+  "floorBytes": 23622320128,
+  "status": "failed",
+  "exitCode": 1,
+  "diskBeforeBytes": 26254020608,
+  "diskMinBytes": 25947119616,
+  "diskAfterBytes": 26261737472,
+  "elapsedSeconds": 147.08,
+  "sourceBound": true,
+  "cleanupComplete": true,
+  "cleanupErrors": [],
+  "counts": {
+    "passed": 6,
+    "failed": 16,
+    "discovered": 22
+  },
+  "logSha256": "46d8bd6c1154a29d4dd09ab0a7137ce0213e4a8fed8f7369ae636c42e2c888d0",
+  "scope": "Real Chrome original44 consent checks at1280/380; declared loopback identity-provider double, not default Supabase/operator375px accessibility acceptance.",
+  "requiredOriginalChecks": 44,
+  "limitation": "Only22 records emitted; Chrome error-page observations are not successful operator journey evidence. Next worker replacements observed; memory-restart cause remains unproven.",
+  "diagnostics": [
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "desktop",
+      "route": "/agent/link",
+      "networkError": "unknown"
+    },
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "desktop",
+      "route": "/agent/link",
+      "networkError": "ERR_CONNECTION_REFUSED"
+    },
+    {
+      "diagnostic": "agent-browser-journey-failed",
+      "viewport": "desktop",
+      "server": {
+        "exitCode": null,
+        "signalCode": null,
+        "nodeOomObserved": false
+      },
+      "fetchCauseCode": "unknown"
+    },
+    {
+      "diagnostic": "agent-browser-request-failed",
+      "viewport": "narrow",
+      "route": "/agent/link",
+      "networkError": "ERR_CONNECTION_REFUSED"
+    },
+    {
+      "diagnostic": "agent-browser-journey-failed",
+      "viewport": "narrow",
+      "server": {
+        "exitCode": null,
+        "signalCode": null,
+        "nodeOomObserved": false
+      },
+      "fetchCauseCode": "unknown"
+    }
+  ]
+}

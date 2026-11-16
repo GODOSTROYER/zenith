@@ -1,0 +1,1073 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index b882a5bec8dbd0be7e940d0c8c245c9b0eba4d47..6a968ad35de5781704a13f24bd187e15e6b67a80 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -1097,6 +1097,7 @@ jobs:
+       ZENITH_FAST: "1"
+       ZENITH_TEST_WORKFLOW_START_REQUIRED: "1"
+       ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1"
++      ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED: "1"
+       ZENITH_TEST_TOFU_NETWORK: "1"
+       # The one switch that adds the Postgres lane to tests/controlplane's
+       # describe.each(LANES). Loopback only: apply-platform-migrations.sh
+diff --git a/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md b/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..8387a27ab49c3175b4b590a9a8e9daacf093de12
+--- /dev/null
++++ b/docs/build/handoffs/SAVED-PLAN-SETTLEMENT-GATES-20261005.md
+@@ -0,0 +1,28 @@
++# Saved-plan settlement gates: partial source handoff, 2026-10-05
++
++Status: frozen partial authoring only. No author compiler, lint, tests, project imports, services, database, Docker, staging, commits or independent acceptance. Root requested preserving and handing off current bytes before implementation continued.
++
++The baseline is prepared tree `7da4306a4b3aab859b55978030702881eb6fdc08`, Git HEAD `f69965600bc47e5f2935e19bdb10a2225d595fc5`. Its read-only dependencies contain independently source-reviewed A17 R2; they are not native-accepted. The freeze under `logs/saved-plan-settlement-gates-20261005/revision1-partial/` binds this document, all eleven owned paths, pre/post SHA256, candidate tree, whole patch, outside inventory and private Git roundtrip. Raw index cache observations are separate from unchanged NUL stage entries and HEAD; do not restore historical cache bytes.
++
++Authored draft changes:
++
++- Add the exact 54 A17 R2 settlement names to the platform-postgres manifest and required flag. Keep earlier static requirement tables and runner/checker unchanged; the expected current total is 1113 = 1059 + 54, pending final independent source derivation and execution.
++- Update historical cohort helpers by excluding only exact new IDs; add source/report refusal models, preserve native PG80/workflows58/Linux127/three optionals/worker22. Rebind retention source to `7d732dbe799758c5151beb3d269191b9007b23f1b3da131ed2570da3342c0a88` and package native test to `b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331`.
++- Append emitted Supabase 0018 in bootstrap/docs; extend the table expectation from47 to49 and add immutable physical backend-owner checks within an existing migration case. Earlier migrations, emitted SQL and production sources are read-only dependencies.
++- Classify scoped candidate reads and private-origin-only `finishStandalone` truthfully. The bound repository exposes that method; structural inputs still cannot supply genuine completion. No new API exclusion was authored.
++- Extend the existing SQL audit identity with closed private settlement-fragment and genuine-origin references, exact reviewed dispatch/completion/three cleanup CTE contexts and hostile mutation models. These new AST checks have not run.
++
++Known unresolved checks and risks:
++
++1. Root actual A17 R2 native100 on this baseline failed60 passed/40 failed/0 skipped. Report `logs/saved-plan-settlement-native-root-r2-20261005/settlement.json`, SHA256 `30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065`. Schema16/agent3 fresh/reapply/verifier and lint passed; owning resources were cleaned. Genuine positives refused before child apply. Do not convert these required positives into skips or refusal-only successes.
++2. B found the standalone manifest uses padded/newline cipher-domain objectHash where native rows use compact canonical controlplane digest. Its separate three-path R3 is frozen at `logs/saved-plan-manifest-digest-20261005/revision3/FROZEN-SOURCE.json` (SHA256 `60c09316eeefc67c011a1fe29c09b19061640697fd26ce8968be8f8016fbf256`), not imported here or independently accepted by this author. After peer acceptance, rebind the cleanup test source hash from current `413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed` to its exact accepted successor in a separate overlay. Cipher/objectHash domains must remain unchanged.
++3. Static readback confirmed the 100 literal native names, exact old46 and new54 order, unchanged source-discovery output, and unchanged earlier literal requirement tables/requirementsFor body after only the additive push is removed. The larger static derivation stopped at a JSON-list shape mismatch before publishing a final1059/1113 ID receipt or final49-table proof. Its failed author script is not a model/test failure or acceptance result.
++4. All new report models, SQL AST positive/refusal contexts, migration-owner checks, tenancy classification, source pins and documentation assertions remain unrun and need independent review. The completed private source/patch roundtrip proves bytes only. Genuine builtin state/crypto/tool/current role/cleanup proofs belong the native gates; hosted/policy/fault seams retain their declared modeled scope.
++
++Next steps on the other machine:
++
++1. Bind the eleven-path patch to its exact prepared tree and inventory; preserve all outside dependency hashes and migration-history checksums. Review current partial source before completing remaining static derivation/models. Do not replay a patch onto unknown preimages.
++2. Independently review/import B R3 and author the narrow accepted-source hash rebind. Preserve all100 native names and original46 callbacks, exact54 mandatory requirements and strict malformed/missing/failed/skipped/zero/duplicate refusal.
++3. With pinned Node22.23.3 and one worker, run compiler, affected lint, CI/source/documentation models. Use canonical agent initializer before platform migrations and emitted Supabase0018 bootstrap/verifier; never fabricate schema, origin or terminal evidence.
++4. Root alone runs fresh actual PostgreSQL16.15 + pinned OpenTofu1.12.5 native100, complete strict platform lane, PG80 and workflow58. All execution receipts must bind current source/tool/case/exit/cleanup. Preserve the failed60/40 report and uncertain/nonreplay chronology.
++5. Separate registry/API exclusions, installed package/default backend/AMD64, cloud/provider settlement, other machine/cloud scheduling and full lifecycle remain outside this packet. No criterion or full product completion is claimed.
+diff --git a/docs/platform/operations/DEPLOYING.md b/docs/platform/operations/DEPLOYING.md
+index cc5ffa048bce37ea699d095c2871b25d1df6c7ee..dbf17a06efef7f8bea998c846dfcfa4eb23a950f 100644
+--- a/docs/platform/operations/DEPLOYING.md
++++ b/docs/platform/operations/DEPLOYING.md
+@@ -610,7 +610,7 @@ differs from the code is refused (`schema_tampered`): shipped migrations are
+ never edited, a change is a new migration.
+ 
+ If you would rather apply SQL yourself (the Supabase SQL editor, `psql`), apply
+-`supabase/migrations/0016_platform_core.sql`. It is **generated** from the
++`supabase/migrations/0018_platform_core.sql`. It is **generated** from the
+ TypeScript migrations by `npm run platform:emit-sql` (`-- --check` fails when it
+ is out of date; a test enforces byte equality). It is idempotent, writes the same
+ ledger rows with the same checksums (so the TypeScript migrator recognises it as
+@@ -621,12 +621,12 @@ API's exposed schemas.**
+ The ordered canonical registry is `PLATFORM_MIGRATIONS` in
+ `src/lib/controlplane/db/migrations/index.ts`; each SQL checksum comes from
+ `migrationChecksum`. The following inventory was refreshed from the committed
+-current aggregate emitter output, including additive `mixed_child_intents` migration 14. Runtime source binding remains the exact integrated commit.
++current aggregate emitter output, including additive cleanup writer barrier migration 15 and authenticated standalone builtin settlement migration 16. Runtime source binding remains the exact integrated commit.
+ `tests/docs/operator-docs.test.ts` imports that canonical registry and checksum
+ function, then verifies every row, the count and highest version. A new migration
+ requires a regenerated inventory; changing a literal count alone does not pass.
+ 
+-Registered migrations: **14**; highest version: **14**.
++Registered migrations: **16**; highest version: **16**.
+ 
+ <!-- platform-migrations:start -->
+ | Version | Name | SQL SHA-256 |
+@@ -645,6 +645,9 @@ Registered migrations: **14**; highest version: **14**.
+ | 12 | `workflow_start_intents` | `7eaa5e87e594d741e772e0cd9b77010c796d36c2c9ceac41f8f47720c804d811` |
+ | 13 | `approved_source_snapshots` | `eb513c01d41b1f7fbc680715b86699147374d9786aa3e17e355897388ff26e95` |
+ | 14 | `mixed_child_intents` | `5d676658116c3e66b1238c24a72da4ddbd65f06f30c57cf5dc753bcc0a56961e` |
++| 15 | `cleanup_writer_barriers` | `1630821507e71c2ec68d0918bd82b0333aabb4f4211654927cc07d7eb4a6c123` |
++| 16 | `cleanup_writer_settlements` | `30f73b35ae4bf2da289bd1a3ce403cc0bd409f383efb942a7aa095235333d711` |
++
+ <!-- platform-migrations:end -->
+ 
+ For the actual target, `npm run migrate:platform -- --status` calls the canonical
+@@ -674,7 +677,7 @@ A database that applied the emitted SQL before a later
+ migration landed is behind and the application refuses to use it until you re-apply
+ the file or run `npm run migrate:platform`.
+ 
+-The current aggregate is `0016_platform_core.sql`; historical `0014_platform_core.sql` remains unchanged. The committed Supabase bootstrap applies `0016` after the unchanged `0014` and agent OAuth `0015` migrations. If you apply
++The current aggregate is `0018_platform_core.sql`; historical platform aggregates `0014`, `0016` and `0017` remain unchanged. The committed Supabase bootstrap applies `0018` after those aggregates and agent OAuth `0015`. Schema 16 adds immutable physical local-backend ownership and authenticated standalone builtin completion receipts. These receipts reconcile only eligible saved-plan history; they do not settle cloud calls, grants, workflows, builds or guest deliveries. If you apply
+ migrations through the Supabase CLI's migration history, which records an applied
+ file by its version number and will not re-run a changed file, use
+ `npm run migrate:platform` (ledger-based) or apply the file by hand for any
+diff --git a/scripts/ci/apply-supabase-migrations.sh b/scripts/ci/apply-supabase-migrations.sh
+index 9d5af1b02a7bb8e8076d8e1f6c81ee58a217730d..35965825517096e8ddae345b575136932f4849d9 100644
+--- a/scripts/ci/apply-supabase-migrations.sh
++++ b/scripts/ci/apply-supabase-migrations.sh
+@@ -99,6 +99,7 @@ MIGRATIONS=(
+   "0015_agent_oauth_grants.sql"
+   "0016_platform_core.sql"
+   "0017_platform_core.sql"
++  "0018_platform_core.sql"
+ )
+ 
+ if [ -z "${SUPABASE_DB_URL:-}" ]; then
+@@ -285,7 +286,7 @@ if [ -n "$unprotected" ]; then
+ fi
+ echo "row level security enabled on every table in schema agent."
+ 
+-# --- the platform schema (historical0014 plus current0017) ---------------------------------------------
++# --- the platform schema (historical0014/0016/0017 plus current0018) ---------------------------------------------
+ #
+ # Use the application's checksum/version verifier and canonical known names.
+ # No pinned migration count: newly shipped versions follow the runtime manifest,
+diff --git a/scripts/ci/gate-manifest.mjs b/scripts/ci/gate-manifest.mjs
+index d5d3a05d761179727642390447260523ed2fa372..b011c7ba7050e7985303953e840bdc3dfd13759a 100644
+--- a/scripts/ci/gate-manifest.mjs
++++ b/scripts/ci/gate-manifest.mjs
+@@ -4923,6 +4923,334 @@ export const KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS = [
+   }
+ ];
+ 
++/** Exactly the additive saved-builtin settlement cases; retained cleanup obligations stay separate. */
++export const SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS = [
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "real original builtin apply retains one authenticated immutable settlement and refuses replay",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "new default paired codec reconciles only completed builtin plan history before exact same-scope destroy",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "lost completion acknowledgement stays unconfirmed while independently retained proof permits a newly approved destroy",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "accepted builtin apply without a committed settlement remains uncertain and blocks later destroy",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "status-only terminal use and invented SQL settlement never remove unresolved plan history",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied workspaceId tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied projectId tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied environmentId tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied operationId tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied attemptId tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied manifestDigest tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied rawSha256 tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied backendDigest tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied targetDigest tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied holder tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "authenticated settlement refuses copied fenceToken tuple",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "corrupt settlement ciphertext and wrong purpose-separated key refuse independently",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "fresh engine accepts retained old settlement key only during explicit overlap and refuses retirement",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "current completion readback refuses changed state while immutable earlier settlement remains historical",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "different logical product scopes cannot bind the same actual local backend",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "mutable nonsticky grandparent refuses standalone admission before tool execution",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "fabricated readback with restored prototypes and genuine cleanup cannot mint settlement",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "incomplete actual checked cleanup cannot mint settlement or replay accepted apply",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "prior issued grant remains unresolved despite builtin settlement",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "final builtin receipt fences requester demotion during post-readback current-role wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "final builtin receipt fences approver removal during post-readback current-role wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "final builtin receipt fences approval expiry during post-readback current-role wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "final builtin receipt fences provider revocation during post-readback current-role wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "final builtin receipt fences unchanged current authority during post-readback current-role wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "foreign provider resources in protected local state refuse before standalone tool admission",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "observed native completion coordinator wait fences region replacement before terminal receipt insert",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "observed native completion coordinator wait fences approver demotion before terminal receipt insert",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "observed native completion coordinator wait fences lease expiry before terminal receipt insert",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "observed native completion coordinator wait fences state replacement before terminal receipt insert",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "observed native completion coordinator wait fences unchanged final tuple before terminal receipt insert",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "structural fake producer run cannot seal chosen bytes as a finite builtin original",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered finite producer refuses own init method with backend override before command launch",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered finite producer refuses own plan method with backend override before command launch",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered finite producer refuses accessor init fields changed during the prelaunch filesystem wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered finite producer refuses replacement target init fields changed during the prelaunch filesystem wait",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered cleanup refuses a substituted absent root and then permits actual original cleanup",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered cleanup field accessor during removal cannot mark a run cleaned or mint settlement",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered finite producer refuses altered init command arguments before tool launch",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered finite producer refuses altered plan command arguments before tool launch",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "genuine registered producer with a foreign workspace refuses before its first init",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "post-inspection producer own method accessor refuses before the next finite engine member read",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "post-inspection producer prototype method accessor refuses before the next finite engine member read",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "post-inspection apply own method accessor refuses before the next finite engine member read",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "post-inspection apply prototype method accessor refuses before the next finite engine member read",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "post-inspection readback prototype method accessor refuses before the next finite engine member read",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered apply refuses a plan-file method accessor installed during its awaited admission callback",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered runner finally refuses a dispose accessor after actual apply without invoking it or replaying",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "registered apply refuses an init-field accessor installed during its awaited admission callback",
++    "backend": "postgres"
++  },
++  {
++    "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
++    "suite": "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++    "test": "unknown proxy producer origin refuses before any descriptor or method trap",
++    "backend": "postgres"
++  }
++];
++
+ export const CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS = [
+   {
+     "file": "tests/controlplane/cleanup-writer-barriers.test.ts",
+@@ -5257,8 +5585,8 @@ export const GATE_LANES = {
+   },
+   "platform-postgres": {
+     files: ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts", "tests/tofu/plan-artifact-handoff.test.ts", "tests/security/plan-artifact-secrecy.test.ts", "tests/execution/destroy-review.test.ts", "tests/execution/apply.test.ts", "tests/platform/plan-approval.test.ts", ECS_REPLICA_REPAIR_FILES.grants, CODEBUILD_POSTGRES_FILE, "tests/sources/github-store.test.ts", "tests/sources/github-webhook.test.ts", "tests/platform/approved-source-runtime.test.ts", "tests/platform/composition.test.ts", "tests/platform/source-bundle-composition.test.ts", "tests/platform/source-bundle-github.test.ts", "tests/platform/source-bundle-azure.test.ts", "tests/platform/aws-bootstrap-preflight-admission.test.ts", "tests/platform/current-dispatch-requirement.test.ts", "tests/agent-access/credential-authority-origin.test.ts", "tests/agent-access/native-oauth-origin.test.ts", "tests/controlplane/plan-artifact-oauth-authority.test.ts", "tests/platform/kubernetes-vault-target.test.ts"],
+-    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1", ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED: "1", ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
+-    prerequisites: ["ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED=1; all46 actual owning PostgreSQL cleanup writer cases require canonical fixed agent roles before platform schema15, emitted0017, explicit owning port, authenticated default paired codec/current product proof, independent native connections and observed lock waits; hosted association/policy are modeled and no provider settlement is inferred", "Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache", "Canonical platform schema14 applied/current through scripts/ci/apply-platform-migrations.sh; committed Supabase bootstrap appends supabase/migrations/0016_platform_core.sql after unchanged 0014/0015", "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED=1; native mixed custody requires actual owning PostgreSQL, canonical schema14 and independent connections; custody does not enable child execution", "ZENITH_TEST_PLAN_RETENTION_REQUIRED=1; counts-only non-destructive retention preview requires actual PostgreSQL and independent connections; synthetic storage/receipt fixtures do not prove archive or deletion", "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; default target binding requires actual owning PostgreSQL and tenant-sealed FILE vault; namespace API and upstream grants remain modeled", "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1; human Kubernetes linking requires actual opened PostgreSQL owners, canonical platform schema13 or newer, canonical public.members from migration0001, three independent native connections and an encrypted tenant FILE vault; hosted association, human request and namespace API are modeled, production FILE/custom/separate activation remains refused"],
++    env: { ZENITH_FAST: "1", ZENITH_TEST_TOFU_NETWORK: "1", ZENITH_TEST_WORKFLOW_START_REQUIRED: "1", ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_REQUIRED: "1", ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED: "1", ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_SOURCE_FIXTURE_REQUIRED: "1", ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED: "1", ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED: "1", ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED: "1", ZENITH_TEST_OPENED_HANDLE_REQUIRED: "1", ZENITH_TEST_AWS_PREFLIGHT_REQUIRED: "1", ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED: "1", ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED: "1", ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED: "1", ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED: "1", ZENITH_TEST_PLAN_RETENTION_REQUIRED: "1", ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED: "1", ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED: "1", ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED: "1", ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED: "1" }, report: ".data-ci-lane/platform-lane.json",
++    prerequisites: ["ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1; all54 additive saved-plan settlement cases require actual owning PostgreSQL16, canonical agent roles before platform schema16 and emitted0018, explicit owning port, pinned OpenTofu1.12.5, genuine paired codec/command/cleanup/cipher origin and independent connections; only finite generated builtin JSON/local-backend/session-free work is eligible, hosted association/policy and deliberate faults remain modeled", "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED=1; all46 actual owning PostgreSQL cleanup writer cases require canonical fixed agent roles before platform schema15, emitted0017, explicit owning port, authenticated default paired codec/current product proof, independent native connections and observed lock waits; hosted association/policy are modeled and no provider settlement is inferred", "Node 22.23.3", "npm ci --ignore-scripts", "PostgreSQL 16.15", "pg_dump and pg_restore of the same full client version and server major (optional absolute ZENITH_TEST_PG_DUMP_BIN / ZENITH_TEST_PG_RESTORE_BIN overrides)", "ZENITH_TEST_PLATFORM_PG_URL points to the real test database", "Platform migrations applied with scripts/ci/apply-platform-migrations.sh (canonical schema13 is mandatory before every plan review)", "ZENITH_TEST_APPROVED_SOURCE_REQUIRED=1; actual PostgreSQL source/custody scenarios cannot skip", "ZENITH_TEST_APPROVED_SOURCE_RUNTIME_REQUIRED=1; default owning runtime persistence requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_PLAN_SOURCE_AUTHORITY_REQUIRED=1; final original-plan source admission requires actual PostgreSQL, canonical schema13 and pinned OpenTofu", "ZENITH_TEST_SOURCE_FIXTURE_REQUIRED=1; native source composition fixtures require actual PostgreSQL and canonical schema13", "ZENITH_TEST_SOURCE_PLAN_EVIDENCE_REQUIRED=1; original stage evidence authority requires actual PostgreSQL and canonical schema13", "ZENITH_TEST_FIRST_SOURCE_LEASE_REQUIRED=1; first worker lease binding requires actual PostgreSQL, canonical schema13 and independent native connections", "ZENITH_TEST_MCP_DEPLOY_ADMISSION_REQUIRED=1; durable MCP admission requires actual PostgreSQL, canonical schema13 and independent native connections; product protocols remain modeled", "ZENITH_TEST_DEFAULT_CURRENT_MEMBERSHIP_REQUIRED=1; current OAuth integration membership requires actual PostgreSQL and uncached modeled product reads", "ZENITH_TEST_OPENED_HANDLE_REQUIRED=1; opener ownership requires physical openPlatformDb PostgreSQL handles and canonical schema13", "ZENITH_TEST_AWS_PREFLIGHT_REQUIRED=1; default AWS readiness admission requires actual PostgreSQL, canonical schema13 and genuine native owners; cloud commands remain modeled", "ZENITH_TEST_MCP_START_SOURCE_AUTHORITY_REQUIRED=1; final MCP source/product/member authority requires actual PostgreSQL, canonical schema13 and independent native connections; hosted protocols remain modeled", "ZENITH_TEST_PLAN_PRODUCT_AUTHORITY_REQUIRED=1; original-plan product/current approval authority requires actual PostgreSQL, canonical platform schema13/product collections, independent native connections and pinned OpenTofu; hosted association/current roles/policy remain modeled", "ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1; linked credential dispatch/factory origin requires actual owning PostgreSQL with explicit port, canonical platform schema13/product collections and agent linked schema1; hosted REST/scope/policy remain modeled", "ZENITH_TEST_NATIVE_OAUTH_DISPATCH_REQUIRED=1; OAuth original-plan dispatch and default journal origin require actual owning PostgreSQL16 with explicit ZENITH_TEST_PLATFORM_PG_URL port, canonical platform schema13/product collections and agent schemas1/2/3 through migration0015, independent native connections and positively owned disposable scratch databases/CI roles; hosted REST/current identity/policy and sealed fixture bytes remain modeled", "The additive linked factory preselection controls share ZENITH_TEST_NATIVE_INTEGRATION_AUTHORITY_REQUIRED=1 and actual owning PostgreSQL; all prior50 linked origin cases remain mandatory, tooling constructors supply no default origin", "Locked Supabase SDK constructor/protocol controls require exact source and suite; they supply no PostgreSQL, hosted-network or TLS-handshake proof", "OpenTofu 1.12.5 at ZENITH_TOFU_BIN", "ZENITH_TEST_TOFU_NETWORK=1", "Provider registry network access and writable plugin cache", "Canonical platform schema16 applied/current through scripts/ci/apply-platform-migrations.sh; committed Supabase bootstrap appends supabase/migrations/0018_platform_core.sql after unchanged0014/agent0015/platform0016/0017", "ZENITH_TEST_MIXED_CHILD_CUSTODY_REQUIRED=1; native mixed custody requires actual owning PostgreSQL, canonical schema14 and independent connections; custody does not enable child execution", "ZENITH_TEST_PLAN_RETENTION_REQUIRED=1; counts-only non-destructive retention preview requires actual PostgreSQL and independent connections; synthetic storage/receipt fixtures do not prove archive or deletion", "ZENITH_TEST_KUBERNETES_VAULT_TARGET_REQUIRED=1; default target binding requires actual owning PostgreSQL and tenant-sealed FILE vault; namespace API and upstream grants remain modeled", "ZENITH_TEST_KUBERNETES_CONNECTION_LINK_REQUIRED=1; human Kubernetes linking requires actual opened PostgreSQL owners, canonical platform schema13 or newer, canonical public.members from migration0001, three independent native connections and an encrypted tenant FILE vault; hosted association, human request and namespace API are modeled, production FILE/custom/separate activation remains refused"],
+     tools: { node: "22.23.3", postgres: "16.15", tofu: "1.12.5" },
+   },
+ };
+@@ -5553,7 +5881,7 @@ export function requirementsFor(lane, root) {
+       requirements.push(...AGENT_EFFECT_POSTGRES_REQUIREMENTS);
+       requirements.push(...BUILD_SOURCE_POSTGRES_REQUIREMENTS, GITHUB_WEBHOOK_POSTGRES_REQUIREMENT, ...GITHUB_WEBHOOK_POSTGRES_CASES);
+       // Discovery above remains; these named cases survive source deletion.
+-      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, ...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS);
++      requirements.push(...WORKFLOW_INTENT_POSTGRES_REQUIREMENTS,...DEFAULT_CURRENT_MEMBERSHIP_REQUIREMENTS,...APPROVED_SOURCE_POSTGRES_REQUIREMENTS,...PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...SOURCE_FIXTURE_POSTGRES_REQUIREMENTS,...SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS,...FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS,...MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS,...AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS,...MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS,...EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS,...PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS,...NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS,...NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, ...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, ...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, ...SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS);
+       break;
+     default:
+       throw new Error("Unknown CI lane");
+diff --git a/tests/ci/gate-manifest.test.ts b/tests/ci/gate-manifest.test.ts
+index 6b8fff7a937d3f9127d594c9e72ab797aa47c52b..ddf471b7f8fd9acd423691355e7920ec0b193f02 100644
+--- a/tests/ci/gate-manifest.test.ts
++++ b/tests/ci/gate-manifest.test.ts
+@@ -6,7 +6,7 @@ import os from "node:os";
+ import path from "node:path";
+ import { afterAll, describe, expect, it } from "vitest";
+ import { load } from "js-yaml";
+-import { WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
++import { SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, WORKFLOW_NATIVE_POSTGRES_FILES, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, FIRST_SOURCE_LEASE_POSTGRES_REQUIREMENTS, APPROVED_SOURCE_POSTGRES_REQUIREMENTS, PLAN_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, SOURCE_FIXTURE_POSTGRES_REQUIREMENTS, SOURCE_PLAN_EVIDENCE_POSTGRES_REQUIREMENTS, assertionMatches, canonicalSuite, EXTERNAL_ACCEPTANCE, GATE_LANES, linuxGuestManifest, manifestFor, requirementId, requirementsFor } from "../../scripts/ci/gate-manifest.mjs";
+ import { reportFailures } from "./assert-lane-report.mjs";
+ 
+ const root = process.cwd();
+@@ -214,12 +214,28 @@ const nativeSafetyDiscovered = [
+     "backend": "postgres"
+   }
+ ] as const;
++const settlementGroup = {
++  file: "tests/controlplane/cleanup-writer-barriers.test.ts",
++  suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
++  flag: "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED",
++  sourceSha256: "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
++  namesSha256: "5c20cb4c31e9d0b11a9774d0009203adeea0ce8c993a1f92fed077875a774f69",
++} as const;
++function settlementNamed(sourceRoot = root): Requirement[] {
++  const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
++  return requirementsFor("platform-postgres", sourceRoot).filter(item => ids.has(item.id));
++}
++// Only these exact additive IDs leave historical assertions; unknown future IDs remain.
++function priorSettlementPlatformRequirements(sourceRoot = root): Requirement[] {
++  const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
++  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
++}
+ const cleanupWriterGroup = {
+   file: "tests/controlplane/cleanup-writer-barriers.test.ts",
+   suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]",
+   backend: "postgres",
+   flag: "ZENITH_TEST_CLEANUP_WRITER_BARRIER_REQUIRED",
+-  sourceSha256: "4709e75f33820dc62e9b9a9be870d1cf71d94092cbaa1063257790e1db069ae9",
++  sourceSha256: "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+   namesSha256: "df0ddb85fa00e1290bd6b95915742451b555e21179e9c40c62fe6c1321de1739",
+ } as const;
+ const cleanupWriterDiscovered = { file: cleanupWriterGroup.file, suite: cleanupWriterGroup.suite, backend: "postgres" } as const;
+@@ -231,7 +247,7 @@ function cleanupWriterNamed(sourceRoot = root): Requirement[] {
+ // assertions. The production manifest and validator retain the full successor.
+ function priorCleanupPlatformRequirements(sourceRoot = root): Requirement[] {
+   const ids = new Set([...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, cleanupWriterDiscovered].map(item => requirementId("platform-postgres", item)));
+-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
++  return priorSettlementPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+ }
+ const kubernetesLinkGroup = {
+   file: "tests/controlplane/kubernetes-connection-link.test.ts",
+@@ -1869,7 +1885,7 @@ const nativeSafetyGroups = [
+     "suite": "plan artifact retention preview [postgres; synthetic storage and receipt fixtures]",
+     "flag": "ZENITH_TEST_PLAN_RETENTION_REQUIRED",
+     "count": 27,
+-    "sourceSha256": "51cb06e2ba5a5921c62893dff46ee21f95ea8100a3f4834da23e99efb2db51ad",
++    "sourceSha256": "7d732dbe799758c5151beb3d269191b9007b23f1b3da131ed2570da3342c0a88",
+     "namesSha256": "404ac3067866333f5a81d69a689eefd0ea4340e81a81e1b6121e25139c3fa8b3"
+   },
+   {
+@@ -2050,7 +2066,7 @@ describe("mandatory native cleanup writer barrier cases [report models]", () =>
+     const manifest = manifestFor("platform-postgres", root), required = cleanupWriterNamed();
+     expect(CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS).toHaveLength(46);
+     expect(required).toHaveLength(46); expect(new Set(required.map(item => item.id)).size).toBe(46);
+-    expect(manifest.requirements).toHaveLength(1059); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1059);
++    expect(priorSettlementPlatformRequirements()).toHaveLength(1059); expect(new Set(priorSettlementPlatformRequirements().map(item => item.id)).size).toBe(1059);
+     const previous = priorCleanupPlatformRequirements();
+     expect(previous).toHaveLength(1012); expect(new Set(previous.map(item => item.id)).size).toBe(1012);
+     expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("436ee191fe94eb06c7c611a6477e3766b81ab9e0f1a543bdda6f328be77435de");
+@@ -2077,7 +2093,8 @@ describe("mandatory native cleanup writer barrier cases [report models]", () =>
+ 
+   it("binds exact cleanup source and literal titles to required physical PostgreSQL admission before hooks", () => {
+     const source = fs.readFileSync(path.join(root, cleanupWriterGroup.file), "utf8");
+-    const names = declaredLiteralTests(cleanupWriterGroup.file, cleanupWriterGroup.suite), required = cleanupWriterNamed();
++    const added = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => item.test));
++    const names = declaredLiteralTests(cleanupWriterGroup.file, cleanupWriterGroup.suite).filter(name => !added.has(name)), required = cleanupWriterNamed();
+     expect(names).toHaveLength(46); expect(new Set(names).size).toBe(46); expect(required.map(item => item.test)).toEqual(names);
+     expect(createHash("sha256").update(source).digest("hex")).toBe(cleanupWriterGroup.sourceSha256);
+     expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(cleanupWriterGroup.namesSha256);
+@@ -2306,3 +2323,88 @@ describe("workflow native PostgreSQL prerequisites [source/report models]", () =
+     }
+   });
+ });
++
++
++// These are validator/source models, never actual command/SQL/settlement evidence.
++describe("mandatory saved builtin settlement cases [report models]", () => {
++  it("adds exactly 54 literal cases once and preserves every one of the 1059 predecessor IDs", () => {
++    const manifest = manifestFor("platform-postgres", root), required = settlementNamed();
++    expect(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS).toHaveLength(54);
++    expect(required).toHaveLength(54); expect(new Set(required.map(item => item.id)).size).toBe(54);
++    expect(manifest.requirements).toHaveLength(1113); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1113);
++    const previous = priorSettlementPlatformRequirements();
++    expect(previous).toHaveLength(1059);
++    expect(createHash("sha256").update(JSON.stringify(previous.map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
++    expect(manifest.requirements).toEqual([...previous, ...required]);
++    expect(cleanupWriterNamed()).toHaveLength(46); expect(priorCleanupPlatformRequirements()).toHaveLength(1012);
++    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
++    expect(requirementsFor("workflows", root)).toHaveLength(58);
++    expect(linuxGuestManifest().requiredCases).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
++    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
++    for (const lane of Object.keys(GATE_LANES).filter(name => name !== "platform-postgres")) {
++      expect(manifestFor(lane, root).env[settlementGroup.flag]).toBeUndefined();
++      expect(requirementsFor(lane, root).some(item => required.some(addition => addition.id === item.id))).toBe(false);
++    }
++  });
++
++  it("binds all 100 source cases while preserving the original 46 and refusing unavailable native prerequisites before hooks", () => {
++    const source = fs.readFileSync(path.join(root, settlementGroup.file), "utf8");
++    const all = declaredLiteralTests(settlementGroup.file, settlementGroup.suite);
++    const retained = new Set(cleanupWriterNamed().map(item => item.test));
++    const names = all.filter(name => !retained.has(name)), required = settlementNamed();
++    expect(all).toHaveLength(100); expect(new Set(all).size).toBe(100);
++    expect(names).toHaveLength(54); expect(required.map(item => item.test)).toEqual(names);
++    expect(createHash("sha256").update(source).digest("hex")).toBe(settlementGroup.sourceSha256);
++    expect(createHash("sha256").update(names.join("\n") + "\n").digest("hex")).toBe(settlementGroup.namesSha256);
++    for (const item of required) expect(item).toMatchObject({ file: settlementGroup.file, suite: settlementGroup.suite, backend: "postgres" });
++    const admission = source.indexOf(`process.env.${settlementGroup.flag}==="1"`);
++    expect(admission).toBeGreaterThanOrEqual(0); expect(admission).toBeLessThan(source.indexOf("beforeAll("));
++    expect(source).toContain("PLATFORM_SCHEMA_VERSION<16"); expect(source).toContain("!tofuOnPath()");
++    expect(source).toContain('process.env.ZENITH_TEST_TOFU_NETWORK!=="1"');
++    expect(source).toContain('openPlatformDb({kind:"postgres"'); expect(source).toContain("&&!!url.port");
++    const manifest = manifestFor("platform-postgres", root);
++    expect(manifest.env[settlementGroup.flag]).toBe("1");
++    expect(manifest.prerequisites.some(value => value.startsWith(`${settlementGroup.flag}=1;`))).toBe(true);
++    expect(manifest.excludeFiles).not.toContain(settlementGroup.file); expect(manifest.command).not.toContain("--passWithNoTests");
++  });
++
++  it("refuses each missing failed skipped pending foreign and PGlite settlement observation", () => {
++    const required = settlementNamed(); expect(reportFailures(required, contractReport(required), root)).toEqual([]);
++    for (const item of required) {
++      const missing = contractReport(required); missing.testResults[0].assertionResults = missing.testResults[0].assertionResults.filter(assertion => assertion.title !== item.test);
++      expect(reportFailures(required, missing, root), item.id).toHaveLength(1);
++      for (const status of ["failed", "skipped", "pending", "todo"]) {
++        const report = contractReport(required); report.testResults[0].assertionResults.find(assertion => assertion.title === item.test)!.status = status;
++        expect(reportFailures(required, report, root), `${item.id}: ${status}`).toHaveLength(1);
++      }
++      for (const suite of [settlementGroup.suite.replace("postgres", "pglite"), settlementGroup.suite.replace("postgres", "postgres-replica"), "foreign settlement [postgres]"]) {
++        const report = contractReport(required), assertion = report.testResults[0].assertionResults.find(value => value.title === item.test)!;
++        assertion.ancestorTitles = [suite]; assertion.fullName = `${suite} ${item.test}`;
++        expect(reportFailures(required, report, root), `${item.id}: ${suite}`).toHaveLength(1);
++      }
++    }
++  });
++
++  it("retains every static additive requirement after the native source is renamed or deleted", () => {
++    const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-settlement-manifest-"));
++    try {
++      for (const directory of ["tests/controlplane", "tests/capabilities", "tests/reconcile"]) fs.mkdirSync(path.join(sourceRoot, directory), { recursive: true });
++      const file = path.join(sourceRoot, settlementGroup.file), source = fs.readFileSync(path.join(root, settlementGroup.file), "utf8");
++      fs.writeFileSync(file, source); const before = settlementNamed(sourceRoot); expect(before).toHaveLength(54);
++      fs.writeFileSync(file, source.replaceAll(settlementGroup.suite, "unrelated [pglite]")); expect(settlementNamed(sourceRoot)).toEqual(before);
++      fs.unlinkSync(file); expect(settlementNamed(sourceRoot)).toEqual(before);
++      expect(reportFailures(before, contractReport([]), root)).toHaveLength(54);
++    } finally { fs.rmSync(sourceRoot, { recursive: true, force: true }); }
++  });
++
++  it("refuses zero malformed duplicate inconsistent file and output-only settlement reports", () => {
++    const required = settlementNamed();
++    for (const report of [null, {}, { success: true }, { ...contractReport(required), success: false }, { success: true, testResults: [{ name: path.resolve(root, settlementGroup.file) }] }])
++      expect(reportFailures(required, report, root).length).toBeGreaterThan(0);
++    const duplicate = contractReport(required); duplicate.testResults.push({ ...duplicate.testResults[0] });
++    expect(reportFailures(required, duplicate, root)).toEqual(["Duplicate Vitest file evidence"]);
++    for (const counts of [{numTotalTests:0},{numFailedTests:1}]) expect(reportFailures(required, { ...contractReport(required), ...counts }, root)).toEqual(["Inconsistent Vitest report counts"]);
++    const forged = { success: true, testResults: [], lane: "platform-postgres", requirements: required.map(item => ({ ...item, status: "passed" })), cleanupComplete: true };
++    expect(reportFailures(required, forged, root)).toHaveLength(54);
++  });
++});
+diff --git a/tests/ci/guest-file-write-gate.test.ts b/tests/ci/guest-file-write-gate.test.ts
+index 4f2523423e40460ee56ab9ec2b538dc6ec124f7e..12f3390e9064884f63e334632f856df78141cc61 100644
+--- a/tests/ci/guest-file-write-gate.test.ts
++++ b/tests/ci/guest-file-write-gate.test.ts
+@@ -905,7 +905,7 @@ describe("mandatory direct native package phase admission", () => {
+   });
+   it("pins the genuine native4 declarations and refuses deletion or substituted source names", () => {
+     const source = fs.readFileSync("go/internal/machine/package_helper_linux_test.go", "utf8");
+-    expect(createHash("sha256").update(source).digest("hex")).toBe("56155d5e0a3bd92817a8bdf43a82e1345091cd88f2fc76f8434d953322d4b6f6");
++    expect(createHash("sha256").update(source).digest("hex")).toBe("b7b2d7cbb6d21baef5b39ce8f2eab14f80fff245cc03e633cfb53f5bf3ce6331");
+     const declared = (text: string) => nativePackageNames.filter(name => new RegExp(`^func ${name}\\(t \\*testing\\.T\\)`, "m").test(text));
+     expect(declared(source)).toEqual(nativePackageNames);
+     for (const name of nativePackageNames) expect(declared(source.replace(`func ${name}(`, `func ${name}_foreign(`))).not.toContain(name);
+diff --git a/tests/ci/platform-coverage.test.ts b/tests/ci/platform-coverage.test.ts
+index 1dffe0ac18ed6ea683b1c45a3a9f04594faaca5d..199bfa98f3e0a3e26bd53d34bcb7f3be84858c19 100644
+--- a/tests/ci/platform-coverage.test.ts
++++ b/tests/ci/platform-coverage.test.ts
+@@ -11,7 +11,7 @@ import { load } from "js-yaml";
+ import ts from "typescript";
+ import { describe, expect, it } from "vitest";
+ import vitestConfig from "../../vitest.config";
+-import { KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
++import { SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS, CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, PLAN_RETENTION_POSTGRES_REQUIREMENTS, KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, packagedWorkerManifest, APPLY_CURRENT_AUTHORITY_POSTGRES_REQUIREMENTS, NATIVE_OAUTH_DISPATCH_POSTGRES_REQUIREMENTS, NATIVE_CREDENTIAL_FACTORY_POSTGRES_REQUIREMENTS, OAUTH_GRANT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_RETAINED_WAIT_POSTGRES_REQUIREMENTS, PLAN_PRODUCT_AUTHORITY_POSTGRES_REQUIREMENTS, EXECUTION_LEASE_TENANT_POSTGRES_REQUIREMENTS, AWS_BOOTSTRAP_READINESS_POSTGRES_REQUIREMENTS, MCP_DURABLE_ADMISSION_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_POSTGRES_REQUIREMENTS, MCP_START_SOURCE_AUTHORITY_SDK_REQUIREMENTS, CORE_CHECKS, linuxGuestManifest, manifestFor, requirementId } from "../../scripts/ci/gate-manifest.mjs";
+ import { reportFailures, requirementsFor, TOFU_SUITES } from "./assert-lane-report.mjs";
+ 
+ interface Step {
+@@ -48,9 +48,18 @@ const kubernetesLinkDiscovered = {
+   suite: "human Kubernetes connection linking [postgres; modeled hosted association, human request and namespace API]",
+   backend: "postgres",
+ } as const;
++function priorSettlementPlatformRequirements(sourceRoot = root) {
++  const ids = new Set(SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS.map(item => requirementId("platform-postgres", item)));
++  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
++}
++function priorCleanupPlatformRequirements(sourceRoot = root) {
++  const discovered = { file: "tests/controlplane/cleanup-writer-barriers.test.ts", suite: "native cleanup writer barrier [postgres; modeled hosted association and policy]", backend: "postgres" } as const;
++  const ids = new Set([...CLEANUP_WRITER_BARRIER_POSTGRES_REQUIREMENTS, discovered].map(item => requirementId("platform-postgres", item)));
++  return priorSettlementPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
++}
+ function priorKubernetesLinkPlatformRequirements(sourceRoot = root) {
+   const ids = new Set([...KUBERNETES_CONNECTION_LINK_POSTGRES_REQUIREMENTS, kubernetesLinkDiscovered].map(item => requirementId("platform-postgres", item)));
+-  return requirementsFor("platform-postgres", sourceRoot).filter(item => !ids.has(item.id));
++  return priorCleanupPlatformRequirements(sourceRoot).filter(item => !ids.has(item.id));
+ }
+ function priorNativeSafetyPlatformRequirements(sourceRoot = root) {
+   const ids = new Set([...MIXED_CHILD_CUSTODY_POSTGRES_REQUIREMENTS, ...PLAN_RETENTION_POSTGRES_REQUIREMENTS, ...KUBERNETES_VAULT_TARGET_POSTGRES_REQUIREMENTS, ...nativeSafetyDiscovered].map(item => requirementId("platform-postgres", item)));
+@@ -654,7 +663,7 @@ describe("mandatory native custody, retention and Kubernetes target execution",
+     expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(required.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
+     expect(required.every(item => item.file === kubernetesLinkDiscovered.file && item.suite === kubernetesLinkDiscovered.suite && item.backend === "postgres")).toBe(true);
+     expect(manifest.requirements).toContainEqual({ ...kubernetesLinkDiscovered, id: requirementId("platform-postgres", kubernetesLinkDiscovered) });
+-    expect(manifest.requirements).toHaveLength(1012); expect(new Set(manifest.requirements.map(item => item.id)).size).toBe(1012);
++    expect(priorCleanupPlatformRequirements()).toHaveLength(1012); expect(new Set(priorCleanupPlatformRequirements().map(item => item.id)).size).toBe(1012);
+     const predecessor = priorKubernetesLinkPlatformRequirements();
+     expect(predecessor).toHaveLength(990);
+     expect(createHash("sha256").update(JSON.stringify(predecessor.map(item => item.id).sort())).digest("hex")).toBe("cd24c52f0cdddb47746e282080e1a3fcd31f8b1799ac685cf3e6f273b70e452e");
+@@ -667,21 +676,44 @@ describe("mandatory native custody, retention and Kubernetes target execution",
+     expect(manifestFor("postgres", root).requirements).toHaveLength(80); expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
+   });
+ 
+-  it("initializes canonical schema14 and agent prerequisites before the unchanged mandatory lane", () => {
++  it("initializes canonical schema16 and agent prerequisites before the unchanged mandatory lane", () => {
+     const job = workflow.jobs["platform-postgres"], steps = job.steps;
+     const migrate = steps.findIndex(step => step.run === "bash scripts/ci/apply-platform-migrations.sh");
+     const agent = steps.findIndex(step => step.run === "node node_modules/tsx/dist/cli.mjs scripts/agent/apply-schema.ts");
+     const run = steps.findIndex(step => step.run === "node scripts/ci/run-gate.mjs platform-postgres --run");
+     expect(agent).toBeGreaterThanOrEqual(0); expect(migrate).toBeGreaterThan(agent); expect(run).toBeGreaterThan(migrate);
+     expect(steps[agent].if).toBeUndefined(); expect(steps[agent]["continue-on-error"]).toBeUndefined();
+-    expect(manifestFor("platform-postgres", root).prerequisites.some(value => value.startsWith("Canonical platform schema14 applied/current"))).toBe(true);
++    expect(manifestFor("platform-postgres", root).prerequisites.some(value => value.startsWith("Canonical platform schema16 applied/current"))).toBe(true);
+     const script = fs.readFileSync(path.join(root, "scripts/ci/apply-supabase-migrations.sh"), "utf8");
+     const committed = fs.readdirSync(path.join(root, "supabase/migrations")).filter(file => file.endsWith(".sql")).sort();
+     const declaration = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
+     expect(declaration).toBeDefined();
+     expect([...(declaration ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map(match => match[1])).toEqual(committed);
+-    expect(committed.slice(-3)).toEqual(["0014_platform_core.sql", "0015_agent_oauth_grants.sql", "0016_platform_core.sql"]);
++    expect(committed.slice(-5)).toEqual(["0014_platform_core.sql", "0015_agent_oauth_grants.sql", "0016_platform_core.sql", "0017_platform_core.sql", "0018_platform_core.sql"]);
+     expect(fs.readFileSync(path.join(root, "scripts/ci/apply-platform-migrations.sh"), "utf8")).toContain("scripts/platform/migrate.ts");
+     expect(script).toContain('"$TSX" "$PLATFORM_VERIFIER"');
+   });
+ });
++
++
++describe("saved builtin settlement mandatory CI admission", () => {
++  it("requires the exact additive 54 only in the real platform lane and preserves all previous obligations", () => {
++    const manifest = manifestFor("platform-postgres", root), added = SAVED_PLAN_SETTLEMENT_POSTGRES_REQUIREMENTS;
++    const ids = new Set(added.map(item => requirementId("platform-postgres", item)));
++    expect(added).toHaveLength(54); expect(ids.size).toBe(54);
++    expect(manifest.requirements.filter(item => ids.has(item.id))).toEqual(added.map(item => ({ ...item, id: requirementId("platform-postgres", item) })));
++    expect(manifest.requirements).toHaveLength(1113);
++    expect(priorSettlementPlatformRequirements()).toHaveLength(1059);
++    expect(createHash("sha256").update(JSON.stringify(priorSettlementPlatformRequirements().map(item => item.id).sort())).digest("hex")).toBe("49f54d75ca5cd7114b69efedabfed9843fcdc1186e49422f9f7e26cae79cf07f");
++    expect(manifest.env.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
++    expect(workflow.jobs["platform-postgres"].env.ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED).toBe("1");
++    expect(manifest.prerequisites.some(value => value.startsWith("ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1;"))).toBe(true);
++    expect(manifest.command).not.toContain("--passWithNoTests"); expect(manifest.excludeFiles).toEqual([]);
++    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --run");
++    gate("platform-postgres", "node scripts/ci/run-gate.mjs platform-postgres --validate .data-ci-lane/platform-lane.json --require-execution", "always()");
++    expect(manifestFor("postgres", root).requirements).toHaveLength(80);
++    expect(requirementsFor("workflows", root)).toHaveLength(58);
++    expect(linuxGuestManifest().requiredCases).toHaveLength(127); expect(linuxGuestManifest().allowedSkips).toHaveLength(3);
++    expect(packagedWorkerManifest().requiredChecks).toHaveLength(22);
++  });
++});
+diff --git a/tests/controlplane/migrations.test.ts b/tests/controlplane/migrations.test.ts
+index 0f75f2af2c4c8352282ca60a0601f3a6f0bc4700..ff398a1984a84f9037bde6b0530be3dc1087e3f2 100644
+--- a/tests/controlplane/migrations.test.ts
++++ b/tests/controlplane/migrations.test.ts
+@@ -47,7 +47,7 @@ const EXPECTED_TABLES = [
+   "agent_effect_receipts", "agent_nonces", "approvals", "approved_source_snapshots", "build_launches", "capability_grants", "cleanup_owner_grants", "cleanup_writer_deliveries", "cleanup_writer_epoch", "cleanup_writer_holds", "cleanup_writer_scopes", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
+   "github_binding_events", "github_install_intents", "github_source_bindings", "github_webhook_deliveries", "github_webhook_installation_epochs", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "mixed_child_custody", "mixed_child_intents", "operations", "plan_artifact_associations", "plan_artifact_uses", "plan_artifacts", "policy_decisions", "provider_connections",
+   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
+-  "schema_migrations", "workflow_start_intents", "workspace_policy",
++  "schema_migrations", "standalone_plan_backends", "standalone_plan_settlements", "workflow_start_intents", "workspace_policy",
+ ];
+ 
+ /** Tables that hold no tenant-visible rows keyed by workspace (see the header of 0001_core.ts). */
+@@ -236,6 +236,35 @@ describe.each(lanes)("migrator [$name]", (lane) => {
+       const leading = new Set(indexed.map((r) => r.table_name));
+       for (const t of tables) expect(leading.has(t), `${t} has an index leading with workspace_id`).toBe(true);
+ 
++      // This global physical target key is not a tenancy exemption: its owning
++      // tuple is immutable, and every private completion also binds that tuple.
++      const target = digest(uid("physical_target")), workspaceId = uid("ws");
++      const projectId = uid("project"), environmentId = uid("environment"), backend = digest(uid("backend"));
++      const primary = await db.query<{ column_name: string }>(`select k.column_name from information_schema.table_constraints c
++        join information_schema.key_column_usage k on k.constraint_schema=c.constraint_schema and k.constraint_name=c.constraint_name
++        where c.table_schema='platform' and c.table_name='standalone_plan_backends' and c.constraint_type='PRIMARY KEY' order by k.ordinal_position`);
++      expect(primary.map(column => column.column_name)).toEqual(["target_digest"]);
++      await db.query(`insert into platform.standalone_plan_backends(target_digest,workspace_id,project_id,environment_id,backend_digest)
++        values($1,$2,$3,$4,$5)`, [target,workspaceId,projectId,environmentId,backend]);
++      for (const foreign of [[uid("foreign_ws"),projectId,environmentId], [workspaceId,uid("foreign_project"),environmentId], [workspaceId,projectId,uid("foreign_environment")]]) {
++        expect(await db.query(`insert into platform.standalone_plan_backends(target_digest,workspace_id,project_id,environment_id,backend_digest)
++          values($1,$2,$3,$4,$5) on conflict do nothing returning target_digest`, [target,...foreign,backend])).toEqual([]);
++        expect(await db.query(`select target_digest from platform.standalone_plan_backends
++          where target_digest=$1 and workspace_id=$2 and project_id=$3 and environment_id=$4 and backend_digest=$5`, [target,...foreign,backend])).toEqual([]);
++      }
++      const originalOwner = await db.query("select * from platform.standalone_plan_backends where target_digest=$1", [target]);
++      await expect(db.query("update platform.standalone_plan_backends set workspace_id=$2 where target_digest=$1", [target,uid("foreign_ws")])).rejects.toThrow();
++      await expect(db.query("delete from platform.standalone_plan_backends where target_digest=$1", [target])).rejects.toThrow();
++      expect(await db.query("select * from platform.standalone_plan_backends where target_digest=$1", [target])).toEqual(originalOwner);
++      expect(await db.query<{ name: string; rls: boolean }>(`select c.relname as name,c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace
++        where n.nspname='platform' and c.relname in ('standalone_plan_backends','standalone_plan_settlements') order by c.relname`)).toEqual([
++        {name:"standalone_plan_backends",rls:true},{name:"standalone_plan_settlements",rls:true},
++      ]);
++      expect(await db.query<{ name: string }>(`select t.tgname as name from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
++        where n.nspname='platform' and not t.tgisinternal and c.relname in ('standalone_plan_backends','standalone_plan_settlements') order by t.tgname`)).toEqual([
++        {name:"immutable_standalone_plan_backend"},{name:"immutable_standalone_plan_settlement"},
++      ]);
++
+       for (const [table, keys] of [
+         ["github_webhook_installation_epochs", ["app_id", "installation_id"]],
+         ["github_webhook_deliveries", ["app_id", "delivery_id"]],
+diff --git a/tests/controlplane/tenancy.test.ts b/tests/controlplane/tenancy.test.ts
+index 92c9be07f2ecdcc3593b29cf5220d35f6b67aaef..ba06aeefbe85f01f80530ef5bc94c9a679a68e5d 100644
+--- a/tests/controlplane/tenancy.test.ts
++++ b/tests/controlplane/tenancy.test.ts
+@@ -79,7 +79,7 @@ const SWEPT = new Set([
+   "planArtifacts.requiresProductComposition",
+   // Counts-only owning/foreign reads run in this sweep and in the mandatory native retention suite:
+   // "never lets another workspace artifact or hold alter the selected workspace preview".
+-  "planArtifacts.previewRetention",
++  "planArtifacts.previewRetention", "planArtifacts.readStandaloneSettlements",
+   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
+   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
+   "settings.getEnvironmentSettings", "settings.getWorkspacePolicy",
+@@ -95,6 +95,10 @@ const WRITES = new Set([
+   "planArtifacts.retainCleanupWriterHold",
+   "planArtifacts.reserveCleanupOwnerGrant",
+   "planArtifacts.insertCleanupOwnerGrant",
++  // bindRepos exposes this row API; only the genuine paired codec can supply
++  // its private completion origin. Mandatory saved-builtin native cases prove
++  // owning success and copied/foreign/status/seeded-ciphertext refusal.
++  "planArtifacts.finishStandalone",
+   "connections.create", "cost.insert", "drift.insert", "events.append", "evidence.insert", "grants.insert", "incidents.openIncident", "incidents.insertInvestigation",
+   // Exact private capture identity/owner and original tenant tuple settle only
+   // after the connection lock wait and a fresh native editor/admin membership read.
+@@ -371,6 +375,7 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
+           .rejects.toBeInstanceOf(repos.planArtifacts.PlanArtifactError);
+         return null;
+       },
++      "planArtifacts.readStandaloneSettlements": () => repos.planArtifacts.readStandaloneSettlements(db,{...manifest,workspaceId:B},manifest.backendDigest),
+       "planArtifacts.finish": () => repos.planArtifacts.finish(db,foreignAccess,"tenant-owner-attempt",false),
+       "operationExecution.suspendForApproval": () => repos.operationExecution.suspendForApproval(db, { workspaceId: B, id: active.operation.id }),
+       "operationExecution.setPlanDigest": () => repos.operationExecution.setPlanDigest(db, { workspaceId: B, id: opId, planDigest: hex("d") }),
+diff --git a/tests/security/controlplane-sql-scoping.test.ts b/tests/security/controlplane-sql-scoping.test.ts
+index 059c78d5ea6a9d7c6ec24006d566181b02cdab48..37129960a311b89708950415c88d60691f67a69a 100644
+--- a/tests/security/controlplane-sql-scoping.test.ts
++++ b/tests/security/controlplane-sql-scoping.test.ts
+@@ -69,6 +69,83 @@ function isFixedStartAuthorityInterpolation(fn: Fn, expression: string, sqlPrefi
+     && /import \{[^}]*\bMCP_DEPLOY_AUTHORITY\b[^}]*\} from "\.\/workflow-start-deploy-authority";/.test(fn.source);
+ }
+ 
++/** A closed private literal plus exact genuine-origin calls. Extra references,
++ * aliases, assignments or dynamic evaluation cannot inherit a declaration hash. */
++function fixedStandaloneBindings(repo: ts.SourceFile): boolean {
++  const walk = (node: ts.Node, test: (node: ts.Node) => boolean): boolean => test(node)
++    || (ts.forEachChild(node, child => walk(child, test)) ?? false);
++  const declarations: ts.VariableDeclaration[] = [], references: ts.Identifier[] = [];
++  if (walk(repo, node => {
++    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === "LIVE_STANDALONE_SETTLEMENTS") declarations.push(node);
++    if (ts.isIdentifier(node) && node.text === "LIVE_STANDALONE_SETTLEMENTS") references.push(node);
++    return ts.isIdentifier(node) && ["eval", "Function"].includes(node.text);
++  }) || declarations.length !== 1 || references.length !== 5) return false;
++  const clause = declarations[0];
++  if (!clause.initializer || !ts.isNoSubstitutionTemplateLiteral(clause.initializer)
++    || !ts.isVariableDeclarationList(clause.parent) || !(clause.parent.flags & ts.NodeFlags.Const)
++    || clause.parent.declarations.length !== 1 || !ts.isVariableStatement(clause.parent.parent)
++    || clause.parent.parent.parent !== repo || clause.parent.parent.modifiers?.some(node => node.kind === ts.SyntaxKind.ExportKeyword)
++    || createHash("sha256").update(clause.initializer.getText(repo)).digest("hex") !== "eefac8a0c7f5b30257c5b0de7f8f52237e02cc20b4a4490002104ad4ba67a6c6") return false;
++  const owners = new Set<string>();
++  for (const reference of references) {
++    if (reference === clause.name) continue;
++    if (!ts.isTemplateSpan(reference.parent) || reference.parent.expression !== reference) return false;
++    let owner: ts.Node = reference;
++    while (!ts.isFunctionDeclaration(owner) && owner.parent) owner = owner.parent;
++    if (!ts.isFunctionDeclaration(owner) || !owner.name || owners.has(owner.name.text)
++      || !["dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(owner.name.text)) return false;
++    owners.add(owner.name.text);
++  }
++  const calls: Record<string, string[]> = {
++    readNativeCleanupOrigin: ['dispatch:readNativeCleanupOrigin(cleanupOrigin,sql,"dispatch")',
++      'retainCleanupWriterHold:readNativeCleanupOrigin(origin,sql,"hold")',
++      'reserveCleanupOwnerGrant:readNativeCleanupOrigin(origin,sql,"grant")', 'insertCleanupOwnerGrant:readNativeCleanupOrigin(origin,sql,"grant")'],
++    assertNativeCleanupOriginCurrent: ['dispatch:assertNativeCleanupOriginCurrent(cleanupOrigin,sql)',
++      'retainCleanupWriterHold:assertNativeCleanupOriginCurrent(origin,sql)',
++      'reserveCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)', 'reserveCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)',
++      'insertCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)', 'insertCleanupOwnerGrant:assertNativeCleanupOriginCurrent(origin,sql)'],
++    readNativeStandaloneOrigin: ['dispatch:readNativeStandaloneOrigin(standaloneOrigin,sql,"binding")', 'finishStandalone:readNativeStandaloneOrigin(origin,sql,"completion")'],
++    assertNativeStandaloneOriginCurrent: ['dispatch:assertNativeStandaloneOriginCurrent(standaloneOrigin,sql)',
++      'dispatch:assertNativeStandaloneOriginCurrent(standaloneOrigin,sql)', 'finishStandalone:assertNativeStandaloneOriginCurrent(origin,sql)'],
++  };
++  for (const [name, expected] of Object.entries(calls)) {
++    const found: ts.Identifier[] = [];
++    walk(repo, node => { if (ts.isIdentifier(node) && node.text === name) found.push(node); return false; });
++    const imported = found.filter(node => ts.isImportSpecifier(node.parent));
++    if (imported.length !== 1 || found.length !== expected.length + 1) return false;
++    const specifier = imported[0].parent;
++    if (!ts.isImportSpecifier(specifier) || specifier.name !== imported[0] || specifier.isTypeOnly || specifier.propertyName) return false;
++    const declaration = specifier.parent.parent.parent;
++    if (!ts.isImportDeclaration(declaration) || declaration.importClause?.isTypeOnly
++      || !ts.isStringLiteral(declaration.moduleSpecifier) || declaration.moduleSpecifier.text !== "@/lib/platform/plan-artifacts") return false;
++    const actual: string[] = [];
++    for (const reference of found) {
++      if (reference === imported[0]) continue;
++      if (!ts.isCallExpression(reference.parent) || reference.parent.expression !== reference) return false;
++      let owner: ts.Node = reference.parent;
++      while (!ts.isFunctionDeclaration(owner) && owner.parent) owner = owner.parent;
++      if (!ts.isFunctionDeclaration(owner) || !owner.name) return false;
++      actual.push(`${owner.name.text}:${reference.parent.getText(repo)}`);
++    }
++    if (actual.sort().join("\n") !== [...expected].sort().join("\n")) return false;
++  }
++  return owners.size === 4;
++}
++
++/** The immutable completion is supplied only by the captured paired runtime.
++ * This pins the full owning transaction and final CTE, not caller status or SQL
++ * seeded ciphertext. Execution/authentication remains the native gate's job. */
++function isFixedStandaloneWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.FunctionDeclaration,
++  query: ts.TemplateExpression, params: ts.ArrayLiteralExpression): boolean {
++  const hash = (value: string) => createHash("sha256").update(value).digest("hex");
++  return fn.name === "finishStandalone" && owning.parameters.length === 2
++    && owning.parameters[0].getText(repo) === "sql:Sql" && owning.parameters[1].getText(repo) === "origin:unknown"
++    && hash(owning.getText(repo)) === "d5f9877b4ab35bad9c1d1ede5c9989f010dc76836c2f2ec9c9d9022178033678"
++    && hash(query.getText(repo).slice(1, -1)) === "90922fa6b9db8e6d1fa6a6b14b4475513021c3401cfdd20c58e314c844e4678e"
++    && params.elements.map(item => item.getText(repo)).join("\n") === ["b.workspaceId", "b.operationId", "b.attemptId", "b.holder", "b.fenceToken",
++      "JSON.stringify(bound.proof)", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)", "JSON.stringify(receipt)"].join("\n");
++}
++
+ /** These are three exact reviewed writes, not a function-name SQL exemption.
+  * The hashes bind complete fixed CTE text and original literal clauses; AST
+  * provenance separately binds imported symbols, the native frame and parameters.
+@@ -76,13 +153,13 @@ function isFixedStartAuthorityInterpolation(fn: Fn, expression: string, sqlPrefi
+ function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.FunctionDeclaration,
+   query: ts.TemplateExpression, params: ts.ArrayLiteralExpression): boolean {
+   const first = ["input.custody.workspaceId", "input.custody.operationId", "bound.attempt", "input.lease.holder",
+-    "input.lease.fenceToken", "JSON.stringify(bound.proof)", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)"];
++    "input.lease.fenceToken", "JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements})", "JSON.stringify(sourceAuthority)", "JSON.stringify(productAuthority)"];
+   const contexts: Record<string, { purpose: string; hash: string; functionHash: string; tail: string[]; returned: string }> = {
+-    retainCleanupWriterHold: { purpose: "hold", hash: "c666928089ccfe8a1db070522ca3fbcd85da8506b4a89986b81b9a0219768c1f", functionHash: "afe56d3ca1823d24ef4f343287201a6b004dde569cf6015feee1ded1c2c68ec5",
++    retainCleanupWriterHold: { purpose: "hold", hash: "83d3c130597d17ff6461f80c21fdc322140b12a46d562d207526af7c8c58b8ed", functionHash: "19f19295d77704777beca348eaffbaebc6618dba51565593a8ec93ad3105e1a5",
+       tail: ["c.projectId", "c.environmentId", "generation", "bound.manifestDigest", "frame.authorityDigest"], returned: "generation" },
+-    reserveCleanupOwnerGrant: { purpose: "grant", hash: "19d030c961cdc6def7ac17b52311f4167b915d57e87444acd765231deb743cb0", functionHash: "b966bbbd35e2dd73bd4be0c0b99eeb46d7b3a69be401dfd21fbaa99fa2dcff58",
++    reserveCleanupOwnerGrant: { purpose: "grant", hash: "30d525a135fb41d74740a3c2048965d8b9290150c8f38158164fff55aad7117b", functionHash: "13fc8a46cded322591360ed4b84e1fe78498e1839431db3e330c1c2d5dc138be",
+       tail: ["h.generation", "jti", "frame.authorityDigest"], returned: "jti" },
+-    insertCleanupOwnerGrant: { purpose: "grant", hash: "c957f2312f7d64d33ece5cb783a2fc97b68d440b5515b2a26ad6fd299782641b", functionHash: "1784cc96da64cd1638c167a3ef44f7fe57705bdf7e226919efa5cadd15db7385",
++    insertCleanupOwnerGrant: { purpose: "grant", hash: "8ccca916d1e31d55e9045cea5bed4baabf9faf12207446adafe485b3d9390b68", functionHash: "80f38aae9a6f7393b69711994db297a4a051a49ca5f281d33ac87d3ddf8f9925",
+       tail: ["grant.jti", "grant.issuedAt", "grant.expiresAt"], returned: "jti" },
+   };
+   const context = contexts[fn.name];
+@@ -173,7 +250,7 @@ function isFixedCleanupWriteContext(fn: Fn, repo: ts.SourceFile, owning: ts.Func
+ 
+ /** Source proof for one internal composer; the composer and its imports are never executed. */
+ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: string, composerSource: string): boolean {
+-  if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name)
++  if (fn.file !== "plan-artifacts.ts" || !["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant", "finishStandalone"].includes(fn.name)
+     || expression !== "planProductDispatchPredicate(productAuthority)") return false;
+   const parse = (file: string, source: string) => ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+   const repo = parse(fn.file, fn.source), composer = parse("plan-artifact-product-authority.ts", composerSource);
+@@ -224,6 +301,11 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
+     && ts.isIdentifier(node.name) && node.name.text === "planProductDispatchPredicate")) return false;
+   const owning = repo.statements.filter(ts.isFunctionDeclaration).filter(node => node.name?.text === fn.name);
+   if (owning.length !== 1 || !owning[0].body || !fn.body.trimStart().startsWith(owning[0].getText(repo))) return false;
++  if (fn.name !== "claim" && !fixedStandaloneBindings(repo)) return false;
++  // The dispatch proof also includes authenticated settlements. Pin its full
++  // original transaction and exact current-authority parameter binding.
++  if (fn.name === "dispatch" && createHash("sha256").update(owning[0].getText(repo)).digest("hex")
++    !== "65f673bfaa2212f6279159f209fc9eb66c3bb1ac6c4e76c4877b068052ab932c") return false;
+   // Bind this call to the actual owning update, tenant parameters and JSON $8 input.
+   const queryMatches: ts.CallExpression[] = [];
+   walk(owning[0], node => {
+@@ -236,7 +318,12 @@ function isFixedPlanProductInterpolation(fn: Fn, expression: string, sqlText: st
+     const calls = query.templateSpans.filter(span => span.expression.getText(repo) === expression);
+     const head = query.head.text;
+     const cleanupWrite = !["claim", "dispatch"].includes(fn.name);
+-    if (cleanupWrite && !isFixedCleanupWriteContext(fn, repo, owning[0], query, params)) return false;
++    if (cleanupWrite && !(fn.name === "finishStandalone"
++      ? isFixedStandaloneWriteContext(fn, repo, owning[0], query, params)
++      : isFixedCleanupWriteContext(fn, repo, owning[0], query, params))) return false;
++    if (fn.name === "dispatch" && (createHash("sha256").update(query.getText(repo).slice(1, -1)).digest("hex")
++      !== "b8bef17ce02cc72e49598efe453bd60dc2369d0b83c812898ca033691e9bd190"
++      || params.elements[5].getText(repo) !== "authority?JSON.stringify({...authority,standaloneSettlements:settled}):null")) return false;
+     if (calls.length !== 1 || !cleanupWrite && (params.elements.length !== 8 || !head.startsWith(`update platform.plan_artifact_uses set phase='${fn.name === "claim" ? "claimed" : "dispatched"}'`)
+       || !head.includes(`where workspace_id=$1 and operation_id=$2 and phase='${fn.name === "claim" ? "ready" : "claimed"}'`)
+       || params.elements[0].getText(repo) !== "input.custody.workspaceId"
+@@ -507,7 +594,7 @@ describe("control-store repositories: workspace scoping is present in every func
+         ['const frame=await captureCleanupFrame(sql,tx,bound);', 'const frame=callerFrame;'],
+         ['const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;', 'const input=bound.access,sourceAuthority=frame.source,productAuthority=callerProduct;'],
+         ['const input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;', 'let input=bound.access,sourceAuthority=frame.source,productAuthority=frame.product;'],
+-        ['JSON.stringify(bound.proof)', 'JSON.stringify(callerApproval)'],
++        ['JSON.stringify({...bound.proof,standaloneSettlements:bound.settlements})', 'JSON.stringify(callerApproval)'],
+         ['JSON.stringify(sourceAuthority)', 'JSON.stringify(input)'],
+         ['JSON.stringify(productAuthority)', 'JSON.stringify(input)'],
+         ['[input.custody.workspaceId,input.custody.operationId,bound.attempt', '[input.workspaceId,input.custody.operationId,bound.attempt'],
+@@ -531,6 +618,87 @@ describe("control-store repositories: workspace scoping is present in every func
+         composerSource + '\nArray.prototype.map = () => [callerControlledSql];\n',
+       ]) { expect(source).not.toBe(composerSource); expect(isFixedPlanProductInterpolation(fn, expression, query, source)).toBe(false); }
+     }
++    const completed = fns.filter(fn => fn.file === "plan-artifacts.ts" && fn.name === "finishStandalone");
++    expect(completed.map(fn => fn.name)).toEqual(["finishStandalone"]);
++    const settlementContexts = [...native.filter(fn => fn.name === "dispatch"), ...cleanupWrites, ...completed];
++    for (const fn of settlementContexts) {
++      const query = [...fn.body.matchAll(/\.query(?:<[^>]*>)?\(\s*`([\s\S]*?)`/g)]
++        .find(match => match[1].includes("${planProductDispatchPredicate(productAuthority)}"))![1];
++      const expression = "planProductDispatchPredicate(productAuthority)";
++      expect(isFixedPlanProductInterpolation(fn, expression, query, composerSource), `${fn.name}: settlement context`).toBe(true);
++      const changed = (from: string, to: string): Fn => {
++        expect(fn.source, `${fn.name}: mutation must reach source`).toContain(from);
++        return { ...fn, source: fn.source.replaceAll(from, to), body: fn.body.replaceAll(from, to) };
++      };
++      for (const [label, from, to] of [
++        ["mutable settlement clause", "const LIVE_STANDALONE_SETTLEMENTS=", "let LIVE_STANDALONE_SETTLEMENTS="],
++        ["raw settlement tuple", "r.workspace_id=settled->'receipt'->'binding'->>'workspaceId'", "r.workspace_id=${callerWorkspace}"],
++        ["foreign immutable settlement owner", "r.workspace_id=$1", "r.workspace_id=$9"],
++        ["foreign backend owner", "backend.workspace_id=$1", "backend.workspace_id=$9"],
++        ["foreign origin import", 'from "@/lib/platform/plan-artifacts"', 'from "./caller-settlement-origin"'],
++        ["aliased standalone origin", "readNativeStandaloneOrigin, assertNativeStandaloneOriginCurrent", "callerOrigin as readNativeStandaloneOrigin, assertNativeStandaloneOriginCurrent"],
++        ["aliased current standalone origin", "assertNativeStandaloneOriginCurrent, type NativeCleanupOrigin", "callerCurrent as assertNativeStandaloneOriginCurrent, type NativeCleanupOrigin"],
++      ]) {
++        // A backend owner predicate is present only in the completion CTE.
++        if (label === "foreign backend owner" && fn.name !== "finishStandalone") continue;
++        const mutated = changed(from, to);
++        const replacement = query.replaceAll(from, to);
++        expect(isFixedPlanProductInterpolation(mutated, expression, replacement, composerSource), `${fn.name}: ${label}`).toBe(false);
++      }
++      for (const [label, effect] of [
++        ["settlement clause assignment", "\nLIVE_STANDALONE_SETTLEMENTS = callerSql;\n"],
++        ["settlement clause alias", "\nconst escapedSettlements = LIVE_STANDALONE_SETTLEMENTS;\n"],
++        ["extra settlement reference", "\nconsume(LIVE_STANDALONE_SETTLEMENTS);\n"],
++        ["standalone origin alias", "\nconst escapedOrigin = readNativeStandaloneOrigin;\n"],
++        ["standalone origin assignment", "\nreadNativeStandaloneOrigin = callerOrigin;\n"],
++        ["extra standalone origin call", '\nreadNativeStandaloneOrigin(caller,sql,"completion");\n'],
++        ["current origin alias", "\nconst escapedCurrent = assertNativeStandaloneOriginCurrent;\n"],
++        ["current origin assignment", "\nassertNativeStandaloneOriginCurrent = caller;\n"],
++        ["dynamic settlement mutation", '\neval("LIVE_STANDALONE_SETTLEMENTS = callerSql");\n'],
++        ["dynamic origin mutation", '\nFunction("readNativeStandaloneOrigin = caller")();\n'],
++      ]) expect(isFixedPlanProductInterpolation({ ...fn, source: fn.source + effect }, expression, query, composerSource), `${fn.name}: ${label}`).toBe(false);
++    }
++    for (const fn of completed) {
++      const query = [...fn.body.matchAll(/\.query(?:<[^>]*>)?\(\s*`([\s\S]*?)`/g)]
++        .find(match => match[1].includes("${planProductDispatchPredicate(productAuthority)}"))![1];
++      const expression = "planProductDispatchPredicate(productAuthority)";
++      const changed = (from: string, to: string): Fn => {
++        expect(fn.source, "completion mutation must reach source").toContain(from);
++        return { ...fn, source: fn.source.replaceAll(from, to), body: fn.body.replaceAll(from, to) };
++      };
++      for (const [from, to] of [
++        ['readNativeStandaloneOrigin(origin,sql,"completion")', 'callerReceipt(origin,sql)'],
++        ["const input=captured(bound.access),b=bound.binding;", "const input=captured(caller.access),b=caller.binding;"],
++        ["JSON.stringify(receipt)", "JSON.stringify(callerReceipt)"],
++        ["JSON.stringify(bound.proof)", "JSON.stringify(callerApproval)"],
++        ["JSON.stringify(sourceAuthority)", "JSON.stringify(input)"],
++        ["JSON.stringify(productAuthority)", "JSON.stringify(input)"],
++        ["[b.workspaceId,b.operationId,b.attemptId,b.holder,b.fenceToken,JSON.stringify(bound.proof)", "[callerWorkspace,b.operationId,b.attemptId,b.holder,b.fenceToken,JSON.stringify(bound.proof)"],
++        ["await lockCleanupCoordinator(tx,b.workspaceId);", "await lockCleanupCoordinator(tx,callerWorkspace);"],
++        ["await assertNativeStandaloneOriginCurrent(origin,sql);", "await callerCurrent(origin,sql);"],
++        ["if(changed.length!==1)refuse();", "if(changed.length!==1)return;"],
++      ]) expect(isFixedPlanProductInterpolation(changed(from, to), expression, query, composerSource), `completion: ${from}`).toBe(false);
++      for (const [from, to] of [
++        ["set phase='succeeded'", "set phase='ready'"],
++        ["workspace_id=$1 and operation_id=$2", "workspace_id=$9 and operation_id=$2"],
++        ["phase='dispatched'", "phase='claimed'"],
++        ["attempt_id=$3", "attempt_id=$9"],
++        ["and (${LIVE_USE_AUTHORITY})", "and true"],
++        ["and (${DISPATCH_SOURCE_AUTHORITY})", "and true"],
++        ["and (${planProductDispatchPredicate(productAuthority)})", "and witness=${planProductDispatchPredicate(productAuthority)}"],
++        ["backend.workspace_id=$1", "backend.workspace_id=$9"],
++        ["backend.project_id=$9::text::jsonb->'binding'->>'projectId'", "true"],
++        ["backend.environment_id=$9::text::jsonb->'binding'->>'environmentId'", "true"],
++        ["backend.backend_digest=$9::text::jsonb->'binding'->>'backendDigest'", "true"],
++        ["insert into platform.standalone_plan_settlements", "insert into public.unreviewed_effects"],
++        ["from authority returning operation_id", "from caller_rows returning operation_id"],
++        ["$9::text::jsonb->'sealed'->>'ciphertext'", "${callerCiphertext}"],
++      ]) {
++        expect(query, "completion mutation must reach SQL").toContain(from);
++        const replacement = query.replaceAll(from, to);
++        expect(isFixedPlanProductInterpolation(changed(query, replacement), expression, replacement, composerSource), `completion: ${from}`).toBe(false);
++      }
++    }
+     const risky: string[] = [];
+     for (const fn of fns) {
+       // a template literal handed to .query() that interpolates something other than the known constants
+@@ -540,7 +708,7 @@ describe("control-store repositories: workspace scoping is present in every func
+           if (isFixedStartAuthorityInterpolation(fn, expr, m[1].slice(0, interp.index))) continue;
+           if (isFixedPlanProductInterpolation(fn, expr, m[1], composerSource)) continue;
+           // A failed native proof cannot fall through to the older name-based column/index recognizers.
+-          if (fn.file === "plan-artifacts.ts" && ["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant"].includes(fn.name)
++          if (fn.file === "plan-artifacts.ts" && ["claim", "dispatch", "retainCleanupWriterHold", "reserveCleanupOwnerGrant", "insertCleanupOwnerGrant", "finishStandalone"].includes(fn.name)
+             && /\b(?:planProductDispatchPredicate|productAuthority)\b/.test(expr)) {
+             risky.push(`${key(fn)}: \${${expr}}`);
+             continue;

@@ -37,7 +37,7 @@ import { env } from "@/lib/env";
 import type {
   AuditEvent,
   DeploymentEvent,
-  Manifest,
+  AnyManifest,
   Revision,
 } from "@/lib/domain/types";
 import type {
@@ -151,15 +151,15 @@ function db(): Database {
 /** TODO(ceiling): LRU by insertion order; a Map is the stdlib's LRU. */
 const MANIFEST_CACHE_MAX = 32;
 
-type GM = typeof globalThis & { __zenithManifests?: Map<string, Manifest> };
-const manifestCache = (): Map<string, Manifest> =>
+type GM = typeof globalThis & { __zenithManifests?: Map<string, AnyManifest> };
+const manifestCache = (): Map<string, AnyManifest> =>
   ((globalThis as GM).__zenithManifests ??= new Map());
 
 /** Ids come from `id()`, but an importer's id is untrusted: never a path. */
 const manifestFile = (id: string): string =>
   path.join(MANIFESTS, `${encodeURIComponent(id)}.json`);
 
-function readManifest(id: string): Manifest {
+function readManifest(id: string): AnyManifest {
   const cache = manifestCache();
   const hit = cache.get(id);
   if (hit) {
@@ -174,10 +174,10 @@ function readManifest(id: string): Manifest {
     throw new Error(
       `Revision "${id}" has no stored manifest (${file}). The revision metadata is in state.json but its manifest file is missing — restore it from a backup, or delete the revision.`
     );
-  return cachePut(id, JSON.parse(fs.readFileSync(file, "utf8")) as Manifest);
+  return cachePut(id, JSON.parse(fs.readFileSync(file, "utf8")) as AnyManifest);
 }
 
-function cachePut(id: string, m: Manifest): Manifest {
+function cachePut(id: string, m: AnyManifest): AnyManifest {
   const cache = manifestCache();
   cache.delete(id);
   cache.set(id, m);
@@ -185,7 +185,7 @@ function cachePut(id: string, m: Manifest): Manifest {
   return m;
 }
 
-function writeManifest(id: string, m: Manifest): void {
+function writeManifest(id: string, m: AnyManifest): void {
   fs.mkdirSync(MANIFESTS, { recursive: true });
   const file = manifestFile(id);
   const tmp = `${file}.tmp`;
@@ -199,7 +199,7 @@ function attachManifest(r: Revision): void {
     configurable: true,
     enumerable: false, // ← what keeps manifests out of every save
     get: () => readManifest(r.id),
-    set: (m: Manifest) => writeManifest(r.id, m),
+    set: (m: AnyManifest) => writeManifest(r.id, m),
   });
 }
 
@@ -774,7 +774,7 @@ const readAudit = (filter: AuditFilter = {}): AuditEvent[] => readAuditPage(filt
  * A revision's manifest, loaded from cold storage on demand. Reads through the
  * same non-enumerable accessor every other reader uses.
  */
-const revisionManifest = (id: string): Manifest | undefined =>
+const revisionManifest = (id: string): AnyManifest | undefined =>
   db().revisions.find((r) => r.id === id)?.manifest;
 
 /* ------------------------------ the interface ------------------------------ */

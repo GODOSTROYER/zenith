@@ -1,0 +1,43 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-OPS-09"
+  ],
+  "mode": "contract",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 128,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/supply-chain/release.test.ts tests/ci/release-workflow.test.ts tests/ci/vulnerability-triage.test.ts tests/ci/security-audit.test.ts tests/audit-export/audit-export.test.ts tests/audit-export/purpose.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/supply-chain/release.test.ts",
+      "sha256": "9688f1a5b5e9a19988cdb98fe45017cc22c98fc057e05ff5db7796d069c2e940"
+    },
+    {
+      "path": "tests/ci/release-workflow.test.ts",
+      "sha256": "ce5db9423ea3097d0e09a307b040e5c8bc4fa8a1d883f10cbf2ad2a22a86b1c1"
+    },
+    {
+      "path": "tests/ci/vulnerability-triage.test.ts",
+      "sha256": "e76ddfdff6625e0e69df773af7dfcae7b9e145514be86b25364371c81630a0b1"
+    },
+    {
+      "path": "tests/ci/security-audit.test.ts",
+      "sha256": "9a5f74613446b60cc9ecfc364be3d6464eaddcf2b5f9ef0ebe5e20ed8a0d1679"
+    },
+    {
+      "path": "tests/audit-export/audit-export.test.ts",
+      "sha256": "783308230975edfbd3193682ac4837f22d485fa50e4339ad5576671873a628af"
+    },
+    {
+      "path": "tests/audit-export/purpose.test.ts",
+      "sha256": "907d66ee095e9e684db163dcc14e7a6225603e299c73a4a8022f6d1e6c98599a"
+    }
+  ]
+}

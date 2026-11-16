@@ -1,0 +1,109 @@
+{
+  "sourceCommit": "125473355a55d696666cfaaada635d8cfec0280e",
+  "architecture": "nativeLinuxARM64 kind on MacARM64 Docker4GiB/swap4GiB",
+  "scope": "Local kind provider/release/guest only. Guest authority uses PGlite tenant ledger and signed fixture claims; no browser-human/default-stack/cloud/managed-CNI acceptance.",
+  "controllerSha256": "0e0510d87f828a59cc7e6d582d140788bcc78d60059049088791387c00a9eefe",
+  "freezeSha256": "a832d4c9ca238d0bfd8d4d2936757603a23ee56ec9e9030858edc4cf5577b3c0",
+  "sourceInputs": {
+    "package.json": "02e632c348679aeaa32f1bca5bcc7f720e89809bdca87759de4e3748901055a8",
+    "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c",
+    ".github/workflows/ci.yml": "1fbd8f64d9cb16598ecbc570ff8656092235fc13c30b26d559742572a686b66f",
+    "tests/providers/kubernetes/kind.test.ts": "c84cf010e12b77aca04a40bbfba8445f11cf435affb7f5540b0ae1a59368c277",
+    "tests/providers/kubernetes/release-kind.test.ts": "28e45cf6ba378834704ca75172450c466ed804a681ee903e31909633c8adbdd9",
+    "tests/machines/kubernetes-kind.test.ts": "04c906fac8da793da74132d14b4dc6923b0d5d670a2c14558bfd26f79179eb48",
+    "src/lib/providers/kubernetes/client.ts": "a54de62dd38a9c042bee47e067883d384960cc1dee9202a1cce929f234080ed4",
+    "src/lib/providers/kubernetes/session.ts": "0dc46c8f56d4c52221266be08c8dbb5d00026f7bad4e92820aea4f235377821a",
+    "src/lib/machines/transports/kubernetes.ts": "da5aa14444d5a02a008cb119b4bd024c911773cf42e5e3858feb72a420cd18e5",
+    "src/lib/platform/release.ts": "978b7d50be631d981045aced3c12b26ff31f53f9125146f64ad83810a66952b5",
+    "docs/build/production/verify/PROD-CI-REPAIR.md": "c65752b4c0a037ac3ae65c3655a11d3948b7ff3e57a66f309e029a4dfb119abd",
+    "scripts/ci/gate-manifest.mjs": "66859918884e8e741d779f0fb0e2f29f00f5e0a464ba11b5a9bc3c1bd6898f95"
+  },
+  "allSourceInputsIndependentlyMatchedGit": true,
+  "controllerExit": 1,
+  "originalReceiptSha256": "2050eb4824b00dac0fffb7b6a564fec75d6e726478c2469005b26d9abd052941",
+  "originalControllerStatus": "cleanup_unconfirmed",
+  "originalReceiptPreserved": true,
+  "counts": {
+    "provider": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "ebd15f7f6634770c480b4bcb60587dc673cf0df30ca8015e0433e3cd6df7ea90",
+      "allExpectedIdentitiesMatched": true
+    },
+    "release": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "reportSha256": "095db3eb6b1c5a063be52bde313c33397a9b979652176bac9a61545e50b1d7ba",
+      "allExpectedIdentitiesMatched": true
+    },
+    "guest": {
+      "passed": 42,
+      "failed": 7,
+      "skipped": 0,
+      "reportSha256": "6bd7e23b528d13bcbf2cb3a22172f0baaab0b2a3e49dca8c2138be445b66d57e",
+      "allExpectedIdentitiesMatched": true
+    }
+  },
+  "failureIdentities": [
+    {
+      "lane": "guest",
+      "title": "the default broker's owning vault token reads a real Pod and closes its guest handle",
+      "status": "failed"
+    },
+    {
+      "lane": "guest",
+      "title": "foreign namespace machine scope and genuine API RBAC refuse without administrative fallback",
+      "status": "failed"
+    },
+    {
+      "lane": "guest",
+      "title": "live scoped SQL revocation refuses the stale verified capture before a guest callback",
+      "status": "failed"
+    },
+    {
+      "lane": "guest",
+      "title": "a foreign workspace cannot resolve the same-named owning vault token",
+      "status": "failed"
+    },
+    {
+      "lane": "guest",
+      "title": "removing the current owning vault value refuses; restoring that same token restores the real read",
+      "status": "failed"
+    },
+    {
+      "lane": "guest",
+      "title": "an invalid current minter token is refused by the real API with no root-admin fallback",
+      "status": "failed"
+    },
+    {
+      "lane": "guest",
+      "title": "cancellation after a genuine owning read closes the default callback and retained accessor",
+      "status": "failed"
+    }
+  ],
+  "rootCleanupResolution": {
+    "originalReceiptSha256": "2050eb4824b00dac0fffb7b6a564fec75d6e726478c2469005b26d9abd052941",
+    "helperSha256": "30a9490587359f224344ccbe729e864728685241938c732a3886ad5cf04073ec",
+    "rootObservedTerminalControllerExit": 1,
+    "allSevenRecordedGroupsAbsent": true,
+    "originalContainerAndVolumeCustodyMatched": true,
+    "ownedNodeClusterVolumeListenerAbsent": true,
+    "allBaselineImagesAndUnrelatedVolumesPreserved": true,
+    "ownedPrivateCredentialsAndTemporaryRootsAbsent": true,
+    "cleanupComplete": true,
+    "testStatus": "failed",
+    "guestCounts": {
+      "passed": 42,
+      "failed": 7,
+      "skipped": 0
+    },
+    "sourceCommit": "125473355a55d696666cfaaada635d8cfec0280e"
+  },
+  "rootCleanupReceiptSha256": "0b38a6a2bcef716e5850d29b21c1d6f204be8ad98e23755c0924ab3fb6beac16",
+  "continuousDiskFloorBytes": 23622320128,
+  "requiredSkips": 0,
+  "status": "failed",
+  "next": "Determine actual CredentialDeniedError reason through narrow real broker call-through diagnostic, preserve original errors/assertions, then fix only demonstrated defect and rerun all current required cases."
+}

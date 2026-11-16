@@ -1,0 +1,3180 @@
+{
+  "schema": 1,
+  "date": "2026-10-07",
+  "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+  "identity": "Arnav Bule <arnav.bule05@gmail.com>",
+  "scope": "Sharp0.35.5 and26 mandatory official native bundle records; root+Sharp+26=28 changedlock records,886 unrelated unchanged. Package only devDependencies sharp range. No gates/exceptions changed.",
+  "postimages": {
+    "package.json": "d1de91baa755f37b8aacd3746ca8761b7eb32316ec76af3f80a9d6bd79807349",
+    "package-lock.json": "b1d5cddb24f525f94f1cb864f404bbfa856ea243180f9bd575de3ae853f125fb"
+  },
+  "independentReviewSha256": "b94d0c07122245c6b26438619849528d0b68600154d619b0dcf3cb7712412ea1",
+  "environment": {
+    "node": "22.23.3",
+    "npm": "10.9.9",
+    "host": "Darwin native ARM64",
+    "heapRetryMiB": 4096
+  },
+  "checks": [
+    {
+      "name": "fresh-install",
+      "exit": 0,
+      "seconds": 13.92,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "fresh-install"
+    },
+    {
+      "name": "lockfile-integrity",
+      "exit": 0,
+      "seconds": 0.14,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "lockfile-integrity"
+    },
+    {
+      "name": "security-audit",
+      "exit": 0,
+      "seconds": 1.0,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "security-audit"
+    },
+    {
+      "name": "compiler",
+      "exit": -6,
+      "seconds": 59.07,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "compiler"
+    },
+    {
+      "name": "compiler",
+      "exit": 0,
+      "seconds": 51.36,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "compiler"
+    },
+    {
+      "name": "lint",
+      "exit": 0,
+      "seconds": 27.79,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "lint"
+    },
+    {
+      "name": "next-build",
+      "exit": 0,
+      "seconds": 193.97,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "next-build"
+    },
+    {
+      "name": "packaged-closure",
+      "exit": 0,
+      "seconds": 7.39,
+      "commit": "27d47f0770d77487762c992e828683e5f4e55b74",
+      "commandName": "packaged-closure"
+    },
+    {
+      "name": "sharp-native-smoke",
+      "exit": 0,
+      "seconds": 0.36,
+      "commandName": "sharp-native-smoke"
+    },
+    {
+      "name": "worker-bundle",
+      "exit": 0,
+      "seconds": 0.99,
+      "commandName": "worker-bundle"
+    },
+    {
+      "name": "worker-client-bundle",
+      "exit": 0,
+      "seconds": 0.38,
+      "commandName": "worker-client-bundle"
+    },
+    {
+      "name": "workflow-bundle",
+      "exit": 0,
+      "seconds": 2.67,
+      "commandName": "workflow-bundle"
+    },
+    {
+      "name": "workflow-sandbox",
+      "exit": 0,
+      "seconds": 6.47,
+      "commandName": "workflow-sandbox"
+    }
+  ],
+  "securityAudit": {
+    "observedExit": 0,
+    "knownFindings": 0,
+    "exceptionsApplied": false
+  },
+  "sharpNativeSmoke": {
+    "sharp": "0.35.5",
+    "vips": "8.18.7",
+    "platform": "darwin",
+    "arch": "arm64",
+    "pngRoundtrip": true
+  },
+  "packageClosure": {
+    "passed": 544,
+    "failed": 0,
+    "skipped": 6,
+    "cases": [
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker canonical source contract uses exactly the two standard public native VM labels with pinned existing actions and read-only permissions",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker canonical source contract executes and validates the one manifest command and uploads one exact sanitized file with absence failure",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker canonical source contract retains the existing acceptance engine and release-before-runtime boundary without a second worker engine",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker canonical source contract cleans only the fresh build-stage npm cache in the same locked install instruction",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models requires explicit opt-in and exact canonical arguments",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient os before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient processArch before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient dockerOS before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient dockerArch before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient endpoint before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient node before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient totalRamGiB before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient availableRamGiB before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient dockerRamGiB before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient sourceFreeGiB before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient temporaryFreeGiB before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, foreign or insufficient dockerFreeGiB before IO",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses private, paid, emulated or unrecognized hosted ZENITH_PACKAGED_REPOSITORY_VISIBILITY",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses private, paid, emulated or unrecognized hosted RUNNER_ENVIRONMENT",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses private, paid, emulated or unrecognized hosted RUNNER_OS",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses private, paid, emulated or unrecognized hosted RUNNER_ARCH",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses private, paid, emulated or unrecognized hosted GITHUB_SHA",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses private, paid, emulated or unrecognized hosted ZENITH_PACKAGED_RUNNER_LABEL",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models requires native ARM64 independently and refuses AMD64 emulation",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models requires actual successful child completion and complete engine checks without claiming mutation permission",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity missing identity",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity missing operation ID",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign ID shape",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign workspace",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign project",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign environment",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity resource present",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity missing resource absence",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign capability",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign principal kind",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity foreign subject",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity raw key",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity different scoped key",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses packaged child operation identity SQL injection ID",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check tlsCustody",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check temporalAuthentication",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check namespace",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check missing-schema",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check invalid-secret",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check invalid-signer",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check plaintext-temporal",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check missing-namespace",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check wrong-queue",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check readiness",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check liveness",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check ownedSchedule",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check sqlPrerequisiteOutage",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check sqlPrerequisiteRecovery",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check store-readiness-outage",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check store-readiness-outage-recovery",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check temporal-readiness-outage",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check temporal-readiness-outage-recovery",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check temporalRestart",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check operatorPause",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check inFlightShutdown",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses absent engine check shutdown",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models refuses missing, duplicate and malformed raw result records",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check native-architecture",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check fresh-source-image",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check actual-entrypoint",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check private-tls-custody",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check temporal-mtls-positive-and-negative",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check owned-namespace",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check startup-refusals",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check readiness-and-liveness",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check owned-reconcile-schedule",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check permitted-read-operation",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check packaged-assets-and-plan-retention",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check sql-prerequisite-outage-and-recovery",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check store-outage-and-recovery",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check temporal-outage-and-recovery",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check durable-temporal-restart",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check operator-pause-and-resume",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check actual-inflight-drain-and-fresh-worker",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check idle-drain",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check private-files-and-owned-services-cleanup",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check owned-builder-cache-cleanup",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check owned-context-cleanup",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models rejects every absent, failed or skipped published check baseline-preserved",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models admits a sanitized failed artifact without changing the failed execution verdict",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native packaged worker fixed evidence models binds source/environment/cleanup and rejects arbitrary private fields in artifacts",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models deduplicates identical Buildx header/node tuples and refuses divergent duplicates",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models requires parent-owned native identity and the exact original build command",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache builder",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache context",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache endpoint",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache containerName",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache volumeName",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache containerId",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache image",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache imageId",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache memory",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache volumeDriver",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache volumeScope",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses substituted builder/cache volumeFingerprint",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models admits only exact native cleanup capture after nonzero bootstrap without completed config",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models admits only exact native cleanup capture after timeout bootstrap without completed config",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models records attempted native ownership before bootstrap and retains an unconfirmed scope before context removal",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models requires the exact loaded native image and refuses replacement after release",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker endpoint",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker nonce",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker builder",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker buildkitImageId",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker containerId",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker volumeFingerprint",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker commit",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker platform",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker sourceInputSha256",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker runId",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker imageId",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses unbound early-release marker cacheVolumeAbsent",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native builder release ownership models refuses extra marker payloads and preserves every unrelated baseline resource/selected builder",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "named local Docker context ownership models binds a genuine named context to the original verified local socket and stable metadata",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "named local Docker context ownership models refuses remote/TLS/foreign contexts and keeps the existing scalar harness endpoint guard",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native context restoration cleanup regression models restores and freshly verifies original context before native success removal",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native context restoration cleanup regression models restores and freshly verifies original context before native finally removal",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native context restoration cleanup regression models restores exact caller Docker context override undefined without changing unrelated environment",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native context restoration cleanup regression models restores exact caller Docker context override caller-context without changing unrelated environment",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native context restoration cleanup regression models refuses changed original selection endpoint metadata and TLS identity before owned deletion",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native context restoration cleanup regression models keeps descendant settlement and fresh builder ownership before finally context restoration",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "fixed failed child diagnostic privacy models retains only existing fixed child categories after source binding and never changes a failed verdict",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "fixed failed child diagnostic privacy models admits only phase and worker enums already emitted by the unchanged private child",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "fixed failed child diagnostic privacy models drops unknown private strings and structural objects without reading or coercing them",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "fixed failed child diagnostic privacy models rejects diagnostic payloads unknown categories and success or absent-child diagnostics",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "fixed failed child diagnostic privacy models retains only the unchanged inner in-flight guard and command enums on failed artifacts",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "fixed failed child diagnostic privacy models drops unknown diagnostic scalars and never reads private getters or lets them satisfy execution",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor fixed ownership models binds settlement to the live reserved leader nonce PID session group and start time",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor fixed ownership models settles every Docker command and the unchanged acceptance program before absence promotion",
+        "status": "passed"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor [actual Linux Node; no Docker] keeps a successful reserved group passing only after actual child settlement",
+        "status": "skipped"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor [actual Linux Node; no Docker] retains exact nonzero completion with verified settlement",
+        "status": "skipped"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor [actual Linux Node; no Docker] refuses a zero-exit parent with a surviving inherited child and settles that descendant before returning",
+        "status": "skipped"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor [actual Linux Node; no Docker] timeout settles actual inherited children before permitting failed-result cleanup",
+        "status": "skipped"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor [actual Linux Node; no Docker] external cancellation settles actual inherited children before permitting failed-result cleanup",
+        "status": "skipped"
+      },
+      {
+        "file": "ci/packaged-workers.test.ts",
+        "case": "native process supervisor [actual Linux Node; no Docker] a TERM-resistant owned group cannot manufacture a settled receipt or enable cleanup",
+        "status": "skipped"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] sets private modes while owned, then transfers each retained inode with CHOWN only",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses extra file before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses missing file before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses symlink file before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses foreign owner before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses foreign group before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses empty file before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses oversized file before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses hard link before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses symlink parent before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses foreign parent before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses unsafe parent mode before any mutation and never claims custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses replacement at open after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses changed device at open after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses file replacement after chmod after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses parent replacement after chmod after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses changed parent device after chmod after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses changed mode after chown after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses changed size after chown after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private volume initializer [exact program; filesystem permission models] refuses unexpected file during chmod after fresh name/descriptor checks without compensation or a success marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] creates only nine exclusive root-owned private files before the unchanged CHOWN-only initializer",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses empty before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses bad magic before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses short length before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses short content before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses zero length before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses oversized length before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses extra EOF before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses oversized frame before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses foreign parent owner before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses foreign parent group before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses unsafe parent mode before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses symlink parent before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses preexisting file before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses preexisting symlink before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses preexisting hard link before any file creation",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses parent replacement at open without a custody marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses leaf replacement after write without a custody marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses hard link after write without a custody marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses foreign owner after write without a custody marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses extra entry after write without a custody marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses changed bytes at readback without a custody marker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host frame wrong count without serializing byte content",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host frame empty file without serializing byte content",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host frame oversized file without serializing byte content",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host frame non-buffer without serializing byte content",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture missing file with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture empty file with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture oversized file with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture unsafe file mode with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture symlink file with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture hard link with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture unsafe parent mode with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] refuses host capture invalid certificate with a fixed secret-free error",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged file transfer [exact program; filesystem models] wires only bounded stdin into the owned installer before independently confirming custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] projects only the fixed transfer phase and input failure category",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] delivers bounded bytes with backpressure while discarding all private command output",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses empty stdin before launching a private command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses oversized stdin before launching a private command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses non-buffer stdin before launching a private command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses broken stdin without exposing private output or permitting an allowed failure",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses a private timeout without exposing bytes or treating delivery as custody",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses a nonzero private exit with only the fixed diagnostic even when failure was allowed",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses private launch with no command output or byte serialization",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses private signal with no command output or byte serialization",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged stdin transport [local process fixtures] refuses private output limit with no command output or byte serialization",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] admits only the exact started sweep and projects no arbitrary control payload",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"activityState\":\"scheduled\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"workflowStatus\":\"completed\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"paused\":true})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"scheduleOwned\":false})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"encryptedInput\":false})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"workerIdentity\":\"zenith-pkg-arm64-ffffffffffff\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"maximumAttempts\":2})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"attempt\":2})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"activityType\":\"executeCapability\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"activityId\":\"private-canary\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"workflowId\":\"foreign-workflow\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses an idle, foreign, retried or malformed activity ({\"runId\":\"private-canary\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] admits exact original-worker event linkage while excluding decoded results and extra history",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"startedByOriginalWorker\":false})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"completedByOriginalWorker\":false})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"result\":\"completed\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"reason\":\"pass_unconfirmed\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"scheduledEventId\":0})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"startedEventId\":5})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"completedEventId\":6})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"completedEventId\":\"private-canary\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses a substituted, replayed or unconfirmed terminal history ({\"attempt\":2})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] requires actual pending STARTED metadata and one linked scheduled, started and completed event from the installed SDK",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] scopes the post-signal SQL observer to its owned blocker and original worker container address",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] keeps existing failed read authority byte-bound across independent connections without claiming consumed-grant or receipt recovery",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses nonempty consumedApprovals rather than borrowing mutation evidence from this fixture",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses nonempty buildLaunches rather than borrowing mutation evidence from this fixture",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] refuses nonempty agentReceipts rather than borrowing mutation evidence from this fixture",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight shutdown boundary [source and scalar models] requires the post-signal held boundary, a distinct fresh entrypoint and original history before accepting recovery",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] binds the sanitized original client result to its exact native operation and canonical scoped key",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity missing identity",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity array identity",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity missing id",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity number id",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity overlong id",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity wrong prefix",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity foreign shape",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity SQL injection id",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity foreign workspace",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity foreign project",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity foreign environment",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity resource present",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity resource missing",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity wrong capability",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity wrong principal kind",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity wrong subject",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity raw key",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity different scoped key",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity key wrong type",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses client and SQL identity SQL injection key",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback different operation with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback missing operation with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign workspace with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign project with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign environment with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback resource present with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback resource missing with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback wrong capability with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback raw key with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback different scoped key with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign subject with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign principal kind with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback delegated subject with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback integration identity with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback missing principal with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback missing proposal with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback wrong proposal capability with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign proposal workspace with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign proposal project with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback foreign proposal environment with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback proposal resource with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback successful operation with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] refuses native readback wrong refusal with original client identity unchanged",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged shutdown operation identity [source and scalar models] verifies the persisted native tuple before emitting identity and reuses it for every shutdown readback",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] admits the exact external bounded builder observation, without treating it as a creation receipt",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses an unconfirmed or unbounded builder ('default')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses an unconfirmed or unbounded builder ('zenith-owned-0123456789ab')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses an unconfirmed or unbounded builder ('zenith-owned-0123456789ab')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses an unconfirmed or unbounded builder ('zenith-owned-0123456789ab')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses an unconfirmed or unbounded builder ('zenith-owned-0123456789ab')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses an unconfirmed or unbounded builder ('zenith-owned-0123456789ab')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] renders only bounded hex credentials, retaining real mutual TLS and disabled HTTP",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses malformed password data before YAML insertion",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses malformed password data before YAML insertion",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses malformed password data before YAML insertion",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses malformed password data before YAML insertion",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses malformed password data before YAML insertion",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses missing or additional template authority rather than substituting a partial config",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses nonprivate TLS scratch before invoking any certificate command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] requires the fifth current observation check and exports no arbitrary readiness payload",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses absent or unsuccessful current observation (undefined)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses absent or unsuccessful current observation (unavailable)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses absent or unsuccessful current observation (unknown)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses absent or unsuccessful current observation (true)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] bounds returned schedule metadata and never promotes the old operation to a cloud write",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"scheduleOwned\":false})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"encryptedInput\":false})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"runId\":\"private-canary\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"completedAt\":\"private-canary\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"status\":\"deferred\",\"current\":true})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"paused\":true,\"current\":true})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses damaged schedule evidence ({\"status\":\"unconfirmed\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] requires distinct actual observer, claimant and blocker PIDs",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses missing or ambiguous waiter observations ({\"value\":[]})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses missing or ambiguous waiter observations ({\"value\":[{\"observerPid\":11,\"waiterPid\":11,\"blockerPid\":13}]})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses missing or ambiguous waiter observations ({\"value\":[{\"observerPid\":11,\"waiterPid\":12,\"blockerPid\":12}]})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses missing or ambiguous waiter observations ({\"value\":[{\"observerPid\":0,\"waiterPid\":12,\"blockerPid\":13}]})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] refuses missing or ambiguous waiter observations ({\"value\":[{\"observerPid\":11,\"waiterPid\":\"private-canary\",\"blockerPid\":13}]})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] scopes the real wait query to its exact disposable database, blocker and schema read",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] uses only image-local authenticated control with a read-only production codec and pinned targets",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged real-server admission contracts [source and scalar models] prepares actual server client-auth and SAN negatives, current-result recovery and owned cleanup without a TLS bypass",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage admits canonical outside-source storage with private permissions",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage refuses source temp placement before creating a secret directory",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage refuses descendant temp placement before creating a secret directory",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage refuses source-alias temp placement before creating a secret directory",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage refuses descendant-alias temp placement before creating a secret directory",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage resolves a source alias before deciding whether a temporary base is external",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "private packaged acceptance storage uses the same guard for runtime secrets and private diagnostics before generating keys or calling Docker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding includes a Git-ignored imported module copied by Docker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding binds changes to .dockerignore",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding binds changes to docker/worker.Dockerfile.dockerignore",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding binds changes to docker/worker.Dockerfile",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects new COPY authority outside the bound root inventory",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects ADD authority absent from the bound inventory",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects a copied file symlink rather than claiming full source binding",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects a copied directory symlink rather than claiming full source binding",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects a copied ancestor symlink rather than claiming full source binding",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects a copied context-control symlink rather than claiming full source binding",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding rejects missing inputs and directory-shaped package controls",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding binds copied file permissions as well as content",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding fails changed build inputs and accepts an unchanged capture",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "actual packaged COPY input binding checks live context binding after build and before services without claiming an immutable snapshot",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only the fixed admitted locked versions, dropping all extra payloads",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects a tainted locked version without publishing a partial result ('private-canary')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects a tainted locked version without publishing a partial result ('1.2.3\\nprivate-canary')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects a tainted locked version without publishing a partial result ('1.2.3\\n')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects a tainted locked version without publishing a partial result ({ privatePayload: 'private-canary' })",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects a tainted locked version without publishing a partial result ([ 'private-canary' ])",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects a tainted locked version without publishing a partial result (null)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects malformed or incomplete locked dependency evidence ({})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects malformed or incomplete locked dependency evidence ({\"packages\":null})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects malformed or incomplete locked dependency evidence ({\"packages\":[]})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects malformed or incomplete locked dependency evidence ({\"packages\":{}})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety admits only a fixed SHA-256 Docker image identifier",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment ('private-canary')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment ('sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u2026')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment ('sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\u2026')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment ('sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u2026')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment ('sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u2026')",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment ({ Id: 'private-canary' })",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects tainted image identifiers before evidence assignment (null)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety requires explicit opt-in before parsing a platform or starting resources",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety accepts the explicit supported architecture linux/amd64",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety accepts the explicit supported architecture linux/arm64",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses unsupported or ambiguous arguments ([])",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses unsupported or ambiguous arguments ([ '--platform', 'linux/386' ])",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses unsupported or ambiguous arguments ([ '--platform', 'linux/arm64', \u2026(1) ])",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses unsupported or ambiguous arguments ([ '--host', 'localhost' ])",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety accepts only the disclosed disposable target configuration",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_PACKAGED_ACCEPTANCE\":\"0\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_STORE\":\"postgres\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_DATA\":\"/existing-user-data\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_WORKER_PLAN_DIR\":\"/existing-plan-files\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_TEMPORAL_ADDRESS\":\"localhost:7233\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_PLATFORM_DB_URL\":\"postgresql://postgres:private-fixture-password@db.example.test:5432/zenith_packaged\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_PLATFORM_DB_URL\":\"postgresql://postgres:private-fixture-password@postgres:5432/existing\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_PLATFORM_DB_URL\":\"postgresql://postgres:private-fixture-password@postgres:5432/zenith_packaged?host=db.example.test\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses shared/wrong targets without echoing their values ({\"ZENITH_PLATFORM_DB_URL\":\"private-fixture-password-invalid-url\"})",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety drops unrecognized client evidence fields instead of emitting them",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety rejects arbitrary strings disguised as validated evidence",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety never promotes cloud-write or successful-operation claims from the scoped read fixture",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety suppresses raw child-process errors",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports the fixed private TLS subphase (private-tls-tool) without raw diagnostic data",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports the fixed private TLS subphase (private-tls-ca) without raw diagnostic data",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports the fixed private TLS subphase (private-tls-leaf) without raw diagnostic data",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports the fixed private TLS subphase (private-tls-sign) without raw diagnostic data",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports the fixed private TLS subphase (private-tls-verify) without raw diagnostic data",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains all three fixed refusal command subphases (missing-schema)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains all three fixed refusal command subphases (invalid-secret)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains all three fixed refusal command subphases (invalid-signer)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains all three fixed refusal command subphases (plaintext-temporal)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains all three fixed refusal command subphases (missing-namespace)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains all three fixed refusal command subphases (wrong-queue)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety omits every unrecognized command phase (private-tls-tool-private-canary)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety omits every unrecognized command phase (/private-canary)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety omits every unrecognized command phase (private-tls-copy)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety omits every unrecognized command phase (private-volume-custody-private-canary)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only the fixed initializer subphase (private-installer-start)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only the fixed initializer subphase (private-server-copy)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only the fixed initializer subphase (private-client-copy)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only the fixed initializer subphase (private-volume-custody)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only the fixed initializer subphase (private-installer-stop)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains a fixed command category (command-launch)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains a fixed command category (command-timeout)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains a fixed command category (command-output-limit)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains a fixed command category (command-exit)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety retains a fixed command category (command-signal)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety refuses a generic error or a damaged command category instead of exporting its payload",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety drops damaged command scalar data (NaN)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety drops damaged command scalar data (Infinity)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety drops damaged command scalar data (9007199254740992)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety drops damaged command scalar data (private-canary)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety preserves a failed TLS tool admission and exports only its fixed phase",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety uses a pinned real server and private read-only config, requiring authenticated health before worker startup",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety exports only fixed container state without arbitrary daemon errors or config",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety identifies only worker-owned, allowlisted startup categories",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety scrubs every generated credential including overlapping URL/JWK values from private diagnostics",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety records a failed command's exact exit with no arbitrary output",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety never treats a timeout as an allowed failure result",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety bounds captured output and fails instead of accumulating a large Docker log",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety reports incomplete cleanup when a failed build leaves an image but inspection fails before any container exists",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety does not report absence when the image inspector and daemon listing fail (nonzero)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety does not report absence when the image inspector and daemon listing fail (throw)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety establishes absence through a successful empty listing when no image was produced",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety does not claim cleanup when the tag disappears but an owned dangling image remains",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety requires a successful owned image inventory after tag removal (nonzero)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety requires a successful owned image inventory after tag removal (throw)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety only removes its exact labeled tag and independently verifies absence",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety leaves an image with another run's label untouched and reports incomplete cleanup",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety does not report removed images without complete evidence (delete-failed)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety does not report removed images without complete evidence (still-listed)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged worker acceptance safety does not report removed images without complete evidence (list-failed)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof waits through created/running state for the actual owned worker exit",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof rejects the wrong exit or an OOM (+0/false)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof rejects the wrong exit or an OOM (137/false)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof rejects the wrong exit or an OOM (1/true)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof refuses another run's container before interpreting its exit",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof does not invent refusal proof from inspect-failed",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof does not invent refusal proof from malformed-state",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof does not invent refusal proof from dead",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof fails the bounded observation window without claiming a worker signal or exit",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof does not accept an exit observation returned after its deadline",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof never accepts a Docker command-timeout as the worker refusal",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof never accepts a Docker command-signal as the worker refusal",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof never accepts a Docker command-output-limit as the worker refusal",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof accepts only the expected worker-owned category and secret-free output (missing-schema)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof accepts only the expected worker-owned category and secret-free output (invalid-secret)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged refusal exit proof accepts only the expected worker-owned category and secret-free output (invalid-signer)",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof confirms absence after the removal CLI times out, without another removal",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof rechecks ownership before the second bounded removal attempt",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof distinguishes a failed removal response from a verified successful removal response",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof records a persistent removal timeout and does not exceed two attempts",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof stops if ownership changes between attempts",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof never removes a container whose ownership cannot be inspected",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof never removes a volume whose ownership cannot be inspected",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof never removes a network whose ownership cannot be inspected",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof never removes a image whose ownership cannot be inspected",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof records incomplete cleanup after exactly two attempts if the resource remains",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "owned resource cleanup proof does not accept failed absence listings after removal",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged Temporal controller [actual Node ESM linkage; no transport] links every generated controller import against the actual locked packages before the unchanged environment refusal",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged Temporal controller [actual Node ESM linkage; no transport] the previous named protobuf import fails actual Node linkage before the controller can read credentials or connect",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Local shutdown authority readback is unconfirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Owned in-flight worker is unconfirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Owned worker address is invalid.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Owned schema outage identity is invalid.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Owned shutdown blocker was not confirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Actual in-flight schema waiter was not confirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Actual schema waiter was not confirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Packaged Temporal control evidence is unconfirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Packaged in-flight sweep evidence is unconfirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard A fresh started sweep was not confirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Worker drain did not begin.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard The same started activity and held SQL boundary were not retained during drain.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard In-flight packaged worker did not drain cleanly.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Worker lifecycle logs contained secret material.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Existing local authority changed across the held activity drain.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Fresh packaged worker did not restore readiness.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Worker readiness evidence is incomplete.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard A fresh owned schedule result was not confirmed.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Recovery reused the held sweep instead of a fresh pass.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the fixed category for existing guard Existing local authority changed across fresh-worker recovery.",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] leaves unknown, non-error, inherited and accessor messages absent without evaluating private getters",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase shutdown-authority-readback",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-worker-address",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-schema-blocker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-schema-held",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-schema-waiter",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase temporal-control-observe",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase temporal-control-trigger",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase temporal-control-activity",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-sigterm",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-drain-started",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-drain-waiter",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-worker-exit",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-stopped-worker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase inflight-worker-lifecycle-logs",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase fresh-recovery-entrypoint",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase probe-readyz",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged in-flight fixed failure diagnostics [scalar models; no services] exports only the existing fixed in-flight command phase temporal-control-history",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] frames only fixed read actions and exact owned pinned activity identity",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request arbitrary RPC without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request namespace mutation without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request unbounded sequence without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request missing history pin without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request foreign workflow without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request malformed run without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses session request extra activity pin without emitting a command",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response missing with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response malformed with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response duplicate key with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response noncanonical with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response out of order with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response duplicate prior reply with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response foreign action with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response unknown diagnostic with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response nonascii with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses control response oversized with no arbitrary payload projection",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary queued",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary completed",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary wrong worker",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary retry",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary same run",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary undrained",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] refuses unconfirmed started control boundary foreign pin",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] waits for drained scheduler actions and actual started metadata before confirming a fresh run",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses overlap skipped rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses never drained rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses foreign running action rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses pending never starts rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses wrong worker rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses attempt changed rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] actual closure refuses retry allowed rather than accepting a trigger acknowledgement",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] rereads the exact held activity and native linked terminal history without retriggering",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged prewarmed drain control [exact closure and scalar protocol models] prewarms positively owned control before blocker and retains same worker SQL waiter and cleanup requirements",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] uses one successful response for status and strict readiness, recovery=false",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] uses one successful response for status and strict readiness, recovery=true",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses malformed or false readiness in an otherwise successful response: undefined",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses malformed or false readiness in an otherwise successful response: null",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses malformed or false readiness in an otherwise successful response: {}",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses malformed or false readiness in an otherwise successful response: {\"ready\":false,\"checks\":{\"temporal\":\"ok\",\"store\":\"ok\",\"policy\":\"ok\",\"drivers\":\"ok\",\"reconciliation\":\"ok\"}}",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses malformed or false readiness in an otherwise successful response: {\"ready\":true,\"checks\":null}",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses a missing or failing temporal check without retrying the accepted status",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses a missing or failing store check without retrying the accepted status",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses a missing or failing policy check without retrying the accepted status",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses a missing or failing drivers check without retrying the accepted status",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] refuses a missing or failing reconciliation check without retrying the accepted status",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] never admits a valid body without exact status200 and retains the91-probe/90-delay bound: undefined",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] never admits a valid body without exact status200 and retains the91-probe/90-delay bound: 503",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] never admits a valid body without exact status200 and retains the91-probe/90-delay bound: 201",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] never admits a valid body without exact status200 and retains the91-probe/90-delay bound: 200",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] never admits a valid body without exact status200 and retains the91-probe/90-delay bound: 0",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] waits for a current successful response instead of carrying a previous non200 body",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] preserves a transport failure without admitting or retrying an absent response",
+        "status": "passed"
+      },
+      {
+        "file": "acceptance/packaged-worker.test.ts",
+        "case": "packaged readiness polling [actual harness function; controlled response sequence] uses the same tested function at both initial and fresh-worker readiness joins",
+        "status": "passed"
+      }
+    ]
+  },
+  "workflowSandbox": {
+    "passed": 58,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code has the files it should",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code activities.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code capability.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code criticalMaintenance.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code dayTwo.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code deploy.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code destroy-review.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code destroy.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code ecsReplicaRepair.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code failures.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code index.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code policies.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code reconcile.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code reconcileSweep.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code remediation.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code runtime.ts imports only @temporalio/workflow and relative workflow modules",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code activities.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code capability.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code criticalMaintenance.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code dayTwo.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code deploy.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code destroy-review.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code destroy.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code ecsReplicaRepair.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code failures.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code index.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code policies.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code reconcile.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code reconcileSweep.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code remediation.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code runtime.ts type-imports only from ../types (no activity code, no @/ alias)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code activities.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code capability.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code criticalMaintenance.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code dayTwo.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code deploy.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code destroy-review.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code destroy.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code ecsReplicaRepair.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code failures.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code index.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code policies.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code reconcile.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code reconcileSweep.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code remediation.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code runtime.ts uses no ambient I/O, environment or nondeterministic source",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "definitions/ is sandbox-safe deterministic code exports exactly the eight workflows from the entry point (helpers must not leak as workflow types)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "Temporal's bundler and the @/ alias bundles the real definitions (which use relative imports)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "Temporal's bundler and the @/ alias negative control: an @/ import cannot be resolved by the bundler (which is why definitions use relative imports)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "Temporal's bundler and the @/ alias positive control: the same import, made relative, bundles",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "Temporal's bundler and the @/ alias negative control: a Node built-in import is refused",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "activity sets stay in step the stubs, the fake and the policy table cover the same activities",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "activity sets stay in step every stub activity fails non-retryably as not_implemented, saying nothing was changed",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "control-plane errors cross the activity boundary as typed failures maps LeaseLostError to a non-retryable LeaseLost",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "control-plane errors cross the activity boundary as typed failures maps TofuPlanChangedError to a non-retryable plan_changed",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "control-plane errors cross the activity boundary as typed failures leaves typed failures, cancellations and unknown errors alone (unknown stays retryable)",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "control-plane errors cross the activity boundary as typed failures withFailureMapping wraps every activity and preserves results",
+        "status": "passed"
+      },
+      {
+        "file": "workflows/sandbox.test.ts",
+        "case": "the contract carries no credential-shaped fields has no property named like a secret in workflows/types.ts",
+        "status": "passed"
+      }
+    ]
+  },
+  "limitations": [
+    "Compiler first fresh3GiB run terminatedSIGABRT heap exhaustion; retained;4GiB serialretry passed.",
+    "Six process-supervisor cases require real Linux and remain skipped locally, mandatory fresh CI execution.",
+    "Actual packaged native22 cannot run on Darwin8GiB /Docker5.79GiB: Linux12GiB prerequisite. Fresh nativeAMD64/ARM64 remote jobs separately required.",
+    "Compilation, package models and PNG roundtrip do not prove composed worker startup.",
+    "No default productAPI/server or live cloud/privateApp started."
+  ],
+  "publication": "pending combined push and exactSHA CI; historical receipts do not verify new source"
+}

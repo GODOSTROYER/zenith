@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-CI-08",
+  "evidenceLevel": "contract",
+  "kind": "j1-j4-owned-resource-cleanup-only",
+  "sourceHead": "f32b54ca421956f483356ba7a45d95520840de0f",
+  "sourceFreezeSha256": "7a10e470d2334a36096eaa7f71cc1c241c7a072cc028eaeb254747dd73d87920",
+  "receiptSha256": "b1c013e99079dabd3c41624190ecde6893bc7454f7e9ee3793c3f1aa680872e6",
+  "cleanup": {
+    "cleanupOnly": true,
+    "canonicalDownExitCode": 0,
+    "ownedResourcesRemoved": 2,
+    "ownedResourcesRemaining": 0,
+    "forcedStops": 0,
+    "credentialsAndTlsPrivateStateRemoved": true,
+    "supabaseProjectPrivateStateRemoved": true,
+    "retainedJoinedAndStateByteIdentical": true,
+    "processCustodyComplete": true,
+    "watchersJoined": true,
+    "sourceStable": true,
+    "trustMutationPerformed": false
+  },
+  "resourceObservation": {
+    "minimumHostFreeBytes": 378494300160,
+    "minimumDockerVmFreeBytes": 450798379008,
+    "diskFloorBytes": 23622320128
+  },
+  "acceptance": {
+    "acceptedRunReceipt": false,
+    "acceptanceMeaning": "no-acceptance-claim"
+  },
+  "relatedHistoricalWitnessCleanup": {
+    "receiptSha256": "5c65949ba6778e80e0d233ad174ff647abe8ed8874dc6b4ce66696bafd3dc798",
+    "exactOwnedTagRemoved": true,
+    "forcedRemoval": false,
+    "containersUsingImage": 0,
+    "oldBuildReceiptRetained": true,
+    "minimumFreeBytes": 378491011072
+  },
+  "limitation": "Cleanup-only evidence. It does not establish J1/J4 run acceptance, restore AirPlay, or modify/restore system trust."
+}

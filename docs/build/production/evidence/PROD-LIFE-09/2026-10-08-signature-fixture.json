@@ -1,0 +1,31 @@
+{
+  "baseCommit": "b420d0e16410592d47de0740293e730a1121af23",
+  "testSha256": "3b8068f9b8904e5c2dc30159a361a3882701c6b867629fb0ee60318275e35f89",
+  "sourceUnchanged": true,
+  "node": "v22.23.3",
+  "exitCode": 0,
+  "elapsedSeconds": 1.11,
+  "counts": {
+    "numTotalTests": 24,
+    "numPassedTests": 24,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "reportSha256": "a6cfbef821a1b984260b5ed29cbe8428f3f4ce65ecb4145c50d4b211506485a8",
+  "diskFreeBytes": 25160572928,
+  "scope": "Original full build-provenance contract/signing suite; actual generated Ed25519 keys and verifier, no cloud or default-stack acceptance.",
+  "integratedCommit": "413334166890bb610ae73a045e0aaeb981e8b8a9",
+  "independentReview": "Astra accepted exact source SHA256 and retained all eight refusal cases; production unchanged.",
+  "lint": {
+    "exitCode": 0
+  },
+  "compiler": {
+    "initialExitCode": 134,
+    "initialFailure": "Reached heap limit Allocation failed - JavaScript heap out of memory",
+    "retryHeapMiB": 4096,
+    "retryExitCode": 0,
+    "node": "22.23.3"
+  },
+  "diagnosis": "Replacing the last two signature characters with AA can retain an unchanged valid random signature. Runtime attribution of the historical failure remains an inference because its original signature was not logged. New fixture flips one decoded byte and proves the bytes and encoded value differ.",
+  "completeRequirementAcceptance": false
+}

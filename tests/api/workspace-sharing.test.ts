@@ -1,20 +1,53 @@
 /** The HTTP sharing contract, including the real request and permission boundary. */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest as RequestType } from "next/server";
 import type { SessionUser } from "@/lib/auth/session";
 import type { Invite, Member, Workspace } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
+import { openPlatformDb } from "@/lib/controlplane/db/open";
+import type { PlatformDbHandle } from "@/lib/controlplane/db/executor";
 
 tempDataDir("zenith-sharing-api-", { fast: true });
 process.env.ZENITH_STORE = "file";
 process.env.ZENITH_HOSTED_MODE = "1";
+const previousSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const previousSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 
+// Synthetic provider responses let these tests exercise the real route-level
+// MFA guard. They are fixtures, not a signed session or an authenticator
+// ceremony; the dedicated MFA tests cover refusal and claim validation.
 const state = vi.hoisted(() => ({ user: null as SessionUser | null }));
+const fixture = vi.hoisted(() => ({ db: null as PlatformDbHandle | null }));
+const TEST_ORIGIN = "https://zenith.test";
+const previousPlatformOrigin = process.env.ZENITH_PLATFORM_ORIGIN;
+process.env.ZENITH_PLATFORM_ORIGIN = TEST_ORIGIN;
 vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
-vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => true }));
+vi.mock("@/lib/controlplane/db/open", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/controlplane/db/open")>(),
+  platformDb: async () => {
+    if (!fixture.db) throw new Error("Workspace sharing fixture database is not ready.");
+    return fixture.db;
+  },
+}));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_PUBLIC_KEY: "test-publishable-key", isSupabaseConfigured: () => true }));
 vi.mock("@/lib/supabase/route", () => ({ sessionUserFromRequest: async () => state.user }));
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: state.user ? {
+    sub: state.user.id, session_id: "workspace-sharing-fixture-session", aal: "aal2",
+    exp: Date.now() / 1000 + 600, amr: [{ method: "totp", timestamp: Date.now() / 1000 }],
+  } : null }, error: null }),
+  getUser: async () => ({ data: { user: state.user ? {
+    id: state.user.id, email_confirmed_at: "2026-01-01T00:00:00.000Z",
+    factors: [{ factor_type: "totp", status: "verified" }],
+  } : null }, error: null }),
+} }) }));
 vi.mock("@/lib/waitlist/enforcement", () => ({ requireProductRequestAccess: async () => undefined }));
 
+fixture.db = await openPlatformDb({ kind: "pglite" });
+const { getWorkspaceMfaControls } = await import("@/lib/controlplane/db/repos/workspace-mfa-controls");
+await getWorkspaceMfaControls(fixture.db, "workspace-sharing-fixture");
 const { GET: sharing } = await import("@/app/api/workspace/sharing/route");
 const { GET: invitations } = await import("@/app/api/workspace/invitations/route");
 const { GET: listInvites, POST: invite } = await import("@/app/api/workspace/invites/route");
@@ -30,14 +63,16 @@ const { NextRequest } = await import("next/server");
 
 type Handler = (req: RequestType, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 type RequestOptions = { body?: unknown; rawBody?: string; selected?: string; id?: string };
-const call = (handler: Handler, method: string, path: string, opts: RequestOptions = {}) => handler(
-  new NextRequest(`https://zenith.test/api/workspace/${path}`, {
+const call = async (handler: Handler, method: string, path: string, opts: RequestOptions = {}) => {
+  const response = await handler(new NextRequest(`https://zenith.test/api/workspace/${path}`, {
     method,
-    headers: { cookie: `${WORKSPACE_COOKIE}=${opts.selected ?? "w-atlas"}`, "content-type": "application/json" },
+    headers: { origin: TEST_ORIGIN, cookie: `${WORKSPACE_COOKIE}=${opts.selected ?? "w-atlas"}`, "content-type": "application/json" },
     ...(opts.rawBody !== undefined ? { body: opts.rawBody } : opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
   }),
   { params: Promise.resolve({ id: opts.id ?? "unused" }) },
-);
+  );
+  return response;
+};
 const workspace = (id: string, ownerId: string): Workspace => ({
   id, ownerId, name: id === "w-atlas" ? "Atlas" : "Orbit", slug: id, createdAt: "2026-01-01T00:00:00.000Z",
 });
@@ -61,6 +96,16 @@ beforeEach(() => {
       member("orbit-owner", "w-orbit", "admin"), member("owner", "w-orbit", "admin")],
     settings: { invites: [pending("i-atlas"), pending("i-orbit", "w-orbit", "orbit-guest@example.com")] },
   });
+});
+
+afterAll(async () => {
+  await fixture.db?.close();
+  if (previousPlatformOrigin === undefined) delete process.env.ZENITH_PLATFORM_ORIGIN;
+  else process.env.ZENITH_PLATFORM_ORIGIN = previousPlatformOrigin;
+  if (previousSupabaseUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  else process.env.NEXT_PUBLIC_SUPABASE_URL = previousSupabaseUrl;
+  if (previousSupabaseKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = previousSupabaseKey;
 });
 
 describe("workspace sharing reads", () => {

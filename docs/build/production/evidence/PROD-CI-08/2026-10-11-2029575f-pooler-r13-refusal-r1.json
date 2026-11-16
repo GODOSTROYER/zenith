@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "owned_pooler_preflight_refusal",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "attempt": "R13",
+  "result": "failed-retain-owned-state",
+  "exitCode": 2,
+  "stage": "before API-authority pooler probe",
+  "reason": "pooler-probe authority/preflight refusal",
+  "resourceFloorsBytes": {
+    "host": 317291786240,
+    "vm": 416995155968
+  },
+  "custody": "held",
+  "pendingR16Births": {
+    "count": 10,
+    "resolution": "all resolved absent"
+  },
+  "next": "R17 diagnostic pending; no retry authorized or claimed.",
+  "failureReceiptSha256": "4f1adf9790dada35b522bdd314307b99cad2e22de419649386a81953494ffb90",
+  "acceptance": false,
+  "cleanupComplete": false
+}

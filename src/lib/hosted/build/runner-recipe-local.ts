@@ -256,6 +256,11 @@ export class RecipeLocalRunner implements BuildRunner {
           error: `The build worker exited with code ${exit.code ?? "unknown"} without writing a result. The captured log is the only evidence of what happened.`,
         });
       if (!result.ok) return done({ ok: false, error: result.error ?? "The build failed without naming a reason." });
+      if (exit.code !== 0)
+        return done({
+          ok: false,
+          error: `The build worker exited with code ${exit.code ?? "unknown"}; a zero exit code is required to accept its result.`,
+        });
       if (!fs.existsSync(path.join(outDir, "index.html")))
         return done({ ok: false, error: "The build reported success but the output has no index.html. The artifact was not stored." });
 

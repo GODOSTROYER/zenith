@@ -1,0 +1,12 @@
+# GKE with Workload Identity. OpenTofu providers use the Google identity; there
+# is no GCP proxy kind, so only tofu.run and the probes are enabled.
+serviceAccount:
+  annotations:
+    iam.gke.io/gcp-service-account: zenith-runner@my-project.iam.gserviceaccount.com
+config:
+  labels:
+    cloud: gcp
+  kinds:
+    tofu.run:
+      enabled: true
+      binary: /usr/local/bin/tofu

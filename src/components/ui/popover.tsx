@@ -103,7 +103,7 @@ export function Popover({
     if (role !== "menu") return;
     const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
     if (!keys.includes(e.key) || !ref.current) return;
-    const items = Array.from(ref.current.querySelectorAll<HTMLElement>('[role="menuitem"]')).filter(
+    const items = Array.from(ref.current.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemradio"]')).filter(
       (el) => el.getAttribute("aria-disabled") !== "true"
     );
     if (items.length === 0) return;
@@ -155,6 +155,8 @@ export interface MenuItemProps {
   hint?: ReactNode;
   /** second line under the label */
   description?: ReactNode;
+  /** An exclusive choice in the menu; omitted for ordinary actions. */
+  checked?: boolean;
   disabled?: boolean;
   /** required when disabled — says why, as a tooltip */
   disabledReason?: string;
@@ -164,7 +166,7 @@ export interface MenuItemProps {
 }
 
 const ROW =
-  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink outline-none " +
+  "ui-menu-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink outline-none " +
   "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)] " +
   "hover:bg-bg2 focus-visible:bg-bg2";
 
@@ -175,6 +177,7 @@ export function MenuItem({
   icon,
   hint,
   description,
+  checked,
   disabled = false,
   disabledReason,
   type = "button",
@@ -194,23 +197,24 @@ export function MenuItem({
     </>
   );
   const cls = cx(ROW, disabled && "cursor-not-allowed opacity-55", className);
+  const role = checked === undefined ? "menuitem" : "menuitemradio";
 
   if (disabled)
     return (
-      <span role="menuitem" aria-disabled="true" title={disabledReason} className={cls}>
+      <span role={role} aria-checked={checked} aria-disabled="true" title={disabledReason} className={cls}>
         {body}
       </span>
     );
 
   if (href)
     return (
-      <Link role="menuitem" href={href} onClick={onClick} className={cls}>
+      <Link role={role} aria-checked={checked} href={href} onClick={onClick} className={cls}>
         {body}
       </Link>
     );
 
   return (
-    <button role="menuitem" type={type} onClick={onClick} className={cls}>
+    <button role={role} aria-checked={checked} type={type} onClick={onClick} className={cls}>
       {body}
     </button>
   );

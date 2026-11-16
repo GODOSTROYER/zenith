@@ -21,7 +21,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary:
     "bg-signal text-on-signal hover:bg-signal-strong border border-transparent",
   quiet:
-    "bg-bg2 text-ink border border-line hover:bg-bg3 hover:border-line-strong",
+    "bg-bg2 text-ink border border-control-line hover:bg-bg3 hover:border-line-strong",
   ghost:
     "bg-transparent text-ink-mute border border-transparent hover:bg-bg2 hover:text-ink",
   danger: "bg-err text-on-danger border border-transparent hover:brightness-110",

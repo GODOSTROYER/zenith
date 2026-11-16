@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T06:05:43.440895+00:00",
+  "baseCommit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "status": "frozen_initial_source_one_independent_finding_correction_active",
+  "changedPaths": 7,
+  "sourceFreezeSha256": "dec591e3746b237293f3da6e9dfa6c25782e985320ea805b75b26350cd8a48a8",
+  "sourceSha256": {
+    ".github/workflows/ci.yml": "08bc4e35ca4f05ccbbe803cc30e3f39e3e59f44dbd7eae0a18abfc8a2358d993",
+    "scripts/ci/gate-manifest.mjs": "917e7a85051e5dbe44f1a4b86d38d9a24aaf1e54e0cf6d22301455071ec8d71e",
+    "scripts/ci/run-guest-file-write-gate.mjs": "1292bc6ca05517ed2031689840be9e8deefd472d50ecb45cb53073926aee6921",
+    "scripts/ci/guest-file-write-fixtures.sh": "4c417656c982e1f1692187bca40464ea4aadf7f61de27c05691b2abb60d2c2db",
+    "tests/ci/guest-file-write-gate.test.ts": "eac826f6f437394eca25242d3b41547d8c18bca4a8e05eaab1503237da2e598a",
+    "tests/ci/gate-manifest.test.ts": "7bccc9d18c72a7164ec75fb2fbc5bd4c3ab06a368651daff3f73d1b7ae62ae0b",
+    "docs/build/production/guest-linux-gate.md": "b5865f466536a087c78d6ed92c8bac8aaae7620b69109ff6d71b185411d490d2"
+  },
+  "untouchedParentPaths": 3536,
+  "outsideOwnedChanges": [],
+  "runtimeTestsExecuted": false,
+  "mainIntegrated": false,
+  "limits": [
+    "No actual Linux/mount/ACL/Go/report/golden/CI acceptance executed or claimed",
+    "Supported persistent root FS required; Docker overlay root refused",
+    "No hostile host-root or deliberate same-account namespace-race protection claimed",
+    "Partial setup/abrupt cancellation may need reviewed disposable-host recovery; cleanup refuses unsafe state",
+    "Private raw streams/errors0600 in0700 data; upload only sanitized fixed-ID/hash/count artifact",
+    "No startup/services/cloud/release/generated-JSON/Git writes/tooling/tests/agent spawning by worker"
+  ],
+  "independentReviewSha256": "472ec10939593e628a66103ca848dc22ff0fb3a3db6238c4b005a50f1b0465db",
+  "findings": [
+    "GUEST-LINUX-STALE-01: failed current attempt can leave an older passed receipt at the fixed upload path. Job remains failed; uploaded evidence identity is stale."
+  ]
+}

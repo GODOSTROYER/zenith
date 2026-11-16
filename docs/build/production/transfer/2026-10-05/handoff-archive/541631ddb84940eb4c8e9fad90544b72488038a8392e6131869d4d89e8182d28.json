@@ -1,0 +1,999 @@
+{
+  "schemaVersion": 2,
+  "recordedAtUtc": "2026-10-05T04:55:42.729969+00:00",
+  "goal": "active; all78 requirements preserved",
+  "requirementStates": {
+    "verified": 6,
+    "inProgress": 30,
+    "planned": 42
+  },
+  "releaseStates": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  },
+  "priorStateArchive": "/Users/saivedanthava/.codex/zenith-production/logs/resume-archive/20261005T001755Z",
+  "published": {
+    "branch": "codex/production-2026-10-02",
+    "commit": "414d52bcb1ebb8fe18fe92aced33e1096929fa67",
+    "historicalCiRun": "37128274569",
+    "jobsPassed": 14,
+    "jobsFailed": 0,
+    "newPush": false
+  },
+  "integratedClean": {
+    "branch": "codex/guest-upload-acceptance-20261005",
+    "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+    "tree": "e9f8e74e241613ff9ae3e7b52215fb94e769811e",
+    "aheadOfPublished": 71,
+    "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cost-completeness-root-functional-commit-r1-20261005.json",
+    "scope": "Unpushed f699 clean implementation; whole unit18682P0F1167S and compiler/lint/Go race/security0 known passed; strict native workflows1190P2F0S latest failed. Historical scoped kind55 and systemd1 passed."
+  },
+  "currentCandidate": {
+    "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/cleanup-native-integration-20261005",
+    "head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+    "candidateTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+    "dirtyPaths": "source3854 over f699; root23+claim4+schema7+package42+canonical9+settlement17; no commit/push yet",
+    "scope": "Root verification candidate composed. PackageR6/canonicalR5 and settlementR2 independently accepted source. NativeR14 passed4 required scenarios/5 signed children/31 Linux models, no combined/default/runtime approval inferred. Gate/schema11 source work pending; full27 platform failure retained.",
+    "mandatoryPlatformCases": 1059,
+    "realIndexUnchanged": true,
+    "sourceReceipt": "/Users/saivedanthava/.codex/zenith-production/logs/settlement-package-root-compose-r1-20261005/SOURCE.json",
+    "sourceReceiptSha256": "4e01034dfdf37a81d27bec2ed67dd6011afd2239b720f06c2cdc0282ae049ee3",
+    "expectedPlatformCasesAfterFollowup": 1113
+  },
+  "latestWholeUnit": {
+    "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+    "tree": "e9f8e74e241613ff9ae3e7b52215fb94e769811e",
+    "passed": 18682,
+    "failed": 0,
+    "skipped": 1167,
+    "total": 19849,
+    "report": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-full-root-r1-20261005-unit.json",
+    "sha256": "a69080911c66de1a8113311791574d25f22dfe2f3b8fdb1f6a0d272eaa965a33",
+    "status": "passed actual whole unit only; separate strict workflow/policy/tofu/PG/native/package/browser acceptance pending",
+    "previousFailure": {
+      "commit": "c460e5ba838b8427b56af8416a4cba84da0a48cb",
+      "passed": 18619,
+      "failed": 4,
+      "skipped": 1167,
+      "total": 19790,
+      "report": "/Users/saivedanthava/.codex/zenith-production/logs/production-checkpoint-full-root-r1-20261005-unit.json"
+    }
+  },
+  "latestActualEvidence": {
+    "unitCorrection": {
+      "passed": 50,
+      "failed": 0,
+      "skipped": 0,
+      "tree": "d0ccb4b14838406f3472c9ff8e2f4b72e61409d1",
+      "scope": "actual local Temporal plus PGlite/model product/provider/startup; no default API/hosted/cloud proof"
+    },
+    "kind": {
+      "providerPassed": 6,
+      "releasePassed": 1,
+      "guestPassed": 48,
+      "failed": 0,
+      "skipped": 0,
+      "tree": "22020a479a69f9fd24119b15d5ed710e03743ff5",
+      "scope": "actual local cluster8 guest API/RBAC plus40 parser controls; tenant authority PGlite fixture, no managed CNI/live cloud/default browser proof",
+      "evidence": "/Users/saivedanthava/.codex/zenith-production/logs/production-next-kind-root-r2-20261005-evidence.json",
+      "cleanup": "owned cluster/kubeconfig/containers/new node and busybox images absent"
+    },
+    "independentCoherent": {
+      "commit": "8ee702d8fc4e7e01e01dd6a1da36eb65c96d04da",
+      "dependencyFindings": 0,
+      "policyPassed": 238,
+      "tofuPassed": 3894,
+      "tofuSkipped": 18,
+      "opaPassed": 213,
+      "workflowStatus": "required queued"
+    },
+    "onboardingModels": {
+      "tree": "ae3bf8ea6776a038c4fb9bd2f07e70c63025d530",
+      "passed": 108,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "50 modeled human/bridge/idempotency cases and58 operator docs; no native/hosted/default API/cloud proof",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-next-onboarding-models-root-r1-20261004/receipt.json"
+    },
+    "mixedDiagnostic": {
+      "diagnosticOnly": true,
+      "attempts": 3,
+      "exactStage": "candidate-parent-history",
+      "cause": "JSON-string fixture params passed via inferred ::jsonb; canonical postgres.js expects ::text::jsonb, canonical history reader refuses double-encoded JSON",
+      "canonicalRoleOrder": "agent-before-platform R3 actual narrowed grant mismatch removed",
+      "cleanup": "owned resources and newly pulled images removed",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/mixed-custody-native-diagnostic-root-r3-20261004/receipt.json"
+    },
+    "mixedCustodyNative": {
+      "passed": 37,
+      "failed": 0,
+      "skipped": 0,
+      "tree": "dba5e28da71d80e2fe5981ca52a4fcea0761c803",
+      "scope": "actual PostgreSQL metadata/history/custody controls; synthetic saved-plan/history fixtures, no mixed provider execution",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/mixed-child-custody-native-root-r1-20261004/receipt.json"
+    },
+    "onboardingNative": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "tree": "6680af154a3d5574013ba6a9baea1ea146a47bf4",
+      "scope": "actual PostgreSQL independent pools/member/row wait/CAS and encrypted FILE custody; hosted association/human/namespace API modeled",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/kubernetes-onboarding-native-root-r2-20261004/receipt.json",
+      "priorFailedAttempt": {
+        "passed": 19,
+        "failed": 2,
+        "skipped": 0,
+        "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/kubernetes-onboarding-native-root-r1-20261004/receipt.json"
+      }
+    },
+    "gateSourceModels": {
+      "passed": 430,
+      "failed": 0,
+      "skipped": 0,
+      "tree": "479d5284346e6b1e880760e74cf452584e94c1a7",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-next-gate-models-root-r2-20261005-receipt.json",
+      "scope": "source/gate/report/initializer/docs models; does not clear separate platform failure"
+    },
+    "nativeCombined": {
+      "commitBeforeOrganizedCommits": "8ee702d8fc4e7e01e01dd6a1da36eb65c96d04da",
+      "exactTreeNowCommittedAt18a": "22020a479a69f9fd24119b15d5ed710e03743ff5",
+      "postgres": {
+        "passed": 322,
+        "failed": 0,
+        "skipped": 0,
+        "required": 80
+      },
+      "platform": {
+        "passed": 2735,
+        "failed": 0,
+        "skipped": 8,
+        "required": 1012
+      },
+      "models": {
+        "passed": 430,
+        "failed": 0,
+        "skipped": 0
+      },
+      "compilerLintGenerated": "passed",
+      "strictExecutionRevalidation": "passed",
+      "migrations": "agent3 before platform14; Supabase16 fresh/reapplied plus role/checksum refusal controls",
+      "sourceReceipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-next-native-root-r4-20261005-source.json",
+      "skipEquivalents": "/Users/saivedanthava/.codex/zenith-production/logs/production-next-native-r4-skip-equivalents-20261005.json"
+    },
+    "cleanInstallation": {
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "passed": true,
+      "node": "22.23.3",
+      "npm": "10.9.9",
+      "checkout": "/Users/saivedanthava/.codex/zenith-production/checkouts/production-f699656-20261005",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-clean-install-r2-20261005/receipt.json",
+      "checkoutRemovedAfterTerminal": false
+    },
+    "checkpointTargeted": {
+      "commit": "c460e5ba838b8427b56af8416a4cba84da0a48cb",
+      "passed": 317,
+      "failed": 0,
+      "skipped": 0,
+      "compilerLint": "passed",
+      "costRequired20": "all exact identities passed",
+      "cleanupModeled78": "all ran/passed; old duplicated invalid-target JSON labels disclosed",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-checkpoint-root-functional-commits-r1-20261005.json"
+    },
+    "latestWholeCompilerLintGo": "c460 passed compiler/lint/Go fmt/vet/race/generated before failed unit; security/workflows/policy/tofu not executed afterward",
+    "guestUploadTargeted": {
+      "passed": 739,
+      "failed": 0,
+      "skipped": 0,
+      "compilerLint": "R3 passed, all unchanged relevant bytes explicitly reused after one Go expectation correction",
+      "goFmtVetRace": "passed R4",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/guest-upload-targeted-root-r4-20261005/receipt.json"
+    },
+    "guestUploadNativeBootstrap": {
+      "passedWriteEvents": 21,
+      "passedUploadEvents": 16,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Actual Linux ARM64 unprivileged ext4/TLS/signature/replay/audit/custody; CP issuer modeled; not full123 acceptance",
+      "authenticGoldenSha256": "80bb7a2bdde20ade7bf4fc757d85564c7679908b8e19093e3fca06506a97acb7",
+      "oldFiveGoldensExact": true,
+      "ownedCleanupPassed": true,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/guest-upload-authentic-golden-root-promotion-r1-20261005.json"
+    },
+    "guestUploadNative": {
+      "status": "PASSED_ACTUAL_NATIVE_LINUX_SCOPE",
+      "commit": "ed7cbd74686b6a7d7b9c13f6011d5c2ec69d3ddb",
+      "tree": "63dc27fccccc1aaa1e0505de1d0f495a8d50846d",
+      "receipt": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-guest-upload-native-r1-12d241ef3b1eed1040743c2b18feb419/receipt.json",
+        "sha256": "9b3a193c653602ddc6ce982a2b8b43f48ce582e076fe01213ebfb3a5a3b2f159"
+      },
+      "canonicalEvidence": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-guest-upload-native-r1-12d241ef3b1eed1040743c2b18feb419/attempts/attempt-5aaacadd6a1361d950e30004b22f3c52/sanitized.json",
+        "sha256": "6e9ebc5f7d06e652374f4d4d1a0a45fa66afae82c6b7d5745bfe2386b5d4eb5d"
+      },
+      "steps": [
+        {
+          "id": "race",
+          "exitCode": 0,
+          "counts": {
+            "packages": 17,
+            "testEvents": 914,
+            "parents": 61,
+            "leaves": 853,
+            "passedLeaves": 850,
+            "failedLeaves": 0,
+            "skippedLeaves": 3
+          },
+          "requiredPassed": 123,
+          "requiredTotal": 123
+        },
+        {
+          "id": "goldens",
+          "exitCode": 0,
+          "counts": {
+            "packages": 1,
+            "testEvents": 20,
+            "parents": 1,
+            "leaves": 19,
+            "passedLeaves": 19,
+            "failedLeaves": 0,
+            "skippedLeaves": 0
+          },
+          "requiredPassed": 1,
+          "requiredTotal": 1
+        },
+        {
+          "id": "golden-diff",
+          "exitCode": 0,
+          "counts": null,
+          "requiredPassed": 0,
+          "requiredTotal": 0
+        },
+        {
+          "id": "golden-status",
+          "exitCode": 0,
+          "counts": null,
+          "requiredPassed": 0,
+          "requiredTotal": 0
+        }
+      ],
+      "rawRaceTerminalEventCounts": {
+        "pass": 911,
+        "skip": 3
+      },
+      "declaredOptionalSkips": [
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/machine/ops",
+          "test": "TestRealSystemctlAndJournalctl",
+          "reason": "=== RUN   TestRealSystemctlAndJournalctl\n    network_test.go:123: set ZENITH_TEST_SYSTEMD=1 on a host running systemd to run against real systemctl/journalctl\n--- SKIP: TestRealSystemctlAndJournalctl (0.00s)"
+        },
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+          "test": "TestRealOpenTofuPlanShowApply",
+          "reason": "=== RUN   TestRealOpenTofuPlanShowApply\n    tofu_test.go:595: set ZENITH_TEST_TOFU=/path/to/tofu (1.12.5) to run against the real binary\n--- SKIP: TestRealOpenTofuPlanShowApply (0.00s)"
+        },
+        {
+          "package": "github.com/GODOSTROYER/zenith/go/internal/runner/kinds",
+          "test": "TestRealOpenTofuWithProviderAndLockfile",
+          "reason": "=== RUN   TestRealOpenTofuWithProviderAndLockfile\n    tofu_test.go:639: set ZENITH_TEST_TOFU=/path/to/tofu and ZENITH_TEST_TOFU_NETWORK=1 to run against the public registry\n--- SKIP: TestRealOpenTofuWithProviderAndLockfile (0.00s)"
+        }
+      ],
+      "countsDoNotSumParentsOrRepeatedSteps": true,
+      "ownedCleanupAllPassed": true,
+      "sourceUnchanged": true,
+      "scope": "Actual native ARM64 ext4 UID10001 Go race/123 required guest cases/authentic goldens/mount-ACL-symlink-crash controls and ARM64+AMD64 cross-build. CP issuer modeled; no default human/cloud/private build/helper-package/native AMD64 runtime proof."
+    },
+    "costCompletenessTargeted": {
+      "passed": 213,
+      "failed": 0,
+      "skipped": 0,
+      "allFourPriorGraphCasesPassed": true,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cost-completeness-targeted-root-r3-20261005/receipt.json",
+      "compiler": "ActualR2 passed, scoped unchangedproduction/type reuseR3; combined full still pending",
+      "evidenceScope": "TS models/real local graph/CLI planning, no cloud traffic/spend"
+    },
+    "kindCurrentCandidate": {
+      "status": "ALL_CANONICAL_KIND_SUITES_PASSED_WITH_SEPARATE_ACTUAL_SYSTEMD_READ_SUCCESS",
+      "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+      "tree": "e9f8e74e241613ff9ae3e7b52215fb94e769811e",
+      "provider": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "release": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "guest": {
+        "total": 48,
+        "passed": 48,
+        "failed": 0,
+        "skipped": 0
+      },
+      "systemdRead": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "test": "TestRealSystemctlAndJournalctl",
+        "GOOS": "linux",
+        "GOARCH": "arm64",
+        "observedNodeArchitecture": "aarch64",
+        "target": "zenith-prod-60b0dd61-control-plane",
+        "scope": "Actual owned-node journald/service status/log operations; no guest write/helper lifecycle or general native host proof",
+        "sourceSha256": "37665d405c7b765aba13070ede7daae9f9b67d1840a67caf58139c01c81a9801"
+      },
+      "kindReceipt": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-kind-root-r1-20261005-evidence.json",
+        "sha256": "060f04b28b07d2a899b0109f24928c6477c71cc5345719e4fd80883bde9072fd",
+        "overallAttempt": "failed extra systemd exec setup; all canonical55 passed"
+      },
+      "systemdReceipt": {
+        "path": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-systemd-root-r2-20261005-evidence.json",
+        "sha256": "4508f4f419066ad96167e48397caad118a14981005d3dd7da0a22ea4e2c16e19",
+        "overallAttempt": "passed additional1 only, canonical55 not reexecuted"
+      },
+      "bothOwnedCleanupsPassed": true,
+      "scope": "Local actual Kubernetes API/RBAC guest credentials with scoped PGlite human authority fixtures; actual ARM64 systemd status/log read. No managed CNI, stateful/private-build/live cloud/default human/API proof."
+    },
+    "workflowCurrentF699": {
+      "passed": 1190,
+      "failed": 2,
+      "skipped": 0,
+      "status": "failed",
+      "requiredGroups": 58,
+      "scope": "Actual local PostgreSQL/Temporal; source/product/provider boundaries explicitly modeled. Two absent-config fixtures accidentally retained SUPABASE_DB_URL. Accepted CI6 correction unverified natively.",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-native-root-r2-20261005-results.json"
+    },
+    "cleanupWriterNative": {
+      "passed": 37,
+      "failed": 9,
+      "skipped": 0,
+      "status": "failed",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-writer-native-root-r1-20261005/receipt.json",
+      "scope": "Actual schema15/Supabase17 fresh/reapply passed; final native inventory wait uses truncated query text. Proposed exact physical lock/PID correction unexecuted. No provider settlement proof."
+    },
+    "cleanupWorkflowModels": {
+      "passed": 277,
+      "failed": 2,
+      "skipped": 50,
+      "status": "failed",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-models-root-r2-20261005/receipt.json",
+      "scope": "Source/report models only; two stale fixture expectations identified, all optional native skips remain unexecuted in this run; actionlint and emit-sql passed."
+    },
+    "cleanupWorkflowModelsSuccessor": {
+      "passed": 279,
+      "failed": 0,
+      "skipped": 50,
+      "status": "passed_scoped_models_only",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-models-root-r3-20261005/receipt.json",
+      "scope": "Current compiler/lint/actionlint/emitSQL passed; actual native skipped cases remain separate and mandatory. Prior277P2F50S retained."
+    },
+    "cleanupWriterNativeSuccessor": {
+      "passed": 46,
+      "failed": 0,
+      "skipped": 0,
+      "candidateTree": "fc9661aa5130949bcf7acc4bb26ec62aee96fc8b",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r3-20261005/receipt.json",
+      "status": "passed_actual_scoped_native46, current whole native gate failed workflow2; owned cleanup confirmed",
+      "scope": "Actual local PostgreSQL and Temporal; cleanup default coordinator/broker/paired codec. Hosted product/topology, policy and provider protocols remain modeled. No raw provider apply, provider quiescence/settlement, hosted TLS/pooler or default API proof. Cohorts overlap and are never summed.",
+      "priorFailedResult": "37P9F0S retained"
+    },
+    "workflowCurrentCleanup": {
+      "candidateTree": "fc9661aa5130949bcf7acc4bb26ec62aee96fc8b",
+      "passed": 1190,
+      "failed": 2,
+      "skipped": 0,
+      "total": 1192,
+      "status": "failed_actual; matched_execution_receipt",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r3-20261005/receipt.json",
+      "sourceUnchanged": true,
+      "scope": "Actual local PostgreSQL/Temporal; two initial immutable review cases expect direct destroy grants without native held authority. Earlier config-absent fixture failures now pass. Canonical Postgres80/platform1059 did not run afterward."
+    },
+    "cleanupR4Workflows": {
+      "passed": 1192,
+      "failed": 0,
+      "skipped": 0,
+      "required": 58,
+      "candidateTree": "810678f5b44dc67893d5bb1279b99110db248b05",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r4-20261005/receipt.json",
+      "scope": "Actual local PostgreSQL/Temporal; all58 strict identities passed; batch terminal platform27 failed and exact owned cleanup confirmed."
+    },
+    "cleanupR4Postgres": {
+      "passed": 322,
+      "failed": 0,
+      "skipped": 0,
+      "required": 80,
+      "candidateTree": "810678f5b44dc67893d5bb1279b99110db248b05",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r4-20261005/receipt.json",
+      "scope": "Actual local PostgreSQL; all80 strict identities passed; batch terminal platform27 failed and exact owned cleanup confirmed."
+    },
+    "cleanupR4Platform": {
+      "passed": 2755,
+      "failed": 27,
+      "skipped": 8,
+      "total": 2790,
+      "required": 1059,
+      "candidateTree": "810678f5b44dc67893d5bb1279b99110db248b05",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r4-20261005/receipt.json",
+      "failureInventory": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r4-20261005/failed-cases.json",
+      "status": "failed; no required gate waiver",
+      "scope": "Actual local PostgreSQL and local Temporal, explicit hosted/policy/provider modeled boundaries. Required successful cleanup/handoff defects under analysis; eight non-PG fixture skips not yet reconciled current attempt."
+    },
+    "guestPackagePortableModels": {
+      "passedLeaves": 226,
+      "failedLeaves": 0,
+      "skippedLeaves": 3,
+      "scope": "Darwin ARM64 Go race machine/ops/protocol portable models; Linux build-tag native4 unexecuted; parents not summed",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-root-go-models-r1-20261005/receipt.json"
+    },
+    "guestPackageNativeR5": {
+      "status": "failed prerequisite before native execution",
+      "nativeExecuted": 0,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r5-5af2c42f98423e5f935c757839468470/receipt.json",
+      "receiptSha256": "89e1a1635c263b45fd30cd50ae08670a08ed428f9d14dd34dc58c271cb0febd7",
+      "ownedCleanupConfirmed": true,
+      "failure": "statfs awk scientific notation rejected by integer shell test",
+      "independentCleanupReceipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r5-5af2c42f98423e5f935c757839468470/root-independent-cleanup.json"
+    },
+    "guestPackageNativeR6": {
+      "status": "failed prerequisite before native execution",
+      "nativeExecuted": 0,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r6-e1d1769da1944d0fe011d578d63ed8f6/receipt.json",
+      "receiptSha256": "b3173255f9cccbc81c71d0dd6b562580ddbc664ba0a7f7fb70b2137ac829a04b",
+      "ownedCleanupConfirmed": true,
+      "failure": "pinned losetup returns exact singleton explicit-null unbound row; strict parser rejected before attachment"
+    },
+    "guestPackageNativeR7": {
+      "nativeExecuted": 0,
+      "status": "failed prerequisite after successful actual owned loop attachment; strict parser rejected observed padded device string",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r7-29458e7131cebf5b6a2dfd081893d00d/receipt.json",
+      "receiptSha256": "92da43cdd7f17817e9f76b7fd4e008a627af021e3aa3f9665057fcdf976d6c34",
+      "independentCleanupReceipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r7-29458e7131cebf5b6a2dfd081893d00d/root-independent-cleanup.json",
+      "independentCleanupConfirmed": true,
+      "failedReceiptPreserved": true
+    },
+    "cleanupClaimModels": {
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-dispatch-root-models-r1-20261005/receipt.json",
+      "sha256": "f8a5e8e96964b627f73040c78ed68f1314855d063885158e00ed48a13016bfb8",
+      "status": "passed_scoped_models_only",
+      "scope": "Affected local PGlite/model broker startup and review only; PostgreSQL cases remain separate required evidence",
+      "candidateTree": "8d02dce368cc07809b09175a632f7c01c41d2c23",
+      "counts": {
+        "passed": 30,
+        "failed": 0,
+        "skipped": 2,
+        "total": 32
+      },
+      "sourceUnchanged": true
+    },
+    "cleanupSchemaModels": {
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-schema-root-models-r1-20261005/receipt.json",
+      "sha256": "84083dc77ec398c05bb361d1773869d4d787a4888ec7f9e6bc5cb8f7def61b24",
+      "status": "passed_scoped_models_only",
+      "scope": "Affected PGlite/model schema/grant/tenant/preservation fixtures; skipped PostgreSQL/retention cases remain mandatory separate actual evidence",
+      "candidateTree": "bbfc96a8c5be4c627bc9b385851e2667f4fe53a2",
+      "counts": {
+        "passed": 117,
+        "failed": 0,
+        "skipped": 36,
+        "total": 153
+      },
+      "sourceUnchanged": true
+    },
+    "guestPackageNativeR8": {
+      "nativeExecuted": 0,
+      "status": "failed transport prerequisite after settled exact loop ownership",
+      "failure": "Docker explicitly rejected cp to read-only rootfs /tmp; corrected source routes archives to owned RW /guest",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r8-1285a7aa19f6d4776dc061262b07014b/receipt.json",
+      "sha256": "70718fbb3aace37a091feeb2469ea67a6e555a2eb31d8f586e2ae43e4fc070e2",
+      "independentCleanup": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r8-1285a7aa19f6d4776dc061262b07014b/root-independent-cleanup.json",
+      "ownedCleanupConfirmed": true,
+      "failedReceiptPreserved": true
+    },
+    "targetedCorrections": {
+      "candidateTree": "bbfc96a8c5be4c627bc9b385851e2667f4fe53a2",
+      "passed": 304,
+      "failed": 0,
+      "skipped": 0,
+      "total": 304,
+      "requiredCorrectionCases": 258,
+      "requiredCleanupCases": 46,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-corrections-native-root-r1-20261005/receipt.json",
+      "receiptSha256": "14b70810a3edb9f01e7e676e3d8202b59c78fc21081e84b21f03e6986f9d5942",
+      "scopeClarification": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-corrections-native-root-r1-20261005/scope-clarification.json",
+      "actualPostgres": true,
+      "actualTemporal": false,
+      "schemaFreshReapply": true,
+      "ownedCleanupVerified": true
+    },
+    "nativePackageR9": {
+      "status": "failed",
+      "nativeExecuted": 0,
+      "phase": "preserve-real-debian-image",
+      "exitCode": 2,
+      "cause": "fresh public archive donor UID501:GID20:mode600 refused by root without DAC_OVERRIDE; no capability widening",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r9-ab1d5bf20a9a758c57ba6830906b2e4e/receipt.json",
+      "rootIndependentCleanup": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r9-ab1d5bf20a9a758c57ba6830906b2e4e/root-independent-cleanup.json",
+      "ownedResourcesAbsent": true,
+      "baselinePreserved": true
+    },
+    "nativePackageR10": {
+      "status": "failed",
+      "nativeExecuted": 0,
+      "phase": "copy-fixed-probe",
+      "exitCode": 1,
+      "cause": "Daemon destination lookup cannot see dynamically mounted ext4 path; container exec confirms actual Go1.27.1 ARM64 and protected root exists",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r10-f05099b7c3942fda4a92b181fbfe820a/receipt.json",
+      "receiptSha256": "5057c4cf19c612020e65bb530f6f3e9653e13457fdc89dbd64c92d14e45f6b77",
+      "cleanup": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r10-f05099b7c3942fda4a92b181fbfe820a/root-independent-cleanup-r4.json",
+      "originalFailedAttemptAndAllCleanupStopsPreserved": true,
+      "ownedResourcesAbsent": true,
+      "baselinePreserved": true,
+      "freeBytes": 13733543936
+    },
+    "nativePackageR11": {
+      "schemaVersion": 1,
+      "recordedAtUtc": "2026-10-05T02:51:18.183218+00:00",
+      "status": "failed_actual_native4",
+      "actualArchitecture": "linux/arm64 native Docker daemon, Go1.27.1",
+      "helperRevision": 11,
+      "helperSha256": "736f13ca05e57e54ea69289330a1cd6ed4c4e1edcc3cfff59472996f7650fc68",
+      "originalSourceContractSha256": "e34265e102404de39b0d24e99518b00c14ea3fba70d25e344fa2c9537b625adf",
+      "originalReceipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r11-2bf1ce192ee49719ad058a15cc8f25fb/receipt.json",
+      "originalReceiptSha256": "c06659a29062c27606d8e3031ff209fd95319648d45f00fff219c51848cbb51c",
+      "events": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r11-2bf1ce192ee49719ad058a15cc8f25fb/direct-native-current-attempt.stdout",
+      "eventsSha256": "801d34aa5139ce91d0e2300af51a69211b6121c4fa479888ba44f9b46724e30d",
+      "requiredNativeCounts": {
+        "passed": 1,
+        "failed": 3,
+        "skipped": 0,
+        "total": 4
+      },
+      "terminalCases": {
+        "TestPackageHelperNativeNoFollowAndCustody": "fail",
+        "TestPackageFrontendLockIndependentProcess": "fail",
+        "TestPackageNativeSignedFirstInstallAndNonReplay": "fail",
+        "TestPackageNativeDeclaredMountAndACLRefusals": "pass"
+      },
+      "requiredSignedChildControlsExecuted": 0,
+      "requiredSignedChildControlsMissing": 5,
+      "failureCause": "Authentic preserved Debian Docker force-unsafe-io configuration rejected by strict raw metadata grammar. Existing native mutation argv already pins --refuse-unsafe-io; read-only actual effective flags confirm override disables unsafe-io. Finite effective-config correction requires source review and new actual run. No positive native install occurred.",
+      "readOnlyFlags": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r11-2bf1ce192ee49719ad058a15cc8f25fb/readonly-dpkg-effective-flags.json",
+      "publicRawFragment": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r11-2bf1ce192ee49719ad058a15cc8f25fb/native-public-docker-apt-speedup.txt",
+      "cleanup": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-direct-r11-2bf1ce192ee49719ad058a15cc8f25fb/root-independent-cleanup-r2.json",
+      "cleanupSha256": "d2c58d7bffa29be5c6f012b5b445b98ed4c0e632b805b99732bfecd66f0e28fc",
+      "originalMetadataUnchanged": true,
+      "ownedResourcesAbsent": true,
+      "baselinePreserved": true,
+      "installedServiceDefaultBackendNativeAmd64FullLifecycle": "OPEN"
+    },
+    "packageEffectivePortableR4": {
+      "passedLeaves": 256,
+      "failedLeaves": 0,
+      "skippedLeaves": 3,
+      "parentEvents": 10,
+      "scope": "Actual Darwin ARM64 gofmt/vet/race. CASE97 expected:90 passed,7 Linux-only unexecuted. Native4/installed/default backend separate.",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-effective-models-root-r1-20261005/receipt.json",
+      "eventSha256": "4f50450e7b866504863a0561fdb3001d6a871430d5191ad964c943665134b2e2"
+    },
+    "nativePackageR12": {
+      "status": "failed_current_linux_compilation",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "requiredNativeButUnexecuted": 4,
+      "requiredLinuxModelsButUnexecuted": 7,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r12-600315aba1977626158a15548626b296/receipt.json",
+      "sha256": "2538b4cf971993897aed177accd11f3a728b788e076dc3a4c72edf0e203e2ea9",
+      "interpretation": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r12-600315aba1977626158a15548626b296/failure-interpretation.json",
+      "ownedCleanup": "passed; original native config/registry and unrelated baseline preserved"
+    },
+    "packageR5LinuxCompile": {
+      "status": "passed_compile_only",
+      "scope": "Darwin-host Linux ARM64 compile/vet, no test binary executed; no native/installed/default acceptance",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-linux-compile-root-r1-20261005/receipt.json",
+      "binarySha256": "c3d54265e6a523594363b34dcaafc0a57e6d573cd5aa98fea2e2628cf4f30980",
+      "testsExecuted": 0
+    },
+    "nativePackageR13": {
+      "status": "failed_actual_native4",
+      "candidateTree": "341a2f20b0afee584f8b1b867fbdaade4a491812",
+      "passed": 1,
+      "failed": 3,
+      "skipped": 0,
+      "signedChildrenRequiredButMissing": 5,
+      "linuxOnlyModeledLeavesPassed": 7,
+      "scope": "Actual genuine Debian ARM64 native; no signed controls/install reached; diagnostic not acceptance",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r13-113f7b239d4c330e27c5aeeeea7437e3/receipt.json",
+      "sha256": "9522a60aff59cb6be3305a5a1805cfa2cebbb4f7d0d5bd8b1b6ac01694e3771b",
+      "interpretation": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r13-113f7b239d4c330e27c5aeeeea7437e3/failure-interpretation.json",
+      "ownedCleanup": "passed; entire original native metadata and unrelated baseline preserved"
+    },
+    "packageR6LinuxCompile": {
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-linux-compile-root-r2-20261005/receipt.json",
+      "status": "passed_compile_only",
+      "testsExecuted": 0,
+      "candidateTree": "f2f8779e77ca7cb1ac3df57031503f4794d79811",
+      "binarySha256": "0f3b3023bde2d8f2d70ce5f8dd8f7745034b729517005646b04fe367988ba2f4"
+    },
+    "nativePackageR14": {
+      "status": "passed_scoped_native_and_owned_cleanup",
+      "candidateTree": "f2f8779e77ca7cb1ac3df57031503f4794d79811",
+      "linuxModelLeaves": {
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0,
+        "parentsExcluded": 2
+      },
+      "nativeRequiredScenarios": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "signedChildControls": 5,
+        "terminalEvents": 9,
+        "leafEvents": 8,
+        "parentExcluded": 1
+      },
+      "countsOverlapDoNotSum": true,
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r14-8e91f39e222f40cd2b28451a2e129b64/receipt.json",
+      "receiptSha256": "1b3e332a7f0cce4e8cd8c60b02352e77f58a77255eb52c2251907c120662cb9d",
+      "rootIndependentValidation": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r14-8e91f39e222f40cd2b28451a2e129b64/root-independent-result-validation.json",
+      "rootIndependentValidationSha256": "faf71f67f82d5f2fcf21e2563e9f9cd2752ccd5a17691c3b2fa6979b753983bf",
+      "protectedNativeMetadataUnchanged": true,
+      "ownedCleanupPassed": true,
+      "limitations": "Installed CHOWN-only systemd/daemon0/default backend/nativeAMD64/package worker22 remain unverified; no cloud/default API acceptance."
+    },
+    "savedPlanSettlementNativeR2": {
+      "status": "failed_actual_native100",
+      "candidateTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "passed": 60,
+      "failed": 40,
+      "skipped": 0,
+      "total": 100,
+      "report": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-native-root-r2-20261005/settlement.json",
+      "reportSha256": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065",
+      "scope": "Actual PG16.15/agent3/platform16 and pinned real OpenTofu builtin/local; hosted policy/association modeled; no Temporal/Supabase/full/default API acceptance",
+      "schemaFreshReapplyAndLint": "passed",
+      "sourceUnchanged": true,
+      "ownedCleanupPassed": true,
+      "afterFreeGiB": 12.57
+    }
+  },
+  "latestFailedGate": {
+    "label": "production-upload-cost-full-root-r1-20261005",
+    "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+    "tree": "e9f8e74e241613ff9ae3e7b52215fb94e769811e",
+    "wholeUnit": {
+      "passed": 18682,
+      "failed": 0,
+      "skipped": 1167,
+      "total": 19849
+    },
+    "securityKnownFindings": 0,
+    "workflows": {
+      "passed": 1096,
+      "failed": 0,
+      "skipped": 82,
+      "total": 1178,
+      "exitCode": 1,
+      "strictGate": "failed8native-containingplatformgroups; realPG prerequisite missing both local complete helper and CI workflow job"
+    },
+    "notExecuted": [
+      "policy",
+      "tofu",
+      "corresponding actual-execution revalidation"
+    ],
+    "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-full-root-r1-20261005-results.json",
+    "next": "Same-source actual ownedPG+Temporal acceptance, then canonical CI prerequisite correction without weakening requirements"
+  },
+  "agents": [
+    {
+      "agent": "/root/integration_authority_review",
+      "scope": "Source6 canonical workflow CI PostgreSQL prerequisites and environment-isolation fixtures"
+    },
+    {
+      "agent": "/root/runtime_gate_completion",
+      "scope": "Independent B6 source review; accepted unused-import proposal remains separate"
+    },
+    {
+      "agent": "/root/runtime_gate_completion/admission_audit",
+      "scope": "Independent exact native package metadata compatibility contract; no runtime/source changes"
+    }
+  ],
+  "storage": {
+    "lastFreeGiB": 13.39,
+    "workerLaunchMinimumGiB": 18,
+    "databaseLaunchMinimumGiB": 12,
+    "stopFloorGiB": 8,
+    "dockerContainers": 0,
+    "dockerVolumes": 0,
+    "unrelatedBaseline": "search-algorithm-optuna:dev616.3MB and build cache477.1MB preserved",
+    "globalPrune": false,
+    "ownedColdCloneCleanup": "/Users/saivedanthava/.codex/zenith-production/logs/production-next-cold-clone-owned-cleanup-20261005.json",
+    "lastAuthorizedRestartReceipt": "/Users/saivedanthava/.codex/zenith-production/logs/docker-owned-test-restart-storage-20261005.json"
+  },
+  "permissions": {
+    "approved": "owned disposable PostgreSQL/Temporal/kind/worker/Linux and Docker Desktop restart; normal same branch push",
+    "pending": "default API/server startup; live private GitHub/Supabase/cloud account/region/budget; retention/business/production signoff; consolidated request already pending"
+  },
+  "next": [
+    "Finish current full gate and preserve exact failures/skips; no concurrent heavy jobs",
+    "Review cleanup overlay4 then root actual compiler/PG46/current schema15/Supabase17/strict1059 on exact combined source",
+    "Complete independent package40 review and actual eligible Debian12 root-helper/default signed backend acceptance",
+    "Run complete packaged22 once owned storage permits, retain native architecture and mutation-shutdown gaps",
+    "Reconcile all78 ledger at tested code integration, push same authorized branch, observe complete new CI",
+    "Continue G2/G3/G4 with unchanged pending API/live/business approvals"
+  ],
+  "latestCompilerCorrection": {
+    "review": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/native-fixture-types-independent-review-r2.json",
+    "status": "ACCEPTED_SOURCE_ONLY",
+    "fourPaths": true,
+    "native81IdentitiesUnchanged": true
+  },
+  "previousStateArchive": "/Users/saivedanthava/.codex/zenith-production/logs/resume-archive/20261004T204735Z",
+  "activeRootExecution": {
+    "sessionId": 76008,
+    "status": "running",
+    "phase": "Fresh own PG16.15 agent3/platform15/Supabase17 canonical initialization and exact46 cleanup native cases; no provider/OS settlement claim",
+    "results": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-writer-native-root-r1-20261005/receipt.json"
+  },
+  "activeWorkerLanes": [
+    {
+      "agent": "/root/integration_authority_review",
+      "scope": "Source6 canonical workflow CI PostgreSQL prerequisites and environment-isolation fixtures"
+    },
+    {
+      "agent": "/root/runtime_gate_completion",
+      "scope": "Independent B6 source review; accepted unused-import proposal remains separate"
+    },
+    {
+      "agent": "/root/runtime_gate_completion/admission_audit",
+      "scope": "Independent exact native package metadata compatibility contract; no runtime/source changes"
+    }
+  ],
+  "nextActions": [
+    "Finish actual cleanup source/model checks; apply only independently reviewed unused-import correction to new candidate",
+    "Review and compose canonical CI PG prerequisite packet; preserve mandatory workflow58/platform1059/PG80/Linux123/worker22",
+    "Independently accept packageR2 then actual eligible Debian guest/default helper acceptance; source review is not runtime",
+    "Run fresh actual schema15/Supabase17 plus mandatory realPG/Temporal on coherent source",
+    "Run complete combined/package/kind gates; push same branch and observe fresh complete CI",
+    "Continue all78 G2/G3/G4 with unchanged pending API/live/business permissions"
+  ],
+  "remainingLocalPackets": [
+    {
+      "name": "upload37",
+      "commit": "ed7cbd74686b6a7d7b9c13f6011d5c2ec69d3ddb",
+      "status": "Two functional commits;739 targeted0F0S and actual Linux850 leafP0F3 optional skips/all123required passed; all owned cleanup passed; combined candidate pending"
+    },
+    {
+      "name": "costCompleteness13",
+      "freeze": "/Users/saivedanthava/.codex/zenith-production/logs/cost-completeness-20261005/revision3/FROZEN-SOURCE.json",
+      "status": "ReviewedR3 and actual213P0F0S, root integrated f699656; whole combined gate/push pending"
+    },
+    {
+      "name": "nativeCleanupWriterBarrier14",
+      "freeze": "/Users/saivedanthava/.codex/zenith-production/logs/native-cleanup-writer-barrier-20261005/revision2/FROZEN-SOURCE.json",
+      "status": "R2 independently accepted source only;46actual native cases still unrun, overlay4 implementation active on exact separately prepared f699 composition"
+    },
+    {
+      "name": "cleanupGateOverlay4",
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/cleanup-writer-gates-20261005",
+      "preparedTree": "518794cb1f2d49cc4d75b326dc918fca97398646",
+      "status": "Prepared4-path overlay held until barrierR2 source accepted; update narrow AST/cohort contract to final guarded CTEs"
+    },
+    {
+      "name": "packageInstall40",
+      "status": "Source-onlyR2 frozen7be2bf83; narrow socket chmod-before-CHOWN and dedicated soleCAP_CHOWN; B acceptedccc381a1, C independent review. Actual installed/native/default backend unrun. R1 rejection preserved.",
+      "correctionReview": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/guest-package-install-independent-review-r1-correction-addendum.json",
+      "freeze": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-install-20261005/revision2/FROZEN-SOURCE.json"
+    }
+  ],
+  "packageInstallProposal": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-install-20261005/PACKAGE-INSTALL-CONTRACT.json",
+    "sha256": "0d0959aa293882df1c3631d0fef26997776866e9e868ea6eeb09b32f057013f8",
+    "status": "Refined addendumR2 independently accepted DESIGN only; implementation40 ongoing, native acceptance open"
+  },
+  "latestWorkflowNativeAttempt": {
+    "commit": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+    "passed": 1190,
+    "failed": 2,
+    "skipped": 0,
+    "total": 1192,
+    "exitCode": 1,
+    "scope": "Actual PostgreSQL16.15 agent3/platform14/Supabase16 fresh/reapply plus Temporal; absent-config fixtures retain genuine SUPABASE_DB_URL; strict obligations preserved",
+    "report": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-native-root-r2-20261005-workflows.json",
+    "ownedCleanup": "/Users/saivedanthava/.codex/zenith-production/logs/production-upload-cost-native-root-r2-20261005-cleanup.json",
+    "postgresPlatformGates": "Unexecuted after workflow failure; native previous18a evidence remains historical"
+  },
+  "latestCleanupModels": {
+    "passed": 222,
+    "failed": 0,
+    "skipped": 48,
+    "total": 270,
+    "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-writer-targeted-root-r3-20261005/receipt.json",
+    "scope": "Actual compiler0/generated SQL0, source/gate models0F; native46+tenant2 skips stay unclosed; affected lint requires independently reviewed one-token removal"
+  },
+  "packageRuntimePrerequisite": {
+    "status": "Pinned standard Debian12 ARM64 genuine image incompatible with current strict registered-native metadata. Source compatibility follow-up required; no clearing/forging done",
+    "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/package-debian-eligibility-root-r1-20261005/receipt.json",
+    "actual": "dpkg1.21.23; diversions98 bytes; triggerFile52 bytes; two nonempty registered trigger files; existing Docker dpkg options; systemd absent",
+    "nativeAcceptance": "UNRUN",
+    "sourceOnlyR2Review": "/Users/saivedanthava/.codex/zenith-production/logs/journey-authority-review-20261004/guest-package-install-independent-review-r2.json",
+    "cleanup": "Owned container/image removed and baseline preserved"
+  },
+  "activeAgents": [
+    {
+      "name": "/root/integration_authority_review",
+      "task": "package7R4 frozen accepted; independent A17 command/backend provenance review"
+    },
+    {
+      "name": "/root/runtime_gate_completion",
+      "task": "settlement17 authored source only; correcting exact child argv and SQL-seeded witness controls"
+    },
+    {
+      "name": "/root/runtime_gate_completion/admission_audit",
+      "task": "package7R4 independently accepted; private helperR12 review then settlement17 crypto/CAS"
+    }
+  ],
+  "resourceState": {
+    "heavyJob": null,
+    "lastSession": 21446,
+    "terminalExitCode": 1,
+    "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/cleanup-workflow-native-root-r4-20261005/receipt.json",
+    "ownedCleanup": "/Users/saivedanthava/.codex/zenith-production/logs/zenith-package-native-r13-113f7b239d4c330e27c5aeeeea7437e3/root-independent-cleanup-r1.json",
+    "afterFreeGiB": 13.21,
+    "concurrency": "three source/review agents; root serial heavy runtime"
+  },
+  "nextExecutableStep": "Complete independent accepted parser R6 and settlementR2, exact case/source rebinds, root native successor and coherent source integration with reviewed schema49/gate/AST followups. Then full real gates, organized Saivedant commits/same-branch push/fresh CI, continue G2/G3/G4.",
+  "heavyRuntime": {
+    "status": "IDLE_AFTER_FAILED_NATIVE100_OWNED_CLEANUP_SOURCE_CORRECTIONS_RUNNING",
+    "latestNativeCounts": {
+      "passed": 1,
+      "failed": 3,
+      "skipped": 0,
+      "total": 4
+    },
+    "freeBytes": 14188175360,
+    "next": "Actual PG16.15/platform16/agent3 plus real builtin OpenTofu, exact100 identities; combined gate after accepted schema/gate11.",
+    "sessionId": 64985,
+    "attemptDirectory": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-native-root-r2-20261005",
+    "lastSession": 21446,
+    "terminalExitCode": 1
+  },
+  "storageNow": {
+    "freeBytes": 13913788416,
+    "ownedContainers": "zero; R14nativepackage and PG100 exactownedcleanup complete; unrelatedimage/volume/cachepreserved",
+    "userBaseline": "unrelated616.3MB image/74.2MB volume/477.1MB cache preserved",
+    "globalPrune": false
+  },
+  "nextAction": "Accepted exact gate11+digestR3 -> rootcoherentimport/native100 successor/fullcompiler andmandatorycombined gates/functionalSaivedantcommits/samebranchpush/freshCI; all78 goal active",
+  "activeAgentStatus": {
+    "root": "serial runtime verification, source composition and release decisions",
+    "integration_authority_review": "Bounded digestR3 author in isolated3854-source worktree",
+    "runtime_gate_completion": "Gate/schema11 author isolated3854 baseline; next R3 peerreview",
+    "admission_audit": "Independent gate11 anddigestR3 reviewer",
+    "activeCount": 4,
+    "heavyConcurrency": 1,
+    "currentHeavyJob": "none; waiting exact source freezes/reviews before next actual native100"
+  },
+  "sourceFindings": {
+    "savedPlanPrototypeOrigin": {
+      "status": "correction_required_draft_only",
+      "receipt": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-settlement-draft-prototype-origin-findings-r1-20261005.json",
+      "sha256": "794be46d3053d58469382b6aa7e7a7c5ced077ad0039e6893cb4ba34080975e5",
+      "scope": "same-process exported prototype tamper; no runtime/external exploit claim",
+      "action": "A private actual canonical command-completion origin; both independent reviewers recheck before source acceptance"
+    }
+  },
+  "remainingPackets": {
+    "packageCompatibilityEffectiveR4": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-package-effective-safe-io-20261005",
+      "branch": "codex/guest-package-effective-safe-io-20261005",
+      "preparedTree": "5777f8e35b22c274d44f0363ede1dd40ceb4f880",
+      "ownedPaths": 7,
+      "status": "independently_accepted_source_only_portable_checks_passed_linux_unrun",
+      "contractSha256": "09e1fb4f178f9c217bd601da7eebbc62c2d6a6e6a3bf8f968a129368b38f048e",
+      "rawRefusalControlsAndNativeMetadataPreservedRequired": true,
+      "finalFreshnessAndCallerCancellationRequired": true,
+      "sourceFreeze": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-compatibility-20261005/revision4/FROZEN-SOURCE.json",
+      "sourceFreezeSha256": "c2ab58011e3642f2e406ba9b1609428d9cf59a8a002cbfefecf9955a1daf292e",
+      "candidateTree": "aa976cf46aa268965ebd537b28853c764bfaf28c",
+      "independentReviewSha256": "1150dd538dd71522677fdba1e5b5a27cd1ed201f2bfa6972e67c3e2135b88f1d"
+    },
+    "canonicalPackageGatesR5": {
+      "sourceFingerprint": "afd6c5066ea7eed795eb7c2a376a058aaae8700a",
+      "ownedPaths": 9,
+      "status": "independently_accepted_source_only_actual127_unrun",
+      "reviewSha256": "a4e926c8e9e751ef22685ae0668e17d7b77da3a33ac8fd0fb506283479a81b52",
+      "fourNativeSourceHashMustRebindAfterAcceptedR4": true
+    },
+    "savedPlanSettlement17": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-20261005",
+      "ownedPaths": 17,
+      "status": "R2_source_accepted_actual_native_failed60P40F0S_correction_required",
+      "scope": "generated builtin/local protected state only; no cloud/quiescence shortcut",
+      "followups": [
+        "schema49 includes two additive16 tables; history15 byte-exact",
+        "global physical backend PK classified independently with tenant-bound immutable owner",
+        "private repository method tenancy classification",
+        "new exact required case identities and SQL/source hashes"
+      ],
+      "R1FreezeSha256": "4d26f704afc6abf65452c83c569e0264b589b7267a1425f854be06321c06fb85",
+      "R1CandidateTree": "fa1d95ad8f28fc529fe975d596af92962d8c51c8",
+      "R1RequiredCases": 91,
+      "reviewB": "85f82c753e6d95ab3a6363308d3b1756f7d1f1b633ad7431e75c880763f712ad",
+      "reviewC": "53a0951dec73bc69a1f2fd45aca1ef44181b137f6544609cb7f83ebfffee2eb8",
+      "blocker": "Descriptor/origin guards after awaited init and nested runner reads before method access; no source or runtime acceptance borrowed",
+      "R2OwnedIncrementalPaths": [
+        "src/lib/tofu/engine.ts",
+        "src/lib/tofu/runner.ts",
+        "tests/controlplane/cleanup-writer-barriers.test.ts",
+        "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md"
+      ],
+      "R2FreezeSha256": "70e773273973550173e287ccc7d761610ef682db3b56e5495ea50af18ebeb2db",
+      "R2CandidateTree": "09d8e9d2795eb34a128a5cf1af72868f32fd9c2a",
+      "R2RequiredCases": 100
+    },
+    "packageCompatibilityLinuxImportR5": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-package-linux-compile-correction-20261005",
+      "ownedPaths": 1,
+      "status": "independently_accepted_source_only_linux_compile_vet_passed_native_unrun",
+      "sourcePreparedTree": "aa976cf46aa268965ebd537b28853c764bfaf28c",
+      "task": "missing bytes import only, no test-body/case/flag changes",
+      "candidateTree": "341a2f20b0afee584f8b1b867fbdaade4a491812",
+      "freezeSha256": "25871cb3e982a08010f901b80387e1f19dcb2ede8bbbbe21450513e5c3f8d856",
+      "independentReviewSha256": "b9dddc61c8668931bb7f8728f6fcb9a4c1a1825404b0f1f416979709a9ada367"
+    },
+    "packageNativeStatusR6": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/guest-package-native-status-20261005",
+      "ownedPaths": 7,
+      "preparedTree": "341a2f20b0afee584f8b1b867fbdaade4a491812",
+      "status": "independently_accepted_source_linux_compile_vet_native4_signed5_linux31_passed_scoped",
+      "contractSha256": "60de56d1cdecb4aa825a1fb9e7d1751eac6c0a38702244990b66efd95596dbce",
+      "scope": "Canonical empty Conffiles multiline header and duplicate-presence controls; preserve raw bytes/digests/archive/config/registry authority/native4/signed5",
+      "candidateTree": "f2f8779e77ca7cb1ac3df57031503f4794d79811",
+      "freezeSha256": "8ecf6ecd4c26162739b2ae374869c42c58bf70a5f5cf9e6945893ddf43951af6",
+      "caseContractSha256": "969d32023e3fc2e6167c06c93e26bf412c4891ab0c8ebf398b0851c4220b0885",
+      "modeledLeafCases": 121,
+      "nativeParentCases": 4,
+      "sourceReviewPending": false,
+      "reviewSha256": "539d25d754013ea73871320865c7e6c76122a64591967fd56a2720ec7b45be83"
+    },
+    "settlementGateSchema11": {
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-gates-20261005",
+      "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "ownedPaths": 11,
+      "status": "source_implementation_in_progress_independent_C_review",
+      "scope": "Exact54 new native identities; preserve old1059/80/127/22/58; schema49 and strict tenant/private SQL classification; append0018 bootstrap/deployment, retained source hashes."
+    },
+    "savedPlanManifestDigestR3": {
+      "status": "source_implementation_in_progress",
+      "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-manifest-digest-20261005",
+      "preparedTree": "7da4306a4b3aab859b55978030702881eb6fdc08",
+      "ownedPaths": 3,
+      "preparationSha256": "81ef96bb903890cd4b1e4bd2857e79d194133ee859d0351a63e99383b568b8f1",
+      "diagnosisSha256": "39712cdbbeebf21a21944f6ee70e7bb95733cf2ee7398c119396156e98ac3b7c",
+      "scope": "Canonical controlplane digest only standalone manifest binding/authentication; preserve artifact/settlement cipher domains/all100 names/original46 bodies; no acceptance inferred"
+    }
+  },
+  "privatePackageHelperR12": {
+    "status": "actual_attempt_failed_owned_cleanup_passed_no_promotion",
+    "freeze": "/Users/saivedanthava/.codex/zenith-production/logs/guest-package-native-runtime-helper-20261005/revision12/FROZEN-SOURCE.json",
+    "sha256": "f3ee1c89aeafa181a9cabd81117296ad8c26ccfa7790cccb3f6b38728a853641",
+    "scope": "Accepted R4 source rebind plus7 enforced Linux-only model leaves before original native4/five signed children",
+    "independentReviewSha256": "2456522328c0a5277d9a918bf18bc68e0d9ee192b40a007e028ecaa1343a21e5"
+  },
+  "privatePackageHelperR13": {
+    "status": "actual_attempt_failed_owned_cleanup_passed_no_promotion",
+    "freezeSha256": "0470d602e49cc8169ce9c38d9a47ec1f14bb6d1df7185cc30ee8f46d4a255681",
+    "helperSha256": "dc4a788a13169c57ddf34f1a1b4574dac64ac781b9f263fc30bfa3470429a0bb",
+    "sourceContractSha256": "838b58df858e2a3201e788a8d1e570078f7ce4b6094682fab01bc72ccc06e11b",
+    "independentReviewSha256": "6f49af60768cd8582146dd78e753210b3abc087a02483f951a1ecebc1a09111a"
+  }
+}

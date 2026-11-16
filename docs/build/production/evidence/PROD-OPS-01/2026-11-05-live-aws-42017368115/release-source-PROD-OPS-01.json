@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-01"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario ops-04, run id zlive-202611051114-c636; plan sha256 79f3a4480ee25c1e3f422c583ea85734cc3f9382ef9b638285e67c7850b28c69",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 d242aaf20243a4764ce619a4c8fae8f879f496aaf6864ed104a0031000678233; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611051114-c636",
+    "file": "evidence.json",
+    "sha256": "1698dbe142feba83e61e371387bdaa78cd57cec3d356d05d1793dfcbaf4258a4",
+    "packetSha256": "1cfca8ff30cef96e99a93f4e079a94c6962a351ac4fcdd7e14db5c2c613879b8"
+  },
+  "result": "OPS-01 objectives measured on the live sandbox run: control-plane availability 6454/6454 probes non-5xx (100.00%, 95% lower bound 99.95% vs target 99.90%: demonstrated) from runner-local probes of the API readiness route every 100 ms, paused only for the deliberate database loss (13 s, measured as RTO); API latency p50 13 ms, p95 27 ms, p99 108 ms, 99.98% within 500 ms (lower bound 99.93% vs 95.00%: demonstrated); capacity 30.0 req/s served of 30 offered for 60 s, p95 303 ms, errors 0.00% (targets >= 25 req/s, p95 <= 500 ms, errors <= 0.50%: within_target); RPO 203.956 s of 900 and RTO 20.306 s of 14400 (one restore observation each: within_target, within_target); target file 2026-10-13.1 (approved_targets), measurement label provisional; not evaluated: managed_runtime_availability, dispatch_latency, workflow_completion, scheduler_health"
+}

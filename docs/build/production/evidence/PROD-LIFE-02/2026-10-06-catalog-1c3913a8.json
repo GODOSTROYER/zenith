@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "requirement": "PROD-LIFE-02",
+  "reviewer": "integration_authority_review / independent B",
+  "disposition": "TECHNICAL_REQUIRED_EVIDENCE_MET_WITH_EXACT_UNCHANGED_INPUT_REUSE; ROOT_ORDERED_STATUS_DECISION",
+  "candidateSourceSha": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+  "reusedTestRuntimeSourceSha": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+  "literalCriterion": [
+    "Explicit matrix covers VM/container/serverless/triggers/jobs/data/cache/storage/messaging/network/firewall/DNS/TLS/identity/secrets/day-two; schema/refusal/mock-only paths are not offered services."
+  ],
+  "requiredEvidence": [
+    "contract",
+    "local_engine"
+  ],
+  "dependencies": [
+    "PROD-CI-09"
+  ],
+  "observedSuites": [
+    {
+      "file": "tests/offered-catalog/derive.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/offered-catalog/catalog.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/offered-catalog/route.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    {
+      "file": "tests/offered-catalog/mcp.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0
+    }
+  ],
+  "runtimeBinding": {
+    "location": "fresh GitHub hosted native Linux9e Verify",
+    "runId": 37398213464,
+    "jobId": 112059153725,
+    "attempt": 1,
+    "node": "22.23.3",
+    "jobConclusion": "success",
+    "finalIndependentObservationSha256": "9f2e2dcf95880866b25e44aa4681d5bcb6b3352d2d2f70780516f9e0a2e3cbf9",
+    "privateLogSha256": "5cc6ae36ee3ccdd8c2b95593cf645bb15fbf1c0bbb0fec6c110a60e4445924e4",
+    "projection": "Exactly one successful log summary for each of four fixed paths; only filenames and integer counts exported. No arbitrary raw line printed or retained in this receipt.",
+    "noOverlappingCountSum": true
+  },
+  "strictCurrentRootCheck": {
+    "codeCommit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+    "sourceScope": "Catalog/source/lock files unchanged from fresh9e; only reviewedtest2 and currentpendingdocs differ",
+    "command": "node node_modules/tsx/dist/cli.mjs scripts/docs/offered-catalog.ts --strict",
+    "exitCode": 0,
+    "durationSeconds": 3.7192299365997314,
+    "node": "22.23.3",
+    "logSha256": "6d2b3fc1e5677a2b2489e52f931e6617b20f091a441d49ae0117901118b979df",
+    "limits": "Truthful offered catalog derivation/inconsistency check; no offered cloud lifecycle acceptance inferred",
+    "receiptSha256": "6d7d64d1b0e78e354affadab6aba51f1196b765142383d5ef996113669019a4d",
+    "fixedSuccessfulOutputMatchedCatalogVersion": true,
+    "executionLocation": "root-owned local verifier host; no service startup required"
+  },
+  "sourceReuse": {
+    "from": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+    "to": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+    "exactUnchangedGitBytesModesPaths": [
+      "src",
+      "scripts/docs/offered-catalog.ts",
+      "scripts/docs/capability-matrix.ts",
+      "tests/offered-catalog",
+      "tests/middleware/platform-bearer.test.ts",
+      "tests/docs/capability-matrix.test.ts",
+      "tests/agent-v3",
+      "tests/_support",
+      "package.json",
+      "package-lock.json",
+      "vitest.config.ts",
+      "tests/dom-setup.ts",
+      "tsconfig.json"
+    ],
+    "diffEmpty": true,
+    "productionSrcGitTree": "a9a8d6152fa381816e96c59504864d1a2e9c36c5",
+    "productionSrcEquals9e": true,
+    "criticalFingerprints": {
+      "src/lib/offered-catalog/schema.ts": {
+        "sha256": "d29767965d014063b2a8e3cbda971ab09f6e2bf27e55d3e98f348dd615b019b8",
+        "gitMode": "100644",
+        "bytes": 13325
+      },
+      "src/lib/offered-catalog/derive.ts": {
+        "sha256": "aaad0ad9081f8210e9b198d64af4219968308e184714bc7e1d289da4051de6b1",
+        "gitMode": "100644",
+        "bytes": 10774
+      },
+      "src/lib/offered-catalog/index.ts": {
+        "sha256": "2f57737ac0d99f221040cc5d9fbbd38bd316c7c2f4148f1b9b63cf44d35ccc34",
+        "gitMode": "100644",
+        "bytes": 5647
+      },
+      "src/lib/offered-catalog/offered-catalog.json": {
+        "sha256": "43c70a76a6683f037eacad911f70a23575f4bbbd87464f11fffdcf15bea8ef7c",
+        "gitMode": "100644",
+        "bytes": 391197
+      },
+      "src/app/api/platform/v1/capability-catalog/route.ts": {
+        "sha256": "fe2e1653299945d14d6c1e28ffdd3d9105318cc159ae8b467d11369b06736aed",
+        "gitMode": "100644",
+        "bytes": 2066
+      },
+      "src/lib/agent-access/v3/tools/project.ts": {
+        "sha256": "ab32d49d9f1b662b02ebd1674109802cacf576bc99c46e9fdaafb585692ebeb1",
+        "gitMode": "100644",
+        "bytes": 13798
+      },
+      "src/lib/resources/native-types.ts": {
+        "sha256": "b43384e335f7e8372dedf9011ae3ea9f67bae85828af7c0cd2963b8b16142f5a",
+        "gitMode": "100644",
+        "bytes": 8947
+      },
+      "src/lib/resources/types.ts": {
+        "sha256": "814ec22b755eaf9a3d0b1da914e874de7bf23e780c4b83e50e1f713d21488a3b",
+        "gitMode": "100644",
+        "bytes": 7456
+      },
+      "scripts/docs/offered-catalog.ts": {
+        "sha256": "b1b15ea3d0c059e75127871d6bcb88ad860d27c2a0c7492363a571da64c8be5e",
+        "gitMode": "100644",
+        "bytes": 4796
+      },
+      "scripts/docs/capability-matrix.ts": {
+        "sha256": "a57333a3f04828d17b9f04facd210d85d0052cf2aba18ad33a60c40577fb85a0",
+        "gitMode": "100644",
+        "bytes": 33655
+      },
+      "tests/offered-catalog/derive.test.ts": {
+        "sha256": "9fc6f25e1722f28c567a1b2d49c7ae67e53b796962c868a252fdeb8055396cac",
+        "gitMode": "100644",
+        "bytes": 10893
+      },
+      "tests/offered-catalog/catalog.test.ts": {
+        "sha256": "adac1745e6818c6784fba1aa6c43dd86585e998bbfef1817b41d7d832fd3aa68",
+        "gitMode": "100644",
+        "bytes": 9499
+      },
+      "tests/offered-catalog/route.test.ts": {
+        "sha256": "caf3fa61a4169f153642a33c88cab2eea4cda63d8ed788b18716d68d1420e95f",
+        "gitMode": "100644",
+        "bytes": 6684
+      },
+      "tests/offered-catalog/mcp.test.ts": {
+        "sha256": "9678e1c859bf76ff46a6d9a4243545a59ba9a4230284353064e6504a2103568c",
+        "gitMode": "100644",
+        "bytes": 1760
+      },
+      "tests/middleware/platform-bearer.test.ts": {
+        "sha256": "41a32e420bfaa164d1fd55c399df3d7c81e073950a35a756756bd7419dd10e5c",
+        "gitMode": "100644",
+        "bytes": 9058
+      },
+      "tests/docs/capability-matrix.test.ts": {
+        "sha256": "dd8e93cd0e25fcfc030a881483e877e775e1f02d8df61edb9508d6ad5e1d51d2",
+        "gitMode": "100644",
+        "bytes": 20994
+      },
+      "package.json": {
+        "sha256": "4fd329395fe59a1575a1183173f748cfa122b0636805817476041ea500fb7ab6",
+        "gitMode": "100644",
+        "bytes": 6260
+      },
+      "package-lock.json": {
+        "sha256": "daf1845592887828963e70daf08bbe0bf1542567e5a25b9b6be41eb245994ac4",
+        "gitMode": "100644",
+        "bytes": 472049
+      },
+      "vitest.config.ts": {
+        "sha256": "989f8b075986c64a2b4b70b66defc288a84ccc2a5f1b26a33ebe61e62d24fd08",
+        "gitMode": "100644",
+        "bytes": 1574
+      },
+      "tests/dom-setup.ts": {
+        "sha256": "0b2f03f400f9de074516fc859240cdf964571832a0fcebf7236dcca4dc346012",
+        "gitMode": "100644",
+        "bytes": 923
+      },
+      "tsconfig.json": {
+        "sha256": "b89775a27b9a4dc3719331c14f9fcac06ba6be6bfb3b10cd23100fb4d85950dd",
+        "gitMode": "100644",
+        "bytes": 629
+      }
+    },
+    "limit": "Only unchanged catalog/driver declarations/configuration/test closure reuses actual9e execution. New unrelated tests and changed full-commit results are not inferred."
+  },
+  "catalogSnapshot": {
+    "sha256": "43c70a76a6683f037eacad911f70a23575f4bbbd87464f11fffdcf15bea8ef7c",
+    "schemaVersion": 1,
+    "catalogVersion": "v1-b786e6049dcd",
+    "contentDigest": "b786e6049dcd5ed89b20ba0f01d4dcc2150510af6296d8d281ce49e393a0b0b6",
+    "providers": [
+      "aws",
+      "gcp",
+      "azure",
+      "oci",
+      "kubernetes",
+      "zenith",
+      "localstack",
+      "sandbox"
+    ],
+    "domains": [
+      "vm",
+      "container",
+      "serverless",
+      "triggers",
+      "jobs",
+      "data",
+      "cache",
+      "storage",
+      "messaging",
+      "network",
+      "firewall",
+      "dns",
+      "tls",
+      "identity",
+      "secrets",
+      "day-two"
+    ],
+    "entryCount": 208,
+    "entryLevels": {
+      "preview": 119,
+      "unsupported": 89
+    },
+    "supportedCells": 0,
+    "triggersRollupUnsupported": true
+  },
+  "criterionMapping": [
+    {
+      "clause": "Complete explicit domain matrix",
+      "evidence": "208 entries for8 providers x26 portable kinds; all16 named domains. Catalog13 checks complete matrix/invariants/rollup/version/digest, real CLI --check and byte-equal live derivation; derive20 checks no-driver/missing native rows, unique domain placement, version changes and tamper refusal. Unmodelled triggers explicitly unsupported with rationale."
+    },
+    {
+      "clause": "Schema/refusal/mock-only paths are not attested offered services",
+      "evidence": "Actual implementedCell refuses unregistered/simulated/undeclared support; contract-only/experimental/ambiguous implementations are labeled preview. Refusal-only operations and compiler-only/sandbox paths unsupported. Current catalog0 supported cells,119 preview entries/89 unsupported entries; tests pin emulated/real evidence plus registered nonexperimental driver prerequisites and complete reasons."
+    },
+    {
+      "clause": "Versioned read-only exposure",
+      "evidence": "Route7 uses actual REST wrapper and catalog with controlled identity/credential authority for full/filter/summary/authentication/malformed-query/non-echo and bearer refusal. MCP2 uses actual capabilities tool/summary and finite response scope. No default API server or genuine broker/session proof."
+    },
+    {
+      "clause": "Current real generator consistency",
+      "evidence": "Root exact1c executes real tsx offered-catalog --strict under Node22.23.3, exit0; fixed versioned output inspected. Real registered driver declarations/native table, schema/content invariants, exact rendered drift and driver inconsistencies checked. No provider lifecycle calls represented."
+    }
+  ],
+  "recommendation": {
+    "technicalCriterion": "met for literal read-only catalog contract and actual generator local_engine evidence",
+    "rootMayProposeState": "verified",
+    "rootMayProposeImplementationStatus": "verified_1c3913a8",
+    "acceptanceOrder": "Apply only at fixed LIFE02 position after preceding wave1 dispositions; do not bypass unresolved prior clauses.",
+    "appendEvidenceLevels": [
+      "contract",
+      "local_engine"
+    ],
+    "ledgerOrEvidenceEdited": false,
+    "releaseApproval": false
+  },
+  "limits": [
+    "Advisory catalog/generated driver declarations do not attest provision/runtime/observe/verify/discovery/day-two provider execution. Preview remains explicitly contract-only; no supported provider promotion.",
+    "Kubernetes/Zenith native apply per kind and LocalStack legacy adapters are not attested; triggers without portable kinds/refusal/sandbox/unknown paths remain explicit.",
+    "REST/session/bearer and MCP use controlled identity/store adapters; no default browser/API/native-human/broker journey proved.",
+    "Read-only advice is the criterion: planner/compiler consumption and legacy MCPv1/v2 are outside this scope.",
+    "Four suite9e and strict1c evidence scopes individually bound. No whole-suite overlap sum; unrelated whole-unit skips are not promoted.",
+    "No repository edits, runtime, imports, compiler, services, Docker, cloud or acceptance-state change by reviewer. All78 criteria and four false release flags preserved."
+  ],
+  "appendProposal": {
+    "id": "PROD-LIFE-02",
+    "state": "verified",
+    "implementationStatus": "verified_1c3913a8",
+    "condition": "Root fixed-order wave1 checkpoint and unchanged-input evidence mapping; no release approval or other-row modification.",
+    "preserve": "All original acceptance/requiredEvidence/dependencies/prior evidence and four false release flags.",
+    "evidenceToAppend": [
+      {
+        "level": "contract",
+        "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+        "result": "Exact unchanged9e\u21921c catalog/source/config/support closure: derive20 passed/0 failed/0 skipped, catalog13/0/0, route7/0/0, MCP2/0/0. Each count is separately observed in the current9e terminal Verify log; no overlapping sum. Complete208-entry/16-domain versioned matrix, refusal/simulated/schema-only/contract-preview rules, drift/tamper and read-only exposure pass. No supported provider promotion.",
+        "command": "Current9e canonical core unit execution, four allowlisted offered-catalog suites; read-only exact Git input reuse to1c",
+        "environment": {
+          "node": "22.23.3",
+          "architecture": "Fresh hosted native Linux9e; source-bound same catalog inputs at1c; controlled route/MCP identity/store adapters"
+        },
+        "logs": "docs/build/production/evidence/PROD-LIFE-02/2026-10-06-catalog-1c3913a8.json"
+      },
+      {
+        "level": "local_engine",
+        "commit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+        "result": "Root actual strict offered-catalog CLI exit0 on exact1c; catalog v1-b786e6049dcd, contentDigest b786e6049dcd5ed89b20ba0f01d4dcc2150510af6296d8d281ce49e393a0b0b6. Current real driver declaration/native-type/schema/drift/inconsistency checks passed; zero supported cells. Generator execution only, no provider lifecycle or default API evidence.",
+        "command": "node node_modules/tsx/dist/cli.mjs scripts/docs/offered-catalog.ts --strict",
+        "environment": {
+          "node": "22.23.3",
+          "execution": "root-owned local verifier host; no services, credentials or provider calls required"
+        },
+        "logs": "docs/build/production/evidence/PROD-LIFE-02/2026-10-06-catalog-1c3913a8.json"
+      }
+    ]
+  },
+  "rootDisposition": {
+    "accepted": true,
+    "contractEvidenceCommit": "9e4a42af28eb6139c0d23fe42f07c03b4eb6c5ac",
+    "localEngineEvidenceCommit": "1c3913a87c5c39b91e690e8aed36db5cb79e56a5",
+    "reason": "Bind contract execution to actual9e unit runtime; immutable catalog input closure supports current1c strict result. Original reviewer appendProposal preserved as historical proposal, not applied verbatim.",
+    "originalReviewSha256": "9d0a779ca5367467783385c1f0a0c5bb4d727c4de6cc7beda5e720c48ccb2a4e"
+  }
+}

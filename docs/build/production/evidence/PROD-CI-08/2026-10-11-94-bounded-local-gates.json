@@ -1,0 +1,467 @@
+{
+  "schemaVersion": 1,
+  "commit": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430",
+  "status": "passed_executed_gates_only",
+  "acceptanceBoundary": {
+    "acceptedLevel": "none",
+    "wholeMilestoneAccepted": false,
+    "acceptedRunReceipt": false,
+    "releaseFlags": {
+      "productionApproved": false,
+      "pilotReady": false,
+      "sandboxVerified": false,
+      "implementationComplete": false
+    },
+    "note": "The two bounded local gate results below pass their own recorded scopes; neither accepts a whole production requirement or supplies cloud/live-server acceptance."
+  },
+  "sourceFreeze": {
+    "offlineDnsBeforeSha256": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "offlineDnsAfterSha256": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "workflowHistoryReplayBeforeSha256": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "workflowHistoryReplayAfterSha256": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "equalForBoth": true
+  },
+  "offlineDnsPlanContract": {
+    "level": "contract",
+    "result": "passed",
+    "counts": {
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "total": 59,
+      "suites": 3
+    },
+    "reportSha256": "6beb98deca13b35af329a5d61733293b8da3eb5e556d723b542e38cca566ea2f",
+    "outerPrivateSummarySha256": "9d54b6dd3afa26cdc1bda1068bfdf3a3fef178d85e1a95d5f672cf427f0813ca",
+    "outerPrivateSummaryAcceptedRunReceipt": false,
+    "commandReceipts": {
+      "count": 11,
+      "allReturncodeZero": true,
+      "allCloseoutComplete": true,
+      "allRegistryProvenAbsent": true,
+      "custodyUncertain": false,
+      "resourceBreach": false,
+      "monitorFailure": false
+    },
+    "scope": "Offline DNS/planner, inventory/readback and teardown/evidence contract suite. The tests make no live calls; no real DNS, provider API or cloud behavior is claimed."
+  },
+  "workflowHistoryReplay": {
+    "level": "local_engine",
+    "result": "passed",
+    "counts": {
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "total": 34,
+      "historyReplayAssertions": 29,
+      "versioningAuditAssertions": 5
+    },
+    "requiredIdentities": [
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:11c9372298c4",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:ca053d4a7ffa",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:fd56cd941022",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:8744128c0a9e",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:1c364350141a",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:eaca45b6d6b7",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:87db48b6511e",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:3aef3e2319a2",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:2511e70410ac",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:f862c0ca2f28",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:217cee7bdf53",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:d24898d990cb",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:9bd63aa2eb20",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:d9916b20ed8f",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:10fbc2c302bb",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:4f2aef1cd9ac",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:e0a8479c4469",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:599d31f58731",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:c7ee74ad2f02",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:be8dffb99b65",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:7d76388ab023",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:404108cfbc97",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:dcdea3bad29a",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:b614b4ac1f76",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:faa76b639737",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:be6df6808e1a",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:7a72efa28e05",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:1bb1bc14d9b8",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/history-replay.test.ts:1ed963fe5b4e",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/versioning-audit.test.ts:42b84e22c212",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/versioning-audit.test.ts:7d93ce0f1ca7",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/versioning-audit.test.ts:05156f32cdf6",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/versioning-audit.test.ts:c336390bb162",
+        "status": "passed"
+      },
+      {
+        "counts": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "unknown": 0
+        },
+        "id": "workflow-history-replay:tests/workflows/versioning-audit.test.ts:daf8e7f59be8",
+        "status": "passed"
+      }
+    ],
+    "manifestSha256": "969555dfb6eb032cd9df2ee5dcd708cad3bbd0b81ae3ec77fd4a635733e2276f",
+    "reportSha256": "d688f0461c42a398f25ebec7532933998f5bd8faa1bf16a227d4c9bf91f8d90a",
+    "evidenceSha256": "8e3bc7973cbe24a29fd5b4141f3f6c86a17901cecae316ae173cc5ffa61c9749",
+    "outerPrivateSummarySha256": "8a59172de2315629769f1751a082b8fc9c988c3fd12764e3a886c99ddcaef52a",
+    "executionReceipt": {
+      "observed": true,
+      "binding": "matched",
+      "exitCode": 0,
+      "termination": "exit",
+      "signal": null,
+      "explicitExecutionValidatorExitCode": 0
+    },
+    "commandReceipts": {
+      "count": 12,
+      "allReturncodeZero": true,
+      "allCloseoutComplete": true,
+      "allRegistryProvenAbsent": true,
+      "custodyUncertain": false,
+      "resourceBreach": false,
+      "monitorFailure": false
+    },
+    "runtime": "Temporal SDK local history replay against the current workflow bundle; manifest explicitly says no server is needed. Not a live Temporal server rehearsal.",
+    "scope": "Supports current-source deterministic history replay and versioning audit only. It does not establish prior-release compatibility, in-flight rolling-upgrade or rollback acceptance, real-cloud execution, or full PROD-OPS-03 acceptance."
+  },
+  "resourceAndCustodyCloseout": {
+    "floorWatchersJoinedAndClear": true,
+    "floorWatcherFailures": 0,
+    "offlineDnsMinimumAvailableBytes": 345074659328,
+    "workflowReplayMinimumAvailableBytes": 345043865600,
+    "allCommandCustodyComplete": true,
+    "allCommandRegistriesProvenAbsent": true
+  }
+}

@@ -28,7 +28,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
-import type { Manifest, Revision } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
+import type { AnyManifest, Revision } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
 const DATA = tempDataDir("zenith-ns-");
@@ -341,7 +342,7 @@ describe("a value a live revision still reads is kept, not deleted", () => {
     // A revision deployed to staging that still reads the reference. Written
     // directly because what matters here is the state a deploy leaves behind,
     // not the deploy machinery — `tests/actions/deploy.test.ts` owns that.
-    const deployed: Manifest = structuredClone(manifest());
+    const deployed: AnyManifest = structuredClone(manifest());
     deployed.services = deployed.services
       .filter((s) => s.name === "relay")
       .map((s) => ({ ...s, env: [{ key: "RELAY_TOKEN", secretRef: relayRef }] }));
@@ -413,7 +414,7 @@ describe("namespaced or legacy, the value stays in the store", () => {
         baseDomain: "atlas.zenith.test",
         createdAt: new Date().toISOString(),
       },
-      manifest()
+      v1View(manifest())
     );
     const exported = JSON.stringify(bundle);
 

@@ -1,76 +1,32 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Check, Eclipse, Monitor, Moon, Sun } from "lucide-react";
+import { chooseTheme, useTheme } from "@/lib/client/theme-store";
+import type { Theme } from "@/lib/theme";
 import { Button, type ButtonSize } from "./button";
 import { MenuItem, Popover } from "./popover";
 
-export type Theme = "dark" | "light" | "system";
-
-const KEY = "zenith-theme";
-
-/** What "system" resolves to right now. */
-function prefersLight(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-color-scheme: light)").matches === true
-  );
-}
-
-/** The document only ever encodes "light" — its absence is dark. */
-function paint(theme: Theme): void {
-  const light = theme === "light" || (theme === "system" && prefersLight());
-  const root = document.documentElement;
-  if (light) root.setAttribute("data-theme", "light");
-  else root.removeAttribute("data-theme");
-}
-
-function stored(): Theme {
-  try {
-    const t = localStorage.getItem(KEY);
-    if (t === "dark" || t === "light" || t === "system") return t;
-  } catch {
-    /* The displayed theme still identifies the choice when storage is unavailable. */
-  }
-  // Client navigation can carry the landing's unsaved light theme into the app.
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
-}
+export type { Theme } from "@/lib/theme";
 
 const OPTIONS: { value: Theme; label: string; icon: typeof Sun; hint: string }[] = [
   { value: "light", label: "Light", icon: Sun, hint: "Always light" },
   { value: "dark", label: "Dark", icon: Moon, hint: "Always dark" },
+  { value: "amoled", label: "AMOLED Dark", icon: Eclipse, hint: "True-black surfaces" },
   { value: "system", label: "System", icon: Monitor, hint: "Follows your OS" },
 ];
 
 /**
- * Dark is the default; the choice persists to `zenith-theme` and is applied
- * before paint by the script in app/layout.tsx. "System" follows
- * `prefers-color-scheme` and keeps following it while the OS setting changes.
+ * All selector instances share the document preference. ThemeSync owns system
+ * and storage listeners, so they remain active on routes without a selector.
  */
 export function ThemeToggle({ size = "sm" }: { size?: ButtonSize }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
-  useEffect(() => setTheme(stored()), []);
-
-  // While "system" is chosen, an OS change repaints without a reload.
-  useEffect(() => {
-    if (theme !== "system" || !window.matchMedia) return;
-    const mq = window.matchMedia("(prefers-color-scheme: light)");
-    const onChange = () => paint("system");
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [theme]);
-
   const choose = (next: Theme) => {
-    paint(next);
-    setTheme(next);
+    chooseTheme(next);
     setOpen(false);
-    try {
-      localStorage.setItem(KEY, next);
-    } catch {
-      /* private mode: the choice still holds for this page */
-    }
   };
 
   const current = OPTIONS.find((o) => o.value === theme) ?? OPTIONS[1];
@@ -98,6 +54,7 @@ export function ThemeToggle({ size = "sm" }: { size?: ButtonSize }) {
       {OPTIONS.map((o) => (
         <MenuItem
           key={o.value}
+          checked={o.value === theme}
           icon={<o.icon className="h-3.5 w-3.5" aria-hidden="true" />}
           hint={
             o.value === theme ? (

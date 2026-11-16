@@ -1,0 +1,28 @@
+{
+  "format": "zenith.run-checkpoint.v1",
+  "runId": "zlive-202611151810-7d5c",
+  "harness": "aws-live",
+  "scopeDigest": "804c6aaf7ac08aa72b28b2112a1b1862079fe23dff87d36fabce076013efa1fd",
+  "createdAt": "2026-11-15T18:23:24.993Z",
+  "updatedAt": "2026-11-15T18:35:37.656Z",
+  "unattendedClaims": false,
+  "steps": [
+    {
+      "id": "run",
+      "status": "done",
+      "startedAt": "2026-11-15T18:23:25.107Z",
+      "endedAt": "2026-11-15T18:35:37.656Z",
+      "note": "journal closed; cleanup complete",
+      "evidenceDigest": "c6de8287549bf88efe586110b847fadd595bd8171085af8b4012ad960c0dec74",
+      "attempts": 1
+    }
+  ],
+  "decisions": [
+    {
+      "at": "2026-11-15T18:23:24.994Z",
+      "by": "automation (delegated by Saivedant Hava on 2026-10-26)",
+      "text": "plan=540f5cd088a1d447e29789abb555fc08d7f23919f7cd7632cc8af2560bb908cf permission=4fb0a3521cee732eb75612490ef1965705cc8196189e21260dcc436f5a9fde0e commit=feabd5a4d19db854f1b098125262e6f350d27344 budgetUsd=0.75 scenario=ops-04 approval=awsLive:zenith-aws-permissions.json root:zenith-live-scope.json"
+    }
+  ],
+  "nextCommands": []
+}

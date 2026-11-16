@@ -1,0 +1,54 @@
+{
+  "acceptance": false,
+  "catalogRead": {
+    "bypassRlsReported": true,
+    "currentRoleInsertUpdateAll": true,
+    "custodySettled": true,
+    "dbClosed": true,
+    "exitCode": 0,
+    "fixtureRowsPerTable": 1,
+    "mutationAttempted": false,
+    "receiptSha256": "200804d6e0b7c7d9b7a63cb69c8f051b43bb1ca66278489c12f4aedfb4ec02f2",
+    "rlsActiveForCurrentRoleAll": false,
+    "rlsEnabledAll": true,
+    "rlsForcedAll": false,
+    "scope": "catalog observation only; does not attribute row creation to a specific attempt or establish acceptance",
+    "status": "diagnostic-completed",
+    "tables": [
+      "agent_nonces",
+      "billing_account_events",
+      "billing_accounts"
+    ],
+    "terminalReviewSha256": "9a20b35494beadfe49c7f228c0ccb8ba126f7b619fdb37909d0d19be628dd07e"
+  },
+  "fixtureCandidate": {
+    "behavior": "explicit test mode and absolute OpenTofu identity paths are limited to the owned-local J4 fixture gate; production worker identity/TLS checks unchanged",
+    "candidateManifestSha256": "6ba4e9240e0439af02f46cf6881e52de5cb52ee1a1de88a59b429fde15832098",
+    "candidatePatchSha256": "04c55aa80c4efb2e861e8e89d94109b3743d9bf20a3381296906a10ccd2311a6",
+    "focusedReportSha256": "7c1a162c1886cef19c1db3505c4dd4b48e9465980375606e45ec1d84b6bc6cbf",
+    "focusedTests": {
+      "failed": 0,
+      "passed": 39,
+      "skipped": 0,
+      "suitesFailed": 0,
+      "suitesPassed": 9
+    },
+    "independentReviewSha256": "dbd0496b1a01a036c37862f7378706f8195f4f2edf71ea964486f4d0190852bd",
+    "limitations": [
+      "fixture-only focused proof; not full-source acceptance",
+      "genuine artifact packaging remains pending",
+      "actual J4 acceptance remains pending",
+      "no production acceptance or milestone promotion"
+    ],
+    "reviewVerdict": "PASS_BOUNDED_SOURCE_REVIEW",
+    "status": "independently-reviewed-focused-candidate"
+  },
+  "kind": "j4_readonly_catalog_and_local_fixture_candidate",
+  "milestonePromotion": false,
+  "schemaVersion": 1,
+  "source": {
+    "commit": "554635916dfc8ce6c74e7b699a24e2f61670bebc",
+    "contentSha256": "d2418c6022e4aea3ccb7ba0d1557d73b692d59815b6e3525226f4397fa8981c8",
+    "dirty": false
+  }
+}

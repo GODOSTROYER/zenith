@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-03T06:05:43.440895+00:00",
+  "commit": "356b7d014836e6cb39e54d4848f20d508fe31fde",
+  "status": "passed_local_database_not_main_integrated",
+  "scope": "Fresh disposable PostgreSQL 16.15 on exact clean isolated staging source",
+  "counts": {
+    "total": 251,
+    "passed": 251,
+    "failed": 0,
+    "skipped": 0,
+    "unknown": 0
+  },
+  "requiredGroups": 9,
+  "required": [
+    {
+      "id": "postgres:tests/hosted/authority/contract/access.test.ts:34e3ff02f3af",
+      "file": "tests/hosted/authority/contract/access.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/hosted/authority/contract/contract.test.ts:34e3ff02f3af",
+      "file": "tests/hosted/authority/contract/contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/hosted/authority/contract/ledgers.test.ts:749ea47aebd3",
+      "file": "tests/hosted/authority/contract/ledgers.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/hosted/authority/contract/release.test.ts:34e3ff02f3af",
+      "file": "tests/hosted/authority/contract/release.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 18,
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/scripts/migrate-hosted-to-postgres.test.ts:2b050f3ed9be",
+      "file": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/agent-link/pg-contract.test.ts:5246000cb75e",
+      "file": "tests/agent-link/pg-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/agent-control/pg-contract.test.ts:a22aa1702a27",
+      "file": "tests/agent-control/pg-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/db/contract/workspace-sharing.test.ts:420737db2f8f",
+      "file": "tests/db/contract/workspace-sharing.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 22,
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    },
+    {
+      "id": "postgres:tests/waitlist/pg-contract.test.ts:3d9c4f3951d7",
+      "file": "tests/waitlist/pg-contract.test.ts",
+      "backend": "postgres",
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "executionBindings": {
+    "lane": true,
+    "reportSha256": true,
+    "manifestSha256": true,
+    "sourceSha256": true,
+    "sourceBindingComplete": true,
+    "effectiveEnvironmentSha256": true,
+    "environmentInventorySha256": true,
+    "shellContextSha256": true,
+    "shellLevelSha256": true,
+    "shellCommandSha256": true,
+    "runtimeSha256": true,
+    "environmentInventoryIntegrity": true
+  },
+  "executionRevalidation": "passed",
+  "manifestSha256": "e5de2aa44889d2c17f8ae7ffab437f76238558d6aad50d4b85d4c5771486fffb",
+  "privateReportSha256": "cfc38f828ab006c3d70cc5b251a5b0d3ec150f0883ce78ea053b39a2da41e164",
+  "privateEvidenceSha256": "a5d9e0fcd7f7799f30896c00618c010f5b2202acfd3ea049471c4a6a053c8522",
+  "lockSha256": "b6c8d26a1c57a70d031ad8b72d1a391d554e53121a8b58e590763902c674816d",
+  "sourceBindingComplete": true,
+  "expectedTools": {
+    "node": "22.23.3",
+    "postgres": "16.15"
+  },
+  "steps": [
+    {
+      "name": "pull",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 14.97,
+      "logSha256": "27729e4aa020f5a27d759890e57b89fc4cb7460126a53fa7b9babe7c07a94116"
+    },
+    {
+      "name": "start",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.49,
+      "logSha256": "a22f503ec38dcf55670debe42eaf183f2cc2c37e2dc495a9267495d172de080f"
+    },
+    {
+      "name": "apply-supabase",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 2.01,
+      "logSha256": "0103b30bdaad9bf81b54003fd614d636dff95fa600056cebb6b4048fae134689"
+    },
+    {
+      "name": "reapply-supabase",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 1.38,
+      "logSha256": "0103b30bdaad9bf81b54003fd614d636dff95fa600056cebb6b4048fae134689"
+    },
+    {
+      "name": "canonical-postgres",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 5.93,
+      "logSha256": "898a7d1919a4c6ce69210d2d06c2873369243c004a1bcc4694602b5751ef84c4"
+    },
+    {
+      "name": "canonical-revalidate",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.14,
+      "logSha256": "ef36e99e058a8bf7218e427b99ebe5e216d4df23e7ffb1865acd375733ee6e82"
+    },
+    {
+      "name": "verify-fresh",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.21,
+      "logSha256": "1cb7df0bc5b4e2cd56413aa52f4bbf774a50b1564f66908a7fe2aa6dde3f7a44"
+    },
+    {
+      "name": "tamper-name",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.04,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "reject-name",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "passed": true,
+      "seconds": 0.21,
+      "logSha256": "d70d83c2065bd36eb41f0aad5d26ddab9a898a66027e6ae9dc8f2e37c55935f1"
+    },
+    {
+      "name": "restore-name",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.03,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "tamper-checksum",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "passed": true,
+      "seconds": 0.03,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "reject-checksum",
+      "exitCode": 1,
+      "expectedExitCode": 1,
+      "passed": true,
+      "seconds": 0.21,
+      "logSha256": "d70d83c2065bd36eb41f0aad5d26ddab9a898a66027e6ae9dc8f2e37c55935f1"
+    }
+  ],
+  "cleanup": {
+    "container": "zenith-prod-pg-8b81b449",
+    "ownershipVerified": true,
+    "removed": true,
+    "absenceVerified": true,
+    "newImageRemoved": true,
+    "baselineImagesPreserved": true,
+    "hostFreeGiB": 24.77
+  },
+  "limits": [
+    "Lane totals include assertions outside the mandatory PostgreSQL groups; they are not deduplicated database-operation counts.",
+    "Bare local PostgreSQL does not prove production TLS, pooler, authorization, load, hosted Supabase or restore acceptance.",
+    "No production approval, live cloud account, default browser/API startup or main-branch source integration is established."
+  ],
+  "migrationProof": "Complete emitted Supabase application and reapplication passed. Changed platform migration name and checksum each produced the expected verifier refusal."
+}

@@ -1,0 +1,55 @@
+{
+  "format": "zenith.release-lane-source.v1",
+  "requirements": [
+    "PROD-MIX-04"
+  ],
+  "mode": "contract",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "exitCode": 0,
+  "status": "passed",
+  "counts": {
+    "passed": 335,
+    "failed": 0,
+    "skipped": 0
+  },
+  "environment": "Mac mini, Darwin arm64, Node v22.23.3 (official nodejs.org build, SHASUMS256 verified); offline Vitest, no engine, no network, no ZENITH_TEST_* or ZENITH_LIVE_*",
+  "command": "vitest run tests/execution/mixed-orchestration.test.ts tests/execution/mixed-orchestration-service.test.ts tests/execution/mixed-orchestration-signals.test.ts tests/execution/mixed-orchestration-join.test.ts tests/execution/mixed-partitions.test.ts tests/acceptance/mixed-failure-scenarios.test.ts tests/controlplane/mixed-runs.test.ts tests/controlplane/mixed-follow-up.test.ts tests/controlplane/mixed-parent-plans.test.ts --no-file-parallelism --maxWorkers=1",
+  "files": [
+    {
+      "path": "tests/execution/mixed-orchestration.test.ts",
+      "sha256": "4721f4f6754963df9eac690705d1d917dbd9a20742adf2ae052aad1fb60b9af8"
+    },
+    {
+      "path": "tests/execution/mixed-orchestration-service.test.ts",
+      "sha256": "5c98a1efb099b81331fa3744fdb43cc7212d0373c7831cb68cbcfa98bf081453"
+    },
+    {
+      "path": "tests/execution/mixed-orchestration-signals.test.ts",
+      "sha256": "66e7a7b1d488e4504a776c97d24ee9bb636ba1140235ac5e43ed611272dce85f"
+    },
+    {
+      "path": "tests/execution/mixed-orchestration-join.test.ts",
+      "sha256": "c64d638cfabc46e9dc22aa20c84b0ac3e55a2fc1f0bdca731b2aced574c3cd28"
+    },
+    {
+      "path": "tests/execution/mixed-partitions.test.ts",
+      "sha256": "457efd26027aa3b499863142ee0bf4e23b164f9c8ca9197a98cf8217a14f5560"
+    },
+    {
+      "path": "tests/acceptance/mixed-failure-scenarios.test.ts",
+      "sha256": "8034e65388ed923d4fcc8f191146cc5d3f0d3c5ea11dcf37f9f06e61f88a3002"
+    },
+    {
+      "path": "tests/controlplane/mixed-runs.test.ts",
+      "sha256": "667a8719383e178f7af7ea43a82fcdd58a406cbc2993cb2c1ee1453438aefc28"
+    },
+    {
+      "path": "tests/controlplane/mixed-follow-up.test.ts",
+      "sha256": "2141f4f27ae273d4137670f984b192b959a4432a9bace0803f97cdba6ba8970e"
+    },
+    {
+      "path": "tests/controlplane/mixed-parent-plans.test.ts",
+      "sha256": "38f661367b0e1af47a9b18c6191a42cf337d67c5bc05f9ef158ff9142d967f38"
+    }
+  ]
+}

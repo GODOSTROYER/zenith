@@ -25,7 +25,7 @@
  *
  * ## Ordering and durability
  *
- * Manifest and event writes are queued on the same `__zenithPgPending` chain
+ * AnyManifest and event writes are queued on the same `__zenithPgPending` chain
  * the store's own coalescer uses (`schedule()` in `../postgres-store.ts`), so
  * `flushPostgres()` — which `route()` awaits after every mutating handler —
  * waits for them too, and a write queued from inside a flush runs after that
@@ -79,7 +79,7 @@
 import type {
   Deployment,
   DeploymentEvent,
-  Manifest,
+  AnyManifest,
   Revision,
 } from "@/lib/domain/types";
 import { log } from "@/lib/log";
@@ -216,11 +216,11 @@ export function resetHistoryCaches(): void {
 /** TODO(ceiling): LRU by insertion order; a Map is the stdlib's LRU. */
 const MANIFEST_CACHE_MAX = 32;
 
-type GM = typeof globalThis & { __zenithPgManifests?: Map<string, Manifest> };
-const manifestCache = (): Map<string, Manifest> =>
+type GM = typeof globalThis & { __zenithPgManifests?: Map<string, AnyManifest> };
+const manifestCache = (): Map<string, AnyManifest> =>
   ((globalThis as GM).__zenithPgManifests ??= new Map());
 
-function cacheGet(id: string): Manifest | undefined {
+function cacheGet(id: string): AnyManifest | undefined {
   const cache = manifestCache();
   const hit = cache.get(id);
   if (!hit) return undefined;
@@ -229,7 +229,7 @@ function cacheGet(id: string): Manifest | undefined {
   return hit;
 }
 
-function cachePut(id: string, m: Manifest): Manifest {
+function cachePut(id: string, m: AnyManifest): AnyManifest {
   const cache = manifestCache();
   cache.delete(id);
   cache.set(id, m);
@@ -246,7 +246,7 @@ function cachePut(id: string, m: Manifest): Manifest {
  * is already cached, and `warmRevisionManifests()` fills the cache in one query
  * for a screen that is about to read several.
  */
-function readManifest(id: string): Manifest {
+function readManifest(id: string): AnyManifest {
   const hit = cacheGet(id);
   if (hit) return hit;
   const { rows } = restSync({
@@ -262,14 +262,14 @@ function readManifest(id: string): Manifest {
     throw new Error(
       `Revision "${id}" has no stored manifest (revision_manifests). The revision row is in Postgres but its manifest row is missing — restore it from a backup, or delete the revision.`
     );
-  return cachePut(id, row.manifest as Manifest);
+  return cachePut(id, row.manifest as AnyManifest);
 }
 
 /** How many times a manifest insert waits for its revision row to appear. */
 const MAX_FK_ATTEMPTS = 3;
 const FK_RETRY_MS = 50;
 
-async function insertManifest(revisionId: string, manifest: Manifest): Promise<void> {
+async function insertManifest(revisionId: string, manifest: AnyManifest): Promise<void> {
   const client = pgClient();
   const workspaceId = workspaceOfRevision(revisionId);
   for (let attempt = 1; ; attempt++) {
@@ -292,7 +292,7 @@ async function insertManifest(revisionId: string, manifest: Manifest): Promise<v
   }
 }
 
-function writeManifest(revisionId: string, manifest: Manifest): void {
+function writeManifest(revisionId: string, manifest: AnyManifest): void {
   cachePut(revisionId, manifest);
   queue(`manifest for revision "${revisionId}"`, () => insertManifest(revisionId, manifest));
 }
@@ -314,11 +314,11 @@ export async function warmRevisionManifests(revisionIds: string[]): Promise<void
     .in("revision_id", wanted);
   if (error) throw storeError("revision_manifests", "read", error.message);
   for (const row of (data ?? []) as PgRow[])
-    cachePut(String(row.revision_id), row.manifest as Manifest);
+    cachePut(String(row.revision_id), row.manifest as AnyManifest);
 }
 
 /** One manifest without blocking, for a caller that can await. */
-export async function revisionManifestAsync(id: string): Promise<Manifest | undefined> {
+export async function revisionManifestAsync(id: string): Promise<AnyManifest | undefined> {
   const hit = cacheGet(id);
   if (hit) return hit;
   await warmRevisionManifests([id]);
@@ -349,7 +349,7 @@ function attachManifest(r: Revision): void {
     configurable: true,
     enumerable: false, // ← what keeps manifests out of every write
     get: () => readManifest(r.id),
-    set: (m: Manifest) => writeManifest(r.id, m),
+    set: (m: AnyManifest) => writeManifest(r.id, m),
   });
   Object.defineProperty(r, PG_MANIFEST, {
     value: true,

@@ -63,7 +63,7 @@ export function SegmentedControl<T extends string = string>({
       role="radiogroup"
       aria-label={label}
       className={cx(
-        "ui-segments inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-ctl border border-line bg-bg1 p-0.5",
+        "ui-segments inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-ctl border border-control-line bg-bg1 p-0.5",
         className
       )}
     >

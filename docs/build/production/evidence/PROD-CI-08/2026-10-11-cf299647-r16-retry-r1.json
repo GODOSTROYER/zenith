@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "kind": "zenith_r16_retry_terminal_summary",
+  "sourceSha": "cf299647df8551f246e04021a8784a7742b06749",
+  "status": "passed_terminal_R16_core_retry_only",
+  "executionAcceptedForCoreOnly": true,
+  "broaderAcceptanceClaim": false,
+  "counts": {
+    "totalIdentities": 26510,
+    "passed": 24567,
+    "failed": 0,
+    "skipped": 1943,
+    "suitesPassed": 4887,
+    "suitesFailed": 0,
+    "projects": {
+      "node": 25445,
+      "dom": 1065
+    }
+  },
+  "identityValidation": {
+    "collected": 26510,
+    "completed": 26510,
+    "uniqueCollected": 26510,
+    "uniqueCompleted": 26510,
+    "duplicateIds": 0,
+    "reportAndIdentityRowsMatch": true,
+    "collectedAndCompletedSetsMatch": true
+  },
+  "source": {
+    "stable": true,
+    "sourceEntries": 5934,
+    "freezeSha256": "457ae0a0a6634e94e732b25ac043fc7307f93e7a4ca1e5143979046e0f059703"
+  },
+  "custody": {
+    "complete": true,
+    "events": 53,
+    "offRootAdmissions": 1,
+    "quarantined": 0,
+    "pendingResolvedAbsent": 15,
+    "pendingStillLive": 0,
+    "terminalAbsenceProven": true,
+    "captureChecks": 24,
+    "captureAllEsrchNoBytes": true
+  },
+  "resources": {
+    "minimumHostFreeBytes": 316684996608,
+    "hostDiskFloorBytes": 23622320128,
+    "ownedRunDataRemoved": true
+  },
+  "receipts": {
+    "summarySha256": "3b8be80e2af7c73284028d3386f98fd89c1eb301d9ef9a1813e4a48f659c5d58",
+    "outerExecutionReceiptSha256": "c11dcf9adc5053ec0aacb1dab4e5dee58b4237d8f349a2423a0c1e0e673f8606",
+    "testResultsAuditSha256": "0c8567e1327464b25c35c4770ddfb3d23e45db987a93b5737698e0599efd20e3",
+    "terminalReviewSha256": "6610e0b959d2b5633e50361dbc174ec6588cad6680db7e62de38a609d9ad3454"
+  },
+  "historicalFirstAttempt": {
+    "status": "refused_hard_process_custody_violation",
+    "accepted": false,
+    "retainedEvidence": "2026-10-11-cf299647-r16-custody-refusal-r1.json",
+    "retroactiveAcceptance": false
+  },
+  "scopeLimit": "This is a passed terminal retry for R16 Node/DOM core only. The earlier refused attempt remains refused. This evidence does not establish actual pooler, J1/J2, browser, engine, or full release acceptance."
+}

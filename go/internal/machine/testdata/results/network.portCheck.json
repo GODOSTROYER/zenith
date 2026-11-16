@@ -1,0 +1,17 @@
+{
+  "args": {
+    "host": "missing.example",
+    "port": 443,
+    "timeoutSec": 5
+  },
+  "operation": "network.portCheck",
+  "result": {
+    "ok": true,
+    "data": {
+      "host": "missing.example",
+      "open": false,
+      "port": 443,
+      "reason": "dns_not_found"
+    }
+  }
+}

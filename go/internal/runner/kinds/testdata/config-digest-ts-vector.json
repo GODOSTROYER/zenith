@@ -1,0 +1,72 @@
+{
+  "rule": "configDigest = hex(sha256(concat over files sorted by byte order of path of: path || 0x00 || lowercase-hex(sha256(content bytes)) || 0x0A)); the lockfile is not part of it. lockDigest = lowercase-hex(sha256(lockfile bytes)). Paths are ASCII so JS code-unit order equals Go byte order. See docs/platform/RUNNER-PROTOCOL.md (tofu.run).",
+  "vectors": [
+    {
+      "name": "empty file list",
+      "files": [],
+      "configDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "one file, empty content",
+      "files": [
+        {
+          "path": "main.tf.json",
+          "content": "",
+          "contentB64": ""
+        }
+      ],
+      "configDigest": "d386376b96ef7902212e4055eb295a141004d13d4c26acda9dbd981aa0a9dc9c"
+    },
+    {
+      "name": "unsorted input, nested path, non-ASCII content",
+      "files": [
+        {
+          "path": "modules/a.tf.json",
+          "content": "{\"note\": \"café ✓\"}\n",
+          "contentB64": "eyJub3RlIjogImNhZsOpIOKckyJ9Cg=="
+        },
+        {
+          "path": "main.tf.json",
+          "content": "{\n  \"resource\": {}\n}\n",
+          "contentB64": "ewogICJyZXNvdXJjZSI6IHt9Cn0K"
+        },
+        {
+          "path": "backend.tf.json",
+          "content": "{\n  \"terraform\": {\n    \"backend\": {\n      \"local\": {\n        \"path\": \"terraform.tfstate\"\n      }\n    }\n  }\n}\n",
+          "contentB64": "ewogICJ0ZXJyYWZvcm0iOiB7CiAgICAiYmFja2VuZCI6IHsKICAgICAgImxvY2FsIjogewogICAgICAgICJwYXRoIjogInRlcnJhZm9ybS50ZnN0YXRlIgogICAgICB9CiAgICB9CiAgfQp9Cg=="
+        }
+      ],
+      "configDigest": "b4f4ef21d90f736c5ff496d34793c862335f155b946fc8292cd535c3d1464557"
+    },
+    {
+      "name": "byte order, not locale order: uppercase sorts before lowercase, '-' before '.'",
+      "files": [
+        {
+          "path": "a.tf.json",
+          "content": "a\n",
+          "contentB64": "YQo="
+        },
+        {
+          "path": "Z.tf.json",
+          "content": "Z\n",
+          "contentB64": "Wgo="
+        },
+        {
+          "path": "a-b.tf.json",
+          "content": "ab\n",
+          "contentB64": "YWIK"
+        },
+        {
+          "path": "B.tf.json",
+          "content": "B\n",
+          "contentB64": "Qgo="
+        }
+      ],
+      "configDigest": "bf28ade2373d959a1e42cc0d9caf6f584a58126fa5f515f53b46de1ae8afcb96"
+    }
+  ],
+  "lock": {
+    "lockfile": "# This file is maintained automatically by \"tofu init\".\n# Manual edits may be lost in future updates.\n\nprovider \"registry.opentofu.org/hashicorp/random\" {\n  version     = \"3.9.1\"\n  constraints = \"3.9.1\"\n  hashes = [\n    \"h1:example=\",\n  ]\n}\n",
+    "lockDigest": "a5716f68e4d4e12dacfd3eef3214aee987155716520dcc50604ba6cc344548b6"
+  }
+}

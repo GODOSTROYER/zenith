@@ -1,0 +1,188 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "KmsCreateTaggedKeys",
+      "Effect": "Allow",
+      "Action": "kms:CreateKey",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsManageTaggedKeys",
+      "Effect": "Allow",
+      "Action": [
+        "kms:EnableKeyRotation",
+        "kms:DisableKeyRotation",
+        "kms:UpdateKeyDescription",
+        "kms:TagResource",
+        "kms:UntagResource"
+      ],
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsTagOnCreate",
+      "Effect": "Allow",
+      "Action": "kms:TagResource",
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsGrantToAwsResources",
+      "Effect": "Allow",
+      "Action": "kms:CreateGrant",
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "Bool": {
+          "kms:GrantIsForAWSResource": "true"
+        },
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsScheduleDeletionTaggedKeys",
+      "Effect": "Allow",
+      "Action": "kms:ScheduleKeyDeletion",
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "CloudFrontCreateTaggedDistributions",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateDistributionWithTags",
+        "cloudfront:TagResource"
+      ],
+      "Resource": "arn:${partition}:cloudfront::${account_id}:distribution/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "CloudFrontManageTaggedDistributions",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:TagResource"
+      ],
+      "Resource": "arn:${partition}:cloudfront::${account_id}:distribution/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "CloudFrontOriginAccessControls",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:UpdateOriginAccessControl",
+        "cloudfront:DeleteOriginAccessControl"
+      ],
+      "Resource": "arn:${partition}:cloudfront::${account_id}:origin-access-control/*"
+    },
+    {
+      "Sid": "LogsManageZenithGroups",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource"
+      ],
+      "Resource": [
+        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchAlarmsZenith",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:EnableAlarmActions",
+        "cloudwatch:DisableAlarmActions",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource"
+      ],
+      "Resource": "arn:${partition}:cloudwatch:*:${account_id}:alarm:zenith-*"
+    },
+    {
+      "Sid": "AcmRequestTaggedCertificates",
+      "Effect": "Allow",
+      "Action": [
+        "acm:RequestCertificate",
+        "acm:AddTagsToCertificate"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "AcmManageTaggedCertificates",
+      "Effect": "Allow",
+      "Action": [
+        "acm:DeleteCertificate",
+        "acm:AddTagsToCertificate",
+        "acm:RemoveTagsFromCertificate",
+        "acm:UpdateCertificateOptions"
+      ],
+      "Resource": "arn:${partition}:acm:*:${account_id}:certificate/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
+    }
+  ]
+}

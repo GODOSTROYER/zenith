@@ -1,0 +1,9 @@
+# Optional add-on for verified custom domains (PROD-MAN-03): kubectl apply -k deploy/zenith-managed/custom-domains
+# Apply AFTER the base (deploy/zenith-managed): it needs the zenith-gateway namespace, the GatewayClass and cert-manager.
+# Kept separate so the base stays "GatewayClass only, one Gateway per environment"; this adds one platform Gateway whose
+# only job is port 80 for ACME HTTP-01, and the HTTP-01 ClusterIssuer named by ZENITH_MANAGED_HTTP_CLUSTER_ISSUER.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 10-gateway-acme-http01.yaml
+  - 20-clusterissuer-http01.yaml

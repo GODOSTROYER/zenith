@@ -79,6 +79,8 @@ export interface AsyncSecretsBackend {
   get(workspaceId: string, ref: string): Promise<SecretRecord | undefined>;
   list(workspaceId: string): Promise<SecretRecord[]>;
   put(workspaceId: string, record: SecretRecord): Promise<void>;
+  /** Atomic insert-or-return. Generated credentials must never rotate on a race. */
+  putIfAbsent(workspaceId: string, record: SecretRecord): Promise<SecretRecord>;
   remove(workspaceId: string, ref: string): Promise<SecretRecord | undefined>;
 }
 

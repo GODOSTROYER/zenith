@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zenith-runner.fullname" . }}
+  labels:
+    {{- include "zenith-runner.labels" . | nindent 4 }}
+spec:
+  # One replica: each runner has its own identity and registration token, and
+  # the state volume is read-write-once. Install the chart again to add runners.
+  replicas: 1
+  # Recreate, never a rolling update: two pods must not share one identity.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "zenith-runner.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "zenith-runner.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include "zenith-runner.config" . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "zenith-runner.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: runner
+          image: {{ include "zenith-runner.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["run"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: ZENITH_CONFIG
+              value: /etc/zenith-runner/config.json
+            {{- if .Values.registration.existingSecret }}
+            # Only used on first start, while the runner has no identity yet.
+            - name: ZENITH_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.registration.existingSecret | quote }}
+                  key: {{ .Values.registration.secretKey | quote }}
+                  optional: true
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/zenith-runner
+              readOnly: true
+            - name: state
+              mountPath: /var/lib/zenith-runner
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.tls.ca.existingSecret }}
+            - name: ca
+              mountPath: /etc/zenith-runner/ca
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "zenith-runner.fullname" . }}
+        - name: state
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "zenith-runner.pvcName" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.tmp.sizeLimit | quote }}
+        {{- if .Values.tls.ca.existingSecret }}
+        - name: ca
+          secret:
+            secretName: {{ .Values.tls.ca.existingSecret | quote }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

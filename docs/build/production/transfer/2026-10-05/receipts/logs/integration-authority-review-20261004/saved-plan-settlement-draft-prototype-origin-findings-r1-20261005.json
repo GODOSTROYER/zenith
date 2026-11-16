@@ -1,0 +1,52 @@
+{
+  "execution": "UNRUN_SOURCE_ONLY; no imports/compiler/tests/services/DB/Docker/index/stage/commits",
+  "finding": {
+    "boundary": "Same-process prototype/callback tamper authority model; no external request exploit or actual runtime execution demonstrated.",
+    "code": "mutable_runner_methods_can_masquerade_as_private_completion",
+    "entry": "Production paired engine privately constructs TofuRunner, but invocation resolves exported mutable TofuRunner/TofuRun prototype methods.",
+    "noPublicRegistrarOrWitness": "Do not authorize status/shape/synthetic handles or a caller completion callback.",
+    "ownedPathsNeeded": [
+      "src/lib/tofu/engine.ts",
+      "src/lib/tofu/runner.ts",
+      "tests/tofu/plan-artifact-handoff.test.ts"
+    ],
+    "priority": "blocking_for_new_terminal_settlement_proof",
+    "requiredRemedy": "Bind canonical module-init runner/run prototype parent/data descriptors before first factory and recheck across hooks/awaits, or equivalently require an unforgeable private actual command-completion origin. Legacy tooling/isolated overrides must not mint settlement.",
+    "trace": [
+      "A caller hook can replace TofuRun.prototype.apply so it awaits the genuine admission beforeDispatch then supplies fabricated exit0.",
+      "The same exported prototype permits replacements of plan/normalizedPlan for exact approved digest and no-change readback; those methods lack module-init canonical descriptor checks.",
+      "Genuine run.dispose still removes each actual private directory and registers the run in cleanedRuns.",
+      "Engine completed/take encrypts a settlement once both private cleanup observations and the supplied method results pass. This establishes cleanup but not canonical native apply execution."
+    ]
+  },
+  "otherDraftCorrectionsObserved": [
+    "Initial protected local state validated before first tool init in apply path",
+    "Physical target digest binds actual parent device/inode/UID plus fixed terraform.tfstate basename, pathname separately backend-bound"
+  ],
+  "parentPacketsUntouched": true,
+  "schemaVersion": 1,
+  "source": {
+    "src/lib/tofu/engine.ts": {
+      "bytes": 30803,
+      "observedLines": {
+        "const result = await runner.run": 281,
+        "export function createPlanEngineAuthority": 399,
+        "standalone.completed(original": 389
+      },
+      "sha256": "b0f39d363ccf843277d44b216a8b8bb83ed7a5d36a434377e8d87132a416e5e9",
+      "snapshot": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-settlement-draft-prototype-origin-findings-r1-20261005-source/src/lib/tofu/engine.ts"
+    },
+    "src/lib/tofu/runner.ts": {
+      "bytes": 22215,
+      "observedLines": {
+        "async dispose():": 484,
+        "cleanedRuns.add(this)": 490,
+        "export class TofuRun": 114
+      },
+      "sha256": "cd41a32c92dc57ba1b2d0bf2637f6cd6728a9cab6b70fa20dda7aca9a6d2abfa",
+      "snapshot": "/Users/saivedanthava/.codex/zenith-production/logs/integration-authority-review-20261004/saved-plan-settlement-draft-prototype-origin-findings-r1-20261005-source/src/lib/tofu/runner.ts"
+    }
+  },
+  "status": "DRAFT_SOURCE_FINDING_ONLY_NOT_FINAL_PACKET_DISPOSITION",
+  "worktree": "/Users/saivedanthava/.codex/zenith-production/worktrees/saved-plan-settlement-20261005"
+}

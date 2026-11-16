@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "kind": "source-69-terminal-ci-observation",
+  "sourceSha": "69a03354b7d3343645967af2d37511c4f01b9d3f",
+  "observedAtUtc": "2026-10-11T03:14:43Z",
+  "sourceReportSha256": "28232ce9c8398322919790990e0e882ed3dbee209bb93326ba21efc3315dc9d3",
+  "sourceReportJsonSha256": "cfaff3889af5072d107296c781e9786d7e2991943959f3fee0e6952816c700ae",
+  "workflowRun": {
+    "id": 38105216483,
+    "status": "completed",
+    "conclusion": "failure",
+    "mainJobs": 28,
+    "success": 18,
+    "failure": 1,
+    "cancelled": 1,
+    "skipped": 8
+  },
+  "aggregate": {
+    "workflows": 3,
+    "jobs": 32,
+    "success": 22,
+    "failure": 1,
+    "cancelled": 1,
+    "skipped": 8
+  },
+  "jobConclusions": {
+    "go": "failure",
+    "verify": "cancelled",
+    "verifyJobId": 114369225607,
+    "verifyCompletedAtUtc": "2026-10-11T03:13:08Z",
+    "verifyUnitStepCancelledAtUtc": "2026-10-11T03:13:07Z"
+  },
+  "verifyTimeoutAnnotation": "The job has exceeded the maximum execution time of 45m0s",
+  "nativeWorkerWorkflow": {
+    "runId": 38105216447,
+    "conclusion": "success",
+    "jobs": 2
+  },
+  "nativePlatformWorkflow": {
+    "runId": 38105216487,
+    "conclusion": "success",
+    "jobs": 2
+  },
+  "goDiagnostic": "Existing exact-SHA report records fixture-build/filesystem at output-cap-scan, errno 2 (ENOENT); no path identified, race and package-native passed, systemd body not reached. No new log or artifact fetch.",
+  "previousR5Observation": {
+    "observedAtUtc": "2026-10-11T03:04:29Z",
+    "main": {
+      "jobs": 28,
+      "success": 18,
+      "failure": 1,
+      "inProgress": 1,
+      "skipped": 8
+    },
+    "aggregate": {
+      "jobs": 32,
+      "success": 22,
+      "failure": 1,
+      "inProgress": 1,
+      "skipped": 8
+    },
+    "historical": true
+  },
+  "readOnly": true,
+  "noRerunOrRepositoryMutation": true,
+  "timeoutProofReportSha256": "6521d1a44f22abd1682fac8d61b6ceba19be65dba4018b343016ca8097a4eb8f",
+  "timeoutProofJsonSha256": "3b739bf5d5dfdbe9d892426f4b10e2355b9c4ab6ae98b6661322672bdfde75c7"
+}

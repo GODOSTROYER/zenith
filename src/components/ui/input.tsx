@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       className={cx(
         "ui-input flex h-9 min-w-0 items-center gap-2 rounded-ctl border bg-bg1 px-3",
         "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
-        f.invalid ? "border-err" : "border-line hover:border-line-strong",
+        f.invalid ? "border-err" : "border-control-line hover:border-line-strong",
         rest.disabled && "opacity-55",
         "focus-within:border-signal focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal",
         className

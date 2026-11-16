@@ -1,0 +1,22 @@
+{
+  "args": {
+    "profileRef": "bundle",
+    "profileVersion": "50cf2fe70382255b9c0bb64503df12e03922a563c381a92a7cfde063ad74f0ec",
+    "expectedInstalledVersion": null
+  },
+  "operation": "package.install",
+  "result": {
+    "ok": true,
+    "data": {
+      "changed": true,
+      "effect": "committed",
+      "package": "zenith-data-bundle",
+      "phase": "verified",
+      "postcondition": "verified",
+      "profileRef": "bundle",
+      "profileVersion": "50cf2fe70382255b9c0bb64503df12e03922a563c381a92a7cfde063ad74f0ec",
+      "transactionRef": "pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": "1.0"
+    }
+  }
+}

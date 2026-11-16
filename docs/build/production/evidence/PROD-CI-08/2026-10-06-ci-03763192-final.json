@@ -1,0 +1,460 @@
+{
+  "schemaVersion": 1,
+  "draftStatus": "SANITIZED_HISTORICAL_TERMINAL_FAILED_CI_EVIDENCE_ONLY",
+  "sourceCommit": "0376319227aa155f7cb5ec54370259b109bd866e",
+  "sourceTree": "1ab2d996f3ceb8364404421b1514099937320664",
+  "mainRun": 37412189880,
+  "nativeRun": 37412189876,
+  "attempt": 1,
+  "terminal": true,
+  "overall": "FAILED_VERIFY_UNIT_FOUR_ASSERTIONS",
+  "mainSummary": {
+    "totalJobs": 16,
+    "success": 15,
+    "failure": 1,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "nativeSummary": {
+    "totalJobs": 2,
+    "success": 2,
+    "failure": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "jobs": [
+    {
+      "id": 112102863109,
+      "name": "agent",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "realBrowser": {
+        "gate": "agent-approval",
+        "checksPassed": 44,
+        "checksFailed": 0,
+        "checksSkipped": 0,
+        "engine": "playwright-core chromium",
+        "viewports": [
+          "1280x800",
+          "380x780"
+        ],
+        "scopeLimit": "Local application/owned loopback ports; no hosted production, external identity provider or default cloud mutation acceptance"
+      }
+    },
+    {
+      "id": 112102863196,
+      "name": "build",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112102863206,
+      "name": "workflows",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 1275,
+        "passed": 1275,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 62,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "2b92aeeb6ebdf0d0dbcc108ad5f9a770864931aed6d6b0dece15a68c4d09451a"
+    },
+    {
+      "id": 112102863227,
+      "name": "postgres",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 379,
+        "passed": 379,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 93,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "79b2ed47a22254c60a8d910dede01783b738dd3663d1632a6b080a500e6f0506"
+    },
+    {
+      "id": 112102863229,
+      "name": "policy",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 242,
+        "passed": 242,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 8,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "afd7dec23343dfd3a941a56c870801513ddd2c1b797c80888099d953adb0559d"
+    },
+    {
+      "id": 112102863234,
+      "name": "go",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "guest": {
+        "raceRequired": 148,
+        "directRootPackageRequired": 4,
+        "uniqueRequiredTotal": 152,
+        "requiredStatuses": "all-passed",
+        "goldenGenerationAndDiffAndStatus": "passed",
+        "sourceByteModeAggregateIndependentlyCompared": true,
+        "architecture": "native-linux-amd64",
+        "interopPassed": 27,
+        "interopFailed": 0,
+        "interopSkipped": 0,
+        "crossBuildAmd64": "success",
+        "crossBuildArm64": "success",
+        "optionalSkipCount": 3,
+        "optionalSkipScope": "Closed source allowlist; raw skipped event identities not exported by sanitized guest artifact."
+      },
+      "systemd": {
+        "opsRequired": 8,
+        "signedRequired": 7,
+        "uniqueRequiredTotal": 15,
+        "requiredStatuses": "all-passed",
+        "systemdCleanup": "cleaned",
+        "canonicalRootAbsence": "absent",
+        "testUidGid": 1001,
+        "testCapsZero": true,
+        "testNnp": true,
+        "cleanupTransportNnp": false,
+        "sourceByteModeAggregateIndependentlyCompared": true,
+        "scope": "Actual current hosted inert fixture/default executor; no installed default API/systemd service journey claim."
+      }
+    },
+    {
+      "id": 112102863248,
+      "name": "verify",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "failure",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "passed": 19514,
+        "failed": 4,
+        "skipped": 1521,
+        "total": 21039
+      },
+      "fileCounts": {
+        "passed": 874,
+        "failed": 1,
+        "skipped": 49,
+        "total": 924
+      },
+      "typecheck": "success",
+      "lint": "success",
+      "smoke": "skipped",
+      "gimbal": "skipped",
+      "unitAssertionLevelReportExported": false,
+      "failures": [
+        {
+          "file": "tests/ci/postgres-lane-report.test.ts",
+          "titles": [
+            "postgres lane report",
+            "counts the Postgres row under vitest's quoted $name spelling"
+          ],
+          "class": "AssertionError",
+          "repositoryStack": [
+            "tests/ci/postgres-lane-report.test.ts:102:20"
+          ],
+          "assertionProperty": "successful synthetic lane-report process exit required"
+        },
+        {
+          "file": "tests/ci/postgres-lane-report.test.ts",
+          "titles": [
+            "postgres lane report",
+            "still accepts the unquoted spelling"
+          ],
+          "class": "AssertionError",
+          "repositoryStack": [
+            "tests/ci/postgres-lane-report.test.ts:109:20"
+          ],
+          "assertionProperty": "successful synthetic lane-report process exit required"
+        },
+        {
+          "file": "tests/ci/postgres-lane-report.test.ts",
+          "titles": [
+            "postgres lane report, workspace sharing and waitlist",
+            "accepts quoted product SQL suite names"
+          ],
+          "class": "AssertionError",
+          "repositoryStack": [
+            "tests/ci/postgres-lane-report.test.ts:158:20"
+          ],
+          "assertionProperty": "successful synthetic lane-report process exit required"
+        },
+        {
+          "file": "tests/ci/postgres-lane-report.test.ts",
+          "titles": [
+            "postgres lane report, canonical OAuth admission",
+            "requires the complete 71-case native group alongside all nine prior source groups"
+          ],
+          "class": "AssertionError",
+          "repositoryStack": [
+            "tests/ci/postgres-lane-report.test.ts:168:20"
+          ],
+          "assertionProperty": "successful synthetic lane-report process exit required"
+        }
+      ]
+    },
+    {
+      "id": 112102863249,
+      "name": "operation-gates (reconciliation)",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 38,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 26,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "66bf86f9204f2f0b7d4c70b05ee084134d87fd8371fdfa24e44cec82d4f5e90e"
+    },
+    {
+      "id": 112102863251,
+      "name": "hosted",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "realBrowser": {
+        "gate": 12,
+        "checksPassed": 24,
+        "checksFailed": 0,
+        "checksSkipped": 0,
+        "engine": "playwright-core chromium",
+        "viewports": [
+          "1280x800",
+          "375x812"
+        ],
+        "scopeLimit": "Local application/owned loopback ports; no hosted production, external identity provider or default cloud mutation acceptance"
+      }
+    },
+    {
+      "id": 112102863255,
+      "name": "docker",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112102863271,
+      "name": "generated",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112102863274,
+      "name": "ledger",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ]
+    },
+    {
+      "id": 112102863276,
+      "name": "operation-gates (workflow-intents)",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 156,
+        "passed": 156,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "required": 141,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "e97d247d391488297bbda6c4f28d091c8aa90e8b1d64b3b6fd35287b46164c34"
+    },
+    {
+      "id": 112102863279,
+      "name": "platform-postgres",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 3042,
+        "passed": 3034,
+        "failed": 0,
+        "skipped": 8,
+        "unknown": 0
+      },
+      "required": 1124,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "1ad126a22309f5ff9a5bf93098aa208d0858d239bb8343295f45dff595682ac8"
+    },
+    {
+      "id": 112102863288,
+      "name": "supply-chain",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "findingCount": 0,
+      "exitCode": 0,
+      "repairIncludedInTestedSource": true
+    },
+    {
+      "id": 112102863289,
+      "name": "tofu",
+      "run": 37412189880,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "counts": {
+        "total": 3934,
+        "passed": 3916,
+        "failed": 0,
+        "skipped": 18,
+        "unknown": 0
+      },
+      "required": 27,
+      "requiredStatuses": "all-passed",
+      "sanitizedArtifactSha256": "c220a52c4cf349b97e79641ac446bc3e66725118f00db378adaa57aacc6f9169"
+    },
+    {
+      "id": 112102862900,
+      "name": "packaged-worker (amd64, ubuntu-24.04)",
+      "run": 37412189876,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "architecture": "amd64",
+      "required": 22,
+      "requiredStatuses": "all-passed",
+      "native": true,
+      "emulated": false,
+      "cleanupFlagsTrue": 6,
+      "sanitizedArtifactSha256": "1a56720844a94f89ff178069e81b92ab7078342c953fcfe285a0088083847206"
+    },
+    {
+      "id": 112102863200,
+      "name": "packaged-worker (arm64, ubuntu-24.04-arm)",
+      "run": 37412189876,
+      "attempt": 1,
+      "conclusion": "success",
+      "labels": [
+        "ubuntu-24.04-arm"
+      ],
+      "architecture": "arm64",
+      "required": 22,
+      "requiredStatuses": "all-passed",
+      "native": true,
+      "emulated": false,
+      "cleanupFlagsTrue": 6,
+      "sanitizedArtifactSha256": "691c19e2a6dc07b60e8e6d38f98451004aa894ee6ba095fdae2f3b6c2110a22d"
+    }
+  ],
+  "skipDisposition": {
+    "unitSkipped": 1521,
+    "observedFileSummaryRows": 118,
+    "fileRowsExactlyAccountForUnitSkipCount": true,
+    "assertionLevelSkipIdentitiesExported": false,
+    "expectedSkipSidecarExported": false,
+    "sameFilePassingRealLaneGroupsDoNotProveEverySkippedLeafExecuted": true,
+    "sourceSpecificFinalReconciliation": "Independent B confirms all118 file/total/skip rows equal4426 and exactly1521, with no unexpected delta; source-specific external and native limitations remain.",
+    "externalPrerequisitesRetained": [
+      "Supabase REST/storage/auth",
+      "MySQL",
+      "S3-compatible storage",
+      "Authorized external Temporal/GitHub App",
+      "Native Windows"
+    ],
+    "noBlanketUnavailableWaiver": true,
+    "noSkipWaiverOrRequiredStatusRelaxation": true,
+    "all118FileTotalSkipValuesExactlyEqualTo4426": true,
+    "unexpectedSkipFileOrCountDelta": []
+  },
+  "binding": {
+    "guestAndSystemdWholeSourceByteModeAggregateIndependent": true,
+    "packagedWorkerGitCopyAndWorkflowHarnessWrapperPerArchitectureManifestIndependent": true,
+    "canonicalLanesSourceEnvironmentToolAndRequiredGroupBindingIndependent": true,
+    "unitBinding": "Observed exact-source workflow/job exit and private terminal log counts; full assertion JSON is not exported."
+  },
+  "scopeLimits": [
+    "All18 jobs terminal but Verify failed four synthetic lane-report fixture assertions; no current all-green or acceptance promotion.",
+    "Smoke/Gimbal skipped due unit failure, not passed.",
+    "Every dedicated required canonical/guest/systemd/native group actually passed fresh source037; counts never summed across overlapping scopes.",
+    "No complete unit assertion-level JSON or expected-skip sidecar exported;118 source-known file rows exactly account1521 skips, not blanket per-leaf coverage.",
+    "Independent B separately binds the four missing-fixture cases and unchanged118 skip rows; these do not establish skipped leaf closure.",
+    "Standard canonical artifacts export matched required groups, not raw individual case identities.",
+    "Local/browser identity/provider fixtures and cloud/default-product boundaries remain explicit.",
+    "Reviewer ran no project tests, compiler, Docker, services, or repository mutations."
+  ],
+  "provenance": {
+    "finalObservationSha256": "fa320d972a6987d78fee22ae2b1fe836a011de78137e96760786bdc82f4e3778",
+    "skipFileSummarySha256": "0388bf5a6cb5f954339a89450e216bd4f06a55b3a77be3b3dc0ff583a1506b56",
+    "verifySummarySha256": "e31c8bbdb25dde16665fe562885240e4cbc4b746829f5854433ce052ac4ddfb6",
+    "browserSummarySha256": "61ab1b827f75aa8906fd2408af6cd95e7d38742d63fd0bb82a113ac8f012fe40",
+    "skipDispositionSha256": "b00a92f20e28d786f458a798d35297773a08a03e6c2ea8043b54e7d015adb438",
+    "skipReconciliationAddendumSha256": "6078414234926b5cca48b4965b91fd02311c5e4bdfcc43ca02f15855c3ffae1a",
+    "priorPortableProjectionSha256": "2bb2cfba6fe45855cf7b58117feea32d86013f48cca4c376d51ec97341b50ea3"
+  }
+}

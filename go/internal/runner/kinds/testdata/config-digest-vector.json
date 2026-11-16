@@ -1,0 +1,57 @@
+{
+  "rule": "configDigest = hex(sha256(concat over files sorted by byte order of path of: path || 0x00 || lowercase-hex(sha256(content bytes)) || 0x0A)); the lockfile is not part of it.",
+  "generatedBy": "scratch Node script using node:crypto only (independent of the Go implementation)",
+  "vectors": [
+    {
+      "name": "single tf.json file",
+      "files": [
+        {
+          "path": "main.tf.json",
+          "contentB64": "eyJyZXNvdXJjZSI6eyJ0ZXJyYWZvcm1fZGF0YSI6eyJ4Ijp7ImlucHV0IjoiaGVsbG8ifX19fQo="
+        }
+      ],
+      "configDigest": "2a645124dfb3c15e12e2fbd0e6536e3c53b74a40fb1c0ca2706c2e70ac0b5e9a"
+    },
+    {
+      "name": "binary content with NUL and 0xff bytes",
+      "files": [
+        {
+          "path": "data.json",
+          "contentB64": "AP8BAgAKDQ=="
+        },
+        {
+          "path": "a.tf.json",
+          "contentB64": "e30="
+        }
+      ],
+      "configDigest": "6432be55de8d113fd114fdb3d82ff075aaa400eadef53fe5a6a2300e175f1b8b"
+    },
+    {
+      "name": "nested paths, unsorted input, dots and dashes",
+      "files": [
+        {
+          "path": "z/last.tf.json",
+          "contentB64": "e30="
+        },
+        {
+          "path": "modules/net-1/main.tf.json",
+          "contentB64": "eyJ2YXJpYWJsZSI6e319"
+        },
+        {
+          "path": "modules/net.1/main.tf.json",
+          "contentB64": "eyJ2YXJpYWJsZSI6eyJhIjp7fX19"
+        },
+        {
+          "path": "A.tfvars.json",
+          "contentB64": "eyJhIjoxfQ=="
+        }
+      ],
+      "configDigest": "2a39deeabe3500d49279a6ec69683285ff1412467790442218ff994b7dfc24ae"
+    },
+    {
+      "name": "empty list",
+      "files": [],
+      "configDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

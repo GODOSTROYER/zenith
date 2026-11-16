@@ -1,6 +1,7 @@
 import { q, revisionManifestAsync } from "@/lib/db/store";
 import { id, type NavigatorRun, type NavigatorVerification } from "@/lib/domain/types";
 import { getProvider } from "@/lib/providers/types";
+import { v1View } from "@/lib/resources/upgrade";
 
 const COVERED = new Set(["deploy.apply", "deploy.plan", "ops.investigate"]);
 
@@ -40,7 +41,7 @@ export async function verifyRun(run: NavigatorRun): Promise<{ verification?: Nav
       : undefined;
     if (deployment.previousRevisionId && !previous) return { note: "The previous revision is missing; removals cannot be verified." };
     const startedAt = Date.now();
-    const result = await provider.verify(environment, revision.manifest, previous);
+    const result = await provider.verify(environment, v1View(revision.manifest), previous ? v1View(previous) : undefined);
     if (environment.deployedRevisionId !== revision.id || deployment.status !== "succeeded")
       return { note: "The deployment changed during verification. Its earlier observation cannot verify this run." };
     if (result.status === "unavailable") return { note: result.detail };

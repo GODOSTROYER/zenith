@@ -1,0 +1,58 @@
+{
+  "_contractFixture": "CONTRACT-LEVEL FIXTURE: hand-built to match the documented shape of the official file. Not a download from the provider. Values are illustrative.",
+  "formatVersion": "v1.0",
+  "offerCode": "AmazonECS",
+  "publicationDate": "2026-10-01T00:00:00Z",
+  "products": {
+    "ECSCPU": {
+      "sku": "ECSCPU",
+      "productFamily": "Compute",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "USE1-Fargate-vCPU-Hours:perCPU"
+      }
+    },
+    "ECSGB": {
+      "sku": "ECSGB",
+      "productFamily": "Compute",
+      "attributes": {
+        "regionCode": "us-east-1",
+        "usagetype": "USE1-Fargate-GB-Hours"
+      }
+    }
+  },
+  "terms": {
+    "OnDemand": {
+      "ECSCPU": {
+        "ECSCPU.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "ECSCPU.T.0": {
+              "unit": "vCPU-Hours",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.1000000000"
+              }
+            }
+          }
+        }
+      },
+      "ECSGB": {
+        "ECSGB.T": {
+          "offerTermCode": "T",
+          "priceDimensions": {
+            "ECSGB.T.0": {
+              "unit": "GB-Hours",
+              "beginRange": "0",
+              "endRange": "Inf",
+              "pricePerUnit": {
+                "USD": "0.0044450000"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

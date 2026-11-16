@@ -1,0 +1,1635 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-03T00:41:06.135621+00:00",
+  "runId": 37080857980,
+  "runUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/37080857980",
+  "runAttempt": 1,
+  "commit": "a14e57f7106fb1602f7c1e02db79fe137818cb80",
+  "branch": "codex/production-2026-10-02",
+  "status": "completed",
+  "conclusion": "success",
+  "exactBaselineVerifiedGreen": true,
+  "mandatoryStepsPassed": true,
+  "expectedSkippedWarningSteps": [
+    {
+      "job": "go",
+      "step": "Say so when there is no Go module yet"
+    },
+    {
+      "job": "platform-postgres",
+      "step": "Say so when there is no platform migrator yet"
+    }
+  ],
+  "scope": "Exact checkpoint CI baseline only. This is not whole-product, cloud deployment, or external live acceptance proof.",
+  "jobs": [
+    {
+      "name": "postgres",
+      "id": 111080835839,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Apply all committed Supabase migrations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Postgres contract lanes",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Lane report - fail if a lane ran zero tests, and list what is blocked",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Every PostgreSQL contract must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 18,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 19,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 20,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 21,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "hosted",
+      "id": 111080836012,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Hosted suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Hosted acceptance journey",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Report the installed browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Gate 12 - recipient journey in a real browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 15,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 16,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 17,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "build",
+      "id": 111080836065,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "workflows",
+      "id": 111080836068,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Install pinned Temporal CLI",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Workflow suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Every Temporal and platform e2e scenario must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 17,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 18,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 19,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "tofu",
+      "id": 111080836071,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Install pinned OpenTofu",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Choose the provider plugin cache directory",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Cache provider plugins",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "OpenTofu and all provider suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Every real provider validation must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 12,
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 13,
+          "name": "Go runner exercises real OpenTofu and provider lock enforcement",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 23,
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 24,
+          "name": "Post Cache provider plugins",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 25,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 26,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "policy",
+      "id": 111080836074,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Install pinned OPA",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Policy bundle is reproducible",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Policy suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Lane report - fail if a required suite ran zero tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Every policy scenario must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 19,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 20,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 21,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "docker",
+      "id": 111080836081,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Build image (no push)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "ledger",
+      "id": 111080836089,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Ledger markdown is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "agent",
+      "id": 111080836094,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Agent acceptance journey",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Report the installed browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Approval screen in a real browser",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 13,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 14,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 15,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "verify",
+      "id": 111080836115,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Install pinned workflow validator",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Validate workflow syntax",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Unit suites (Node and DOM projects)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Smoke",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Verify Gimbal assets",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 21,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 22,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 23,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "go",
+      "id": 111080836122,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Say so when there is no Go module yet",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Toolchain is exactly the pinned one",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "gofmt",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "go vet",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "go test with the race detector",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Regenerate and compare machine result goldens",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 12,
+          "name": "TypeScript validates the Go machine result goldens",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 13,
+          "name": "Cross-build linux/amd64 and linux/arm64 without cgo",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 24,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 25,
+          "name": "Post Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 26,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 27,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "platform-postgres",
+      "id": 111080836134,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Say so when there is no platform migrator yet",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "number": 7,
+          "name": "Apply the platform migrations",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 8,
+          "name": "Platform control store suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Lane report - fail if the control store ran zero tests, or none on Postgres",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Every platform Postgres contract must pass",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Preserve sanitized gate evidence",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 20,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 21,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 22,
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 23,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "supply-chain",
+      "id": 111080836155,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Lockfile pins only registry tarballs with integrity hashes",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Known dependency findings block release",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 9,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 10,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 11,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "generated",
+      "id": 111080836179,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "number": 1,
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 2,
+          "name": "Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 3,
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 4,
+          "name": "Run npm ci --ignore-scripts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 5,
+          "name": "Platform SQL is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 6,
+          "name": "Capability matrix is current",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 7,
+          "name": "Documentation drift suites",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 13,
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 14,
+          "name": "Post Run actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "number": 15,
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "canonicalLanes": [
+    {
+      "lane": "policy",
+      "evidenceSha256": "affb306938ae06b59d09f27b5d31dc8a8db8ed57c45ee83088a19f8d0ac71a01",
+      "counts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 7,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 107,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    },
+    {
+      "lane": "tofu",
+      "evidenceSha256": "639e93f867631d64bee9d411113ab3fe48c26e799cafed86d6691f0bf67f436d",
+      "counts": {
+        "total": 3900,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 27,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    },
+    {
+      "lane": "platform-postgres",
+      "evidenceSha256": "01211acbc8905ed569e6a31843f238551c8053ca211d401a4de6abad8bd06edf",
+      "counts": {
+        "total": 1422,
+        "passed": 1422,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 45,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 109,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    },
+    {
+      "lane": "workflows",
+      "evidenceSha256": "ee71eed3a44f66b2bb3738496ada08c41b858708c2b67e19ab64ecbfc5dd3464",
+      "counts": {
+        "total": 982,
+        "passed": 982,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 44,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 114,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [
+        {
+          "id": "external-temporal-mtls",
+          "file": "tests/workflows/mtls-live.test.ts",
+          "status": "unverified",
+          "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+        }
+      ],
+      "fullyPassed": true
+    },
+    {
+      "lane": "postgres",
+      "evidenceSha256": "76f9a64b09f4442db3ca508132976a6a5bced09e31b7250f14e959c17efa4243",
+      "counts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "countsWellFormedAllPassed": true,
+      "requiredGroups": 9,
+      "verdict": "passed",
+      "evidenceSchema1": true,
+      "indexInventoryClean": true,
+      "schema2Receipt": true,
+      "independentTwelveChecks": {
+        "lane": true,
+        "reportSha256": true,
+        "manifestSha256": true,
+        "sourceSha256": true,
+        "sourceBindingComplete": true,
+        "effectiveEnvironmentSha256": true,
+        "environmentInventorySha256": true,
+        "shellContextSha256": true,
+        "shellLevelSha256": true,
+        "shellCommandSha256": true,
+        "runtimeSha256": true,
+        "environmentInventoryIntegrity": true
+      },
+      "exportedTwelveChecksMatch": true,
+      "receiptSha256Matched": true,
+      "sourceFilesAndLockExact": true,
+      "requiredInventoryExact": true,
+      "requiredGroupsAllPassedNonzero": true,
+      "dependencyVersionsExact": true,
+      "commitAndCleanSourceExact": true,
+      "toolExpectationsExact": true,
+      "validationComplete": true,
+      "executionExit": 0,
+      "originExit": 0,
+      "zeroExitsIntact": true,
+      "binding": "matched",
+      "environmentCounts": {
+        "unchanged": 110,
+        "changed": 0,
+        "added": 0,
+        "removed": 0
+      },
+      "externalAcceptance": [],
+      "fullyPassed": true
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 11258840981,
+      "name": "canonical-policy-evidence-a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "apiDigest": "sha256:527489b1dea773593679fe0170d4247fa9587f20784452d71b1fdc3035191954",
+      "archiveDigest": "sha256:527489b1dea773593679fe0170d4247fa9587f20784452d71b1fdc3035191954",
+      "digestMatched": true,
+      "members": [
+        "policy-evidence.json"
+      ]
+    },
+    {
+      "id": 11258831485,
+      "name": "canonical-tofu-evidence-a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "apiDigest": "sha256:7ca8b65f99c2bba812cbc63f6b92ba294c4787cdf8d3196d1f7bbd3b9b9b2925",
+      "archiveDigest": "sha256:7ca8b65f99c2bba812cbc63f6b92ba294c4787cdf8d3196d1f7bbd3b9b9b2925",
+      "digestMatched": true,
+      "members": [
+        "tofu-evidence.json"
+      ]
+    },
+    {
+      "id": 11258661206,
+      "name": "canonical-postgres-evidence-a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "apiDigest": "sha256:8a12b8192220c7a6e011d08afb440005c73c765bc16df57bc87b29e379182048",
+      "archiveDigest": "sha256:8a12b8192220c7a6e011d08afb440005c73c765bc16df57bc87b29e379182048",
+      "digestMatched": true,
+      "members": [
+        "postgres-evidence.json"
+      ]
+    },
+    {
+      "id": 11258441746,
+      "name": "canonical-platform-postgres-evidence-a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "apiDigest": "sha256:49624870b6d99d1039d5cb4a1f75b1d3bd459c221c49d4351b86761ba77f9900",
+      "archiveDigest": "sha256:49624870b6d99d1039d5cb4a1f75b1d3bd459c221c49d4351b86761ba77f9900",
+      "digestMatched": true,
+      "members": [
+        "platform-postgres-evidence.json"
+      ]
+    },
+    {
+      "id": 11258362139,
+      "name": "canonical-workflows-evidence-a14e57f7106fb1602f7c1e02db79fe137818cb80",
+      "apiDigest": "sha256:abdb69707e6516fcd3fc2a8ae312be622bb8081c075f55bec3bfda81c404b183",
+      "archiveDigest": "sha256:abdb69707e6516fcd3fc2a8ae312be622bb8081c075f55bec3bfda81c404b183",
+      "digestMatched": true,
+      "members": [
+        "workflows-evidence.json"
+      ]
+    }
+  ],
+  "logTotals": {
+    "verify": {
+      "files": "785 passed | 22 skipped (807)",
+      "tests": "16427 passed | 399 skipped (16826)"
+    },
+    "generated": {
+      "files": "4 passed (4)",
+      "tests": "109 passed (109)"
+    },
+    "go": {
+      "files": "1 passed (1)",
+      "tests": "19 passed (19)"
+    },
+    "hosted": {
+      "files": "91 passed | 1 skipped (92)",
+      "tests": "1146 passed | 13 skipped (1159)"
+    },
+    "postgres": {
+      "files": "9 passed (9)",
+      "tests": "251 passed (251)"
+    },
+    "policy": {
+      "files": "7 passed (7)",
+      "tests": "238 passed (238)"
+    },
+    "tofu": {
+      "files": "121 passed (121)",
+      "tests": "3900 passed (3900)"
+    },
+    "workflows": {
+      "files": "45 passed (45)",
+      "tests": "982 passed (982)"
+    },
+    "platform-postgres": {
+      "files": "46 passed (46)",
+      "tests": "1422 passed (1422)"
+    }
+  },
+  "smoke": {
+    "passedMarkerEmitted": true,
+    "emittedStageChecks": 6,
+    "countKind": "Emitted workflow stage checks, not Vitest test cases"
+  },
+  "gimbal": {
+    "passedMarkerEmitted": true,
+    "assets": [
+      {
+        "triangles": 17506,
+        "bones": 17,
+        "drawCalls": 4,
+        "clips": 30,
+        "atlas": "1024\u00b2 Basis",
+        "meshoptDecodePassed": true
+      },
+      {
+        "triangles": 7930,
+        "bones": 17,
+        "drawCalls": 4,
+        "clips": 30,
+        "atlas": "1024\u00b2 Basis",
+        "meshoptDecodePassed": true
+      }
+    ]
+  },
+  "hostedAcceptanceChecks": 22,
+  "agentAcceptanceChecks": 35,
+  "rego": {
+    "passed": 213,
+    "total": 213
+  },
+  "goRace": {
+    "passedPackages": 11,
+    "noTestPackages": 6,
+    "caseCount": null,
+    "caseCountReason": "Nonverbose go test emits package results, not a test-case count."
+  },
+  "goRealTofu": {
+    "jobStep": "Go runner exercises real OpenTofu and provider lock enforcement",
+    "packagePassEmitted": true,
+    "caseCount": null
+  },
+  "mandatoryAudit": {
+    "scope": "Complete locked production, development, optional and peer dependencies; all severities; no exceptions.",
+    "noKnownFindingsEmitted": true,
+    "lockfileIntegrityStepPassed": true
+  },
+  "observedToolVersions": {
+    "postgres": {
+      "node": [
+        "22.23.3"
+      ],
+      "postgres": [
+        "16.15"
+      ]
+    },
+    "hosted": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "build": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "workflows": {
+      "node": [
+        "22.23.3"
+      ],
+      "temporal": [
+        "1.9.1"
+      ]
+    },
+    "tofu": {
+      "node": [
+        "22.23.3"
+      ],
+      "tofu": [
+        "1.12.5"
+      ],
+      "go": [
+        "1.27.1"
+      ]
+    },
+    "policy": {
+      "node": [
+        "22.23.3"
+      ],
+      "opa": [
+        "1.19.1"
+      ]
+    },
+    "ledger": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "agent": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "verify": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "go": {
+      "node": [
+        "22.23.3"
+      ],
+      "go": [
+        "1.27.1"
+      ]
+    },
+    "platform-postgres": {
+      "node": [
+        "22.23.3"
+      ],
+      "postgres": [
+        "16.15"
+      ]
+    },
+    "supply-chain": {
+      "node": [
+        "22.23.3"
+      ]
+    },
+    "generated": {
+      "node": [
+        "22.23.3"
+      ]
+    }
+  },
+  "limitations": [
+    "Unit and hosted informational skips remain separately reported by their totals; no canonical required group was skipped.",
+    "External Temporal mTLS is explicitly unverified.",
+    "Cloud APIs, deployed Supabase/PostgREST/RLS roles, persistent or clustered Temporal, and previous-release replay compatibility are outside this CI baseline.",
+    "Go race output reports packages only; no fabricated test-case count.",
+    "The standard Vitest JSON does not export test-case identity.",
+    "Later durable recovery work is not integrated into this checkpoint."
+  ],
+  "historicalRuns": [
+    {
+      "runId": 37060964289,
+      "commit": "482f8b6a9e8167428b6eee5830f5673f955eb1af",
+      "conclusion": "failure",
+      "successfulJobs": 12,
+      "failedJobs": 2
+    },
+    {
+      "runId": 37054646025,
+      "conclusion": "success",
+      "distinctBaseline": true
+    }
+  ],
+  "rootIndependentReview": {
+    "apiTerminalFourteenJobs": true,
+    "fiveFreshArtifactDigestsMatched": true,
+    "exactSourceManifestLockRuntimeReceiptBindings": true,
+    "rawVerifySha256": "8f87a16f630589a8f568979b2687e2d12e5839e9521fd93cd421f66f3d7e9748",
+    "rawVerifyBytes": 344359,
+    "remoteUnitCountsIndependentlyChecked": true
+  }
+}

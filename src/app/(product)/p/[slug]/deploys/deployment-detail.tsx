@@ -24,6 +24,7 @@ import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { ConnectedDetail } from "@/components/screens/connected-detail";
 import { OutputRow } from "./output-row";
 import { isLive, STATUS_DOT, STATUS_LABEL, STREAM_EVENTS } from "./status";
+import { useOperationApprovalRoute } from "@/components/deploy/operation-review";
 
 /** A long deployment must not grow the tab's memory without bound. */
 const MAX_BUFFERED_LINES = 2000;
@@ -63,9 +64,15 @@ export function DeploymentDetail({
   useEffect(() => {
     setDep(snapshot);
   }, [snapshot]);
+  useEffect(() => {
+    setConfirm(null);
+    setSelectedStepId(undefined);
+    setLines([]);
+  }, [snapshot.id]);
 
   const onEvent = useCallback((type: string, raw: unknown) => {
     const e = raw as DeploymentEvent;
+    if (e.deploymentId !== snapshot.id) return;
     if (type === "log" && e.type === "log") {
       setLines((prev) =>
         [...prev, { seq: e.seq, stream: e.stream, line: e.line, ts: e.ts }].slice(
@@ -75,6 +82,7 @@ export function DeploymentDetail({
       return;
     }
     setDep((prev) => {
+      if (prev.id !== e.deploymentId) return prev;
       if (type === "status" && e.type === "status") return { ...prev, status: e.status };
       if (type === "step" && e.type === "step")
         return {
@@ -89,7 +97,7 @@ export function DeploymentDetail({
           : { ...prev, outputs: [...prev.outputs, e.output] };
       return prev;
     });
-  }, []);
+  }, [snapshot.id]);
 
   const { connected } = useEventStream(
     `/api/deployments/${snapshot.id}/events`,
@@ -99,6 +107,9 @@ export function DeploymentDetail({
   );
 
   const scope = { projectId, environmentId };
+  const approvalDeployment = dep.id === snapshot.id && dep.operationId === snapshot.operationId && dep.revisionId === snapshot.revisionId ? dep : undefined;
+  const approvalRoute = useOperationApprovalRoute(approvalDeployment, { workspaceId: boot?.workspace?.id, projectId, environmentId });
+  const inlineApproval = approvalRoute.kind === "legacy" || approvalRoute.kind === "initial";
   const live = isLive(dep.status);
   const selectedStep = dep.steps.find((step) => step.id === selectedStepId);
   const previousNumber = dep.previousRevisionId
@@ -170,13 +181,19 @@ export function DeploymentDetail({
           subtitle={`${envName} requires approval before anything is applied. Nothing has changed yet.`}
         >
           <div className="flex gap-2">
-            <Button
+            {approvalRoute.kind === "plan" ? <Link href={approvalRoute.href}
+              className="ui-button inline-flex h-9 items-center justify-center rounded-ctl border border-line bg-bg2 px-3 text-[13px] font-medium text-ink hover:border-line-strong hover:bg-bg3">
+              Review platform plan
+            </Link> : approvalRoute.kind === "unavailable" ? <div className="space-y-2">
+              <p role="status" className="text-[13px] text-ink-mute">{approvalRoute.loading ? "Loading the current platform approval." : "Platform approval is unavailable. Reload its current state before deciding."}</p>
+              <Button variant="quiet" onClick={approvalRoute.refresh}>Reload approval</Button>
+            </div> : <Button
               onClick={() => setConfirm("approve")}
               disabled={!roleAllows(boot, approveRole)}
               disabledReason={roleReason(boot, approveRole, "Approving a deployment")}
             >
               Approve and apply
-            </Button>
+            </Button>}
             <Button variant="quiet" onClick={() => setConfirm("cancel")}>
               Cancel deployment
             </Button>
@@ -271,7 +288,7 @@ export function DeploymentDetail({
         </div>}
       </ConnectedDetail>
 
-      <ActionConfirm
+      {inlineApproval && <ActionConfirm
         open={confirm === "approve"}
         onClose={() => setConfirm(null)}
         actionId="deploy.approve"
@@ -281,7 +298,7 @@ export function DeploymentDetail({
         description={`It starts changing ${envName} immediately.`}
         confirmLabel="Approve and apply"
         onDone={onChanged}
-      />
+      />}
       <ActionConfirm
         open={confirm === "cancel"}
         onClose={() => setConfirm(null)}

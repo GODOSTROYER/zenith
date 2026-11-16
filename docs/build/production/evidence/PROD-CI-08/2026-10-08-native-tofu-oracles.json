@@ -1,0 +1,142 @@
+{
+  "sourceCommit": "413334166890bb610ae73a045e0aaeb981e8b8a9",
+  "inputHashes": {
+    "tests/tofu/hcl-template-real.test.ts": "dde88fab0abd5f43207238fd5c463d8dc3817474856f9c2fb52bd9e2b4c4a748",
+    "tests/tofu/plan-lock.test.ts": "0c072981e48f0ce712c775334c7b276d83fd37cd701ddca6448a33cd037ddbc6",
+    "tests/providers/terraform-lb-names.test.ts": "e593e1a4f590a6c068ec3ef514b11a0a3c11189a41a83d2ea82eae14f8ebd58a",
+    "tests/tofu/_helpers.ts": "541655640926ec958ebae0111f9fcf62029a9bb052252c5b018f9a32b6b238e5",
+    "tests/tofu/_expression-vectors.ts": "5189ac2790b0eacda252225dac234578cc9864ab6658c54e375f23a51435e458",
+    "src/lib/tofu/engine.ts": "a85ce5a6cb6f057151b956b41b85a7443015e5d40d2295581d7abde320277659",
+    "src/lib/tofu/binary.ts": "e66cd9e67bd64e7a2b7490328661d0364e78106dabd5a04d5793b900e427fc9b",
+    "src/lib/tofu/hcl-template.ts": "16563fb795c538ec8d866224c5bd56acc171b50e74f372cc470ea9d133cb4056",
+    "src/lib/providers/aws/terraform/bundle.ts": "7e9b6d796613d58ec8b54e3c1337ecf1ce7fa980ec0b68c9d00c0533537d73fd",
+    "src/lib/providers/aws/terraform/container-env.ts": "fffb32e9afd6943e887b3c49911b5e77b4b78d1384a5be05fd93f2d44fef6b0a",
+    "src/lib/providers/aws/terraform/emitters.ts": "c6af96b0af6bb83e5ffefdd8bfc4eb81845615c129aa754bce03202d84c2b773",
+    "src/lib/providers/aws/terraform/hcl.ts": "15aaa42acd990c7c4976078b979b7f00a449b6efa44e317b9d180df4847e6421",
+    "src/lib/providers/aws/terraform/index.ts": "58d8df0ec87ba90a637fb79a28125da6f1e16f8addbf6aada5956b78d9cdbc36",
+    "src/lib/providers/aws/terraform/naming.ts": "67d68e94f51d238d062d6e3ee7f831562baae26299497a73ad979026e7b5760d",
+    "src/lib/providers/aws/terraform/readme.ts": "06b343e6bff66779b0ab04e64cfa82768aff8409a97592039b53760b6e0827d6",
+    "package-lock.json": "2153d7fbca78f48c49130733145a1bbc695a89f91ce6ff0577f113e6adb3106c"
+  },
+  "environment": {
+    "node": "22.23.3",
+    "tofu": "1.12.5",
+    "platform": "darwin_arm64",
+    "native": true,
+    "dockerUsed": false,
+    "cloudCalls": false
+  },
+  "exitCode": 0,
+  "processGroupAbsent": true,
+  "endSourceBinding": true,
+  "diskMinBytes": 25107468288,
+  "diskAfterBytes": 25108779008,
+  "floorBytes": 23622320128,
+  "elapsedSeconds": 2.56,
+  "reason": null,
+  "counts": {
+    "numTotalTests": 17,
+    "numPassedTests": 17,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "cases": [
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names routes every load balancer and target group name through the bounded locals",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names declares the full name of each, and the bound applied to all of them",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names gives every target group its own key even when two service names sanitise to one label",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names keeps a hostile service name inside its string",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names is byte-identical across exports of an unchanged manifest",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names emits no load balancer at all when nothing is routed",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names documents the truncation instead of advising a shorter prefix",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them leaves a name that already fits exactly as it was",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them does not touch a name of exactly 32 characters, and shortens one of 33 to exactly 32",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them bounds the ALB name and every target group name to 32 characters",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them keeps two long names that share their first 25 characters distinct",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them is deterministic: the same inputs always give the same name",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them follows an override of name_prefix, which is why it is decided in HCL",
+      "status": "passed"
+    },
+    {
+      "file": "tests/providers/terraform-lb-names.test.ts",
+      "name": "alb.tf names, as OpenTofu evaluates them tells two environments apart when their long prefixes share a 25-character head",
+      "status": "passed"
+    },
+    {
+      "file": "tests/tofu/hcl-template-real.test.ts",
+      "name": "HCL scanner versus real OpenTofu 1.12.5 (no network) finds upper whenever tofu evaluates it, and pure literals stay unchanged (one plan)",
+      "status": "passed"
+    },
+    {
+      "file": "tests/tofu/hcl-template-real.test.ts",
+      "name": "HCL scanner versus real OpenTofu 1.12.5 (no network) refuses every harmless file/path exploit before real tofu can evaluate the version marker",
+      "status": "passed"
+    },
+    {
+      "file": "tests/tofu/plan-lock.test.ts",
+      "name": "plan state lock option (real tofu) plans identically with and without the state lock",
+      "status": "passed"
+    }
+  ],
+  "ownedTemporaryRootEmpty": true,
+  "onlyEmptyOwnedCacheDirectoryRemoved": true,
+  "logSha256": "cf4d6672c80457b3bd106fe211a647eb958c635fa4a37e359837c7f2a39fecf5",
+  "reportSha256": "8c99841d68616815b0f27bb8e0d0684ae251f0e63f512c889372032dbfeeadb0",
+  "scope": "Full HCL differential/refusal, local plan-lock equivalence and load-balancer-name console suites. Native OpenTofu builtin/local only; no provider downloads, cloud calls or default-stack acceptance.",
+  "status": "passed",
+  "independentReview": "Astra independently matched all16 source inputs,17 exact unique cases, raw report/log hashes, absent process group and empty temp root.",
+  "originalSetupAttempt": {
+    "status": "failed_before_execution",
+    "testsExecuted": 0,
+    "reason": "Controller inventory named terraform.ts instead of its directory. Original packet preserved; no child/report/log created."
+  }
+}

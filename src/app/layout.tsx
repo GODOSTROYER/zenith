@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { NavigationTransitions } from "@/components/brand/navigation-transitions";
-import { BootSplash } from "@/components/brand/boot-splash";
+import { ThemeSync } from "@/components/ui/theme-sync";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./fonts.css";
 import "./globals.css";
 
@@ -24,11 +24,12 @@ export default function RootLayout({
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("zenith-theme");if(t==="light"||(t==="system"&&window.matchMedia("(prefers-color-scheme: light)").matches)||(!t&&location.pathname==="/"))document.documentElement.setAttribute("data-theme","light");}catch(e){if(location.pathname==="/")document.documentElement.setAttribute("data-theme","light");}`,
+            __html: THEME_BOOTSTRAP_SCRIPT,
           }}
         />
       </head>
       <body>
+        <ThemeSync />
         <template dangerouslySetInnerHTML={{ __html: `<!--
 Landing direction contract / your cloud, in full view
 THESIS: One system, seen before, during and after the change, with Gimbal as the guide who lives in the corner.
@@ -38,8 +39,6 @@ FIRST VIEWPORT: Monumental editorial headline and real CTA on the left; the appl
 FORM: Eight chapters over one shared presentation state; no demonstration may contradict another.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, DESIGN.md, docs/zenith-landing-direction.md and the verification notes
 -->` }} />
-        <BootSplash />
-        <NavigationTransitions />
         {children}
       </body>
     </html>

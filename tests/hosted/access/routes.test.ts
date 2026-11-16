@@ -25,10 +25,24 @@ process.env.ZENITH_SECRET_KEY = "4".repeat(64);
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 
+// Identity/policy transports are fixture adapters; the shipping MFA guard still verifies them.
+const stepUp = vi.hoisted(() => ({ aal: "aal2", policyAvailable: true }));
 const session = vi.hoisted(() => ({ user: null as SessionUser | null }));
 vi.mock("@/lib/supabase/route", () => ({
   sessionUserFromRequest: async () => session.user,
 }));
+
+vi.mock("@supabase/ssr", () => ({ createServerClient: () => ({ auth: {
+  getClaims: async () => ({ data: { claims: { sub: session.user?.id, aal: stepUp.aal, exp: Date.now() / 1000 + 600 } }, error: null }),
+  getUser: async () => ({ data: { user: { id: session.user?.id, email_confirmed_at: "2026-01-01T00:00:00.000Z", factors: [{ factor_type: "totp", status: "verified" }] } }, error: null }),
+} }) }));
+vi.mock("@/lib/auth/mfa-policy", async (original) => {
+  const policy = await original<typeof import("@/lib/auth/mfa-policy")>();
+  return { ...policy, workspaceMfaControl: async () => {
+    if (!stepUp.policyAvailable) { const { ApiError } = await import("@/lib/server/errors"); throw new ApiError("Workspace MFA controls could not be verified.", 503); }
+    return policy.DEFAULT_MFA_CONTROL;
+  } };
+});
 
 const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
 const { createInvite, setSessionAuthorityForTests, supabaseSessionAuthority } = await import(
@@ -85,6 +99,7 @@ const signIn = (who: { subject: string; email: string; name: string }, verifiedE
 };
 
 beforeEach(async () => {
+  stepUp.aal = "aal2"; stepUp.policyAvailable = true;
   signIn(IDENTITIES.owner);
 });
 
@@ -112,13 +127,14 @@ const call = (
   handler: unknown,
   url: string,
   params: Record<string, string> = {},
-  init: { method?: string; body?: unknown } = {}
+  init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}
 ): Promise<Response> => {
   const request = new NextRequest(`http://localhost${url}`, {
     method: init.method ?? "GET",
+    headers: { origin: "http://localhost", "sec-fetch-site": "same-origin", ...(init.body === undefined ? {} : { "content-type": "application/json" }), ...init.headers },
     ...(init.body === undefined
       ? {}
-      : { body: JSON.stringify(init.body), headers: { "content-type": "application/json" } }),
+      : { body: JSON.stringify(init.body) }),
   });
   return (handler as Handler)(request, { params: Promise.resolve(params) });
 };
@@ -139,6 +155,18 @@ const app = async (slug: string) => {
 /* --------------------------------- tests ---------------------------------- */
 
 describe("owner-only routes", () => {
+  it("refuses unverified MFA before changing the access list", async () => {
+    const target = await app("routes-mfa");
+    const before = await a.repos.grants.listByApp(target.id);
+    stepUp.aal = "aal1";
+    const res = await call(grantsRoute.POST, `/api/hosted/apps/${target.id}/grants`, { appId: target.id }, { method: "POST", body: { subject: IDENTITIES.viewer.subject, email: IDENTITIES.viewer.email, role: "viewer" } });
+    expect(res.status).toBe(403);
+    expect((await errorOf(res)).message).toBe("Verify your authenticator before continuing with this privileged action.");
+    stepUp.aal = "aal2";
+    expect((await call(grantsRoute.POST, `/api/hosted/apps/${target.id}/grants`, { appId: target.id }, { method: "POST", headers: { origin: "http://evil.test" }, body: { subject: IDENTITIES.viewer.subject, email: IDENTITIES.viewer.email, role: "viewer" } })).status).toBe(403);
+    expect(await a.repos.grants.listByApp(target.id)).toEqual(before);
+  });
+
   it("lets an owner read and change the access list", async () => {
     const target = await app("routes-owner");
     const list = await call(grantsRoute.GET, `/api/hosted/apps/${target.id}/grants`, { appId: target.id });

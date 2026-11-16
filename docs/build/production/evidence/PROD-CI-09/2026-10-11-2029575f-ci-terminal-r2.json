@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "exact_source_ci_terminal_summary",
+  "sourceSha": "2029575ffa8e365871b9c85f7da741d95f89a773",
+  "observedAtUtc": "2026-10-11T09:46:51Z",
+  "mainWorkflow": {
+    "runId": 38127637038,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": 28,
+    "success": 20,
+    "conditionalSkipped": 8,
+    "active": 0
+  },
+  "nativePackagedWorkers": {
+    "runId": 38127637059,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": 2,
+    "success": 2
+  },
+  "nativeSkippedPlatforms": {
+    "runId": 38127637055,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": 2,
+    "success": 2
+  },
+  "aggregate": {
+    "workflows": 3,
+    "jobs": 32,
+    "success": 24,
+    "conditionalSkipped": 8,
+    "failure": 0,
+    "cancelled": 0,
+    "active": 0,
+    "laneCountsCombined": false
+  },
+  "unitStep": {
+    "jobId": 114435213228,
+    "conclusion": "success",
+    "testsPassed": 24584,
+    "testsFailed": 0,
+    "testsSkipped": 1925,
+    "collectedIdentities": 26509,
+    "vitestReportedDurationSeconds": 1606.94,
+    "maxWorkersConfigured": 2,
+    "simultaneousWorkerOccupancyMeasured": false
+  },
+  "resourceObservations": {
+    "type": "host point-in-time snapshots before and after unit suites",
+    "provesPeakUse": false,
+    "cgroupLimitsOrProcessRssReported": false,
+    "inventorySha256": "43176e9c54736edc323d229ef9c06a8d7810d81afe952424d64605b05ebb47bc",
+    "workerCountClarificationSha256": "95cc4f7dc5234a2b9161479483456b00e01879d20c8bdeb639ba8a0c3eed2108"
+  },
+  "scopeLimit": "Exact-source CI result only; local full-core and native build results are separately bound evidence."
+}

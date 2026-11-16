@@ -13,7 +13,7 @@ describe("useEventStream replay cursor ownership", () => {
 
   class FakeEventSource extends EventTarget {
     onopen: (() => void) | null = null;
-    onerror: (() => void) | null = null;
+    onerror: ((event: Event) => void) | null = null;
     close = vi.fn();
     constructor(readonly url: string) {
       super();
@@ -24,11 +24,21 @@ describe("useEventStream replay cursor ownership", () => {
         lastEventId: String(seq), data: JSON.stringify({ line: `line ${seq}` }),
       }));
     }
+    fail() {
+      const event = new Event("error");
+      this.dispatchEvent(event);
+      this.onerror?.(event);
+    }
+    emitError(payload: unknown) {
+      const event = new MessageEvent("error", { data: JSON.stringify(payload) });
+      this.dispatchEvent(event);
+      this.onerror?.(event);
+    }
   }
 
   function Probe({ url, events = ["log"] }: { url: string | null; events?: string[] }) {
-    useEventStream(url, events, onEvent);
-    return <input aria-label="Draft" defaultValue="review notes" />;
+    const { connected } = useEventStream(url, events, onEvent);
+    return <input aria-label="Draft" defaultValue="review notes" data-connected={connected} />;
   }
 
   beforeEach(() => {
@@ -70,7 +80,7 @@ describe("useEventStream replay cursor ownership", () => {
   it("preserves the last received cursor on reconnect and listener changes for the same URL", async () => {
     const url = "/api/deployments/current/events?environment=staging";
     await render(url);
-    act(() => { streams[0].emit(34); streams[0].onerror?.(); });
+    act(() => { streams[0].emit(34); streams[0].fail(); });
     await act(async () => vi.advanceTimersByTimeAsync(1200));
     expect(streams[1].url).toBe(`${url}&after=34`);
 
@@ -80,10 +90,58 @@ describe("useEventStream replay cursor ownership", () => {
 
   it("does not let a pending old-stream reconnect reopen after switching URLs", async () => {
     await render("/api/deployments/previous/events");
-    act(() => { streams[0].emit(81); streams[0].onerror?.(); });
+    act(() => { streams[0].emit(81); streams[0].fail(); });
     await render("/api/deployments/next/events");
     await act(async () => vi.advanceTimersByTimeAsync(1200));
     expect(streams).toHaveLength(2);
     expect(streams[1].url).toBe("/api/deployments/next/events?after=-1");
+  });
+
+  it("reconnects on a native error without delivering an undefined application payload", async () => {
+    await render("/api/logs/production/api", ["log", "error"]);
+    act(() => streams[0].onopen?.());
+    expect(host.querySelector("input")?.dataset.connected).toBe("true");
+
+    act(() => streams[0].fail());
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(host.querySelector("input")?.dataset.connected).toBe("false");
+    expect(streams[0].close).toHaveBeenCalledOnce();
+    await act(async () => vi.advanceTimersByTimeAsync(1200));
+    expect(streams[1].url).toBe("/api/logs/production/api?after=-1");
+  });
+
+  it("delivers a server error frame once without treating it as a disconnected socket", async () => {
+    await render("/api/logs/production/api", ["log", "error"]);
+    act(() => streams[0].onopen?.());
+    const error = { message: "Provider unavailable", fix: "Check the connection." };
+
+    act(() => streams[0].emitError(error));
+    expect(onEvent).toHaveBeenCalledOnce();
+    expect(onEvent).toHaveBeenCalledWith("error", error, 0);
+    expect(host.querySelector("input")?.dataset.connected).toBe("true");
+    expect(streams[0].close).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTimeAsync(1200));
+    expect(streams).toHaveLength(1);
+  });
+
+  it("ignores queued events from a closed stream after switching screens", async () => {
+    await render("/api/logs/production/previous", ["log", "error"]);
+    const previous = streams[0];
+    await render("/api/logs/production/next", ["log", "error"]);
+    act(() => streams[1].onopen?.());
+
+    act(() => {
+      previous.emit(81);
+      previous.fail();
+      previous.dispatchEvent(new Event("done"));
+    });
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(host.querySelector("input")?.dataset.connected).toBe("true");
+    expect(streams[1].close).not.toHaveBeenCalled();
+
+    act(() => streams[1].fail());
+    await act(async () => vi.advanceTimersByTimeAsync(1200));
+    expect(streams).toHaveLength(3);
+    expect(streams[2].url).toBe("/api/logs/production/next?after=-1");
   });
 });

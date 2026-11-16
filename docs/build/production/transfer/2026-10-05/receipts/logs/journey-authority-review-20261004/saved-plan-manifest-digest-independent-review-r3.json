@@ -1,0 +1,126 @@
+{
+  "status": "ACCEPTED_SOURCE_ONLY_RUNTIME_UNVERIFIED",
+  "recordedAtUtc": "2026-10-05T07:53:37.115578+00:00",
+  "reviewer": "C independent bounded R3 digest correction review",
+  "freeze": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/FROZEN-SOURCE.json",
+    "sha256": "60c09316eeefc67c011a1fe29c09b19061640697fd26ce8968be8f8016fbf256"
+  },
+  "patch": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/manifest-digest-correction.patch",
+    "sha256": "b086e37d202591929e938ca2c86764285d3c09a2b61de33e69750c173536208e",
+    "bytes": 9736
+  },
+  "caseContract": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-manifest-digest-20261005/revision3/CASE-CONTRACT.json",
+    "sha256": "3b3c3c3e87c56648a1296476d3899fb4dc6ea71103b60f455b2d5224f7c3816c",
+    "bytes": 48410
+  },
+  "head": "f69965600bc47e5f2935e19bdb10a2225d595fc5",
+  "preparedTreeIndependentlyReconstructed": "7da4306a4b3aab859b55978030702881eb6fdc08",
+  "candidateTreeIndependentlyReconstructed": "a6ae2b5b77edb7d4221b628e12198d342fecda39",
+  "ownedFiles": [
+    {
+      "path": "src/lib/tofu/engine.ts",
+      "before": {
+        "sha256": "95e4f6131397ca4a65723f049606b72a40112e03d93a8802e19a3a7fd3d65c45",
+        "bytes": 33740,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "29321ecbb3360b161787d191efad09b1482281adbf8b56250d1ebfc9d738be66",
+        "bytes": 33784,
+        "mode": 420
+      }
+    },
+    {
+      "path": "tests/controlplane/cleanup-writer-barriers.test.ts",
+      "before": {
+        "sha256": "413e49df2ec089a9a280d5312636d03ab28f54b6c5536d7d4f68f857b68b66ed",
+        "bytes": 105618,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "87813c36bd0face890cc8e47e8aede5fc3d6fae058c13cd07f5812b449339f71",
+        "bytes": 106086,
+        "mode": 420
+      }
+    },
+    {
+      "path": "docs/build/handoffs/SAVED-PLAN-WRITER-SETTLEMENT-20261005.md",
+      "before": {
+        "sha256": "4a4b61d33eeddbb918eb50dcef74e21855ccd6acd145daf795eb206eafbf1e4e",
+        "bytes": 7519,
+        "mode": 420
+      },
+      "after": {
+        "sha256": "b2a2536ed715ea1c233fa274a10a5ef89fb8df58c3979843e3dfc1a5f5a78f37",
+        "bytes": 9014,
+        "mode": 420
+      }
+    }
+  ],
+  "fullSourceCount": 3854,
+  "outsideExactCount": 3851,
+  "allFrozenAndLivePrePostImagesExact": true,
+  "inventoryReferencesBound": {
+    "FULL-BEFORE-INVENTORY.json": "185baa1c0d2c23703144d7ea6bb5fd7304c85a4b908923aa59efbe64ebe80aa0",
+    "FULL-AFTER-INVENTORY.json": "efbef4e7380c47e86066fd6406bcea4f44e952a7d1e36dbe9f377689fa16aaa4",
+    "OUTSIDE-INVENTORY.json": "419d1568540402f33e658779f4570f6259fd7e437465e7d60f381188f63a2b89",
+    "SOURCE-PRESERVATION.json": "8b4539b3360da4a88b19243d69ece20c75b6584fd3a2f57600b2c600a36a2ac5",
+    "PRE-EDIT-BASELINE.json": "cefd44c307341b7dad346bdeabfb1cee5792d366a6a967b10b18b873983e27dc",
+    "preparation": "81ef96bb903890cd4b1e4bd2857e79d194133ee859d0351a63e99383b568b8f1",
+    "previousFrozenR2": "70e773273973550173e287ccc7d761610ef682db3b56e5495ea50af18ebeb2db",
+    "patch": "b086e37d202591929e938ca2c86764285d3c09a2b61de33e69750c173536208e",
+    "caseContract": "3b3c3c3e87c56648a1296476d3899fb4dc6ea71103b60f455b2d5224f7c3816c",
+    "failedPredecessor": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065"
+  },
+  "privateForwardReverseReplayWithoutGitWritesExact": true,
+  "realIndex": {
+    "rawSha256": "9e31fd0c901cc8c9e819d06a16080d1e1ce4e8c9dfd750256e60a906775ea328",
+    "frozenRawExact": true,
+    "stagedEntrySha256": "6bc8d24de22de7465f84d1801a0eab0bc803caa92783e3b9f5079ed09d8ef02a",
+    "stagedDiffEmpty": true,
+    "unchangedByReviewer": true
+  },
+  "scope": {
+    "productionChange": "Only one canonical digest import and two standalone manifest creation/authentication expressions change. Reversing these restores the complete R2 engine exactly. Other objectHash, cipher reference/AAD, settlement/state/backend/config/executable and private origin/current CAS domains remain exact.",
+    "digestRule": "Canonical controlplane digest uses compact recursively sorted JSON, identical to immutable native publish manifest_digest; engine formatted stableJson hash is retained for all original non-native-manifest domains. No new dependency cycle or execution is introduced by the pure node:crypto digest module.",
+    "positiveCase": "Actual first original-byte success now asserts receipt.binding.manifestDigest equals the immutable stored artifact row manifest_digest, preserving actual apply/byte/receipt/non-replay assertions.",
+    "negativeCases": "Both producer method-shadow cases require exact Canonical standalone run origin changed error, zero shadow callback calls, no state/no receipt and whole original artifact row equality. No alternate provider/backend command or fake origin is executed to satisfy a refusal."
+  },
+  "identities": {
+    "cases": 100,
+    "sameOrderedNamesAsR2": true,
+    "orderedNamesCompactJsonSha256": "85c3d8a2c1018f7c84d2bbcd0e6c83e3a2bf4af79ea643d1f624163325f8c364",
+    "original46BodiesExact": true,
+    "originalCurrentAuthorityAndGenuineWaitControlsExact": true,
+    "requiredEnvironment": "ZENITH_TEST_SAVED_PLAN_SETTLEMENT_REQUIRED=1"
+  },
+  "blockingFindings": [],
+  "preservedFailedPredecessor": {
+    "path": "/Users/saivedanthava/.codex/zenith-production/logs/saved-plan-settlement-native-root-r2-20261005/settlement.json",
+    "sha256": "30fee88511a912b3152eb1bb0e8b15d57f2f4eb4423fd381de9fc1706eb56065",
+    "passed": 60,
+    "failed": 40,
+    "skipped": 0,
+    "preserved": true
+  },
+  "historicalSourceR1Rejection": "Preserved; not superseded as runtime evidence. R2 source acceptance remains historical and its actual native60P40F0S remains failed.",
+  "outsideFollowups": [
+    "Exact cleanup native test source SHA in pending gate11 follows independent acceptance",
+    "Root compiler/lint and actual native100 successor",
+    "MACH01/03 reachable service convergence contract remains queued"
+  ],
+  "execution": {
+    "imports": "NOT_RUN",
+    "compiler": "NOT_RUN",
+    "tests": "NOT_RUN",
+    "database": "NOT_STARTED",
+    "Docker": "NOT_USED",
+    "services": "NOT_STARTED",
+    "sourceOrIndexEdits": "NONE",
+    "runtimeAcceptance": false,
+    "all40FailuresCuredClaim": false
+  }
+}

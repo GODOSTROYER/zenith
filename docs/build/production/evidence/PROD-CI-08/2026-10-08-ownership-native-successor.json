@@ -1,0 +1,48 @@
+{
+  "integratedCommit": "c8c874027dd687d4a133e5de5d971a323eeed40b",
+  "testedBaseCommit": "d90fca08ea224ac16cdc70318f74a44dd97a1ce9",
+  "counts": {
+    "passed": 55,
+    "failed": 0,
+    "skipped": 0,
+    "todo": 0,
+    "discovered": 55,
+    "mandatoryNativePostgresCases": 36,
+    "files": 2,
+    "excluded": 0
+  },
+  "receiptSha256": "08e0a266bd2a78021c88a5ec9bfb96c16bb8d1e583f9e262beda9cd9add6dcb0",
+  "reportSha256": "3fe14ef370f509e4a5f7f2148c5a1a96aaecf0034a526b0f0f822488ac8e4187",
+  "cleanupComplete": true,
+  "endSourceBinding": true,
+  "independentlyAbsentGroups": 155,
+  "minimumFreeBytes": 18965454848,
+  "compiler": {
+    "baseCommit": "58c4e192dfc3bbbf717e28b6769130cdde83714d",
+    "exitCode": 0,
+    "heapMiB": 5120,
+    "durationSeconds": 14.69,
+    "groupAbsent": true,
+    "endSourceBinding": true
+  },
+  "gateContracts": {
+    "passed": 368,
+    "failed": 0,
+    "skipped": 0,
+    "priorFailedAttempt": {
+      "passed": 339,
+      "failed": 29,
+      "skipped": 0,
+      "cause": "Historical cohort fixtures still referenced two renamed requirement IDs; exact two-ID updates preserved all counts."
+    }
+  },
+  "requirements": {
+    "currentPlatform": 1160,
+    "ownershipCohort": 10,
+    "unchangedOther": 1158,
+    "unchangedCustody": 101,
+    "native100Unchanged": true
+  },
+  "scope": "Real PostgreSQL coordinator, final-statement, migration/ACL and PGlite controls; human approvals modeled. No real Auth, cloud or default journey acceptance.",
+  "independentReview": "Source, packet, actual full Counter, tool/source binding and cleanup accepted."
+}

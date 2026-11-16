@@ -1,0 +1,2212 @@
+{
+  "scope": "Uncommitted Windows contract/PGlite build results; no native or live acceptance",
+  "shell": "Every shell prepended C:/Users/user/.local/sdk/node22 to PATH. Vitest maxWorkers=2, no file parallelism. Go GOTOOLCHAIN=local.",
+  "counts": {
+    "files": 213,
+    "passed": 3904,
+    "failed": 0,
+    "skipped": 313
+  },
+  "attempts": [
+    {
+      "batch": 0,
+      "command": "npx vitest run tests/acceptance/aws-production.live.test.ts tests/acceptance/aws-production.test.ts tests/acceptance/live-l3.gated.test.ts tests/acceptance/live-managed-transports.test.ts tests/acceptance/live-managed.test.ts tests/acceptance/local-targets.engine.test.ts tests/acceptance/maintenance-default.test.ts tests/acceptance/maintenance-preconditions.test.ts tests/acceptance/mixed-connectivity-probe.test.ts tests/acceptance/mixed-failure-scenarios.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json",
+      "exit": 0,
+      "passed": 151,
+      "failed": 0,
+      "skipped": 10,
+      "files": [
+        "tests/acceptance/aws-production.live.test.ts",
+        "tests/acceptance/aws-production.test.ts",
+        "tests/acceptance/live-l3.gated.test.ts",
+        "tests/acceptance/live-managed-transports.test.ts",
+        "tests/acceptance/live-managed.test.ts",
+        "tests/acceptance/local-targets.engine.test.ts",
+        "tests/acceptance/maintenance-default.test.ts",
+        "tests/acceptance/maintenance-preconditions.test.ts",
+        "tests/acceptance/mixed-connectivity-probe.test.ts",
+        "tests/acceptance/mixed-failure-scenarios.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "batch": 1,
+      "command": "npx vitest run tests/acceptance/mixed-lambda-package.gated.test.ts tests/acceptance/mixed-lambda.gated.test.ts tests/acceptance/mixed-lambda.test.ts tests/acceptance/mixed-live-recovery.test.ts tests/acceptance/mixed-live-run.test.ts tests/acceptance/mixed-traffic.test.ts tests/acceptance/non-aws-dns-live.test.ts tests/acceptance/w5-gaps-ui.gated.test.ts tests/adversarial/approvals-forgery.test.ts tests/adversarial/build-exfiltration.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json",
+      "exit": 0,
+      "passed": 123,
+      "failed": 0,
+      "skipped": 12,
+      "files": [
+        "tests/acceptance/mixed-lambda-package.gated.test.ts",
+        "tests/acceptance/mixed-lambda.gated.test.ts",
+        "tests/acceptance/mixed-lambda.test.ts",
+        "tests/acceptance/mixed-live-recovery.test.ts",
+        "tests/acceptance/mixed-live-run.test.ts",
+        "tests/acceptance/mixed-traffic.test.ts",
+        "tests/acceptance/non-aws-dns-live.test.ts",
+        "tests/acceptance/w5-gaps-ui.gated.test.ts",
+        "tests/adversarial/approvals-forgery.test.ts",
+        "tests/adversarial/build-exfiltration.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "batch": 2,
+      "command": "npx vitest run tests/adversarial/cross-tenant.test.ts tests/adversarial/integration-compromise.test.ts tests/adversarial/malicious-archives.test.ts tests/adversarial/prompt-injection.test.ts tests/adversarial/residual-hardening.test.ts tests/adversarial/role-escalation.test.ts tests/adversarial/ssrf-rebinding.test.ts tests/adversarial/token-forgery.test.ts tests/agent-v3/catalog.test.ts tests/agent-v3/oauth-issuer-fixture.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json",
+      "exit": 1,
+      "passed": 211,
+      "failed": 2,
+      "skipped": 8,
+      "files": [
+        "tests/adversarial/cross-tenant.test.ts",
+        "tests/adversarial/integration-compromise.test.ts",
+        "tests/adversarial/malicious-archives.test.ts",
+        "tests/adversarial/prompt-injection.test.ts",
+        "tests/adversarial/residual-hardening.test.ts",
+        "tests/adversarial/role-escalation.test.ts",
+        "tests/adversarial/ssrf-rebinding.test.ts",
+        "tests/adversarial/token-forgery.test.ts",
+        "tests/agent-v3/catalog.test.ts",
+        "tests/agent-v3/oauth-issuer-fixture.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "batch": 3,
+      "command": "npx vitest run tests/agent-v3/oauth-issuer-live.test.ts tests/agent-v3/oauth-revoke.test.ts tests/agent-v3/official-client-conformance.test.ts tests/agent-v3/placement-transport.test.ts tests/agent-v3/placement.test.ts tests/agent-v3/runner-connections.test.ts tests/agent-v3/tenancy.test.ts tests/audit-export/audit-export.test.ts tests/audit-export/purpose.test.ts tests/auth/mfa-browser.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json",
+      "exit": 0,
+      "passed": 95,
+      "failed": 0,
+      "skipped": 7,
+      "files": [
+        "tests/agent-v3/oauth-issuer-live.test.ts",
+        "tests/agent-v3/oauth-revoke.test.ts",
+        "tests/agent-v3/official-client-conformance.test.ts",
+        "tests/agent-v3/placement-transport.test.ts",
+        "tests/agent-v3/placement.test.ts",
+        "tests/agent-v3/runner-connections.test.ts",
+        "tests/agent-v3/tenancy.test.ts",
+        "tests/audit-export/audit-export.test.ts",
+        "tests/audit-export/purpose.test.ts",
+        "tests/auth/mfa-browser.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "batch": 4,
+      "command": "npx vitest run tests/auth/mfa-legacy-cancel.test.ts tests/auth/mfa-operators.test.ts tests/auth/mfa-routes.test.ts tests/auth/mfa-workspace-state.test.ts tests/auth/mfa.test.ts tests/billing/billing-routes.test.ts tests/billing/billing-unit.test.ts tests/billing/billing.engine.test.ts tests/billing/managed-tier.engine.test.ts tests/capabilities/action-bridge.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json",
+      "exit": 0,
+      "passed": 301,
+      "failed": 0,
+      "skipped": 22,
+      "files": [
+        "tests/auth/mfa-legacy-cancel.test.ts",
+        "tests/auth/mfa-operators.test.ts",
+        "tests/auth/mfa-routes.test.ts",
+        "tests/auth/mfa-workspace-state.test.ts",
+        "tests/auth/mfa.test.ts",
+        "tests/billing/billing-routes.test.ts",
+        "tests/billing/billing-unit.test.ts",
+        "tests/billing/billing.engine.test.ts",
+        "tests/billing/managed-tier.engine.test.ts",
+        "tests/capabilities/action-bridge.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "batch": 5,
+      "command": "npx vitest run tests/capabilities/field-ownership-broker.test.ts tests/capabilities/routes.test.ts tests/ci/gate-manifest.test.ts tests/ci/lane-report.test.ts tests/ci/platform-coverage.test.ts tests/ci/release-gates.test.ts tests/ci/release-workflow.test.ts tests/ci/vulnerability-triage.test.ts tests/ci/workflow-history-replay-manifest.test.ts tests/cli/connections.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json",
+      "exit": 1,
+      "passed": 577,
+      "failed": 33,
+      "skipped": 0,
+      "files": [
+        "tests/capabilities/field-ownership-broker.test.ts",
+        "tests/capabilities/routes.test.ts",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/lane-report.test.ts",
+        "tests/ci/platform-coverage.test.ts",
+        "tests/ci/release-gates.test.ts",
+        "tests/ci/release-workflow.test.ts",
+        "tests/ci/vulnerability-triage.test.ts",
+        "tests/ci/workflow-history-replay-manifest.test.ts",
+        "tests/cli/connections.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "batch": 7,
+      "command": "npx vitest run tests/controlplane/migrations.test.ts tests/controlplane/mixed-follow-up.test.ts tests/controlplane/mixed-parent-plans.test.ts tests/controlplane/ownership-serialization.test.ts tests/controlplane/ownership-transfers.test.ts tests/controlplane/recovery-epoch.test.ts tests/controlplane/tenancy.test.ts tests/controlplane/wave5-compat.test.ts tests/cost/aws-published-vector.test.ts tests/cost/compute-refresh.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json",
+      "exit": 0,
+      "passed": 123,
+      "failed": 0,
+      "skipped": 39,
+      "files": [
+        "tests/controlplane/migrations.test.ts",
+        "tests/controlplane/mixed-follow-up.test.ts",
+        "tests/controlplane/mixed-parent-plans.test.ts",
+        "tests/controlplane/ownership-serialization.test.ts",
+        "tests/controlplane/ownership-transfers.test.ts",
+        "tests/controlplane/recovery-epoch.test.ts",
+        "tests/controlplane/tenancy.test.ts",
+        "tests/controlplane/wave5-compat.test.ts",
+        "tests/cost/aws-published-vector.test.ts",
+        "tests/cost/compute-refresh.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "batch": 6,
+      "command": "npx vitest run tests/cli/plugin-launcher-docker.test.ts tests/cli/plugin-launcher.test.ts tests/cli/plugin-platform-live.test.ts tests/cli/plugin-runtime.test.ts tests/cli/plugin-sandbox.test.ts tests/connections/runner-action-registry.test.ts tests/connections/runner-browser.test.ts tests/connections/runner-routes.test.ts tests/connections/zenith-connection.test.ts tests/controlplane/mcp-product-endpoint.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json",
+      "exit": 0,
+      "passed": 139,
+      "failed": 0,
+      "skipped": 47,
+      "files": [
+        "tests/cli/plugin-launcher-docker.test.ts",
+        "tests/cli/plugin-launcher.test.ts",
+        "tests/cli/plugin-platform-live.test.ts",
+        "tests/cli/plugin-runtime.test.ts",
+        "tests/cli/plugin-sandbox.test.ts",
+        "tests/connections/runner-action-registry.test.ts",
+        "tests/connections/runner-browser.test.ts",
+        "tests/connections/runner-routes.test.ts",
+        "tests/connections/zenith-connection.test.ts",
+        "tests/controlplane/mcp-product-endpoint.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "batch": 8,
+      "command": "npx vitest run tests/cost/live-billing.live.test.ts tests/cost/mcp-placement-usage.test.ts tests/cost/optimizer-settings.http.local.test.ts tests/cost/optimizer-settings.test.ts tests/cost/usage-exporter.test.ts tests/cost/usage-route.test.ts tests/deploy/default-stack.engine.test.ts tests/deploy/default-stack.test.ts tests/deploy/installation.native.test.ts tests/deploy/installation.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json",
+      "exit": 0,
+      "passed": 86,
+      "failed": 0,
+      "skipped": 77,
+      "files": [
+        "tests/cost/live-billing.live.test.ts",
+        "tests/cost/mcp-placement-usage.test.ts",
+        "tests/cost/optimizer-settings.http.local.test.ts",
+        "tests/cost/optimizer-settings.test.ts",
+        "tests/cost/usage-exporter.test.ts",
+        "tests/cost/usage-route.test.ts",
+        "tests/deploy/default-stack.engine.test.ts",
+        "tests/deploy/default-stack.test.ts",
+        "tests/deploy/installation.native.test.ts",
+        "tests/deploy/installation.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "batch": 9,
+      "command": "npx vitest run tests/docs/operator-docs.test.ts tests/e2e/default/receipt.test.ts tests/execution/build-isolation.test.ts tests/execution/kubernetes-deploy-journey.test.ts tests/execution/mixed-orchestration-signals.test.ts tests/execution/mixed/connectivity.test.ts tests/execution/mixed/economics.test.ts tests/execution/mixed/output-reader.test.ts tests/execution/mixed/typed-delivery.test.ts tests/execution/mixed/typed-inputs-activities.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json",
+      "exit": 1,
+      "passed": 233,
+      "failed": 11,
+      "skipped": 0,
+      "files": [
+        "tests/docs/operator-docs.test.ts",
+        "tests/e2e/default/receipt.test.ts",
+        "tests/execution/build-isolation.test.ts",
+        "tests/execution/kubernetes-deploy-journey.test.ts",
+        "tests/execution/mixed-orchestration-signals.test.ts",
+        "tests/execution/mixed/connectivity.test.ts",
+        "tests/execution/mixed/economics.test.ts",
+        "tests/execution/mixed/output-reader.test.ts",
+        "tests/execution/mixed/typed-delivery.test.ts",
+        "tests/execution/mixed/typed-inputs-activities.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "batch": 10,
+      "command": "npx vitest run tests/execution/mixed/typed-substitution.test.ts tests/execution/semantics.test.ts tests/execution/tenant-isolation.test.ts tests/execution/zenith-destroy-databases.test.ts tests/execution/zenith-first-deploy.test.ts tests/execution/zenith-graph-problems.test.ts tests/execution/zenith-managed-journey.test.ts tests/execution/zenith-semantics.test.ts tests/hosted/acceptance/gate-02-second-identity.test.ts tests/hosted/gateway/journey.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json",
+      "exit": 1,
+      "passed": 140,
+      "failed": 3,
+      "skipped": 0,
+      "files": [
+        "tests/execution/mixed/typed-substitution.test.ts",
+        "tests/execution/semantics.test.ts",
+        "tests/execution/tenant-isolation.test.ts",
+        "tests/execution/zenith-destroy-databases.test.ts",
+        "tests/execution/zenith-first-deploy.test.ts",
+        "tests/execution/zenith-graph-problems.test.ts",
+        "tests/execution/zenith-managed-journey.test.ts",
+        "tests/execution/zenith-semantics.test.ts",
+        "tests/hosted/acceptance/gate-02-second-identity.test.ts",
+        "tests/hosted/gateway/journey.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "batch": 11,
+      "command": "npx vitest run tests/hosted/gateway/reserved.test.ts tests/isolation/gateway-isolation-acceptance.test.ts tests/isolation/gvisor-installation.test.ts tests/isolation/gvisor-onboarding-acceptance.test.ts tests/isolation/gvisor-runtime-acceptance.test.ts tests/isolation/isolation-profile.test.ts tests/isolation/managed-onboarding-readiness.test.ts tests/isolation/tenant-isolation-acceptance.test.ts tests/live/mixed-cloud.live.test.ts tests/live/mixed-connectivity.live.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json",
+      "exit": 1,
+      "passed": 50,
+      "failed": 1,
+      "skipped": 40,
+      "files": [
+        "tests/hosted/gateway/reserved.test.ts",
+        "tests/isolation/gateway-isolation-acceptance.test.ts",
+        "tests/isolation/gvisor-installation.test.ts",
+        "tests/isolation/gvisor-onboarding-acceptance.test.ts",
+        "tests/isolation/gvisor-runtime-acceptance.test.ts",
+        "tests/isolation/isolation-profile.test.ts",
+        "tests/isolation/managed-onboarding-readiness.test.ts",
+        "tests/isolation/tenant-isolation-acceptance.test.ts",
+        "tests/live/mixed-cloud.live.test.ts",
+        "tests/live/mixed-connectivity.live.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "batch": 12,
+      "command": "npx vitest run tests/machines/runbook-delivery.test.ts tests/machines/runbook-step-executor.test.ts tests/managed-serving/catalog.test.ts tests/managed-serving/domain-routes.test.ts tests/managed-serving/domain-store.test.ts tests/managed-serving/domains.test.ts tests/managed-serving/integration-readiness.test.ts tests/managed-serving/services-route.test.ts tests/managed-serving/serving-contract.test.ts tests/managed-serving/serving-kind.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json",
+      "exit": 1,
+      "passed": 145,
+      "failed": 21,
+      "skipped": 4,
+      "files": [
+        "tests/machines/runbook-delivery.test.ts",
+        "tests/machines/runbook-step-executor.test.ts",
+        "tests/managed-serving/catalog.test.ts",
+        "tests/managed-serving/domain-routes.test.ts",
+        "tests/managed-serving/domain-store.test.ts",
+        "tests/managed-serving/domains.test.ts",
+        "tests/managed-serving/integration-readiness.test.ts",
+        "tests/managed-serving/services-route.test.ts",
+        "tests/managed-serving/serving-contract.test.ts",
+        "tests/managed-serving/serving-kind.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "batch": 13,
+      "command": "npx vitest run tests/managed-serving/serving-render.test.ts tests/managed-serving/storage-emulator.test.ts tests/managed-serving/storage.test.ts tests/middleware/platform-bearer.test.ts tests/offered-catalog/route.test.ts tests/ops/k8s-worker-probe.test.ts tests/ops/observability-import.test.ts tests/ops/recovery-health.test.ts tests/ops/recovery-manifest.test.ts tests/ops/recovery-rehearsal.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json",
+      "exit": 0,
+      "passed": 231,
+      "failed": 0,
+      "skipped": 15,
+      "files": [
+        "tests/managed-serving/serving-render.test.ts",
+        "tests/managed-serving/storage-emulator.test.ts",
+        "tests/managed-serving/storage.test.ts",
+        "tests/middleware/platform-bearer.test.ts",
+        "tests/offered-catalog/route.test.ts",
+        "tests/ops/k8s-worker-probe.test.ts",
+        "tests/ops/observability-import.test.ts",
+        "tests/ops/recovery-health.test.ts",
+        "tests/ops/recovery-manifest.test.ts",
+        "tests/ops/recovery-rehearsal.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "batch": 14,
+      "command": "npx vitest run tests/placement/cost-sources.test.ts tests/placement/measurement-collector.local.test.ts tests/placement/measurement-collector.test.ts tests/placement/measurement-ports.test.ts tests/placement/optimizer-collector-pass.test.ts tests/placement/optimizer-ownership.test.ts tests/placement/optimizer-pass.test.ts tests/placement/optimizer-sweep.local.test.ts tests/platform-ui/operator-journey.test.ts tests/platform/billing-schedule.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json",
+      "exit": 0,
+      "passed": 69,
+      "failed": 0,
+      "skipped": 2,
+      "files": [
+        "tests/placement/cost-sources.test.ts",
+        "tests/placement/measurement-collector.local.test.ts",
+        "tests/placement/measurement-collector.test.ts",
+        "tests/placement/measurement-ports.test.ts",
+        "tests/placement/optimizer-collector-pass.test.ts",
+        "tests/placement/optimizer-ownership.test.ts",
+        "tests/placement/optimizer-pass.test.ts",
+        "tests/placement/optimizer-sweep.local.test.ts",
+        "tests/platform-ui/operator-journey.test.ts",
+        "tests/platform/billing-schedule.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "batch": 15,
+      "command": "npx vitest run tests/platform/critical-jobs.test.ts tests/platform/managed-reconcile.test.ts tests/platform/recovery-service.test.ts tests/platform/zenith-build.test.ts tests/platform/zenith-isolation-custody.test.ts tests/platform/zenith-managed-composition.test.ts tests/platform/zenith-onboarding.test.ts tests/plugins/launch-integration.test.ts tests/plugins/service.test.ts tests/providers/aws/drivers/compute/lambda-ec2.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json",
+      "exit": 0,
+      "passed": 220,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/platform/critical-jobs.test.ts",
+        "tests/platform/managed-reconcile.test.ts",
+        "tests/platform/recovery-service.test.ts",
+        "tests/platform/zenith-build.test.ts",
+        "tests/platform/zenith-isolation-custody.test.ts",
+        "tests/platform/zenith-managed-composition.test.ts",
+        "tests/platform/zenith-onboarding.test.ts",
+        "tests/plugins/launch-integration.test.ts",
+        "tests/plugins/service.test.ts",
+        "tests/providers/aws/drivers/compute/lambda-ec2.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "batch": 16,
+      "command": "npx vitest run tests/providers/azure/live.test.ts tests/providers/kubernetes/build/contracts.test.ts tests/providers/kubernetes/build/dispatch.test.ts tests/providers/kubernetes/build/graph.test.ts tests/providers/kubernetes/build/joins.test.ts tests/providers/kubernetes/build/kind.test.ts tests/providers/kubernetes/build/operated-release.test.ts tests/providers/kubernetes/build/schema.test.ts tests/providers/zenith/deploy.test.ts tests/providers/zenith/drivers.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json",
+      "exit": 0,
+      "passed": 181,
+      "failed": 0,
+      "skipped": 10,
+      "files": [
+        "tests/providers/azure/live.test.ts",
+        "tests/providers/kubernetes/build/contracts.test.ts",
+        "tests/providers/kubernetes/build/dispatch.test.ts",
+        "tests/providers/kubernetes/build/graph.test.ts",
+        "tests/providers/kubernetes/build/joins.test.ts",
+        "tests/providers/kubernetes/build/kind.test.ts",
+        "tests/providers/kubernetes/build/operated-release.test.ts",
+        "tests/providers/kubernetes/build/schema.test.ts",
+        "tests/providers/zenith/deploy.test.ts",
+        "tests/providers/zenith/drivers.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "batch": 17,
+      "command": "npx vitest run tests/providers/zenith/isolation-bundle.test.ts tests/providers/zenith/managed-kind.test.ts tests/providers/zenith/managed-profile.test.ts tests/providers/zenith/managed-substrate.test.ts tests/providers/zenith/onboarding-semantics.test.ts tests/release/acceptance-scenarios.test.ts tests/release/candidate.live.test.ts tests/release/checkpoint.test.ts tests/release/dossier.test.ts tests/release/live-scope-coverage.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json",
+      "exit": 1,
+      "passed": 224,
+      "failed": 1,
+      "skipped": 9,
+      "files": [
+        "tests/providers/zenith/isolation-bundle.test.ts",
+        "tests/providers/zenith/managed-kind.test.ts",
+        "tests/providers/zenith/managed-profile.test.ts",
+        "tests/providers/zenith/managed-substrate.test.ts",
+        "tests/providers/zenith/onboarding-semantics.test.ts",
+        "tests/release/acceptance-scenarios.test.ts",
+        "tests/release/candidate.live.test.ts",
+        "tests/release/checkpoint.test.ts",
+        "tests/release/dossier.test.ts",
+        "tests/release/live-scope-coverage.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "batch": 18,
+      "command": "npx vitest run tests/release/local-targets.test.ts tests/release/orchestrator.test.ts tests/release/scope.test.ts tests/release/status.test.ts tests/resources/function-manifest.test.ts tests/retention/admin-routes.test.ts tests/retention/key-purpose.test.ts tests/retention/restore-destination.test.ts tests/retention/retention.test.ts tests/runners/agent-update-repo.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json",
+      "exit": 1,
+      "passed": 161,
+      "failed": 2,
+      "skipped": 0,
+      "files": [
+        "tests/release/local-targets.test.ts",
+        "tests/release/orchestrator.test.ts",
+        "tests/release/scope.test.ts",
+        "tests/release/status.test.ts",
+        "tests/resources/function-manifest.test.ts",
+        "tests/retention/admin-routes.test.ts",
+        "tests/retention/key-purpose.test.ts",
+        "tests/retention/restore-destination.test.ts",
+        "tests/retention/retention.test.ts",
+        "tests/runners/agent-update-repo.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "batch": 19,
+      "command": "npx vitest run tests/runners/update-control-postgres.test.ts tests/runners/update-control.test.ts tests/screens/mfa.test.tsx tests/screens/platform/runner-confirmation.test.tsx tests/screens/platform/runner-connections.test.tsx tests/security/controlplane-sql-scoping.test.ts tests/security/deploy-pins.test.ts tests/security/image-pins.test.ts tests/security/sensitive-inventory.test.ts tests/slo/definitions.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json",
+      "exit": 1,
+      "passed": 157,
+      "failed": 8,
+      "skipped": 1,
+      "files": [
+        "tests/runners/update-control-postgres.test.ts",
+        "tests/runners/update-control.test.ts",
+        "tests/screens/mfa.test.tsx",
+        "tests/screens/platform/runner-confirmation.test.tsx",
+        "tests/screens/platform/runner-connections.test.tsx",
+        "tests/security/controlplane-sql-scoping.test.ts",
+        "tests/security/deploy-pins.test.ts",
+        "tests/security/image-pins.test.ts",
+        "tests/security/sensitive-inventory.test.ts",
+        "tests/slo/definitions.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json"
+    },
+    {
+      "batch": 20,
+      "command": "npx vitest run tests/slo/restore-sink.test.ts tests/slo/sli-budget.test.ts tests/slo/slo-artifacts.test.ts tests/slo/slo.engine.test.ts tests/supply-chain/release.test.ts tests/supply-chain/sbom.test.ts tests/tofu/typed-inputs.test.ts tests/tofu/typed-substitution.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json",
+      "exit": 1,
+      "passed": 74,
+      "failed": 2,
+      "skipped": 6,
+      "files": [
+        "tests/slo/restore-sink.test.ts",
+        "tests/slo/sli-budget.test.ts",
+        "tests/slo/slo-artifacts.test.ts",
+        "tests/slo/slo.engine.test.ts",
+        "tests/supply-chain/release.test.ts",
+        "tests/supply-chain/sbom.test.ts",
+        "tests/tofu/typed-inputs.test.ts",
+        "tests/tofu/typed-substitution.test.ts"
+      ],
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "command": "npx vitest run tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts tests/security/controlplane-sql-scoping.test.ts tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-baseline.json",
+      "exit": 1,
+      "passed": 27,
+      "failed": 11,
+      "skipped": 13,
+      "files": [
+        "tests/controlplane/migrations.test.ts",
+        "tests/controlplane/tenancy.test.ts",
+        "tests/security/controlplane-sql-scoping.test.ts",
+        "tests/security/sensitive-inventory.test.ts"
+      ],
+      "report": "zenith-final-baseline.json"
+    },
+    {
+      "command": "npx vitest run tests/controlplane/wave5-compat.test.ts tests/plugins/launch-integration.test.ts tests/security/controlplane-sql-scoping.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-joins.json",
+      "exit": 1,
+      "passed": 60,
+      "failed": 1,
+      "skipped": 0,
+      "files": [
+        "tests/controlplane/wave5-compat.test.ts",
+        "tests/plugins/launch-integration.test.ts",
+        "tests/security/controlplane-sql-scoping.test.ts"
+      ],
+      "report": "zenith-final-joins.json"
+    },
+    {
+      "command": "npx vitest run tests/auth/mfa-routes.test.ts tests/capabilities/routes.test.ts tests/deploy/default-stack.test.ts tests/hosted/acceptance/gate-02-second-identity.test.ts tests/execution/mixed/economics.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-repairs.json",
+      "exit": 1,
+      "passed": 176,
+      "failed": 6,
+      "skipped": 0,
+      "files": [
+        "tests/auth/mfa-routes.test.ts",
+        "tests/capabilities/routes.test.ts",
+        "tests/deploy/default-stack.test.ts",
+        "tests/hosted/acceptance/gate-02-second-identity.test.ts",
+        "tests/execution/mixed/economics.test.ts"
+      ],
+      "report": "zenith-final-repairs.json"
+    },
+    {
+      "command": "npx vitest run tests/acceptance/live-shared.test.ts tests/auth/mfa-routes.test.ts tests/auth/mfa.test.ts tests/capabilities/routes.test.ts tests/managed-serving/domain-routes.test.ts tests/release/local-targets.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-routes.json",
+      "exit": 1,
+      "passed": 253,
+      "failed": 4,
+      "skipped": 0,
+      "files": [
+        "tests/acceptance/live-shared.test.ts",
+        "tests/auth/mfa-routes.test.ts",
+        "tests/auth/mfa.test.ts",
+        "tests/capabilities/routes.test.ts",
+        "tests/managed-serving/domain-routes.test.ts",
+        "tests/release/local-targets.test.ts"
+      ],
+      "report": "zenith-final-routes.json"
+    },
+    {
+      "command": "npx vitest run tests/adversarial/ssrf-rebinding.test.ts tests/ci/gate-manifest.test.ts tests/ci/platform-coverage.test.ts tests/ci/release-gates.test.ts tests/docs/operator-docs.test.ts tests/security/controlplane-sql-scoping.test.ts tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-guards.json",
+      "exit": 1,
+      "passed": 614,
+      "failed": 1,
+      "skipped": 0,
+      "files": [
+        "tests/adversarial/ssrf-rebinding.test.ts",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/platform-coverage.test.ts",
+        "tests/ci/release-gates.test.ts",
+        "tests/docs/operator-docs.test.ts",
+        "tests/security/controlplane-sql-scoping.test.ts",
+        "tests/security/sensitive-inventory.test.ts"
+      ],
+      "report": "zenith-final-guards.json"
+    },
+    {
+      "command": "npx vitest run tests/acceptance/live-shared.test.ts tests/auth/mfa-routes.test.ts tests/capabilities/routes.test.ts tests/release/live-scope-coverage.test.ts tests/resources/function-manifest.test.ts tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/security/image-pins.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-integration-fixes.json",
+      "exit": 1,
+      "passed": 272,
+      "failed": 3,
+      "skipped": 0,
+      "files": [
+        "tests/acceptance/live-shared.test.ts",
+        "tests/auth/mfa-routes.test.ts",
+        "tests/capabilities/routes.test.ts",
+        "tests/release/live-scope-coverage.test.ts",
+        "tests/resources/function-manifest.test.ts",
+        "tests/runners/agent-update-repo.test.ts",
+        "tests/runners/update-control.test.ts",
+        "tests/security/image-pins.test.ts"
+      ],
+      "report": "zenith-final-integration-fixes.json"
+    },
+    {
+      "command": "npx vitest run scripts/acceptance/live/dns/clouds.live.test.ts scripts/acceptance/live/dns/offline.test.ts --config scripts/acceptance/live/dns/vitest.config.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-dns.json",
+      "exit": 0,
+      "passed": 59,
+      "failed": 0,
+      "skipped": 4,
+      "files": [
+        "scripts/acceptance/live/dns/clouds.live.test.ts",
+        "scripts/acceptance/live/dns/offline.test.ts"
+      ],
+      "report": "zenith-final-dns.json"
+    },
+    {
+      "command": "npx vitest run tests/adversarial/cross-tenant.test.ts tests/security/controlplane-sql-scoping.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-sql-tenants.json",
+      "exit": 1,
+      "passed": 16,
+      "failed": 1,
+      "skipped": 0,
+      "files": [
+        "tests/adversarial/cross-tenant.test.ts",
+        "tests/security/controlplane-sql-scoping.test.ts"
+      ],
+      "report": "zenith-final-sql-tenants.json"
+    },
+    {
+      "command": "npx vitest run tests/acceptance/mixed-lambda.test.ts tests/adversarial/cross-tenant.test.ts tests/resources/function-manifest.test.ts tests/runners/agent-update-repo.test.ts tests/runners/update-control.test.ts tests/security/image-pins.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-last-fixes.json",
+      "exit": 1,
+      "passed": 92,
+      "failed": 1,
+      "skipped": 0,
+      "files": [
+        "tests/acceptance/mixed-lambda.test.ts",
+        "tests/adversarial/cross-tenant.test.ts",
+        "tests/resources/function-manifest.test.ts",
+        "tests/runners/agent-update-repo.test.ts",
+        "tests/runners/update-control.test.ts",
+        "tests/security/image-pins.test.ts"
+      ],
+      "report": "zenith-final-last-fixes.json"
+    },
+    {
+      "command": "npx vitest run tests/adversarial/cross-tenant.test.ts tests/ci/gate-manifest.test.ts tests/ci/release-gates.test.ts tests/ci/wave6-gates.test.ts tests/deploy/default-stack.test.ts tests/release/local-targets.test.ts tests/security/deploy-pins.test.ts tests/supply-chain/sbom.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-registry-fixes.json",
+      "exit": 1,
+      "passed": 503,
+      "failed": 2,
+      "skipped": 0,
+      "files": [
+        "tests/adversarial/cross-tenant.test.ts",
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/release-gates.test.ts",
+        "tests/ci/wave6-gates.test.ts",
+        "tests/deploy/default-stack.test.ts",
+        "tests/release/local-targets.test.ts",
+        "tests/security/deploy-pins.test.ts",
+        "tests/supply-chain/sbom.test.ts"
+      ],
+      "report": "zenith-final-registry-fixes.json"
+    },
+    {
+      "command": "npx vitest run tests/ci/gate-manifest.test.ts tests/ci/wave6-gates.test.ts tests/supply-chain/sbom.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-gate-sbom.json",
+      "exit": 0,
+      "passed": 317,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/ci/gate-manifest.test.ts",
+        "tests/ci/wave6-gates.test.ts",
+        "tests/supply-chain/sbom.test.ts"
+      ],
+      "report": "zenith-final-gate-sbom.json"
+    },
+    {
+      "command": "npx vitest run tests/ci/platform-coverage.test.ts tests/ci/wave6-gates.test.ts tests/controlplane/migrations.test.ts tests/controlplane/tenancy.test.ts tests/deploy/default-stack.test.ts tests/docs/operator-docs.test.ts tests/release/local-targets.test.ts tests/security/sensitive-inventory.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-final-contracts.json",
+      "exit": 0,
+      "passed": 204,
+      "failed": 0,
+      "skipped": 13,
+      "files": [
+        "tests/ci/platform-coverage.test.ts",
+        "tests/ci/wave6-gates.test.ts",
+        "tests/controlplane/migrations.test.ts",
+        "tests/controlplane/tenancy.test.ts",
+        "tests/deploy/default-stack.test.ts",
+        "tests/docs/operator-docs.test.ts",
+        "tests/release/local-targets.test.ts",
+        "tests/security/sensitive-inventory.test.ts"
+      ],
+      "report": "zenith-final-final-contracts.json"
+    },
+    {
+      "command": "npx vitest run tests/acceptance/live-shared.test.ts tests/ci/wave6-gates.test.ts tests/connections/runner-action-registry.test.ts tests/middleware/platform-bearer.test.ts tests/platform/critical-jobs.test.ts tests/security/image-pins.test.ts tests/screens/platform/event-sentences.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-shared-registries.json",
+      "exit": 0,
+      "passed": 243,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/acceptance/live-shared.test.ts",
+        "tests/ci/wave6-gates.test.ts",
+        "tests/connections/runner-action-registry.test.ts",
+        "tests/middleware/platform-bearer.test.ts",
+        "tests/platform/critical-jobs.test.ts",
+        "tests/security/image-pins.test.ts",
+        "tests/screens/platform/event-sentences.test.ts"
+      ],
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "command": "npx vitest run tests/hosted/gateway/reserved.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-reserved.json",
+      "exit": 0,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/hosted/gateway/reserved.test.ts"
+      ],
+      "report": "zenith-final-reserved.json"
+    },
+    {
+      "command": "npx vitest run tests/ci/wave6-gates.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-wave6-identity.json",
+      "exit": 0,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/ci/wave6-gates.test.ts"
+      ],
+      "report": "zenith-final-wave6-identity.json"
+    },
+    {
+      "command": "npx vitest run tests/acceptance/maintenance-preconditions.test.ts tests/deploy/default-stack.test.ts tests/release/local-targets.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-maintenance-join.json",
+      "exit": 0,
+      "passed": 58,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/acceptance/maintenance-preconditions.test.ts",
+        "tests/deploy/default-stack.test.ts",
+        "tests/release/local-targets.test.ts"
+      ],
+      "report": "zenith-final-maintenance-join.json"
+    },
+    {
+      "command": "npx vitest run tests/docs/operator-docs.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-owner-docs.json",
+      "exit": 1,
+      "passed": 58,
+      "failed": 1,
+      "skipped": 0,
+      "files": [
+        "tests/docs/operator-docs.test.ts"
+      ],
+      "report": "zenith-final-owner-docs.json"
+    },
+    {
+      "command": "npx vitest run tests/docs/operator-docs.test.ts tests/release/local-targets.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-owner-docs-repair.json",
+      "exit": 1,
+      "passed": 90,
+      "failed": 2,
+      "skipped": 0,
+      "files": [
+        "tests/docs/operator-docs.test.ts",
+        "tests/release/local-targets.test.ts"
+      ],
+      "report": "zenith-final-owner-docs-repair.json"
+    },
+    {
+      "command": "npx vitest run tests/docs/operator-docs.test.ts --no-file-parallelism --maxWorkers=2 --reporter=json --outputFile=C:/Users/user/AppData/Local/Temp/zenith-final-owner-docs-final.json",
+      "exit": 0,
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "tests/docs/operator-docs.test.ts"
+      ],
+      "report": "zenith-final-owner-docs-final.json"
+    }
+  ],
+  "latestFiles": [
+    {
+      "file": "scripts/acceptance/live/dns/clouds.live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 4,
+      "report": "zenith-final-dns.json"
+    },
+    {
+      "file": "scripts/acceptance/live/dns/offline.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-dns.json"
+    },
+    {
+      "file": "tests/acceptance/aws-production.live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/aws-production.test.ts",
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/live-l3.gated.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/live-managed-transports.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/live-managed.test.ts",
+      "passed": 37,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/live-shared.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "file": "tests/acceptance/local-targets.engine.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 4,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/maintenance-default.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 2,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/maintenance-preconditions.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-maintenance-join.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-connectivity-probe.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-failure-scenarios.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-0.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-lambda-package.gated.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-lambda.gated.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-lambda.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-last-fixes.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-live-recovery.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-live-run.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/acceptance/mixed-traffic.test.ts",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/acceptance/non-aws-dns-live.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 9,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/acceptance/w5-gaps-ui.gated.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/adversarial/approvals-forgery.test.ts",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/adversarial/build-exfiltration.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-1.json"
+    },
+    {
+      "file": "tests/adversarial/cross-tenant.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-registry-fixes.json"
+    },
+    {
+      "file": "tests/adversarial/integration-compromise.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 7,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/adversarial/malicious-archives.test.ts",
+      "passed": 56,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/adversarial/prompt-injection.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/adversarial/residual-hardening.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/adversarial/role-escalation.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/adversarial/ssrf-rebinding.test.ts",
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-guards.json"
+    },
+    {
+      "file": "tests/adversarial/token-forgery.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/agent-v3/catalog.test.ts",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/agent-v3/oauth-issuer-fixture.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-2.json"
+    },
+    {
+      "file": "tests/agent-v3/oauth-issuer-live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 5,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/agent-v3/oauth-revoke.test.ts",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/agent-v3/official-client-conformance.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/agent-v3/placement-transport.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/agent-v3/placement.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/agent-v3/runner-connections.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/agent-v3/tenancy.test.ts",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/audit-export/audit-export.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/audit-export/purpose.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/auth/mfa-browser.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 2,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-3.json"
+    },
+    {
+      "file": "tests/auth/mfa-legacy-cancel.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/auth/mfa-operators.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/auth/mfa-routes.test.ts",
+      "passed": 94,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-integration-fixes.json"
+    },
+    {
+      "file": "tests/auth/mfa-workspace-state.test.ts",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 22,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/auth/mfa.test.ts",
+      "passed": 57,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-routes.json"
+    },
+    {
+      "file": "tests/billing/billing-routes.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/billing/billing-unit.test.ts",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/billing/billing.engine.test.ts",
+      "passed": 55,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/billing/managed-tier.engine.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/capabilities/action-bridge.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-4.json"
+    },
+    {
+      "file": "tests/capabilities/field-ownership-broker.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "file": "tests/capabilities/routes.test.ts",
+      "passed": 50,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-integration-fixes.json"
+    },
+    {
+      "file": "tests/ci/gate-manifest.test.ts",
+      "passed": 299,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-gate-sbom.json"
+    },
+    {
+      "file": "tests/ci/lane-report.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "file": "tests/ci/platform-coverage.test.ts",
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-final-contracts.json"
+    },
+    {
+      "file": "tests/ci/release-gates.test.ts",
+      "passed": 119,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-registry-fixes.json"
+    },
+    {
+      "file": "tests/ci/release-workflow.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "file": "tests/ci/vulnerability-triage.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "file": "tests/ci/wave6-gates.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-wave6-identity.json"
+    },
+    {
+      "file": "tests/ci/workflow-history-replay-manifest.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "file": "tests/cli/connections.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-5.json"
+    },
+    {
+      "file": "tests/cli/plugin-launcher-docker.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/cli/plugin-launcher.test.ts",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/cli/plugin-platform-live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/cli/plugin-runtime.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/cli/plugin-sandbox.test.ts",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/connections/runner-action-registry.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "file": "tests/connections/runner-browser.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 5,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/connections/runner-routes.test.ts",
+      "passed": 39,
+      "failed": 0,
+      "skipped": 38,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/connections/zenith-connection.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/controlplane/mcp-product-endpoint.test.ts",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-6.json"
+    },
+    {
+      "file": "tests/controlplane/migrations.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 11,
+      "report": "zenith-final-final-contracts.json"
+    },
+    {
+      "file": "tests/controlplane/mixed-follow-up.test.ts",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/controlplane/mixed-parent-plans.test.ts",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/controlplane/ownership-serialization.test.ts",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 18,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/controlplane/ownership-transfers.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 8,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/controlplane/recovery-epoch.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/controlplane/tenancy.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 2,
+      "report": "zenith-final-final-contracts.json"
+    },
+    {
+      "file": "tests/controlplane/wave5-compat.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/cost/aws-published-vector.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/cost/compute-refresh.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-7.json"
+    },
+    {
+      "file": "tests/cost/live-billing.live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 5,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/cost/mcp-placement-usage.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/cost/optimizer-settings.http.local.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/cost/optimizer-settings.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/cost/usage-exporter.test.ts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/cost/usage-route.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/deploy/default-stack.engine.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/deploy/default-stack.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-maintenance-join.json"
+    },
+    {
+      "file": "tests/deploy/installation.native.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 65,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/deploy/installation.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-8.json"
+    },
+    {
+      "file": "tests/docs/operator-docs.test.ts",
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-owner-docs-final.json"
+    },
+    {
+      "file": "tests/e2e/default/receipt.test.ts",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/build-isolation.test.ts",
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/kubernetes-deploy-journey.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/mixed-orchestration-signals.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/mixed/connectivity.test.ts",
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/mixed/economics.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-repairs.json"
+    },
+    {
+      "file": "tests/execution/mixed/output-reader.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/mixed/typed-delivery.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/mixed/typed-inputs-activities.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-9.json"
+    },
+    {
+      "file": "tests/execution/mixed/typed-substitution.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/semantics.test.ts",
+      "passed": 57,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/tenant-isolation.test.ts",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/zenith-destroy-databases.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/zenith-first-deploy.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/zenith-graph-problems.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/zenith-managed-journey.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/execution/zenith-semantics.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/hosted/acceptance/gate-02-second-identity.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-repairs.json"
+    },
+    {
+      "file": "tests/hosted/gateway/journey.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-10.json"
+    },
+    {
+      "file": "tests/hosted/gateway/reserved.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-reserved.json"
+    },
+    {
+      "file": "tests/isolation/gateway-isolation-acceptance.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/isolation/gvisor-installation.test.ts",
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/isolation/gvisor-onboarding-acceptance.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/isolation/gvisor-runtime-acceptance.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 4,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/isolation/isolation-profile.test.ts",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/isolation/managed-onboarding-readiness.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/isolation/tenant-isolation-acceptance.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 27,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/live/mixed-cloud.live.test.ts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/live/mixed-connectivity.live.test.ts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-11.json"
+    },
+    {
+      "file": "tests/machines/runbook-delivery.test.ts",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/machines/runbook-step-executor.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/catalog.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/domain-routes.test.ts",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-routes.json"
+    },
+    {
+      "file": "tests/managed-serving/domain-store.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/domains.test.ts",
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/integration-readiness.test.ts",
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/services-route.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/serving-contract.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/serving-kind.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 4,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-12.json"
+    },
+    {
+      "file": "tests/managed-serving/serving-render.test.ts",
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/managed-serving/storage-emulator.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 4,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/managed-serving/storage.test.ts",
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/middleware/platform-bearer.test.ts",
+      "passed": 109,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "file": "tests/offered-catalog/route.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/ops/k8s-worker-probe.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/ops/observability-import.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/ops/recovery-health.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/ops/recovery-manifest.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/ops/recovery-rehearsal.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 10,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-13.json"
+    },
+    {
+      "file": "tests/placement/cost-sources.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/measurement-collector.local.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/measurement-collector.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/measurement-ports.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/optimizer-collector-pass.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/optimizer-ownership.test.ts",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/optimizer-pass.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/placement/optimizer-sweep.local.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/platform-ui/operator-journey.test.ts",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/platform/billing-schedule.test.ts",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-14.json"
+    },
+    {
+      "file": "tests/platform/critical-jobs.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "file": "tests/platform/managed-reconcile.test.ts",
+      "passed": 36,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/platform/recovery-service.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/platform/zenith-build.test.ts",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/platform/zenith-isolation-custody.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/platform/zenith-managed-composition.test.ts",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/platform/zenith-onboarding.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/plugins/launch-integration.test.ts",
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/plugins/service.test.ts",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/providers/aws/drivers/compute/lambda-ec2.test.ts",
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-15.json"
+    },
+    {
+      "file": "tests/providers/azure/live.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/contracts.test.ts",
+      "passed": 38,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/dispatch.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/graph.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/joins.test.ts",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/kind.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/operated-release.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/kubernetes/build/schema.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 7,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/zenith/deploy.test.ts",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/zenith/drivers.test.ts",
+      "passed": 86,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-16.json"
+    },
+    {
+      "file": "tests/providers/zenith/isolation-bundle.test.ts",
+      "passed": 87,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/providers/zenith/managed-kind.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 6,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/providers/zenith/managed-profile.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/providers/zenith/managed-substrate.test.ts",
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/providers/zenith/onboarding-semantics.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/release/acceptance-scenarios.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/release/candidate.live.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 3,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/release/checkpoint.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/release/dossier.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-17.json"
+    },
+    {
+      "file": "tests/release/live-scope-coverage.test.ts",
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-integration-fixes.json"
+    },
+    {
+      "file": "tests/release/local-targets.test.ts",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-owner-docs-repair.json"
+    },
+    {
+      "file": "tests/release/orchestrator.test.ts",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/release/scope.test.ts",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/release/status.test.ts",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/resources/function-manifest.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-last-fixes.json"
+    },
+    {
+      "file": "tests/retention/admin-routes.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/retention/key-purpose.test.ts",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/retention/restore-destination.test.ts",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/retention/retention.test.ts",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-18.json"
+    },
+    {
+      "file": "tests/runners/agent-update-repo.test.ts",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-last-fixes.json"
+    },
+    {
+      "file": "tests/runners/update-control-postgres.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 1,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json"
+    },
+    {
+      "file": "tests/runners/update-control.test.ts",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-last-fixes.json"
+    },
+    {
+      "file": "tests/screens/mfa.test.tsx",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json"
+    },
+    {
+      "file": "tests/screens/platform/event-sentences.test.ts",
+      "passed": 52,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "file": "tests/screens/platform/runner-confirmation.test.tsx",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json"
+    },
+    {
+      "file": "tests/screens/platform/runner-connections.test.tsx",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json"
+    },
+    {
+      "file": "tests/security/controlplane-sql-scoping.test.ts",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-sql-tenants.json"
+    },
+    {
+      "file": "tests/security/deploy-pins.test.ts",
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-registry-fixes.json"
+    },
+    {
+      "file": "tests/security/image-pins.test.ts",
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-shared-registries.json"
+    },
+    {
+      "file": "tests/security/sensitive-inventory.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-final-contracts.json"
+    },
+    {
+      "file": "tests/slo/definitions.test.ts",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-19.json"
+    },
+    {
+      "file": "tests/slo/restore-sink.test.ts",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "file": "tests/slo/sli-budget.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "file": "tests/slo/slo-artifacts.test.ts",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "file": "tests/slo/slo.engine.test.ts",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "file": "tests/supply-chain/release.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "file": "tests/supply-chain/sbom.test.ts",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "report": "zenith-final-gate-sbom.json"
+    },
+    {
+      "file": "tests/tofu/typed-inputs.test.ts",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 4,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    },
+    {
+      "file": "tests/tofu/typed-substitution.test.ts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 2,
+      "report": "C:/Users/user/AppData/Local/Temp/zenith-final-tests/batch-20.json"
+    }
+  ]
+}

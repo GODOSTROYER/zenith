@@ -1,0 +1,65 @@
+name: Native packaged workers
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Do not cancel another disposable owner while it is draining/cleaning up.
+concurrency:
+  group: packaged-workers-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  packaged-worker:
+    # Public standard VM labels, never paid/larger runners or QEMU.
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      ZENITH_PACKAGED_WORKER_ACCEPTANCE: "1"
+      ZENITH_PACKAGED_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+      ZENITH_PACKAGED_RUNNER_LABEL: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.23.3'
+      - name: Run canonical native package gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/packaged-worker-native.mjs --run --platform "linux/${{ matrix.arch }}" --evidence "$RUNNER_TEMP/packaged-worker-${{ matrix.arch }}/sanitized.json"
+      - name: Validate exact executed native package evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/packaged-worker-native.mjs --validate --platform "linux/${{ matrix.arch }}" --evidence "$RUNNER_TEMP/packaged-worker-${{ matrix.arch }}/sanitized.json"
+      - name: Admit sanitized artifact schema
+        id: artifact-schema
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/packaged-worker-native.mjs --validate-artifact --platform "linux/${{ matrix.arch }}" --evidence "$RUNNER_TEMP/packaged-worker-${{ matrix.arch }}/sanitized.json"
+      - name: Preserve only sanitized package evidence
+        if: always() && steps.artifact-schema.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packaged-worker-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/packaged-worker-${{ matrix.arch }}/sanitized.json
+          if-no-files-found: error

@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.live-release-source.v1",
+  "commit": "feabd5a4d19db854f1b098125262e6f350d27344",
+  "mode": "live",
+  "requirements": [
+    "PROD-OPS-08"
+  ],
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "exitCode": 0,
+  "verdict": "passed",
+  "command": "GitHub Actions live-acceptance.yml, scenario ops-08, run id zlive-202611151746-1b6c; plan sha256 87154872388844f18af4031741c13ec76667189316a58c6a34f1b448ed0344b9",
+  "environment": "Disposable AWS sandbox account 361646636162, region ap-south-1; permission sha256 5836225a323e2eb9b8b846d93402344fcd9458719a7d03bffce2ec40be514d83; cleanup complete",
+  "evidence": {
+    "runId": "zlive-202611151746-1b6c",
+    "file": "evidence.json",
+    "sha256": "16a19d9d83871e1f91b62ad6bbab465ec7e68d2e1c0fee7950b64bb69e432d27",
+    "packetSha256": "d86d10acf76d9fc487795b00adb372ce856158f8a919446fe7db13f090b5b505"
+  },
+  "result": "OPS-08 adversarial probes on AWS (builder-written; independent review recorded apart): tenant A deployed one managed S3 bucket through its own connection; as tenant B: B read of A's operation refused (HTTP 404), nothing of A in the body; B read of A's environment deployments refused (HTTP 404), nothing of A in the body; B's deploy.apply on A's environment refused (HTTP 200); B's connection.verifyAws on A's connection refused (HTTP 200); B's env.create on A's connection refused (HTTP 200); B's connection naming A's observe and deploy roles never verified: real STS refused B's own ExternalId (two attempts); B's approval of A's pending proposal refused; the proposal stayed awaiting_approval at round 0; by independent readback A's environment still holds exactly one tagged bucket"
+}

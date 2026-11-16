@@ -9,7 +9,7 @@ import {
   type ActionContext,
 } from "@/lib/actions/core";
 import {
-  type Manifest,
+  type AnyManifest,
   type Project,
   type Service,
 } from "@/lib/domain/types";
@@ -97,7 +97,7 @@ interface RefConsumer {
 const isSelf = (c: RefConsumer, projectId: string, serviceId: string, key: string): boolean =>
   c.projectId === projectId && c.serviceId === serviceId && c.key === key;
 
-const envHits = (m: Manifest, ref: string) =>
+const envHits = (m: AnyManifest, ref: string) =>
   m.services.flatMap((s) => s.env.filter((e) => e.secretRef === ref).map((e) => ({ s, e })));
 
 /**
@@ -117,7 +117,7 @@ const envHits = (m: Manifest, ref: string) =>
 async function refConsumers(
   ctx: ActionContext,
   ref: string,
-  view: { projectId: string; manifest: Manifest }
+  view: { projectId: string; manifest: AnyManifest }
 ): Promise<RefConsumer[]> {
   const out: RefConsumer[] = [];
   const seen = new Set<string>();
@@ -142,7 +142,7 @@ async function refConsumers(
     for (const environment of q.environmentsOf(p.id)) {
       const revisionId = environment.deployedRevisionId;
       if (!revisionId) continue;
-      let deployed: Manifest | undefined;
+      let deployed: AnyManifest | undefined;
       // A missing side file throws rather than pretending the revision is
       // empty. Not knowing is not a reason to delete somebody's credential, so
       // treat it as "cannot rule out a consumer" and say so.

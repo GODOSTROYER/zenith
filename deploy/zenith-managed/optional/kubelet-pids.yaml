@@ -1,0 +1,18 @@
+# Kubelet settings that resource isolation (PROD-MAN-05) depends on: EXAMPLE FRAGMENT, not a cluster object.
+# Merge into the KubeletConfiguration of every node pool that runs tenant pods (managed services expose these
+# through their node-pool configuration; self-managed clusters through the kubelet config file or kubeadm).
+#
+# podPidsLimit: without it a single pod can fork until the node runs out of PIDs and every neighbour on the node
+# fails to start processes. The acceptance profile uses 256; choose the production value from your workloads and
+# keep it well below the node's pid_max divided by the pods per node.
+#
+# The eviction thresholds make node-level disk or memory pressure evict pods by their usage over request instead
+# of failing neighbours: review them for your node size.
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+podPidsLimit: 256
+evictionHard:
+  memory.available: "200Mi"
+  nodefs.available: "10%"
+  nodefs.inodesFree: "5%"
+  imagefs.available: "15%"

@@ -1,0 +1,113 @@
+diff --git a/scripts/ci/gate-manifest.mjs b/scripts/ci/gate-manifest.mjs
+index 5a41a4b2..f2f0a21e 100644
+--- a/scripts/ci/gate-manifest.mjs
++++ b/scripts/ci/gate-manifest.mjs
+@@ -6246,6 +6246,10 @@ export const LINUX_GUEST_PACKAGE_CASES = cases(MACHINE, [
+ ]);
+ export const LINUX_GUEST_PACKAGE_PATTERN = "^(TestPackageHelperNativeNoFollowAndCustody|TestPackageFrontendLockIndependentProcess|TestPackageNativeSignedFirstInstallAndNonReplay|TestPackageNativeDeclaredMountAndACLRefusals)$";
+ export const LINUX_GUEST_PACKAGE_COMMAND = ["python3", "scripts/ci/guest-package-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
++export const LINUX_GUEST_PID1_CASES = cases(`${GO_MODULE}/internal/runner/update`, ["TestSystemdSignedUpdateAndRollback"]);
++// This exact exclusion is valid only with the mandatory fresh owned-PID1 phase below.
++export const LINUX_GUEST_RACE_EXCLUSION = LINUX_GUEST_PACKAGE_PATTERN.slice(0, -2) + "|TestSystemdSignedUpdateAndRollback)$";
++export const LINUX_GUEST_PID1_COMMAND = ["python3", "scripts/ci/guest-pid1-fixtures.py", "--root", "{sourceRoot}", "--attempt", "{attemptId}", "--arch", "{nativeArch}"];
+ export const LINUX_GUEST_PACKAGES = ["internal/agent", "internal/agent/spool", "internal/agent/update", "internal/awsauth", "internal/machine", "internal/machine/ops", "internal/miniyaml", "internal/netguard", "internal/oci", "internal/protocol", "internal/redact", "internal/release", "internal/runner", "internal/runner/kinds", "internal/runner/update"].map((name) => `${GO_MODULE}/${name}`);
+ export const LINUX_GUEST_NO_TEST_PACKAGES = ["cmd/zenith-release", "cmd/zenith-runner", "cmd/zenithd", "internal/agent/fakecp", "internal/proc", "internal/protocol/protocoltest", "internal/version"].map((name) => `${GO_MODULE}/${name}`);
+ export const LINUX_GUEST_ALLOWED_SKIPS = [
+@@ -6301,13 +6305,14 @@ export function linuxGuestManifest() {
+     tools: { node: "22.23.3", go: "1.27.1" },
+     command: ["node", "scripts/ci/run-guest-file-write-gate.mjs", "--run"],
+     steps: [
+-      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", LINUX_GUEST_PACKAGE_PATTERN] },
++      { id: "race", command: ["go", "test", "-json", "-race", "-count=1", "./...", "-skip", LINUX_GUEST_RACE_EXCLUSION] },
+       { id: "package-native", command: LINUX_GUEST_PACKAGE_COMMAND },
++      { id: "pid1-native", command: LINUX_GUEST_PID1_COMMAND },
+       { id: "goldens", command: ["go", "test", "-json", "-count=1", "./internal/machine/ops", "-run", "^TestResultGoldens$"] },
+       { id: "golden-diff", command: ["git", "diff", "--exit-code", "--", "internal/machine/testdata/results"] },
+       { id: "golden-status", command: ["git", "--no-optional-locks", "status", "--porcelain", "--", "internal/machine/testdata/results"] },
+     ],
+-    requiredCases: [...LINUX_GUEST_CASES, ...LINUX_GUEST_PACKAGE_CASES],
++    requiredCases: [...LINUX_GUEST_CASES, ...LINUX_GUEST_PACKAGE_CASES, ...LINUX_GUEST_PID1_CASES],
+     raceCases: LINUX_GUEST_CASES,
+     packagePhase: {
+       requiredCases: LINUX_GUEST_PACKAGE_CASES, requiredPackages: [MACHINE], noTestPackages: [], allowedSkips: [],
+@@ -6316,9 +6321,15 @@ export function linuxGuestManifest() {
+       rootBytes: 2684354560, memoryBytes: 2147483648, hostReserveBytes: 8589934592,
+       scope: "Direct signed helper/native kernel and dpkg only; installed unit, default backend and full lifecycle remain separate acceptance.",
+     },
++    pid1Phase: {
++      requiredCases: LINUX_GUEST_PID1_CASES, requiredPackages: [`${GO_MODULE}/internal/runner/update`], noTestPackages: [], allowedSkips: [],
++      baseImage: "ubuntu:24.04@sha256:08571ca13e00ca07a2a84eab83a959b4242e22cceb16486a11bef1428c9e93a7",
++      builderImage: "moby/buildkit:buildx-stable-1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea",
++      scope: "Actual installed signed update/rollback in fresh isolated native Linux PID1/cgroup guest; modeled control protocol, no default backend or production signing authority.",
++    },
+     goldenCases: cases(OPS, ["TestResultGoldens/file.write-filesystem", "TestResultGoldens/service.configure-filesystem"]),
+     requiredPackages: LINUX_GUEST_PACKAGES, noTestPackages: LINUX_GUEST_NO_TEST_PACKAGES, allowedSkips: LINUX_GUEST_ALLOWED_SKIPS,
+-    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "Every exact service.configure event and authentic filesystem golden comparison is mandatory; it reuses the existing unprivileged filesystem-golden root after file.write cleanup, real atomic file/intent custody with modeled systemctl replies supplies no installed-systemd or default-daemon acceptance", "Docker local Unix socket and server matching actual Linux amd64/arm64 host; Python3 and pinned native Debian12/dpkg1.21.23", "Root package phase is mandatory: fresh owned capped ext4 guest, genuine original registry/config, fixed setup-only capabilities, no host binds/emulation and no unknown Docker delivery; exact owned cleanup before phase success", "No active fixture users during validated cleanup"],
++    prerequisites: ["Linux; unprivileged test UID/GID", "Node 22.23.3; Go 1.27.1; GOTOOLCHAIN=local; cgo C compiler", "Persistent ext-family, XFS or Btrfs root filesystem (no overlay/tmpfs/FUSE/network filesystem)", "/proc/self/fdinfo mount IDs; POSIX access/default ACL xattrs", "Python 3; util-linux mount/umount/flock; explicitly authorized disposable root fixture setup", "Owned exact four /opt fixture roots, including private empty /opt/zenith-file-upload-golden, and unchanged four actual bind mounts checked by guest-file-write-fixtures.sh", "Integrated frozen writer/upload source, five actual Linux-generated committed file.write goldens and authentic signed-daemon file.upload.json captured only by the root verification owner", "Every exact upload native event, including signed grant refusal/replay and actual golden comparison, is mandatory; source/model fixtures do not satisfy missing Linux evidence", "Every exact service.configure event and authentic filesystem golden comparison is mandatory; it reuses the existing unprivileged filesystem-golden root after file.write cleanup, real atomic file/intent custody with modeled systemctl replies supplies no installed-systemd or default-daemon acceptance", "Docker local Unix socket and server matching actual Linux amd64/arm64 host; Python3 and pinned native Debian12/dpkg1.21.23", "Root package phase is mandatory: fresh owned capped ext4 guest, genuine original registry/config, fixed setup-only capabilities, no host binds/emulation and no unknown Docker delivery; exact owned cleanup before phase success", "Mandatory SYS1 phase: local root-owned Docker Unix socket, pinned native Ubuntu and BuildKit images, isolated private-cgroup PID1 guest, genuine signed fixture binaries, 12 GB continuous free-disk floor plus 2 GB setup headroom and exact owned cleanup; no imported receipts or fourth allowed skip", "No active fixture users during validated cleanup"],
+     reportValidation: "Strict complete Go JSON lifecycles plus observed successful exits; absent or skipped required cases fail. Raw streams remain private.",
+   };
+ }
+diff --git a/scripts/ci/run-guest-file-write-gate.mjs b/scripts/ci/run-guest-file-write-gate.mjs
+index bc46877f..1ea5a459 100644
+--- a/scripts/ci/run-guest-file-write-gate.mjs
++++ b/scripts/ci/run-guest-file-write-gate.mjs
+@@ -283,6 +283,36 @@ function packageFixtureEvidence(directory, attemptId, arch, contract) {
+     nativeStateSha256: proof.nativeStateSha256, afterNativeStateSha256: proof.afterNativeStateSha256 };
+ }
+ 
++/** Strict fresh terminal contract for the isolated PID1 phase. Report cases alone never prove cleanup. */
++export function validatePid1Fixture(proof, attemptId, arch, contract, sourceCommit, raw) {
++  const guard = proof?.guard;
++  if (proof?.schemaVersion !== 1 || proof.attempt !== attemptId || proof.arch !== arch || proof.emulated !== false
++    || proof.status !== "passed" || proof.cleanupComplete !== true || proof.delivery !== null || proof.execDelivery !== null
++    || proof.sourceCommit !== sourceCommit || !SHA256.test(proof.sourceContractSha256 ?? "")
++    || proof.baseImage !== contract.baseImage || proof.builderImage !== contract.builderImage
++    || JSON.stringify(proof.nativeCases) !== JSON.stringify(contract.requiredCases.map(item => item.test))
++    || proof.rawReportSha256 !== digest(raw)
++    || !guard || guard.sourceStartMatched !== true || guard.sourceEndMatched !== true
++    || guard.allRegisteredGroupsAbsent !== true || guard.allObservedOwnedGroupsAbsent !== true
++    || guard.cleanupFailure !== null || guard.floorViolation !== false || !Number.isSafeInteger(guard.minimumFreeBytes) || guard.minimumFreeBytes < 12_000_000_000
++    || !Array.isArray(guard.observedOwnedGroups) || guard.observedOwnedGroups.length === 0
++    || !proof.tools || ["go", "git", "python", "docker", "bash", "buildx"].some(name => !SHA256.test(proof.tools[name]?.sha256 ?? ""))
++    || !proof.binaries || ["zenithd-1.0.0", "zenithd-1.1.0", "update-systemd.test"].some(name => !SHA256.test(proof.binaries[name]?.sha256 ?? "") || !Number.isSafeInteger(proof.binaries[name]?.bytes) || proof.binaries[name].bytes <= 0)) throw new Error("pid1-fixture");
++  return { arch, emulated: false, cleanupComplete: true, sourceCommit, sourceContractSha256: proof.sourceContractSha256,
++    rawReportSha256: proof.rawReportSha256, minimumFreeBytes: guard.minimumFreeBytes,
++    toolInventorySha256: digest(JSON.stringify(Object.fromEntries(Object.entries(proof.tools).map(([name, row]) => [name, row.sha256])))),
++    binaryInventorySha256: digest(JSON.stringify(proof.binaries)), baseImage: proof.baseImage, builderImage: proof.builderImage };
++}
++function pid1FixtureEvidence(directory, attemptId, arch, contract, commit, raw) {
++  const folder = path.join(directory, "pid1-private"); ownedDirectory(folder);
++  const fd = fs.openSync(path.join(folder, "terminal.record"), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
++  try {
++    const st = fs.fstatSync(fd);
++    if (!st.isFile() || st.uid !== process.getuid() || st.nlink !== 1 || (st.mode & 0o7777) !== 0o600 || st.size === 0 || st.size > 1024 * 1024) throw new Error("pid1-fixture");
++    return validatePid1Fixture(JSON.parse(fs.readFileSync(fd, "utf8")), attemptId, arch, contract, commit, raw);
++  } finally { fs.closeSync(fd); }
++}
++
+ export async function runNativeGate(root = process.cwd(), attemptId = randomBytes(16).toString("hex")) {
+   root = path.resolve(root);
+   const manifest = linuxGuestManifest();
+@@ -318,16 +348,18 @@ export async function runNativeGate(root = process.cwd(), attemptId = randomByte
+       const stepEnv = { ...env, ...(step.id === "goldens" ? { ZENITH_UPDATE_MACHINE_GOLDENS: "1" } : {}) };
+       const phaseCommand = step.command.map((argument) => ({ "{sourceRoot}": root, "{attemptId}": attemptId, "{nativeArch}": versions.GOARCH })[argument] ?? argument);
+       const command = ["flock", "--shared", "--nonblock", "/opt/zenith-file-write-mounts/.gate-lease", ...phaseCommand];
+-      const result = await execute(command, step.id === "package-native" ? root : path.join(root, "go"), stepEnv, directory, step.id);
++      const result = await execute(command, ["package-native", "pid1-native"].includes(step.id) ? root : path.join(root, "go"), stepEnv, directory, step.id);
+       drained = drained && result.drained;
+       const raw = fs.readFileSync(result.output, "utf8");
+       const contract = step.id === "goldens" ? { requiredCases: manifest.goldenCases, requiredPackages: [manifest.goldenCases[0].package], noTestPackages: [], allowedSkips: [] }
+-        : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases };
+-      const validation = ["race", "package-native", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
++        : step.id === "pid1-native" ? manifest.pid1Phase : step.id === "package-native" ? manifest.packagePhase : { ...manifest, requiredCases: manifest.raceCases };
++      const validation = ["race", "package-native", "pid1-native", "goldens"].includes(step.id) ? validateGoEvents(raw, result.observation, contract) : {
+         verdict: result.observation.observed && result.observation.status === 0 && result.observation.signal === null && raw.length === 0 ? "passed" : "failed",
+       };
+       const fixture = step.id === "package-native" && validation.verdict === "passed" && result.drained && !result.interrupted
+-        ? packageFixtureEvidence(directory, attemptId, versions.GOARCH, manifest.packagePhase) : null;
++        ? packageFixtureEvidence(directory, attemptId, versions.GOARCH, manifest.packagePhase)
++        : step.id === "pid1-native" && validation.verdict === "passed" && result.drained && !result.interrupted
++          ? pid1FixtureEvidence(directory, attemptId, versions.GOARCH, manifest.pid1Phase, before.commit, raw) : null;
+       evidence.steps.push({ ...(fixture ? { fixture } : {}), id: step.id, command: step.command, exitCode: Number.isSafeInteger(result.observation.status) ? result.observation.status : null, termination: result.observation.signal ? "signal" : result.observation.observed ? "exit" : "launch-failed", reportSha256: digest(raw), validation });
+       if (validation.verdict !== "passed" || !result.drained || result.interrupted) throw new Error("execution");
+     }

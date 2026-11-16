@@ -1,0 +1,56 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "zenith-runner.fullname" . }}
+  labels:
+    {{- include "zenith-runner.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "zenith-runner.selectorLabels" . | nindent 6 }}
+  # The runner listens on nothing: no ingress rules means all ingress is denied.
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    {{- if .Values.networkPolicy.allowDNS }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dnsNamespaceSelector | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dnsPodSelector | nindent 14 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+    {{- if .Values.networkPolicy.httpsCIDRs }}
+    - to:
+        {{- range .Values.networkPolicy.httpsCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+            {{- if $.Values.networkPolicy.blockMetadata }}
+            except:
+              - 169.254.169.254/32
+            {{- end }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 443
+    {{- end }}
+    {{- if .Values.networkPolicy.allowPodIdentityAgent }}
+    - to:
+        - ipBlock:
+            cidr: 169.254.170.23/32
+      ports:
+        - protocol: TCP
+          port: 80
+    {{- end }}
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

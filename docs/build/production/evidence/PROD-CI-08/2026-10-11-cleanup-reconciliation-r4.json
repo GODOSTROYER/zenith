@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-11",
+  "scope": "Cleanup and exact-absence evidence for frozen primary 94; no acceptance or release claim.",
+  "sourceProvenance": {
+    "label": "frozen primary 94",
+    "sourceTreeDigest": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "stableSamples": 3,
+    "sourceGitSha": "94d60798a376c49beaa5c1bc60f14d2e6aa5e430"
+  },
+  "j1OwnedStack": {
+    "canonicalCleanupReceiptSha256": "1a15d8728196df99d21f7a1496ee4e89c2c10da75dfbae62cea792c6398f6982",
+    "removed": 16,
+    "remaining": 0,
+    "forcedStops": 2,
+    "followupAbsenceReportSha256": "f396bafa8d1dcd1f3c7137204ff7119d3063187d4da09de3e1c030d4bf20f83a",
+    "followupOutcome": "owned-absence-complete-no-acceptance-claim",
+    "followupDiagnosticReadOnly": true,
+    "acceptedRunReceipt": false,
+    "heldCommands": 23,
+    "heldCommandsAllExitCode0": true,
+    "historicalProcessAbsenceChecks": 2,
+    "resourceAbsenceConfirmed": true,
+    "canonicalCleanupReceiptOutcome": "records-16-removed-0-remaining-2-forced-stops",
+    "followupRootObservedExitCode": 0,
+    "hostFloorObserved": "clean",
+    "vmFloorProbe": false
+  },
+  "old94WitnessTagCleanup": {
+    "receiptSha256": "3767d7f0fdc92c2ae538b47005cee54d71bf8f46408a2e4620a2d89f527c6eb5",
+    "summarySha256": "c9702505effe348f057a9e177e9c455739457b0d93aeb409f04ccf2a7291ef4e",
+    "rootObservedWrapperExitCode": 0,
+    "status": "removed-exact-tag",
+    "tag": "localhost:5000/zenith-j2-witness:rc",
+    "exactTagAbsent": true,
+    "acceptanceClaim": false,
+    "allHeldCommandsStrictlyClosed": true,
+    "ownedChildAbsent": true,
+    "ownedRegistryAbsent": true,
+    "floorWatcherJoined": true,
+    "resourceFloorPassed": true,
+    "sourceStable": true,
+    "sourceCountBefore": 5868,
+    "sourceCountAfter": 5868
+  },
+  "retainedNativeGoCleanup": {
+    "r3ReportSha256": "e16a0a20cfb9d9fdba84be804f928afc76d7d38cc29de3cdc82d208580331f82",
+    "rootObservedWrapperExitCode": 0,
+    "cleanupComplete": true,
+    "heldCommands": 17,
+    "heldCommandsAllExitCode0": true,
+    "strictlyJoinedCompleteNoSurvivors": true,
+    "registryAbsent": true,
+    "custody": "clean",
+    "containerNaturalExitCode": 1,
+    "containerOOMKilled": false,
+    "removedExactIdWithoutForce": true,
+    "exactIdAbsenceConfirmed": true,
+    "minimumHostFreeBytes": 347375308800,
+    "sourceTreeDigest": "7ab42032335575a491a60d302436df9feb8a9943f7a8a3adba9dd8d46075077a",
+    "acceptedRunReceipt": false
+  },
+  "nativeR8": {
+    "status": "terminal-wrapper-refusal",
+    "result": "wrapper-exit-2-before-cases",
+    "wrapperExitCode": 2,
+    "failureCode": "daemon-build-exit",
+    "executedCases": 0,
+    "receiptSha256": "096d18fbace318ee58f910b044bd8d7c63d78ba5c553d7904c5654691f19daea"
+  }
+}

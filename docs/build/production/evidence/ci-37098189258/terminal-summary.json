@@ -1,0 +1,648 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-03T05:45:03.779730+00:00",
+  "runId": 37098189258,
+  "runUrl": "https://github.com/GODOSTROYER/zenith/actions/runs/37098189258",
+  "runAttempt": 1,
+  "commit": "746e4eef8dde0c94cf4850ac0222a20b5b07205c",
+  "branch": "codex/production-2026-10-02",
+  "status": "completed",
+  "conclusion": "failure",
+  "exactBaselineVerifiedGreen": false,
+  "mandatoryStepsPassed": false,
+  "scope": "Exact pushed documentation checkpoint CI. Corrected durable/runner/guest staging excluded; no whole-product or live-cloud acceptance.",
+  "jobCounts": {
+    "success": 13,
+    "failure": 1
+  },
+  "failedJob": {
+    "name": "supply-chain",
+    "id": 111132307344
+  },
+  "canonicalLanes": [
+    {
+      "lane": "tofu",
+      "overallCounts": {
+        "total": 3900,
+        "passed": 3900,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 27,
+      "sumOfMatchedRequiredAssertions": 88,
+      "postgresLabeledRequiredGroups": 0,
+      "canonicalRequirementsIndependentlyDerivedFromExactGitObjects": true,
+      "requiredIdsFilesBackendExact": true,
+      "everyGroupPassedNonzero": true,
+      "elevenReconstructibleExportedBindingsMatch": true,
+      "twelfthExportedInventoryIntegrityFlagConsistent": true,
+      "originSchema2": 2,
+      "executionObserved": true,
+      "originExit": 0,
+      "executionExit": 0,
+      "receiptSha256": "d809ec192d54d18ac1ac96401498de2960e954b0ae1e316e72b23d956f457fd4",
+      "manifestSha256": "f95b9936104f192d54642e4fff3c10ab2fd66433d0395d1dac76faed20f7852d",
+      "dependenciesMatchExactLock": true,
+      "toolExpectations": {
+        "node": "22.23.3",
+        "tofu": "1.12.5"
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "policy",
+      "overallCounts": {
+        "total": 238,
+        "passed": 238,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 7,
+      "sumOfMatchedRequiredAssertions": 238,
+      "postgresLabeledRequiredGroups": 0,
+      "canonicalRequirementsIndependentlyDerivedFromExactGitObjects": true,
+      "requiredIdsFilesBackendExact": true,
+      "everyGroupPassedNonzero": true,
+      "elevenReconstructibleExportedBindingsMatch": true,
+      "twelfthExportedInventoryIntegrityFlagConsistent": true,
+      "originSchema2": 2,
+      "executionObserved": true,
+      "originExit": 0,
+      "executionExit": 0,
+      "receiptSha256": "bf2f4f687b0096e99f698c3b38230c2b3b21206216b6116ed5caaa753711f468",
+      "manifestSha256": "4c78a7b43e04eebd4ada7cf5bb912038b7957fac724da6f3887a9d62e7b7d8b3",
+      "dependenciesMatchExactLock": true,
+      "toolExpectations": {
+        "node": "22.23.3",
+        "opa": "1.19.1"
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "platform-postgres",
+      "overallCounts": {
+        "total": 1422,
+        "passed": 1422,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 45,
+      "sumOfMatchedRequiredAssertions": 401,
+      "postgresLabeledRequiredGroups": 45,
+      "canonicalRequirementsIndependentlyDerivedFromExactGitObjects": true,
+      "requiredIdsFilesBackendExact": true,
+      "everyGroupPassedNonzero": true,
+      "elevenReconstructibleExportedBindingsMatch": true,
+      "twelfthExportedInventoryIntegrityFlagConsistent": true,
+      "originSchema2": 2,
+      "executionObserved": true,
+      "originExit": 0,
+      "executionExit": 0,
+      "receiptSha256": "8d27749cbeb33cfb107c000767e049866feeff5cf963421f3978bb4edb80c6ac",
+      "manifestSha256": "b99d5eb009fae421578b1e2694ec16e137789a0a6143b46c0355222a814a8fed",
+      "dependenciesMatchExactLock": true,
+      "toolExpectations": {
+        "node": "22.23.3",
+        "postgres": "16.15"
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "postgres",
+      "overallCounts": {
+        "total": 251,
+        "passed": 251,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 9,
+      "sumOfMatchedRequiredAssertions": 166,
+      "postgresLabeledRequiredGroups": 9,
+      "canonicalRequirementsIndependentlyDerivedFromExactGitObjects": true,
+      "requiredIdsFilesBackendExact": true,
+      "everyGroupPassedNonzero": true,
+      "elevenReconstructibleExportedBindingsMatch": true,
+      "twelfthExportedInventoryIntegrityFlagConsistent": true,
+      "originSchema2": 2,
+      "executionObserved": true,
+      "originExit": 0,
+      "executionExit": 0,
+      "receiptSha256": "22ef65ae34b3bcbdd6ccdc521a67b61be4f0480cf5cfd5901f02ee416ab12346",
+      "manifestSha256": "9576cc4f9ab9107f986ab3a2a0df29074daedb44f11d7bd706fec96d24c636d8",
+      "dependenciesMatchExactLock": true,
+      "toolExpectations": {
+        "node": "22.23.3",
+        "postgres": "16.15"
+      },
+      "externalAcceptance": []
+    },
+    {
+      "lane": "workflows",
+      "overallCounts": {
+        "total": 982,
+        "passed": 982,
+        "failed": 0,
+        "skipped": 0,
+        "unknown": 0
+      },
+      "requiredGroups": 44,
+      "sumOfMatchedRequiredAssertions": 835,
+      "postgresLabeledRequiredGroups": 0,
+      "canonicalRequirementsIndependentlyDerivedFromExactGitObjects": true,
+      "requiredIdsFilesBackendExact": true,
+      "everyGroupPassedNonzero": true,
+      "elevenReconstructibleExportedBindingsMatch": true,
+      "twelfthExportedInventoryIntegrityFlagConsistent": true,
+      "originSchema2": 2,
+      "executionObserved": true,
+      "originExit": 0,
+      "executionExit": 0,
+      "receiptSha256": "c99ba978d1119de4bfde265f142f69624cfa1a6d1c95a2822017bf1184901c55",
+      "manifestSha256": "c860b1c2d3bab6ebc1461f139732d0fc300397fc666044dc226f02d94ada27b0",
+      "dependenciesMatchExactLock": true,
+      "toolExpectations": {
+        "node": "22.23.3",
+        "temporal": "1.9.1"
+      },
+      "externalAcceptance": [
+        {
+          "id": "external-temporal-mtls",
+          "file": "tests/workflows/mtls-live.test.ts",
+          "status": "unverified",
+          "releaseBlocker": "External Temporal mTLS execution remains unverified until separate authorized acceptance passes."
+        }
+      ]
+    }
+  ],
+  "jobLogSummaries": [
+    {
+      "job": "docker",
+      "id": 111132307063,
+      "conclusion": "success",
+      "logSha256": "2d3b6d5e3e90bd151f9c649e3c7994d9d03b5e7cf70e86964462c1b475eb7e19",
+      "testFilesSummaries": [],
+      "testSummaries": []
+    },
+    {
+      "job": "verify",
+      "id": 111132307190,
+      "conclusion": "success",
+      "logSha256": "03551e72a514c50d90ba55d125b01462fbc9282c5358e62bf68a37d1e7798e72",
+      "testFilesSummaries": [
+        {
+          "passed": 785,
+          "skipped": 22,
+          "total": 807,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 16427,
+          "skipped": 399,
+          "total": 16826,
+          "failed": 0
+        }
+      ],
+      "smokePassMarker": true,
+      "smokeAggregateCheckCount": null,
+      "gimbalAllProductionAssetChecksPass": true,
+      "gimbalMeshAssetSummaries": 2
+    },
+    {
+      "job": "postgres",
+      "id": 111132307200,
+      "conclusion": "success",
+      "logSha256": "103ae01f269bc322700ba68075993d7c1b842e3d830e34944799bdd6f98026ba",
+      "testFilesSummaries": [
+        {
+          "passed": 9,
+          "skipped": 0,
+          "total": 9,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 251,
+          "skipped": 0,
+          "total": 251,
+          "failed": 0
+        }
+      ]
+    },
+    {
+      "job": "tofu",
+      "id": 111132307245,
+      "conclusion": "success",
+      "logSha256": "6915f5da84841b66d7d8224480a74e83eb9139297bbf0251c0a9d45cef5a5156",
+      "testFilesSummaries": [
+        {
+          "passed": 121,
+          "skipped": 0,
+          "total": 121,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 3900,
+          "skipped": 0,
+          "total": 3900,
+          "failed": 0
+        }
+      ],
+      "goRealTofuSuccessfulPackageInvocations": 1
+    },
+    {
+      "job": "generated",
+      "id": 111132307257,
+      "conclusion": "success",
+      "logSha256": "f09f976495f01c258b5ddb64bd47097cb902dbcd1d0285023cfb03811f728593",
+      "testFilesSummaries": [
+        {
+          "passed": 4,
+          "skipped": 0,
+          "total": 4,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 109,
+          "skipped": 0,
+          "total": 109,
+          "failed": 0
+        }
+      ]
+    },
+    {
+      "job": "agent",
+      "id": 111132307258,
+      "conclusion": "success",
+      "logSha256": "bfa8c741f3c2338864eee7296b2910e930ee9e9251cc1956ed866d8839c96774",
+      "testFilesSummaries": [],
+      "testSummaries": [],
+      "browserChecks": [
+        {
+          "kind": "scripted_browser_step_checks",
+          "passed": 44,
+          "failed": 0,
+          "steps": 44,
+          "notPlaywrightTestCaseCount": true
+        }
+      ],
+      "acceptanceJourneyCheckCounts": [
+        35
+      ]
+    },
+    {
+      "job": "build",
+      "id": 111132307264,
+      "conclusion": "success",
+      "logSha256": "6f6136517ef5661654f1d193763098da7bb2f7fb290342aa50e69ec9ff666376",
+      "testFilesSummaries": [],
+      "testSummaries": []
+    },
+    {
+      "job": "workflows",
+      "id": 111132307282,
+      "conclusion": "success",
+      "logSha256": "128aab22044529012d47990590c3ed51a73bf603148dc810bc5d31023752b11e",
+      "testFilesSummaries": [
+        {
+          "passed": 45,
+          "skipped": 0,
+          "total": 45,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 982,
+          "skipped": 0,
+          "total": 982,
+          "failed": 0
+        }
+      ]
+    },
+    {
+      "job": "policy",
+      "id": 111132307289,
+      "conclusion": "success",
+      "logSha256": "8136c136e97ff0ae5f8eb655bf2b2d0f4d69b3cd6654d7713106823e83b1b075",
+      "testFilesSummaries": [
+        {
+          "passed": 7,
+          "skipped": 0,
+          "total": 7,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 238,
+          "skipped": 0,
+          "total": 238,
+          "failed": 0
+        }
+      ],
+      "opaNativeCases": [
+        {
+          "passed": 213,
+          "total": 213
+        }
+      ]
+    },
+    {
+      "job": "hosted",
+      "id": 111132307297,
+      "conclusion": "success",
+      "logSha256": "e15ddb0328cff013a963cea10de24071b56d8bb01a7efdbae006a6534ab1787e",
+      "testFilesSummaries": [
+        {
+          "passed": 91,
+          "skipped": 1,
+          "total": 92,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 1146,
+          "skipped": 13,
+          "total": 1159,
+          "failed": 0
+        }
+      ],
+      "browserChecks": [
+        {
+          "kind": "scripted_browser_step_checks",
+          "passed": 24,
+          "failed": 0,
+          "steps": 24,
+          "notPlaywrightTestCaseCount": true
+        }
+      ],
+      "acceptanceJourneyCheckCounts": [
+        22
+      ]
+    },
+    {
+      "job": "platform-postgres",
+      "id": 111132307316,
+      "conclusion": "success",
+      "logSha256": "ff1fad665e06c9439636a5f6378b2c08eb8078d5d480b3610802460ba15f1050",
+      "testFilesSummaries": [
+        {
+          "passed": 46,
+          "skipped": 0,
+          "total": 46,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 1422,
+          "skipped": 0,
+          "total": 1422,
+          "failed": 0
+        }
+      ]
+    },
+    {
+      "job": "supply-chain",
+      "id": 111132307344,
+      "conclusion": "failure",
+      "logSha256": "d9970dfe1321baa757d9568fac302ae53bae808df2cff70ea31895956ce56455",
+      "testFilesSummaries": [],
+      "testSummaries": [],
+      "findings": [
+        {
+          "package": "@next/eslint-plugin-next",
+          "advisory": "GHSA-vfj7-8cjw-p6xm"
+        },
+        {
+          "package": "braces",
+          "advisory": "GHSA-vfj7-8cjw-p6xm"
+        },
+        {
+          "package": "eslint-config-next",
+          "advisory": "GHSA-vfj7-8cjw-p6xm"
+        },
+        {
+          "package": "fast-glob",
+          "advisory": "GHSA-vfj7-8cjw-p6xm"
+        },
+        {
+          "package": "micromatch",
+          "advisory": "GHSA-vfj7-8cjw-p6xm"
+        }
+      ],
+      "blocking": true,
+      "acceptedExceptions": 0,
+      "rawNpmAuditSeverityAndNodeCountsAvailable": false
+    },
+    {
+      "job": "go",
+      "id": 111132307375,
+      "conclusion": "success",
+      "logSha256": "1b80919da69546e22dec1ad261bcb0973a07bad0b7edd56f2479b12de9613dab",
+      "testFilesSummaries": [
+        {
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "failed": 0
+        }
+      ],
+      "testSummaries": [
+        {
+          "passed": 19,
+          "skipped": 0,
+          "total": 19,
+          "failed": 0
+        }
+      ],
+      "raceSuccessfulPackageInvocations": 11,
+      "goldenSuccessfulPackageInvocations": 1,
+      "individualGoTestCaseCount": null,
+      "observedGoVersions": [
+        "go1.27.1"
+      ]
+    },
+    {
+      "job": "ledger",
+      "id": 111132307432,
+      "conclusion": "success",
+      "logSha256": "560bfdcbb9ded8edd199d10391f7ae6d660af9b51ef5ea56a1477161386fc54d",
+      "testFilesSummaries": [],
+      "testSummaries": []
+    }
+  ],
+  "precisionLimits": [
+    {
+      "id": "overall-versus-required",
+      "description": "Overall lane totals include assertions beyond mandatory real-backend groups. Platform PostgreSQL has1422 overall passes but45 mandatory PG groups whose exported matched assertion counts sum401. Postgres251 overall versus9 groups sum166. Tofu3900 overall versus27 groups sum88; workflows982 overall versus44 groups sum835; policy238 and7 groups sum238. Group sums can overlap generally and are not deduplicated individual real-provider/database operations."
+    },
+    {
+      "id": "sanitized-versus-raw",
+      "description": "Only sanitized evidence JSON is archived. Raw Vitest reports, private environment inventories and raw origin sidecars are unavailable. Eleven exported bindings can be independently recomputed or compared; the twelfth inventory-integrity flag is internally consistent but its private content cannot be replayed. Report hashes are matched to reconstructed source-bound receipts, not recomputed from absent raw report bytes. Exact assertion ancestry/status selection and duplicate case IDs cannot independently be replayed; standard report also explicitly lacks case IDs. CI strict matcher was reviewed and groups match exact source-owned requirements, but flags/counts remain captured CI observations."
+    },
+    {
+      "id": "expectations-versus-observations",
+      "description": "expectedTools are declared expectations, not measured attestations. Captured logs corroborate PostgreSQL16.15 startup in both PG lanes, OpenTofu1.12.5, OPA1.19.1, TemporalCLI1.9.1 and Go1.27.1; provenance Node22.23.3 and six installed dependency versions match exact committed lock. This does not independently inspect remote executable bytes or provider installations."
+    },
+    {
+      "id": "browser-versus-journey",
+      "description": "Browser44/24 are successful step/check entries in agent-browser.ts and hosted-browser.ts JSON summaries, not44/24 Playwright test cases. Acceptance journey35/22 are separate script checks. Agent journey and browser fixture use an identity-provider double; browser automation is not a real human approval or live external account."
+    },
+    {
+      "id": "external-and-current-candidate",
+      "description": "External Temporal mTLS stays explicitly unverified/release-blocking; canonical zero skips does not waive it. Captured746 run is separate from parent isolated356b7d0 correction verification. No durable-schema7, runner rotation, machine change, live AWS/cloud or whole-product green acceptance inferred."
+    },
+    {
+      "id": "metadata-origin",
+      "description": "Archive digests match captured GitHub API metadata; no new network fetch or independent reauthentication of API capture performed. Root capture is trusted provenance input. All raw logs, signed URLs and environment inventories remain private."
+    }
+  ],
+  "blockers": [
+    "Five dependency findings all GHSA-vfj7-8cjw-p6xm remain unresolved; supply-chain job failed. No accepted/active exception recorded.",
+    "External Temporal mTLS remains unverified; current correction candidate runtime acceptance is separate."
+  ],
+  "independentReviewReceiptSha256": "93b1f79b5220c81265d1efc00eddd4275281d734e754cf4653275617bb0ec8c4",
+  "rootCanonicalReconstruction": {
+    "allFivePassed": true,
+    "sourceBinding": "nine exact Git objects and five unchanged manifests verified",
+    "archiveDigestsMatched": 5,
+    "limits": "Eleven exported bindings reconstructible; private environment inventory integrity and raw report hashes cannot be replayed from sanitized exports."
+  },
+  "evidenceFiles": [
+    {
+      "file": "postgres.json",
+      "sha256": "3007a6fc5bd0e3c5f7ac1ff816890bed894367902fb52b23bb887713a1eafef8"
+    },
+    {
+      "file": "platform-postgres.json",
+      "sha256": "44ab14526f52ec066f34d0c18c23e698d310c787be49a89eac7e0cae8bed5ca2"
+    },
+    {
+      "file": "policy.json",
+      "sha256": "e3f642be77e5a277bfbe0105188ac469260625ba3fe969dbe011d1d0a451110a"
+    },
+    {
+      "file": "tofu.json",
+      "sha256": "b7ad028e814cce190fcf96652b8e8e4320a4136d22e124353d61267872ddd1cf"
+    },
+    {
+      "file": "workflows.json",
+      "sha256": "5da12ec1eee7037a4ad906245a1898760b4a93540b98b79faa6357cfd572d888"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 111132307063,
+      "name": "docker",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307190,
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307200,
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307245,
+      "name": "tofu",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307257,
+      "name": "generated",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307258,
+      "name": "agent",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307264,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307282,
+      "name": "workflows",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307289,
+      "name": "policy",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307297,
+      "name": "hosted",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307316,
+      "name": "platform-postgres",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307344,
+      "name": "supply-chain",
+      "status": "completed",
+      "conclusion": "failure",
+      "failedSteps": [
+        "Known dependency findings block release"
+      ]
+    },
+    {
+      "id": 111132307375,
+      "name": "go",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    },
+    {
+      "id": 111132307432,
+      "name": "ledger",
+      "status": "completed",
+      "conclusion": "success",
+      "failedSteps": []
+    }
+  ]
+}

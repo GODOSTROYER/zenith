@@ -1,0 +1,240 @@
+{
+  "schema": 1,
+  "provenance": "live_sandbox",
+  "runId": "zlive-202611051237-ccf0",
+  "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+  "scenario": "ops-05",
+  "scope": [
+    "PROD-OPS-05"
+  ],
+  "accountId": "361646636162",
+  "region": "ap-south-1",
+  "startedAt": "2026-11-05T12:55:49.105Z",
+  "finishedAt": "2026-11-05T13:04:38.827Z",
+  "planSha256": "0f6a7acc2b3dae0cc6d387753917567a7093d63c36488c78926f591cd38959d7",
+  "permissionSha256": "0d377374f0071d7ef850db33955a69c038aa0eb52e9031f323a89dd209bd9df1",
+  "estimatedUsd": 0.75,
+  "costProvisional": true,
+  "billingMeasured": false,
+  "cleanupComplete": true,
+  "counts": {
+    "passed": 1,
+    "failed": 0,
+    "pending": 0
+  },
+  "verdict": "passed",
+  "checks": [
+    {
+      "id": "PROD-OPS-05",
+      "status": "passed",
+      "scope": "product_requirement",
+      "reason": "OPS-05 key custody proven on AWS: one vault secret and one managed S3 bucket under the first keys; every generated key rotated (7 purposes) and the API and worker recreated together; diagnose showed a new current key per purpose with the old one decrypt-only or verify-only, no error finding, and Temporal and results on their own roots; the first deploy's history (123 payloads) needed only the decrypt-only Temporal key and decrypted (123 ok); the AWS connection verified and a second bucket deployed under the new keys (history on the new key only); the vault re-wrap completed (1 re-sealed); no operator output contained key material"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "PROD-MIX-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-05",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-06",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MIX-07",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-05",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-06",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-MAN-07",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-05",
+      "requiredLevel": "live_sandbox",
+      "status": "passed",
+      "reason": "OPS-05 key custody proven on AWS: one vault secret and one managed S3 bucket under the first keys; every generated key rotated (7 purposes) and the API and worker recreated together; diagnose showed a new current key per purpose with the old one decrypt-only or verify-only, no error finding, and Temporal and results on their own roots; the first deploy's history (123 payloads) needed only the decrypt-only Temporal key and decrypted (123 ok); the AWS connection verified and a second bucket deployed under the new keys (history on the new key only); the vault re-wrap completed (1 re-sealed); no operator output contained key material",
+      "evidence": [
+        {
+          "level": "live_sandbox",
+          "commit": "c756d2d76bc69e2f2f9ffab71a34674d6264b585",
+          "result": "OPS-05 key custody proven on AWS: one vault secret and one managed S3 bucket under the first keys; every generated key rotated (7 purposes) and the API and worker recreated together; diagnose showed a new current key per purpose with the old one decrypt-only or verify-only, no error finding, and Temporal and results on their own roots; the first deploy's history (123 payloads) needed only the decrypt-only Temporal key and decrypted (123 ok); the AWS connection verified and a second bucket deployed under the new keys (history on the new key only); the vault re-wrap completed (1 re-sealed); no operator output contained key material",
+          "artifact": "zlive-202611051237-ccf0/evidence.json",
+          "planSha256": "0f6a7acc2b3dae0cc6d387753917567a7093d63c36488c78926f591cd38959d7"
+        }
+      ]
+    },
+    {
+      "id": "PROD-OPS-06",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-07",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-08",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-OPS-09",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-01",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-02",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-03",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    },
+    {
+      "id": "PROD-REL-04",
+      "requiredLevel": "live_sandbox",
+      "status": "pending",
+      "reason": "outside this run's scope",
+      "evidence": []
+    }
+  ],
+  "releaseStatus": {
+    "implementationComplete": false,
+    "sandboxVerified": false,
+    "pilotReady": false,
+    "productionApproved": false
+  },
+  "sha256": "5e44d14f89af07b4e298897608fad4e55510deeb9b41d997e7a3925fb2b96ca5"
+}

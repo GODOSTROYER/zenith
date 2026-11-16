@@ -21,6 +21,7 @@ import { CONN_DOT, unusableReason, type ProviderInfo } from "./shared";
 
 type Pending =
   | { kind: "create"; provider: ProviderInfo; input: { provider: string; label?: string; region?: string } }
+  | { kind: "zenith" }
   | { kind: "disconnect"; connection: CloudConnection };
 
 export function ConnectionsSection({
@@ -43,6 +44,10 @@ export function ConnectionsSection({
   refresh: () => void;
 }) {
   const [pending, setPending] = useState<Pending | null>(null);
+  const gate = useGate();
+  const managedGate = gate(role, "connection.createZenith");
+  const offerManaged =
+    providerById.has("zenith") && !connections.some((c) => c.provider === "zenith" && !c.revokedAt);
   const done = () => {
     setPending(null);
     refresh();
@@ -75,10 +80,41 @@ export function ConnectionsSection({
       )}
 
       <NewConnectionForm
-        providers={providers}
+        providers={providers.filter((p) => p.id !== "zenith")}
         role={role}
         onSubmit={(provider, input) => setPending({ kind: "create", provider, input })}
       />
+
+      {offerManaged && (
+        <Card
+          title="Zenith managed platform"
+          subtitle="Run on infrastructure Zenith operates. No cloud account, role or key to set up."
+        >
+          <Button
+            variant="quiet"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            disabled={!!managedGate}
+            disabledReason={managedGate}
+            onClick={() => setPending({ kind: "zenith" })}
+          >
+            Use the managed platform
+          </Button>
+        </Card>
+      )}
+
+      {pending?.kind === "zenith" && (
+        <ActionConfirm
+          open
+          onClose={() => setPending(null)}
+          actionId="connection.createZenith"
+          input={{}}
+          scope={{ projectId }}
+          title="Use the Zenith-managed platform"
+          description="This records a connection that holds nothing of yours. Run Check afterwards, then pick it when you create an environment."
+          confirmLabel="Connect"
+          onDone={done}
+        />
+      )}
 
       {pending?.kind === "create" && (
         <ActionConfirm

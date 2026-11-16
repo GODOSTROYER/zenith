@@ -27,6 +27,7 @@ import { useGate } from "./access";
 import { AlertChannelsSection } from "./settings-alerts";
 import { ConnectionsSection } from "./connections";
 import { EnvironmentsSection } from "./environments";
+import { BillingSection } from "./billing";
 import { MembersSection } from "./members";
 import { SecretsSection } from "./secrets";
 import { providersOf } from "./shared";
@@ -37,6 +38,7 @@ import styles from "./settings.module.css";
 const SECTIONS = [
   { id: "workspace", label: "Workspace" },
   { id: "members", label: "Members" },
+  { id: "billing", label: "Hosting and billing" },
   { id: "environments", label: "Environments" },
   { id: "connections", label: "Connections" },
   { id: "secrets", label: "Secrets" },
@@ -121,6 +123,8 @@ export default function SettingsPage() {
             />
           )}
         </section>
+
+        {boot ? <section id="billing" tabIndex={-1} className="space-y-4"><SectionHead title="Hosting and billing" body="The assignment that governs managed capacity and new work." /><BillingSection key={boot.workspace.id} workspaceId={boot.workspace.id} /></section> : null}
 
         {/* --------------------------------- members ------------------------ */}
         <section id="members" tabIndex={-1} className="space-y-4">

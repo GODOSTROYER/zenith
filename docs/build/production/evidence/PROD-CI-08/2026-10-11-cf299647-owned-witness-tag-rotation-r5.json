@@ -1,0 +1,24 @@
+{
+  "schema": "zenith.public.witness-tag-rotation.v1",
+  "source": {
+    "head": "cf299647df8551f246e04021a8784a7742b06749",
+    "clean": true,
+    "entryCount": 5934,
+    "freezeSha256": "457ae0a0a6634e94e732b25ac043fc7307f93e7a4ca1e5143979046e0f059703"
+  },
+  "result": "pass_tag_rotation_only",
+  "scope": "Cleanup-only fixed-tag rotation; no build, native invocation, J2 behavior, or milestone acceptance is established by this record.",
+  "receiptSha256": "3cf545a91f64180622778aabf40d61d9bb2fe9d4c2238cf5a4ac59819cce1d62",
+  "terminalReviewSha256": "9d31246e421d4ca60cdc2787c120acd95d1e6dea2b50dbe361f1ec894e75a02c",
+  "checks": {
+    "allHeldCommandsStrictlyClosed": true,
+    "sourceFreezeStable": true,
+    "custodySettled": true,
+    "fixedTagRemovedWithoutForce": true,
+    "preservedImageAliasVerified": true,
+    "inventoryExpectedDeltaOnly": true,
+    "hostFloorPassed": true,
+    "vmFloorClaimed": false,
+    "acceptanceClaim": false
+  }
+}

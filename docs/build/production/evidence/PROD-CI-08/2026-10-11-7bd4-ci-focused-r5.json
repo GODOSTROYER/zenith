@@ -1,0 +1,47 @@
+{
+  "acceptedRunReceipt": false,
+  "evidence_type": "focused-ci-diagnostic",
+  "floors_passed": true,
+  "historical_records": {
+    "earlier_r4_duplicate_identity_refusal": "preserved",
+    "first_r5_custody_quarantine_refusal": "preserved",
+    "r4_incomplete_selection_wrapper_refusal": "preserved",
+    "separate_process_absence_proof_sha256": "1c126e8e0030e586ac07f18c54af536c1129eccb6f98984e17426b1fd3e93194"
+  },
+  "interpretation": "Focused diagnostic only. Does not establish full exact-source CI, operated acceptance, or release acceptance.",
+  "lint_exit_code": 0,
+  "outcome": "passed-diagnostic-only",
+  "receipt_sha256": "a1168bc5fd88e2de13a1afd2807f3d23bc6f1ae52a8b1ade8d291397253721c9",
+  "run": "R5",
+  "source_sha": "7bd4b85d39a73002906173942c622fdbb377ae20",
+  "source_stable": true,
+  "strict_custody": true,
+  "test_cases": {
+    "tests/ci/gate-manifest.test.ts": {
+      "failed": 0,
+      "passed": 309,
+      "skipped": 0
+    },
+    "tests/ci/guest-file-write-gate.test.ts": {
+      "failed": 0,
+      "passed": 198,
+      "skipped": 0
+    },
+    "tests/ci/platform-coverage.test.ts": {
+      "failed": 0,
+      "passed": 67,
+      "skipped": 0
+    },
+    "tests/ci/release-gates.test.ts": {
+      "failed": 0,
+      "passed": 136,
+      "skipped": 0
+    },
+    "total": {
+      "failed": 0,
+      "passed": 710,
+      "skipped": 0
+    }
+  },
+  "tracked_source_freeze_sha256": "dddcc2bb529e3df2fdc952e28539da27613418a7265a26ea7bef29cff822e751"
+}

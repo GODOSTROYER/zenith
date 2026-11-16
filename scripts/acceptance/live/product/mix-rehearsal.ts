@@ -407,7 +407,7 @@ export function mixRehearsalPort(env: EnvLike = process.env, seams: MixRehearsal
     if (!refreshed && run.attempted && now() - startedAt >= 40 * 60_000) {
       try { await refresh(env); } catch (error) { leaks.push(`session refresh before cleanup failed${error instanceof Refusal ? `: ${error.message}` : ""}`); }
     }
-    leaks.push(...await teardown(run, plan, invoke, planned, principal).catch(() => ["cleanup did not complete; resources may remain"]));
+    leaks.push(...await teardown(run, plan, invoke, planned, principal, sleep).catch(() => ["cleanup did not complete; resources may remain"]));
     try { await product.close?.(); } catch { /* the browser is released best-effort; the outcome above stands */ }
 
     const head = (id: Requirement) => `${id} operational rehearsal (live AWS sandbox, operator runbook MIXED-PARTITIONS.md and MIXED-RECOVERY.md sections 1 and 4)`;

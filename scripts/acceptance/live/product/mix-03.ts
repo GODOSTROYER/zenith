@@ -327,15 +327,22 @@ export async function producerConsumerReadback(invoke: Invoke, planned: (id: str
   return bucketArns[0]!.arn;
 }
 
-export async function teardown(run: RunState, plan: Plan, invoke: Invoke, planned: (id: string) => Call, principal: string): Promise<string[]> {
+export async function teardown(run: RunState, plan: Plan, invoke: Invoke, planned: (id: string) => Call, principal: string,
+  sleep: (ms: number) => Promise<void> = ms => new Promise<void>(resolve => setTimeout(resolve, ms))): Promise<string[]> {
   const leaks: string[] = [];
   // `tolerated`: an error that means the resource is already absent, which is the goal of the delete.
-  const attempt = async (what: string, action: () => Promise<unknown>, tolerated: string[] = []): Promise<boolean> => {
-    try { await action(); return true; }
-    catch (error) {
-      if (tolerated.includes(errorName(error))) return true;
-      leaks.push(`${what} failed; resources may remain`);
-      return false;
+  // `transient`: an error AWS asks the caller to retry; one retry after a pause, inside the call's planned bound.
+  const attempt = async (what: string, action: () => Promise<unknown>, tolerated: string[] = [], transient: string[] = []): Promise<boolean> => {
+    for (let tries = 1; ; tries++) {
+      try { await action(); return true; }
+      catch (error) {
+        const name = errorName(error);
+        if (tolerated.includes(name)) return true;
+        if (tries < 2 && transient.includes(name)) { await sleep(10_000); continue; }
+        // Only an AWS error code (a bare identifier) is named; messages may carry ARNs or account details.
+        leaks.push(`${what} failed${/^[A-Za-z]{1,64}$/.test(name) ? ` (${name})` : ""}; resources may remain`);
+        return false;
+      }
     }
   };
   for (const trust of [...run.trust].reverse()) {
@@ -393,7 +400,7 @@ export async function teardown(run: RunState, plan: Plan, invoke: Invoke, planne
   }
   // A log group whose function is already gone (or never came up) is deleted on its own.
   for (const logGroupName of logGroups) await attempt("deleting a function log group", () => invoke(planned("mix03-logs-delete"), { logGroupName }), ["ResourceNotFoundException"]);
-  for (const bucket of buckets) await attempt("deleting the producer bucket", () => invoke(planned("mix03-bucket-delete"), { bucketName: bucket.name }), ["NoSuchBucket"]);
+  for (const bucket of buckets) await attempt("deleting the producer bucket", () => invoke(planned("mix03-bucket-delete"), { bucketName: bucket.name }), ["NoSuchBucket"], ["OperationAborted", "SlowDown", "InternalError", "ServiceUnavailable"]);
   try {
     const remaining = await scan();
     if (remaining.length) leaks.push(`${remaining.length} tagged resource(s) still present after cleanup`);
@@ -713,7 +720,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
         mix02 = { complete: false, reason: `PROD-MIX-02 not proven at ${step}: ${why}` };
       }
       // Trust is restored and product resources deleted even after a refusal. Leaks make the requirement fail closed.
-      const leaks = await teardown(run, plan, invoke, planned, principal).catch(() => ["cleanup did not complete; resources may remain"]);
+      const leaks = await teardown(run, plan, invoke, planned, principal, sleep).catch(() => ["cleanup did not complete; resources may remain"]);
       try { await product.close?.(); } catch { /* the browser is released best-effort; the outcome above stands */ }
       // A consumer that did not succeed: what Lambda itself reported before teardown deleted it.
       if (!outcome.complete && !outcome.reason.includes("partly proven") && run.functionState) outcome = { ...outcome, reason: `${outcome.reason}; consumer function before teardown: ${run.functionState}` };
@@ -793,7 +800,7 @@ export function mix03Port(env: EnvLike = process.env, seams: Mix03Seams = {}): P
       outcome = { complete: false, reason: `PROD-MIX-01 not proven at ${step}: ${error instanceof Refusal ? error.message : "unexpected failure (details withheld; no completion claim)"}` };
     }
     // Trust is restored on all four roles and product resources deleted even after a refusal. Leaks fail the requirement.
-    const leaks = await teardown(run, plan, invoke, planned, principal).catch(() => ["cleanup did not complete; resources may remain"]);
+    const leaks = await teardown(run, plan, invoke, planned, principal, sleep).catch(() => ["cleanup did not complete; resources may remain"]);
     try { await product.close?.(); } catch { /* the browser is released best-effort; the outcome above stands */ }
     if (leaks.length) return { complete: false, reason: `${outcome.reason}; cleanup leaks: ${leaks.length} (see the cleanup checks)`, leaks };
     return { ...outcome, leaks };

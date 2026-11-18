@@ -1,0 +1,80 @@
+name: API image
+
+# Builds the production web/API image for the ARM64 host from one reviewed commit.
+# NEXT_PUBLIC_* values are public and compiled into the browser bundle at build time.
+# Deployments must pin the digest printed in the job summary, never the tag.
+on:
+  push:
+    branches:
+      - deploy/execution-worker
+    paths:
+      - .github/workflows/api-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-image
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: 9d9d799fcb520d0c10de5c8ba873e1e0bc4deeb2
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Confirm the source commit
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Sign in to GHCR
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+
+      - name: Build and push
+        shell: bash
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.ZENITH_BUILD_NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.ZENITH_BUILD_NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.ZENITH_BUILD_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS: ${{ vars.ZENITH_BUILD_NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS }}
+        run: |
+          set -euo pipefail
+          test -n "$NEXT_PUBLIC_SITE_URL" && test -n "$NEXT_PUBLIC_SUPABASE_URL" && test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/zenith-api"
+          docker buildx create --name zenith-api-image --driver docker-container --use
+          docker buildx build --file Dockerfile \
+            --platform linux/arm64 --provenance=false \
+            --build-arg NEXT_PUBLIC_SITE_URL --build-arg NEXT_PUBLIC_SUPABASE_URL \
+            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY --build-arg NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
+            --tag "${image}:sha-${SOURCE_SHA:0:12}" \
+            --metadata-file /tmp/api.json --push .
+          digest="$(node -p "require('/tmp/api.json')['containerimage.digest']")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "zenith-api: \`${image}@${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "API_IMAGE=${image}@${digest}" >> "$GITHUB_ENV"
+
+      - name: Smoke test the pushed image without network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull --quiet "$API_IMAGE" >/dev/null
+          test "$(docker image inspect "$API_IMAGE" --format '{{.Architecture}}')" = arm64
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint node "$API_IMAGE" -e "require('fs').statSync('server.js'); console.log(process.version)" | grep -Fx 'v22.23.3'

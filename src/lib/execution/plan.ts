@@ -50,6 +50,7 @@ import { assessRecordDeletion } from "@/lib/providers/aws/drivers/network/route5
 import { assessRecordDeletion as assessGcpRecordDeletion } from "@/lib/providers/gcp/dns-ownership";
 import { assessRecordDeletion as assessAzureRecordDeletion } from "@/lib/providers/azure/dns-ownership";
 import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers/oci/dns-ownership";
+import { assertPlanTrustPolicies, TrustPolicyRefusedError } from "@/lib/providers/aws/trust-guard";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import { assertPlanDeletionsOwned } from "./decommission";
 import { assertPlanFieldOwnership, factsByAddress, FieldOwnershipConflictError } from "@/lib/ownership";
@@ -159,6 +160,8 @@ export async function buildDeployWorkspace(rt: Runtime, ec: ExecContext, graph: 
 /** Only deleted/replaced DNS records need a live read; provider strings are data. */
 export function inspectDeployDeletions(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNode[], dnsNodes: readonly ResourceNode[], session: ProviderSession, signal: AbortSignal, lease: LeaseRef): PlanInspector {
   return async (plan) => {
+    try { assertPlanTrustPolicies(plan); }
+    catch (err) { if (err instanceof TrustPolicyRefusedError) throw new StepFailedError(err.message); throw err; }
     try { assertDeletionAllowed(plan, nodes); }
     catch (err) { if (err instanceof TofuDeletionRefusedError) throw new StepFailedError(err.message); throw err; }
     // An adopted object is deleted only if its claim allowed it (PROD-LIFE-11); refused before any deletion.

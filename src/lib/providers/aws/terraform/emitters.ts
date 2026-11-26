@@ -26,8 +26,14 @@ import {
   tf,
   uniqueLabel,
 } from "./naming";
+import { assertTrustPolicy } from "@/lib/providers/aws/trust-guard";
 import { containerEnv, containerServices, envJson, scaffold, secretsJson } from "./container-env";
 import type { Environment, Manifest, Service } from "@/lib/domain/types";
+
+/** The HCL templates hard-code their trust principals; check them at load so a bad edit cannot ship. */
+for (const service of ["ecs-tasks.amazonaws.com", "events.amazonaws.com"]) {
+  assertTrustPolicy({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: service }, Action: "sts:AssumeRole" }] }, "aws.terraform.emitters");
+}
 
 /* --------------------------------- files ---------------------------------- */
 

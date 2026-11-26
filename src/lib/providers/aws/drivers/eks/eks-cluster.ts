@@ -36,6 +36,7 @@ import {
   guardObserve, guardRuntime, type AwsDriverContext,
 } from "@/lib/providers/aws/drivers/data/support";
 import { parseCidr } from "@/lib/providers/aws/drivers/network/cidr";
+import { assertTrustPolicy } from "@/lib/providers/aws/trust-guard";
 import { assertAwsNode, KMS_KEY_ARN, neighbour, readSpec } from "@/lib/providers/aws/drivers/messaging/support";
 
 export const EKS_CLUSTER_SCHEMA = z.object({
@@ -143,10 +144,15 @@ export function compileEksCluster(node: ResourceNode, ctx: CompileContext): Tofu
     lifecycle: { prevent_destroy: true },
   });
   b.resource("aws_cloudwatch_log_group", label, { name: `/aws/eks/${name}/cluster`, retention_in_days: 30, tags });
+  const trustPolicyText = (principal: string): string => {
+    const doc = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: principal }, Action: "sts:AssumeRole" }] };
+    assertTrustPolicy(doc, node.address);
+    return JSON.stringify(doc);
+  };
   const role = (suffix: "cluster" | "nodes", principal: string) => b.resource("aws_iam_role", `${label}_${suffix}`, {
     name: `${cloudName(ctx.namePrefix, nodeName(node.address), 64 - suffix.length - 1)}-${suffix}`,
     permissions_boundary: trustedAwsBoundaryArn(ctx.awsBootstrap, ({ cluster: "eksCluster", nodes: "eksNode" } as const satisfies Record<string, AwsRoleFamily>)[suffix]) ?? awsBoundaryArn(({ cluster: "eksCluster", nodes: "eksNode" } as const satisfies Record<string, AwsRoleFamily>)[suffix], refExpr(partition), refExpr(account)),
-    assume_role_policy: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: principal }, Action: "sts:AssumeRole" }] }), tags,
+    assume_role_policy: trustPolicyText(principal), tags,
   });
   const clusterRole = role("cluster", "eks.amazonaws.com");
   const nodeRole = role("nodes", "ec2.amazonaws.com");

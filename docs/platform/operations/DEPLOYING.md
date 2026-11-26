@@ -172,6 +172,8 @@ Summary:
 | `ZENITH_CONTROL_SIGNING_JWK` | **yes** | the signer of grants and jobs (web / broker) | Ed25519 private JWK. Signs capability grants, runner jobs and machine requests. |
 | `ZENITH_CONTROL_KMS_KEY_ID` | no | same | KMS alternative for the control key. **Not verified against real KMS** (Ed25519 via `ED25519_SHA_512`). |
 | `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` | no | every **verifier** (the worker, runners) | Extra public Ed25519 keys accepted when verifying grants. A verifier needs the signer's public key: either the signer configuration or this. |
+| `ZENITH_AWS_BROKER_PRINCIPAL_ARN` | no | the web app | ARN of the IAM role in Zenith's own AWS account that customer roles trust (AssumeRole with an ExternalId). Commercial `aws` partition only. When set, new AWS connections default to AssumeRole instead of OIDC, and the ARN is shown to customers as the stack's `ZenithPrincipalArn`. It is not a secret. |
+| `ZENITH_AWS_CONNECTION_TEMPLATE_URL` | no | the web app | `https` Amazon S3 object URL (no query string) of the published `deploy/aws/zenith-connection.cfn.yaml`. When set, **Connect AWS** offers a one-click CloudFormation quick-create link with every parameter filled in; when unset, Zenith shows the parameter values to enter by hand. |
 | `AWS_REGION` / `AWS_DEFAULT_REGION` | no | KMS signers | Region hint for the default KMS client when the key id is not an ARN. |
 
 Rules the loader enforces: setting both the JWK and the KMS variable for the same

@@ -13,8 +13,20 @@
 
 /* ---------------------------------- ids ---------------------------------- */
 
-export const id = () =>
-  `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+const ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+/**
+ * Time-ordered id with a random tail from the platform CSPRNG. Ids name tenant
+ * resources (an AWS connection id is part of its OIDC subject), so the tail must
+ * not be predictable the way `Math.random` is. Same shape as before: base-36
+ * time followed by six base-36 characters.
+ */
+export const id = () => {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(6));
+  let tail = "";
+  for (const byte of bytes) tail += ID_ALPHABET[byte % ID_ALPHABET.length];
+  return `${Date.now().toString(36)}${tail}`;
+};
 
 /* -------------------------------- hashing -------------------------------- */
 

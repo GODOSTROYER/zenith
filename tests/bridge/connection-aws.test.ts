@@ -75,6 +75,69 @@ it("assume-role generates distinct valid ExternalIds and names ZenithPrincipalAr
   expect(isExternalId(data.externalId)).toBe(true); expect(data.externalId).toMatch(/^zenith-[a-f0-9]{32}$/); expect(data.externalId).not.toBe((b.data as typeof data).externalId); expect(data.requiredTemplateParameter).toBe("ZenithPrincipalArn");
   const platform = await repos.connections.get(sql, ctx.workspaceId, data.connectionId); expect((platform!.config as AwsConnectionConfig).externalId).toBe(data.externalId);
 });
+describe("one-click connection", () => {
+  const minimal = { accountId: "123456789012", region: "ap-south-1" };
+  const TEMPLATE = "https://zenith-templates.s3.us-east-1.amazonaws.com/aws/connection/9d9d799f.yaml";
+  type Data = { connectionId: string; subject: string; mode: string; bootstrapNameSuffix: string; roleArns: Record<string, string>; launch: { stackName: string; parameters: Record<string, string>; url?: string; templateUrl?: string }; zenithPrincipalArn?: string; externalId?: string };
+
+  it("derives the role ARNs from the account and a generated suffix, and saves exactly those", async () => {
+    const r = await exec("connection.createAws", minimal); expect(r.ok).toBe(true);
+    const data = r.data as Data;
+    expect(data.bootstrapNameSuffix).toMatch(/^-z[0-9a-z]{8}$/);
+    expect(data.roleArns).toEqual({
+      observeRoleArn: `arn:aws:iam::123456789012:role/ZenithObserveRole${data.bootstrapNameSuffix}`,
+      deployRoleArn: `arn:aws:iam::123456789012:role/ZenithDeployRole${data.bootstrapNameSuffix}`,
+      secretWriterRoleArn: `arn:aws:iam::123456789012:role/ZenithSecretWriterRole${data.bootstrapNameSuffix}`,
+    });
+    const platform = await repos.connections.get(sql, ctx.workspaceId, data.connectionId);
+    expect(platform?.config).toMatchObject({ ...data.roleArns, bootstrapNameSuffix: data.bootstrapNameSuffix, accountId: "123456789012", region: "ap-south-1", mode: "oidc_web_identity" });
+    const other = (await exec("connection.createAws", minimal)).data as Data;
+    expect(other.bootstrapNameSuffix).not.toBe(data.bootstrapNameSuffix);
+  });
+
+  it("returns the values to prefill, and a link only once the template is published", async () => {
+    const without = (await exec("connection.createAws", minimal)).data as Data;
+    expect(without.launch.url).toBeUndefined();
+    expect(without.launch).toMatchObject({ stackName: `zenith-connection${without.bootstrapNameSuffix}`, parameters: { ZenithIssuerHost: "bridge.example.com/api/oidc", ZenithOidcSubject: without.subject, CreateOidcProvider: "yes", NameSuffix: without.bootstrapNameSuffix } });
+
+    vi.stubEnv("ZENITH_AWS_CONNECTION_TEMPLATE_URL", TEMPLATE);
+    const data = (await exec("connection.createAws", minimal)).data as Data;
+    const url = new URL(data.launch.url!);
+    expect(url.host).toBe("ap-south-1.console.aws.amazon.com");
+    const query = new URLSearchParams(url.hash.replace(/^#\/stacks\/create\/review\?/, ""));
+    expect(query.get("templateURL")).toBe(TEMPLATE);
+    expect(query.get("param_ZenithOidcSubject")).toBe(`zenith:ws:${ctx.workspaceId}:conn:${data.connectionId}`);
+  });
+
+  it("defaults to AssumeRole with the server's principal when the installation has a broker role", async () => {
+    vi.stubEnv("ZENITH_AWS_BROKER_PRINCIPAL_ARN", "arn:aws:iam::210987654321:role/zenith-broker");
+    vi.stubEnv("ZENITH_AWS_CONNECTION_TEMPLATE_URL", TEMPLATE);
+    const r = await exec("connection.createAws", minimal); expect(r.ok).toBe(true);
+    const data = r.data as Data;
+    expect(data.mode).toBe("aws_assume_role");
+    expect(data.zenithPrincipalArn).toBe("arn:aws:iam::210987654321:role/zenith-broker");
+    expect(data.launch.parameters).toEqual({ ZenithPrincipalArn: "arn:aws:iam::210987654321:role/zenith-broker", ExternalId: data.externalId, CreateOidcProvider: "no", NameSuffix: data.bootstrapNameSuffix });
+    expect(data.launch.url).toContain("param_ExternalId=");
+    const platform = await repos.connections.get(sql, ctx.workspaceId, data.connectionId);
+    expect(platform?.config).toMatchObject({ mode: "aws_assume_role", externalId: data.externalId });
+    // An explicit choice still wins.
+    expect(((await exec("connection.createAws", { ...minimal, mode: "oidc_web_identity" })).data as Data).mode).toBe("oidc_web_identity");
+  });
+
+  it("refuses half-derived input and a caller-chosen principal", async () => {
+    for (const bad of [{ observeRoleArn: input.observeRoleArn }, { deployRoleArn: input.deployRoleArn }, { secretWriterRoleArn: "arn:aws:iam::123456789012:role/ZenithSecretWriterRole" }, { zenithPrincipalArn: "arn:aws:iam::210987654321:role/attacker" }]) {
+      const r = await exec("connection.createAws", { ...minimal, ...bad });
+      expect(r.ok).toBe(false); expect(r.summary).toBe("Invalid input.");
+    }
+  });
+
+  it("a malformed installation setting blocks creation without echoing the value", async () => {
+    vi.stubEnv("ZENITH_AWS_CONNECTION_TEMPLATE_URL", "https://example.com/CANARY.yaml");
+    const r = await exec("connection.createAws", minimal);
+    expect(r.ok).toBe(false); expect(JSON.stringify(r)).not.toContain("CANARY");
+  });
+});
+
 it("OIDC issuer missing blocks plan and execute, assume-role remains possible", async () => {
   vi.stubEnv("ZENITH_OIDC_ISSUER", ""); expect((await plan()).blocked).toContain("ZENITH_OIDC_ISSUER"); expect((await exec("connection.createAws")).ok).toBe(false);
   expect((await exec("connection.createAws", { ...input, mode: "aws_assume_role" })).ok).toBe(true);

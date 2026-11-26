@@ -1,5 +1,4 @@
 /** Browser UI contract tests in jsdom. HTTP replies are test fakes; no live identity or AWS check is claimed. */
-import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutonomyView } from "@/lib/capabilities/autonomy";
 import type { WorkspacePolicyView } from "@/lib/capabilities/policy-settings";
@@ -166,7 +165,7 @@ describe("AWS action wiring", () => {
   it("saves identifiers, displays the exact generated trust, then verifies the saved connection", async () => {
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: true, data: { connectionId: "conn_real_id", subject: "zenith:ws:ws_1:conn:conn_real_id", issuerHost: "issuer.zenith.test/api/oidc" } } }));
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: true } }));
-    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />);
+    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />).querySelector("details")!;
     fillAws(el); expect(button(el, "Verify connection").disabled).toBe(true); expect(button(el, "Save connection identifiers").disabled).toBe(false);
     click(button(el, "Save connection identifiers")); await flush();
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -185,21 +184,20 @@ describe("AWS action wiring", () => {
   });
   it("blocks verification when the form no longer matches the saved identifiers", async () => {
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: true, data: { connectionId: "conn_real_id", subject: "zenith:ws:ws_1:conn:conn_real_id", issuerHost: "issuer.test" } } }));
-    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />); fillAws(el); expect(button(el, "Save connection identifiers").disabled).toBe(false); click(button(el, "Save connection identifiers")); await flush();
+    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />).querySelector("details")!; fillAws(el); expect(button(el, "Save connection identifiers").disabled).toBe(false); click(button(el, "Save connection identifiers")); await flush();
     expect(fetchMock).toHaveBeenCalledOnce(); expect(button(el, "Verify connection").disabled).toBe(false);
     type(awsField(el, "Region"), "us-west-2"); expect(button(el, "Verify connection").disabled).toBe(true); expect(text(el)).toContain("differ from the saved connection"); expect(fetchMock).toHaveBeenCalledOnce();
   });
   it("never claims verification after an attempted create action fails", async () => {
     fetchMock.mockResolvedValueOnce(jsonReply({ result: { ok: false, error: "secret-should-not-be-echoed" } }));
-    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />); fillAws(el); expect(button(el, "Save connection identifiers").disabled).toBe(false); click(button(el, "Save connection identifiers")); await flush();
+    const el = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />).querySelector("details")!; fillAws(el); expect(button(el, "Save connection identifiers").disabled).toBe(false); click(button(el, "Save connection identifiers")); await flush();
     expect(fetchMock).toHaveBeenCalledOnce(); expect(request().body.actionId).toBe("connection.createAws"); expect(request().body.input.bootstrapNameSuffix).toBe("-team-a");
     expect(text(el)).toContain("The action could not be confirmed");
     expect(button(el, "Verify connection").disabled).toBe(true); expect(text(el)).not.toContain("secret-should-not-be-echoed"); expect(text(el)).not.toContain("Connection verified");
   });
   it("requires an admin for creation and an operator ARN for AssumeRole", async () => {
-    const viewer = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="viewer" />); fillAws(viewer); expect(button(viewer, "Save connection identifiers").disabled).toBe(true);
-    const admin = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />);
-    await act(async () => { const select = admin.querySelector("select")!; select.value = "aws_assume_role"; select.dispatchEvent(new Event("change", { bubbles: true })); });
-    expect(text(admin)).toContain("operator-provided control-plane role ARN"); expect(button(admin, "Save connection identifiers").disabled).toBe(true); expect(fetchMock).not.toHaveBeenCalled();
+    const viewer = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="viewer" />).querySelector("details")!; fillAws(viewer); expect(button(viewer, "Save connection identifiers").disabled).toBe(true);
+    const admin = mount(<AwsConnectionFlow workspaceId="ws_1" viewerRole="admin" />).querySelector("details")!;
+    expect([...admin.querySelectorAll("label")].some((label) => text(label).includes("control-plane role ARN"))).toBe(false); expect(button(admin, "Save connection identifiers").disabled).toBe(true); expect(fetchMock).not.toHaveBeenCalled();
   });
 });

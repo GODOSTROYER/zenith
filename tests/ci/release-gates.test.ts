@@ -68,6 +68,7 @@ const ALL_WORKFLOWS: Record<string, Workflow> = {
   "live-azure-signin.yml": liveAzureSignin,
   "skipped-platforms.yml": read("skipped-platforms.yml"),
   "release.yml": read("release.yml"),
+  "publish-aws-template.yml": read("publish-aws-template.yml"),
 };
 
 /** The raw text of a workflow with its comment lines removed, for scans that parsed YAML cannot answer. */
@@ -115,7 +116,7 @@ const coreRun = (step: string): string => `node scripts/ci/run-gate.mjs core --r
 
 const requiredCommands: Record<string, string[]> = {
   verify: [
-    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/live-azure-signin.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml .github/workflows/release.yml .github/workflows/clean-host-default-stack.yml .github/workflows/clean-host-journey.yml .github/workflows/clean-host-kind-guest.yml .github/workflows/clean-host-kind-adoption.yml .github/workflows/build-profiles-linux.yml .github/workflows/product-store-postgrest.yml .github/workflows/linux-runner-lifecycle.yml .github/workflows/operated-gate-linux.yml',
+    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml .github/workflows/live-azure-signin.yml .github/workflows/packaged-workers.yml .github/workflows/skipped-platforms.yml .github/workflows/release.yml .github/workflows/clean-host-default-stack.yml .github/workflows/clean-host-journey.yml .github/workflows/clean-host-kind-guest.yml .github/workflows/clean-host-kind-adoption.yml .github/workflows/build-profiles-linux.yml .github/workflows/product-store-postgrest.yml .github/workflows/linux-runner-lifecycle.yml .github/workflows/operated-gate-linux.yml .github/workflows/publish-aws-template.yml',
     INSTALL,
     coreRun("typecheck"),
     coreRun("lint"),
@@ -1417,7 +1418,7 @@ describe("the live acceptance workflow", () => {
     expect(live().permissions).toEqual({ contents: "read", "id-token": "write" });
     // The only `id-token` in any workflow.
     for (const [file, w] of Object.entries(ALL_WORKFLOWS))
-      if (!["live-acceptance.yml", "live-azure-signin.yml"].includes(file)) {
+      if (!["live-acceptance.yml", "live-azure-signin.yml", "publish-aws-template.yml"].includes(file)) {
         expect(JSON.stringify(w.permissions ?? {}), file).not.toContain("id-token");
         for (const j of Object.values(w.jobs)) expect(JSON.stringify(j.permissions ?? {}), file).not.toContain("id-token");
       }

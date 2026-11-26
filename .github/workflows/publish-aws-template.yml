@@ -1,0 +1,158 @@
+# Publishes the AWS connection template to a public S3 bucket so the one-click
+# "Connect AWS" CloudFormation quick-create link can point at it (quick-create
+# only accepts a template that already lives in Amazon S3; the file is too large
+# to send inline). Setup, bucket policy and IAM role: deploy/aws/PUBLISHING.md.
+#
+# Inert until configured: the job is skipped unless the three repository
+# variables below are all set, so this file is safe to merge before the
+# Zenith-owned AWS account exists.
+#
+#   ZENITH_TEMPLATE_BUCKET            bucket name
+#   ZENITH_TEMPLATE_REGION            the bucket's region
+#   ZENITH_TEMPLATE_PUBLISH_ROLE_ARN  role the job assumes through GitHub OIDC
+#
+# No stored AWS keys. The role trusts only
+# repo:<owner>/<repo>:environment:aws-template-publish, so a job can assume it
+# only after passing that environment's protection rules (required reviewers,
+# master-only deployment branches).
+#
+# Objects are content addressed and immutable: key aws/connection/<sha256>.yaml,
+# written with If-None-Match so an existing key is never overwritten. The role
+# has no delete permission and the bucket is versioned.
+name: Publish AWS template
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - deploy/aws/zenith-connection.cfn.yaml
+      - .github/workflows/publish-aws-template.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-aws-template
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ vars.ZENITH_TEMPLATE_BUCKET != '' && vars.ZENITH_TEMPLATE_REGION != '' && vars.ZENITH_TEMPLATE_PUBLISH_ROLE_ARN != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: aws-template-publish
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TEMPLATE_FILE: deploy/aws/zenith-connection.cfn.yaml
+      BUCKET: ${{ vars.ZENITH_TEMPLATE_BUCKET }}
+      REGION: ${{ vars.ZENITH_TEMPLATE_REGION }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Check the template
+        run: |
+          set -euo pipefail
+          size=$(stat -c %s "$TEMPLATE_FILE")
+          echo "template size: $size bytes"
+          if [ "$size" -ge 1048576 ]; then
+            echo "::error::$TEMPLATE_FILE is $size bytes; CloudFormation allows less than 1 MB from S3"
+            exit 1
+          fi
+          # CloudFormation short-form tags (!Ref, !Sub, ...) are accepted and ignored.
+          python3 - "$TEMPLATE_FILE" <<'PY'
+          import sys
+          import yaml
+
+          class Loader(yaml.SafeLoader):
+              pass
+
+          def any_tag(loader, suffix, node):
+              if isinstance(node, yaml.ScalarNode):
+                  return loader.construct_scalar(node)
+              if isinstance(node, yaml.SequenceNode):
+                  return loader.construct_sequence(node, deep=True)
+              return loader.construct_mapping(node, deep=True)
+
+          Loader.add_multi_constructor("!", any_tag)
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              document = yaml.load(handle, Loader=Loader)
+          if not isinstance(document, dict) or "Resources" not in document:
+              sys.exit("template is not a CloudFormation document with Resources")
+          print("template parses as YAML")
+          PY
+
+      - name: Assume the publisher role through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.ZENITH_TEMPLATE_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.ZENITH_TEMPLATE_REGION }}
+          role-session-name: zenith-template-publish-${{ github.run_id }}
+          role-duration-seconds: 900
+
+      - name: Upload the template, never overwriting
+        id: upload
+        env:
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          digest=$(openssl dgst -sha256 -r "$TEMPLATE_FILE" | cut -d' ' -f1)
+          key="aws/connection/${digest}.yaml"
+          url="https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}"
+          echo "key: $key"
+          if aws s3api put-object \
+            --bucket "$BUCKET" \
+            --key "$key" \
+            --body "$TEMPLATE_FILE" \
+            --content-type text/yaml \
+            --if-none-match '*' \
+            --metadata "sha256=${digest},git-commit=${COMMIT}" \
+            > "$RUNNER_TEMP/put-object.out" 2> "$RUNNER_TEMP/put-object.err"; then
+            echo "uploaded new object"
+          else
+            # An object at this content-addressed key already exists (HTTP 412).
+            # Succeed only if it is really this content; never overwrite it.
+            if ! grep -Eq 'PreconditionFailed|ConditionalRequestConflict' "$RUNNER_TEMP/put-object.err"; then
+              cat "$RUNNER_TEMP/put-object.err"
+              exit 1
+            fi
+            stored=$(aws s3api head-object --bucket "$BUCKET" --key "$key" --query 'Metadata.sha256' --output text)
+            if [ "$stored" != "$digest" ]; then
+              echo "::error::object $key exists but its stored sha256 metadata does not match the template"
+              exit 1
+            fi
+            echo "object already published with the same sha256; leaving it untouched"
+          fi
+          {
+            echo "digest=$digest"
+            echo "url=$url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate the published template
+        env:
+          URL: ${{ steps.upload.outputs.url }}
+        run: |
+          set -euo pipefail
+          aws cloudformation validate-template --template-url "$URL" --query 'Description' --output text
+
+      - name: Report the URL
+        env:
+          URL: ${{ steps.upload.outputs.url }}
+          DIGEST: ${{ steps.upload.outputs.digest }}
+        run: |
+          {
+            echo "### AWS connection template published"
+            echo
+            echo "SHA-256: \`$DIGEST\`"
+            echo
+            echo "Set \`ZENITH_AWS_CONNECTION_TEMPLATE_URL\` on the Zenith server to:"
+            echo
+            echo '```'
+            echo "$URL"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

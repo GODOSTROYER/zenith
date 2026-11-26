@@ -4,6 +4,11 @@ What Zenith's cost engine produces, what it does not, where its numbers come fro
 and how to refresh them. Design: [ADR-0013](../../adr/0013-placement-and-cost.md).
 Code: `src/lib/placement/`.
 
+For native AWS/GCP/Azure VM hardware discovery and the new compute-only
+recommendation endpoint, see [COMPUTE-CATALOG.md](COMPUTE-CATALOG.md). Its
+operator-published catalog is separate from the existing graph placement catalog
+described here.
+
 Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 Updated for the bounded 2026-10-05 catalog refresh; historical rates retain their original evidence dates.
 

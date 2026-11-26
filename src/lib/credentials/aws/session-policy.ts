@@ -78,9 +78,6 @@ const READ_ACTIONS = [
   "secretsmanager:DescribeSecret",
   "secretsmanager:GetResourcePolicy",
   "secretsmanager:ListSecrets",
-  "codebuild:BatchGet*",
-  "lambda:GetFunctionConfiguration",
-  "lambda:ListFunctions",
   "lambda:ListTags",
   "events:Describe*",
   "events:List*",
@@ -122,6 +119,18 @@ function observePolicy(ctx: SessionPolicyContext): SessionPolicyDocument {
       Action: ["sns:GetTopicAttributes", "sns:GetSubscriptionAttributes", "sns:ListTagsForResource", "sns:ListSubscriptionsByTopic", "eks:Describe*", "eks:List*", "eks:DescribeCluster", "eks:ListNodegroups", "eks:DescribeNodegroup", "eks:ListTagsForResource"],
       Resource: [`arn:${p}:sns:*:${ctx.accountId}:zenith-*`, `arn:${p}:eks:*:${ctx.accountId}:cluster/zenith-*`,
         `arn:${p}:eks:*:${ctx.accountId}:nodegroup/zenith-*/*/*`, `arn:${p}:eks:*:${ctx.accountId}:addon/zenith-*/*/*`],
+    },
+    {
+      // Lambda and CodeBuild reads return environment variables: Zenith-named resources only (the observe role matches;
+      // lambda:ListFunctions is deliberately absent, it needs AllowAccountDiscovery and no session policy enables it).
+      Effect: "Allow",
+      Action: "lambda:GetFunctionConfiguration",
+      Resource: `arn:${p}:lambda:*:${ctx.accountId}:function:zenith-*`,
+    },
+    {
+      Effect: "Allow",
+      Action: ["codebuild:BatchGetProjects", "codebuild:BatchGetBuilds"],
+      Resource: `arn:${p}:codebuild:*:${ctx.accountId}:project/zenith-*`,
     },
     {
       Effect: "Allow",

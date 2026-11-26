@@ -3,6 +3,7 @@
  * Expansion does not produce these kinds yet; the tests use hand-built nodes.
  */
 import { DescribeInstanceStatusCommand, DescribeInstancesCommand, EC2Client } from "@aws-sdk/client-ec2";
+import { AccountDiscoveryDisabledError } from "@/lib/providers/aws/drivers/shared";
 import { GetFunctionCommand, GetFunctionConfigurationCommand, InvokeCommand, LambdaClient, ListFunctionsCommand, ListTagsCommand, TagResourceCommand } from "@aws-sdk/client-lambda";
 import { DescribeInstanceInformationCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
@@ -165,6 +166,14 @@ describe("aws:lambda_function read side", () => {
     lambdaMock.on(ListTagsCommand).callsFake((i: { Resource: string }) => ({ Tags: i.Resource === FN_ARN ? zenithTagMap("function/resize") : { team: "x" } }));
     const found = await lambda.discover!(mkDriverContext());
     expect(found.map((f) => [f.name, f.zenithTagged]).sort()).toEqual([["legacy", false], ["zn-acme-resize", true]]);
+  });
+
+  it("reports account discovery as off when ListFunctions is denied (AllowAccountDiscovery=no)", async () => {
+    lambdaMock.on(ListFunctionsCommand).rejects(Object.assign(new Error("not authorized to perform lambda:ListFunctions"), { name: "AccessDeniedException" }));
+    const error = await lambda.discover!(mkDriverContext()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(AccountDiscoveryDisabledError);
+    expect((error as Error).message).toMatch(/Account discovery is off for this connection/);
+    expect((error as Error).message).toMatch(/AllowAccountDiscovery=yes/);
   });
 });
 

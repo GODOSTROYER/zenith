@@ -204,3 +204,32 @@ run "rejects_duplicate_zones" {
 
   expect_failures = [var.route53_hosted_zone_arns]
 }
+
+run "account_discovery_is_opt_in" {
+  command = plan
+
+  variables {
+    zenith_issuer_host  = "app.tryzenith.cloud/api/oidc"
+    zenith_oidc_subject = "zenith:ws:ws_1:conn:conn_1"
+  }
+
+  assert {
+    condition     = length([for s in jsondecode(aws_iam_policy.zenith["observe"].policy).Statement : s if s.Sid == "AccountDiscovery"]) == 0
+    error_message = "account discovery must be off by default"
+  }
+}
+
+run "account_discovery_when_enabled" {
+  command = plan
+
+  variables {
+    zenith_issuer_host      = "app.tryzenith.cloud/api/oidc"
+    zenith_oidc_subject     = "zenith:ws:ws_1:conn:conn_1"
+    allow_account_discovery = true
+  }
+
+  assert {
+    condition     = length([for s in jsondecode(aws_iam_policy.zenith["observe"].policy).Statement : s if s.Sid == "AccountDiscovery"]) == 1
+    error_message = "AccountDiscovery statement expected when enabled"
+  }
+}

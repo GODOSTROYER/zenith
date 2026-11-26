@@ -274,7 +274,7 @@ export function AwsConnectionSetup({
               <div className="rounded-card border border-line bg-bg2 p-4">
                 <dt className="text-[13px] font-medium text-ink">Observe role</dt>
                 <dd className="mt-1 text-[12.5px] text-ink-mute">
-                  Read only. Zenith uses it to describe resources, read logs and metrics, and check for drift. It cannot read secret values or change anything.
+                  Read only. Zenith uses it to describe resources, read logs and metrics, and check for drift. It cannot read secret values or change anything. It reads Lambda, CodeBuild and EC2 instance settings only for resources Zenith created; ECS task definitions and EC2 launch templates stay readable, because AWS cannot limit those reads.
                 </dd>
               </div>
               <div className="rounded-card border border-line bg-bg2 p-4">

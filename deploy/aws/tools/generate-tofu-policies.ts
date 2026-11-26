@@ -43,6 +43,7 @@ const POLICY_RESOURCES: Record<string, string> = {
 /** Statements that only exist when an optional parameter is set, keyed for the module's HCL. */
 const OPTIONAL: Record<string, { policy: string; sid: string }> = {
   observe_kms: { policy: "ObservePolicy", sid: "ReadStateKmsKey" },
+  observe_discovery: { policy: "ObservePolicy", sid: "AccountDiscovery" },
   state_kms: { policy: "DeployStatePolicy", sid: "StateKmsKey" },
   route53: { policy: "DeployEdgePolicy", sid: "Route53ChangeRecordsInListedZones" },
 };
@@ -134,7 +135,7 @@ function tokenEvaluator(optionalOn: boolean) {
       StateBucketKmsKeyArn: "${kms_key_arn}",
       Route53HostedZoneArns: ZONES_MARKER,
     },
-    forceConditions: { HasKmsKey: optionalOn, HasHostedZones: optionalOn, HasOidc: true, HasAssumeRole: false, CreateProvider: true },
+    forceConditions: { HasKmsKey: optionalOn, HasAccountDiscovery: optionalOn, HasHostedZones: optionalOn, HasOidc: true, HasAssumeRole: false, CreateProvider: true },
     resourceOverrides: {
       WorkloadBoundary: { ref: "${boundary_arn}" },
       ...Object.fromEntries(Object.entries(AWS_ROLE_BOUNDARIES).map(([family, spec]) => [spec.logicalId, { ref: `\${${family}_boundary_arn}` }])),

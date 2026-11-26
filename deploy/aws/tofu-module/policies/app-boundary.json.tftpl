@@ -103,11 +103,29 @@
         "secretsmanager:DescribeSecret"
       ],
       "Resource": [
-        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*",
-        "arn:${partition}:secretsmanager:*:${account_id}:secret:rds!db-*"
+        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*"
       ],
       "Condition": {
         "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
+            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "Resource": "arn:${partition}:secretsmanager:*:${account_id}:secret:rds!db-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:ResourceTag/aws:rds:primaryDBInstanceArn": "arn:${partition}:rds:*:${account_id}:db:zenith-*",
           "aws:PrincipalArn": [
             "arn:${partition}:iam::${account_id}:role/zenith-*-role",
             "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
@@ -172,6 +190,9 @@
       "Action": "rds-db:connect",
       "Resource": "arn:${partition}:rds-db:*:${account_id}:dbuser:db-*/*",
       "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
         "ArnLike": {
           "aws:PrincipalArn": [
             "arn:${partition}:iam::${account_id}:role/zenith-*-role",

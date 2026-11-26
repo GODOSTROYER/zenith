@@ -188,7 +188,7 @@ describe.each(["aws", "aws-cn", "aws-us-gov"])("every driver-created role under 
       const ownRequests = requests.filter((request) => request.context["aws:PrincipalArn"] === principal);
       expect(ownRequests.length, `no policy coverage for ${label}`).toBeGreaterThan(0);
       for (const request of ownRequests) {
-        const context = { "s3:ResourceAccount": ACCOUNT, "aws:ResourceTag/zenith:managed": "true", "kms:CallerAccount": ACCOUNT, "kms:ViaService": `sns.eu-west-1.${partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com"}`, ...request.context };
+        const context = { "s3:ResourceAccount": ACCOUNT, "aws:ResourceTag/zenith:managed": "true", "aws:ResourceTag/aws:rds:primaryDBInstanceArn": `arn:${partition}:rds:eu-west-1:${ACCOUNT}:db:zenith-fixture`, "kms:CallerAccount": ACCOUNT, "kms:ViaService": `sns.eu-west-1.${partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com"}`, ...request.context };
         expect(boundaryAllows(boundaries[family], request.action, request.resource, context), `${label}: ${request.action} ${request.resource}`).toBe(true);
         // Same family boundary refuses other principals, including shared actions.
         for (const other of families.filter((candidate) => candidate !== family)) expect(boundaryAllows(boundaries[family], request.action, request.resource, { ...context, "aws:PrincipalArn": principals[other] }), `${family} boundary used by ${other}: ${request.action}`).toBe(false);

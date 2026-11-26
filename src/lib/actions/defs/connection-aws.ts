@@ -20,7 +20,7 @@ import { isAwsStateKmsArn, isBootstrapNameSuffix, isSupportedAwsConnectionRegion
 import { AwsLimitError, assertAwsBootstrapLimits } from "@/lib/credentials/aws/limits";
 
 export const AWS_CONNECTION_PERMISSIONS = [
-  "Observe role: read-only describe/list/get inventory; cannot read secret values.",
+  "Observe role: read-only describe/list/get inventory; cannot read secret values. It reads Lambda, CodeBuild and EC2 instance settings only for resources Zenith created; ECS task definitions and EC2 launch templates stay readable account-wide because AWS cannot limit those reads.",
   "Deploy role: manage supported resources tagged zenith:managed=true or named zenith-*; IAM roles only with the workload permission boundary attached.",
   "Deploy role cannot modify its own roles, the observe roles, CodeBuild role or permission boundary; cannot create users/access keys or read secret values.",
   "State bucket: read/write state and build artifacts; cannot delete/reconfigure the bucket or delete object versions. DNS writes only in explicitly allowed hosted zones.",

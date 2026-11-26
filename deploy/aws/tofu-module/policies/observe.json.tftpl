@@ -39,12 +39,8 @@
         "secretsmanager:DescribeSecret",
         "secretsmanager:GetResourcePolicy",
         "secretsmanager:ListSecrets",
-        "codebuild:BatchGet*",
         "codebuild:List*",
-        "lambda:GetFunctionConfiguration",
-        "lambda:ListFunctions",
         "lambda:ListTags",
-        "lambda:ListVersionsByFunction",
         "lambda:ListAliases",
         "lambda:GetAlias",
         "events:Describe*",
@@ -56,6 +52,27 @@
         "s3:ListAllMyBuckets"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "ReadZenithBuilds",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:BatchGetProjects",
+        "codebuild:BatchGetBuilds",
+        "codebuild:BatchGetBuildBatches"
+      ],
+      "Resource": "arn:${partition}:codebuild:*:${account_id}:project/zenith-*"
+    },
+    {
+      "Sid": "DenyInstanceAttributesOfOtherInstances",
+      "Effect": "Deny",
+      "Action": "ec2:DescribeInstanceAttribute",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
     },
     {
       "Sid": "ReadZenithMessagingAndClusters",
@@ -118,7 +135,9 @@
       "Effect": "Allow",
       "Action": [
         "lambda:GetFunction",
-        "lambda:GetFunctionCodeSigningConfig"
+        "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetFunctionConfiguration",
+        "lambda:ListVersionsByFunction"
       ],
       "Resource": [
         "arn:${partition}:lambda:*:${account_id}:function:zenith-*",

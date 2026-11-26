@@ -59,6 +59,7 @@ import type { CompileContext, DiscoveredResource, ResourceDriver } from "@/lib/d
 import type { Observation, ResourceNode } from "@/lib/resources/types";
 import type { BuildPipelineSpec } from "@/lib/resources/specs";
 import {
+  asDiscoveryError,
   attributesOf,
   boundNative,
   chunk,
@@ -365,7 +366,8 @@ const discover: NonNullable<ResourceDriver<AwsSession>["discover"]> = async (ctx
   );
   const out: DiscoveredResource[] = [];
   for (const names of chunk(listed.items.sort().slice(0, 100), 100)) {
-    const res = await cb.send(new BatchGetProjectsCommand({ names }), { abortSignal: ctx.signal });
+    // BatchGetProjects returns environment variables, so reads of non-zenith-* projects need AllowAccountDiscovery=yes.
+    const res = await cb.send(new BatchGetProjectsCommand({ names }), { abortSignal: ctx.signal }).catch((e: unknown) => asDiscoveryError("CodeBuild", e));
     for (const p of res.projects ?? []) {
       if (!p.arn || !p.name) continue;
       out.push({

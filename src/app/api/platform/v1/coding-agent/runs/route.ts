@@ -30,6 +30,7 @@ const Body = z
     root: z.string().max(200).optional(),
     target: z.object({ projectId: z.string().regex(ID), environmentId: z.string().regex(ID) }).strict().optional(),
     model: z.string().max(60).optional(),
+    role: z.enum(["worker", "planner", "reviewer"]).optional(),
     limits: z.object({ inputTokens: z.number().int(), outputTokens: z.number().int(), toolCalls: z.number().int(), wallTimeMs: z.number().int(), spendMicroUsd: z.number().int() }).partial().strict().optional(),
   })
   .strict();
@@ -49,6 +50,7 @@ export const POST = platformRoute(async (req) => {
       source: { repository: body.repository, ref: body.ref, ...(body.root ? { root: body.root } : {}) },
       ...(body.target ? { target: body.target } : {}),
       ...(body.model ? { model: body.model } : {}),
+      ...(body.role ? { role: body.role } : {}),
       ...(body.limits ? { limits: body.limits } : {}),
     });
     return { status: 201, body: runView(run) };

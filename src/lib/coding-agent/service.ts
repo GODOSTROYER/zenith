@@ -23,7 +23,7 @@ import { randomUUID } from "node:crypto";
 import type { Broker } from "@/lib/capabilities/platform";
 import type { RepoSnapshot } from "@/lib/analysis";
 import { ControlStoreError } from "@/lib/controlplane/db/errors";
-import { BudgetError, DEFAULT_AGENT_MODEL, priceFor, raiseLimits, resolveLimits } from "./budget";
+import { BudgetError, modelForRole, priceFor, raiseLimits, resolveLimits, type AgentRole } from "./budget";
 import { createBrokerProposalSink } from "./proposal-sink";
 import { runAgent, type ProposalSink } from "./runner";
 import type { CodingAgentRunRow, RunStore } from "./store";
@@ -81,6 +81,8 @@ export interface CreateRunRequest {
   /** Where the finished proposal is submitted. Without it the run analyses and proposes but submits nothing. */
   target?: { projectId: string; environmentId: string };
   model?: string;
+  /** Picks the default model when `model` is absent: worker (Sonnet), planner or reviewer (Opus). */
+  role?: AgentRole;
   limits?: Partial<BudgetLimits>;
 }
 
@@ -104,7 +106,7 @@ const SAFE_REPO = /^[A-Za-z0-9._-]{1,100}\/[A-Za-z0-9._-]{1,100}$/;
 function validate(req: CreateRunRequest): { model: string; limits: BudgetLimits } {
   if (typeof req.task !== "string" || req.task.trim().length === 0 || req.task.length > TASK_MAX) throw new AgentServiceError("invalid_request", `The task must be 1 to ${TASK_MAX} characters.`);
   if (!SAFE_REPO.test(req.source.repository)) throw new AgentServiceError("invalid_request", "The repository must be owner/name.");
-  const model = req.model ?? DEFAULT_AGENT_MODEL;
+  const model = req.model ?? modelForRole(req.role);
   try {
     priceFor(model);
     return { model, limits: resolveLimits(req.limits) };

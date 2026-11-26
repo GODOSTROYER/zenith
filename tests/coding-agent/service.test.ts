@@ -68,6 +68,15 @@ describe("control: create, resume, cancel", () => {
     expect(Object.keys(w.control).sort()).toEqual(["launcher", "resolveSource", "store"]);
   });
 
+  it("picks the model from the role: worker on Sonnet, planner and reviewer on Opus, and an explicit model wins", async () => {
+    const w = world();
+    expect((await createRun(w.control, caller(), REQ)).model).toBe("claude-sonnet-5-5");
+    expect((await createRun(w.control, caller(), { ...REQ, role: "worker" })).model).toBe("claude-sonnet-5-5");
+    expect((await createRun(w.control, caller(), { ...REQ, role: "planner" })).model).toBe("claude-opus-5-5");
+    expect((await createRun(w.control, caller(), { ...REQ, role: "reviewer" })).model).toBe("claude-opus-5-5");
+    expect((await createRun(w.control, caller(), { ...REQ, role: "planner", model: "claude-sonnet-5-5" })).model).toBe("claude-sonnet-5-5");
+  });
+
   it("refuses an unpriced model, a bad repository, an oversized task and bad limits before anything is recorded", async () => {
     const w = world();
     await expect(createRun(w.control, caller(), { ...REQ, model: "gpt-x" })).rejects.toBeInstanceOf(AgentServiceError);

@@ -40,6 +40,22 @@ export const DEFAULT_LIMITS: BudgetLimits = {
 export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
 export const STRONG_AGENT_MODEL = "claude-opus-5-5";
 
+/**
+ * Roles pick a default model when a run is created. The worker runs the
+ * repository loop on Sonnet. The planner and reviewer use Opus. A run records
+ * the model it used, so a role is a creation-time choice, not stored separately.
+ */
+export const AGENT_ROLES = ["worker", "planner", "reviewer"] as const;
+export type AgentRole = (typeof AGENT_ROLES)[number];
+export const ROLE_MODELS: Readonly<Record<AgentRole, string>> = {
+  worker: DEFAULT_AGENT_MODEL,
+  planner: STRONG_AGENT_MODEL,
+  reviewer: STRONG_AGENT_MODEL,
+};
+export function modelForRole(role: AgentRole | undefined): string {
+  return ROLE_MODELS[role ?? "worker"];
+}
+
 /** USD per million tokens equals micro-USD per token, so the table is integers. Anthropic list prices as of 2026-09. */
 export const MODEL_PRICES: Readonly<Record<string, { inputMicroUsdPerToken: number; outputMicroUsdPerToken: number }>> = {
   "claude-sonnet-5-5": { inputMicroUsdPerToken: 2, outputMicroUsdPerToken: 10 },

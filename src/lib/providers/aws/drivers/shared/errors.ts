@@ -127,3 +127,22 @@ export async function attempt<T>(fn: () => Promise<T>, signal?: AbortSignal): Pr
     return { ok: false, failure };
   }
 }
+
+/**
+ * Thrown by a driver's `discover()` when AWS refuses the account-wide list it needs. The customer bootstrap's
+ * `AllowAccountDiscovery` parameter defaults to "no", which withholds those reads (they return other workloads'
+ * environment variables), so a refusal is the expected answer, not a crash. Callers show `message` as-is.
+ */
+export class AccountDiscoveryDisabledError extends Error {
+  readonly code = "account_discovery_disabled";
+  constructor(readonly service: string) {
+    super(`Account discovery is off for this connection: the observe role may not list ${service} resources it did not create. Redeploy the connection template with AllowAccountDiscovery=yes (allow_account_discovery=true for OpenTofu) to import existing ${service} resources.`);
+    this.name = "AccountDiscoveryDisabledError";
+  }
+}
+
+/** Rethrow an access-denied discovery read as `AccountDiscoveryDisabledError`; anything else (aborts included) passes through. */
+export function asDiscoveryError(service: string, error: unknown): never {
+  if (classifyAwsError(error).kind === "inaccessible") throw new AccountDiscoveryDisabledError(service);
+  throw error;
+}

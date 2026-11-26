@@ -117,3 +117,14 @@ variable "tags" {
     error_message = "Do not set the zenith:managed tag on bootstrap resources."
   }
 }
+
+variable "allow_account_discovery" {
+  type        = bool
+  default     = false
+  description = <<-EOT
+    false (default) keeps the observe role away from other people's workloads: it cannot list Lambda functions or read
+    CodeBuild projects that are not named zenith-*, because those APIs return environment variables (often secrets) and IAM
+    cannot filter them. true lets Zenith list every Lambda function in the account and read non-Zenith functions and
+    CodeBuild projects so you can import existing resources; it also exposes their plain-text environment variables to Zenith.
+  EOT
+}

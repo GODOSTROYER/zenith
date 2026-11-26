@@ -15,7 +15,16 @@ Description: >-
 #    connect the account; paste it unchanged.
 #  * Two roles, two jobs:
 #      ZenithObserveRole  read-only. Describe/list/get. Cannot read secret
-#                         values (secretsmanager:GetSecretValue is denied).
+#                         values (secretsmanager:GetSecretValue and SSM parameter
+#                         values are denied) and, unless AllowAccountDiscovery is
+#                         "yes", cannot read Lambda, CodeBuild or EC2 instance
+#                         configuration (environment variables, user data) of
+#                         resources that are not Zenith's. Known residual: IAM
+#                         cannot scope ecs:DescribeTaskDefinition or
+#                         ec2:DescribeLaunchTemplateVersions, so plain-text
+#                         container environment and launch template user data
+#                         stay readable account-wide. Keep secrets in Secrets
+#                         Manager references, not in plain-text values.
 #      ZenithDeployRole   may create/change/delete ONLY resources that carry the
 #                         tag zenith:managed=true (or are named zenith-*), and
 #                         may create IAM roles ONLY with the ZenithWorkloadBoundary
@@ -51,6 +60,8 @@ Metadata:
         Parameters: [EnvironmentTagValue, NameSuffix, Route53HostedZoneArns]
       - Label: { default: "State bucket" }
         Parameters: [StateBucketKmsKeyArn]
+      - Label: { default: "Account discovery (optional)" }
+        Parameters: [AllowAccountDiscovery]
 
 Parameters:
   ZenithIssuerHost:
@@ -112,6 +123,19 @@ Parameters:
       Hosted zones Zenith may change DNS records in, as ARNs
       (arn:aws:route53:::hostedzone/Z123...). Leave empty to give Zenith no DNS
       write access at all.
+  AllowAccountDiscovery:
+    Type: String
+    Default: "no"
+    AllowedValues: ["yes", "no"]
+    Description: >-
+      "no" (default) keeps the observe role away from other people's workloads:
+      it cannot list Lambda functions or read CodeBuild projects that are not
+      named zenith-*, because those APIs return environment variables (often
+      secrets) and IAM cannot filter them. "yes" lets Zenith list every Lambda
+      function in the account and read non-Zenith functions and CodeBuild
+      projects, so you can import existing resources; it also exposes their
+      plain-text environment variables to Zenith. Choose "yes" only if you want
+      account discovery for imports.
   StateBucketKmsKeyArn:
     Type: String
     Default: ""
@@ -145,6 +169,7 @@ Conditions:
     - !Equals [!Ref CreateOidcProvider, "yes"]
   HasAssumeRole: !Not [!Equals [!Ref ZenithPrincipalArn, ""]]
   HasKmsKey: !Not [!Equals [!Ref StateBucketKmsKeyArn, ""]]
+  HasAccountDiscovery: !Equals [!Ref AllowAccountDiscovery, "yes"]
   HasHostedZones: !Not [!Equals [!Join ["", !Ref Route53HostedZoneArns], ""]]
 
 Resources:
@@ -553,9 +578,26 @@ Resources:
               - secretsmanager:DescribeSecret
             Resource:
               - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/*
-              - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:rds!db-*
             Condition:
               ArnLike:
+                aws:PrincipalArn:
+                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
+                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
+                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
+                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
+          # RDS-managed master passwords (rds!db-*) only for Zenith databases: RDS tags the secret with the ARN of
+          # its DB instance (system tag aws:rds:primaryDBInstanceArn, which customers cannot set). Zenith DB instance
+          # identifiers start with zenith-. NEEDS REAL-AWS VALIDATION: the tag key and that aws:ResourceTag accepts it.
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:rds!db-*
+            Condition:
+              ArnLike:
+                aws:ResourceTag/aws:rds:primaryDBInstanceArn:
+                  Fn::Sub: arn:${AWS::Partition}:rds:*:${AWS::AccountId}:db:zenith-*
                 aws:PrincipalArn:
                   - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
                   - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
@@ -604,6 +646,10 @@ Resources:
             Resource:
               Fn::Sub: arn:${AWS::Partition}:rds-db:*:${AWS::AccountId}:dbuser:db-*/*
             Condition:
+              # The dbuser ARN carries the opaque DbiResourceId, so it cannot name zenith-* databases; the
+              # documented aws:ResourceTag key filters by the tags of the parent DB instance instead.
+              StringEquals:
+                aws:ResourceTag/zenith:managed: 'true'
               ArnLike:
                 aws:PrincipalArn:
                   - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
@@ -1233,12 +1279,8 @@ Resources:
               # Read by the AWS provider for every managed secret container (never the value).
               - secretsmanager:GetResourcePolicy
               - secretsmanager:ListSecrets
-              - codebuild:BatchGet*
               - codebuild:List*
-              - lambda:GetFunctionConfiguration
-              - lambda:ListFunctions
               - lambda:ListTags
-              - lambda:ListVersionsByFunction
               - lambda:ListAliases
               - lambda:GetAlias
               - events:Describe*
@@ -1249,6 +1291,20 @@ Resources:
               - tag:GetResources
               - s3:ListAllMyBuckets
             Resource: "*"
+          # Secret-bearing reads (environment variables, user data) are limited to Zenith's own resources. Lambda and
+          # CodeBuild support resource-level permissions, so the account-wide Allow was replaced by name-scoped ones.
+          - Sid: ReadZenithBuilds
+            Effect: Allow
+            Action: [codebuild:BatchGetProjects, codebuild:BatchGetBuilds, codebuild:BatchGetBuildBatches]
+            Resource: !Sub "arn:${AWS::Partition}:codebuild:*:${AWS::AccountId}:project/zenith-*"
+          # ec2:Describe* includes DescribeInstanceAttribute (user data), which supports resource tags: deny it for
+          # any instance Zenith did not create. Applies to both roles; Zenith only operates on zenith:managed instances.
+          - Sid: DenyInstanceAttributesOfOtherInstances
+            Effect: Deny
+            Action: ec2:DescribeInstanceAttribute
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*"
+            Condition:
+              StringNotEquals: { "aws:ResourceTag/zenith:managed": "true" }
           - Sid: ReadZenithMessagingAndClusters
             Effect: Allow
             Action: [sns:GetTopicAttributes, sns:GetSubscriptionAttributes, sns:ListTagsForResource, sns:ListSubscriptionsByTopic, eks:Describe*, eks:List*, eks:DescribeCluster, eks:ListNodegroups, eks:DescribeNodegroup, eks:ListTagsForResource]
@@ -1274,7 +1330,7 @@ Resources:
           # OpenTofu refreshes a Zip function with both reads; a teardown review plans with this role (src/lib/execution/destroy.ts).
           - Sid: ReadZenithFunctions
             Effect: Allow
-            Action: [lambda:GetFunction, lambda:GetFunctionCodeSigningConfig]
+            Action: [lambda:GetFunction, lambda:GetFunctionCodeSigningConfig, lambda:GetFunctionConfiguration, lambda:ListVersionsByFunction]
             Resource:
               - !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:zenith-*"
               - !Sub "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:zenith-*:*"
@@ -1326,6 +1382,16 @@ Resources:
               Effect: Allow
               Action: [kms:Decrypt, kms:DescribeKey]
               Resource: !Ref StateBucketKmsKeyArn
+            - !Ref "AWS::NoValue"
+          # Off by default (AllowAccountDiscovery). ListFunctions returns every function's environment variables and
+          # accepts no resource or condition, so it cannot be narrowed; GetFunctionConfiguration and BatchGetProjects
+          # on other people's resources are needed to observe or import them.
+          - !If
+            - HasAccountDiscovery
+            - Sid: AccountDiscovery
+              Effect: Allow
+              Action: [lambda:ListFunctions, lambda:GetFunctionConfiguration, codebuild:BatchGetProjects]
+              Resource: "*"
             - !Ref "AWS::NoValue"
           # The one carve-out: the non-secret ECS image pointer parameters (see SsmImagePointerParameters in
           # DeployBalancingPolicy). Every other secret or parameter value stays unreadable.

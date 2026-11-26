@@ -169,8 +169,10 @@ it("adds the exact bootstrap version read statement and preserves the reviewed r
   // Zip function create and refresh (MIX-03 live denial, 2026-10-28), then secretsmanager:GetResourcePolicy (observe), which
   // the AWS provider reads for every managed secret container on create, refresh and destroy (OPS-06 live denial, 2026-10-29),
   // then lambda:GetFunction and lambda:GetFunctionCodeSigningConfig (observe), which a teardown review's refresh of a Zip
-  // function needs (MIX-04 rehearsal denial, run 41946370857, 2026-11-05).
-  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("ee4efedeb6298afbd01ceb4ebb605825b75174e54e83e4e48c7a81ac939b3ba1");
+  // function needs (MIX-04 rehearsal denial, run 41946370857, 2026-11-05), then the least-privilege pass (2026-11-27): Lambda and
+  // CodeBuild configuration reads scoped to zenith-*, AllowAccountDiscovery, the instance-attribute deny, rds!db secret and
+  // rds-db:connect conditions (see tests/credentials/bootstrap-secret-scoping.test.ts).
+  expect(createHash("sha256").update(JSON.stringify(resources)).digest("hex")).toBe("3404875d6422c33a95b1109260933ae018b8f57786df0d26fb5967419559c7b1");
 });
 
 describe.each(["aws", "aws-cn", "aws-us-gov"])("exact bootstrap boundary reads in %s", (partition) => {

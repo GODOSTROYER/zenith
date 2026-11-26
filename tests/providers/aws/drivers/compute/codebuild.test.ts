@@ -4,6 +4,7 @@
  * Mocked CodeBuild / tagging clients; contract evidence only.
  */
 import { BatchGetBuildsCommand, BatchGetProjectsCommand, CodeBuildClient, ListProjectsCommand, StartBuildCommand, StopBuildCommand, type Build } from "@aws-sdk/client-codebuild";
+import { AccountDiscoveryDisabledError } from "@/lib/providers/aws/drivers/shared";
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -301,6 +302,12 @@ describe("observe / verify / discover", () => {
     const found = await driver.discover!(mkDriverContext());
     expect(Object.fromEntries(found.map((f) => [f.name, f.zenithTagged]))).toEqual({ "zn-acme-web": true, legacy: false });
     expect(found[0]).toMatchObject({ kind: "build_pipeline", nativeType: "aws:codebuild_project" });
+  });
+
+  it("reports account discovery as off when BatchGetProjects is denied (AllowAccountDiscovery=no)", async () => {
+    cb.on(ListProjectsCommand).resolves({ projects: ["zn-acme-web", "legacy"] });
+    cb.on(BatchGetProjectsCommand).rejects(Object.assign(new Error("denied"), { name: "AccessDeniedException" }));
+    await expect(driver.discover!(mkDriverContext())).rejects.toBeInstanceOf(AccountDiscoveryDisabledError);
   });
 });
 

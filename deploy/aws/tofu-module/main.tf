@@ -25,6 +25,7 @@ locals {
   has_oidc         = var.zenith_issuer_host != ""
   has_assume_role  = var.zenith_principal_arn != ""
   has_kms_key      = var.state_bucket_kms_key_arn != ""
+  has_discovery    = var.allow_account_discovery
   has_hosted_zones = length(var.route53_hosted_zone_arns) > 0
 
   # IAM caps a managed policy at 6,144 characters and a role at 10 managed
@@ -82,7 +83,7 @@ locals {
 
   # Statements that exist only when an optional feature is on (KMS key, DNS zones).
   policy_extras = {
-    observe          = [for s in local.optional.observe_kms : s if local.has_kms_key]
+    observe          = concat([for s in local.optional.observe_kms : s if local.has_kms_key], [for s in local.optional.observe_discovery : s if local.has_discovery])
     deploy-network   = []
     deploy-balancing = []
     deploy-compute   = []

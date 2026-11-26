@@ -21,6 +21,18 @@
       "Resource": "${kms_key_arn}"
     }
   ],
+  "observe_discovery": [
+    {
+      "Sid": "AccountDiscovery",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:ListFunctions",
+        "lambda:GetFunctionConfiguration",
+        "codebuild:BatchGetProjects"
+      ],
+      "Resource": "*"
+    }
+  ],
   "state_kms": [
     {
       "Sid": "StateKmsKey",

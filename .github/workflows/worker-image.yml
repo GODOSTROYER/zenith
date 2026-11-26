@@ -1,0 +1,82 @@
+name: Worker image
+
+# Builds the production execution worker and platform migration images for the
+# ARM64 worker host and pushes them to GHCR. The build always uses SOURCE_SHA, not
+# the commit carrying this file, so the deployed digest maps to one reviewed commit.
+# Deployments must pin the digests printed in the job summary, never the tag.
+on:
+  push:
+    branches:
+      - deploy/execution-worker
+    paths:
+      - .github/workflows/worker-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-image
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: 9d9d799fcb520d0c10de5c8ba873e1e0bc4deeb2
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Confirm the source commit
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Sign in to GHCR
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+
+      - name: Build and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          docker buildx create --name zenith-worker-image --driver docker-container --use
+          build() {
+            local name="$1" file="$2"; shift 2
+            local image="ghcr.io/${owner}/${name}"
+            docker buildx build --file "$file" "$@" \
+              --platform linux/arm64 --provenance=false \
+              --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+              --label "org.opencontainers.image.revision=${SOURCE_SHA}" \
+              --tag "${image}:sha-${SOURCE_SHA:0:12}" \
+              --metadata-file "/tmp/${name}.json" --push .
+            local digest
+            digest="$(node -p "require('/tmp/${name}.json')['containerimage.digest']")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            echo "${name}: \`${image}@${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "${image}@${digest}" > "/tmp/${name}.ref"
+          }
+          build zenith-execution-worker docker/worker.Dockerfile --target production
+          build zenith-platform-migrate deploy/self-hosted/migrations.Dockerfile
+
+      - name: Smoke test the pushed worker without network
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="$(cat /tmp/zenith-execution-worker.ref)"
+          docker pull --quiet "$ref" >/dev/null
+          test "$(docker image inspect "$ref" --format '{{.Architecture}}')" = arm64
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint tofu "$ref" version | head -n 1 | grep -F 'OpenTofu v1.12.5'
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint node "$ref" --version | grep -Fx 'v22.23.3'

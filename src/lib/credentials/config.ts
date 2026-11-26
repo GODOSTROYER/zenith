@@ -14,6 +14,10 @@
  * | ZENITH_CONTROL_SIGNING_JWK      | private Ed25519 JWK — control-plane grants/jobs                |
  * | ZENITH_CONTROL_KMS_KEY_ID       | KMS key (ECC_NIST_EDWARDS25519) alternative for the above      |
  * | ZENITH_CONTROL_EXTRA_PUBLIC_JWKS| additional PUBLIC Ed25519 keys accepted when verifying grants  |
+ * | ZENITH_AWS_BROKER_PRINCIPAL_ARN | IAM role Zenith assumes customer roles from (AssumeRole + ExternalId); |
+ * |                                 | when set, new AWS connections default to that model            |
+ * | ZENITH_AWS_CONNECTION_TEMPLATE_URL | https S3 URL of the published bootstrap template; enables the |
+ * |                                 | one-click CloudFormation quick-create link                     |
  *
  * Invariants:
  *  - Secret values are returned wrapped in `SecretString` so a stray
@@ -24,6 +28,7 @@
  */
 import { CredentialConfigError } from "./errors";
 import { SecretString } from "./secret";
+import { isS3TemplateUrl } from "./aws/launch";
 
 export type EnvLike = Readonly<Record<string, string | undefined>>;
 
@@ -38,7 +43,13 @@ export interface CredentialsConfig {
   controlExtraPublicJwks?: string;
   /** region hint for the default KMS client when the key id is not an ARN */
   awsRegion?: string;
+  /** the IAM role in Zenith's own AWS account that customer roles trust for AssumeRole + ExternalId */
+  awsBrokerPrincipalArn?: string;
+  /** published bootstrap template (S3) for one-click quick-create links */
+  awsConnectionTemplateUrl?: string;
 }
+
+const BROKER_PRINCIPAL_ARN = /^arn:aws:iam::\d{12}:role\/[A-Za-z0-9+=,.@_/-]{1,512}$/;
 
 const PATH = "/api/oidc";
 
@@ -99,6 +110,15 @@ export function loadCredentialsConfig(env: EnvLike = process.env): CredentialsCo
     );
   }
 
+  const brokerPrincipal = nonEmpty(env.ZENITH_AWS_BROKER_PRINCIPAL_ARN);
+  if (brokerPrincipal && !BROKER_PRINCIPAL_ARN.test(brokerPrincipal)) {
+    throw new CredentialConfigError("ZENITH_AWS_BROKER_PRINCIPAL_ARN", "must be an IAM role ARN in the commercial aws partition");
+  }
+  const templateUrl = nonEmpty(env.ZENITH_AWS_CONNECTION_TEMPLATE_URL);
+  if (templateUrl && !isS3TemplateUrl(templateUrl)) {
+    throw new CredentialConfigError("ZENITH_AWS_CONNECTION_TEMPLATE_URL", "must be an https Amazon S3 object URL without a query string");
+  }
+
   return {
     oidcIssuer: issuerRaw ? normalizeIssuer("ZENITH_OIDC_ISSUER", issuerRaw) : undefined,
     oidcSigningJwk: oidcJwk ? new SecretString(oidcJwk) : undefined,
@@ -108,5 +128,7 @@ export function loadCredentialsConfig(env: EnvLike = process.env): CredentialsCo
     controlKmsKeyId: controlKms,
     controlExtraPublicJwks: nonEmpty(env.ZENITH_CONTROL_EXTRA_PUBLIC_JWKS),
     awsRegion: nonEmpty(env.AWS_REGION) ?? nonEmpty(env.AWS_DEFAULT_REGION),
+    awsBrokerPrincipalArn: brokerPrincipal,
+    awsConnectionTemplateUrl: templateUrl,
   };
 }

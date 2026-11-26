@@ -37,16 +37,26 @@ permission to create IAM roles/policies, an OIDC provider and an S3 bucket.
 
 ## Option A — CloudFormation
 
+Fastest: in Zenith, open **Connect AWS**, enter the account ID and region, and
+click **Open AWS to create the stack**. When the installation has published
+this template to S3 (`ZENITH_AWS_CONNECTION_TEMPLATE_URL`), that opens a
+CloudFormation quick-create page with every parameter filled in; tick the IAM
+acknowledgement and click **Create stack**. Zenith derives the role ARNs and
+checks the connection by itself.
+
 Console: *CloudFormation → Create stack → Upload a template file*, choose
 `zenith-connection.cfn.yaml`, fill in the parameters below, tick
 "I acknowledge that AWS CloudFormation might create IAM resources with custom
 names", create.
 
-CLI:
+CLI: the template is larger than the 51,200-byte limit for a template sent in
+the request, so CloudFormation must read it from S3. `--s3-bucket` names any
+bucket you own in the same region; the CLI uploads the template there first.
 
 ```bash
 aws cloudformation deploy \
   --template-file deploy/aws/zenith-connection.cfn.yaml \
+  --s3-bucket YOUR_BUCKET_IN_THIS_REGION \
   --stack-name zenith-connection \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \

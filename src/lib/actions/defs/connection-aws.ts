@@ -18,6 +18,7 @@ import { bridgeDeps } from "@/lib/bridge/deps";
 import { findSecret } from "@/lib/capabilities/secret-guard";
 import { isAwsStateKmsArn, isBootstrapNameSuffix, isSupportedAwsConnectionRegion } from "@/lib/credentials/aws/naming";
 import { AwsLimitError, assertAwsBootstrapLimits } from "@/lib/credentials/aws/limits";
+import { derivedRoleArns, generateBootstrapNameSuffix, launchParameters, quickCreateUrl, stackNameFor, type LaunchTrust } from "@/lib/credentials/aws/launch";
 
 export const AWS_CONNECTION_PERMISSIONS = [
   "Observe role: read-only describe/list/get inventory; cannot read secret values.",
@@ -31,9 +32,12 @@ const Input = z.object({
   label: z.string().trim().min(1).max(120).refine((v) => !findSecret(v), "Use a label without secret material.").optional(),
   region: z.string().refine(isSupportedAwsConnectionRegion, "Choose a supported AWS region."),
   accountId: z.string().refine(isAccountId, "Use a 12-digit AWS account id."),
-  bootstrapNameSuffix: z.string().max(20).refine(isBootstrapNameSuffix, "Use an empty suffix or a dash followed by 1 to 19 lowercase letters, digits or dashes.").prefault(""),
-  observeRoleArn: role, deployRoleArn: role,
-  mode: z.enum(["oidc_web_identity", "aws_assume_role"]).prefault("oidc_web_identity"),
+  /** Omit with the role ARNs to let Zenith generate a unique suffix (one-click path); an explicit value is kept as is. */
+  bootstrapNameSuffix: z.string().max(20).refine(isBootstrapNameSuffix, "Use an empty suffix or a dash followed by 1 to 19 lowercase letters, digits or dashes.").optional(),
+  /** Omit both to have Zenith derive them from the account id and suffix; the template's role names are fixed. */
+  observeRoleArn: role.optional(), deployRoleArn: role.optional(),
+  /** Omitted: AssumeRole + ExternalId when the installation configures ZENITH_AWS_BROKER_PRINCIPAL_ARN, otherwise OIDC. */
+  mode: z.enum(["oidc_web_identity", "aws_assume_role"]).optional(),
   stateBucket: z.string().min(3).max(63).regex(/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/, "Use an S3 bucket name.").refine((v) => !v.includes("..") && !/^\d+\.\d+\.\d+\.\d+$/.test(v) && !v.startsWith("xn--") && !v.endsWith("-s3alias") && !v.endsWith("--ol-s3") && !v.endsWith(".mrap") && !v.endsWith("--x-s3") && !v.endsWith("--table-s3"), "Use a valid S3 bucket name.").optional(),
   stateKmsKeyArn: z.string().regex(/^arn:(aws|aws-cn|aws-us-gov):kms:[a-z0-9-]+:\d{12}:key\/[A-Za-z0-9-]+$/, "Use a KMS key ARN.").optional(),
   permissionsBoundaryArn: z.string().max(2048).regex(/^arn:(aws|aws-cn|aws-us-gov):iam::\d{12}:policy\/[A-Za-z0-9+=,.@_/-]+$/, "Use an IAM policy ARN.").optional(),
@@ -42,6 +46,9 @@ const Input = z.object({
   secretWriterRoleArn: role.optional(),
   sessionDurationSec: z.number().int().min(900).max(3600).optional(),
 }).strict().superRefine((input, ctx) => {
+  const derived = input.observeRoleArn === undefined && input.deployRoleArn === undefined;
+  if (!derived && (input.observeRoleArn === undefined || input.deployRoleArn === undefined)) ctx.addIssue({ code: "custom", path: [input.observeRoleArn === undefined ? "observeRoleArn" : "deployRoleArn"], message: "Enter both role ARNs, or neither to let Zenith derive them." });
+  if (derived && input.secretWriterRoleArn !== undefined) ctx.addIssue({ code: "custom", path: ["secretWriterRoleArn"], message: "Zenith derives the secret writer role together with the other roles; enter all role ARNs or none." });
   if (input.secretWriterRoleArn && [input.observeRoleArn, input.deployRoleArn].includes(input.secretWriterRoleArn)) ctx.addIssue({ code: "custom", path: ["secretWriterRoleArn"], message: "Use the bootstrap's distinct secret writer role, not the observe or deploy role." });
   for (const key of ["observeRoleArn", "deployRoleArn", "codeBuildRoleArn", "secretWriterRoleArn"] as const) {
     if (input[key] && parseRoleArn(input[key])?.accountId !== input.accountId) ctx.addIssue({ code: "custom", path: [key], message: "Role account must match accountId." });
@@ -51,7 +58,8 @@ const Input = z.object({
     if (input[key] && input[key].split(":")[4] !== input.accountId) ctx.addIssue({ code: "custom", path: [key], message: "ARN account must match accountId." });
   }
   // Every IAM and S3 name derived from the suffix must fit; refuse at registration, not at the first deploy.
-  try { assertAwsBootstrapLimits({ bootstrapNameSuffix: input.bootstrapNameSuffix, accountId: input.accountId, region: input.region }); }
+  // A generated suffix has a fixed length, so check that length when the caller leaves it to Zenith.
+  try { assertAwsBootstrapLimits({ bootstrapNameSuffix: input.bootstrapNameSuffix ?? (derived ? "-z00000000" : ""), accountId: input.accountId, region: input.region }); }
   catch (error) { if (error instanceof AwsLimitError) ctx.addIssue({ code: "custom", path: ["bootstrapNameSuffix"], message: error.message }); else throw error; }
   if (input.stateKmsKeyArn !== undefined && !isAwsStateKmsArn(input.stateKmsKeyArn, input.accountId, input.region)) ctx.addIssue({ code: "custom", path: ["stateKmsKeyArn"], message: "State encryption key must match the account, commercial partition and connection region." });
 });
@@ -63,8 +71,28 @@ function bootstrapValues(ctx: ActionContext, connectionId: string) {
   return { subject: workloadSubject(ctx.workspaceId, connectionId), issuerHost: issuer?.replace(/^https?:\/\//, ""), template: TEMPLATE, tofuModule: "deploy/aws/tofu-module" };
 }
 
+const isDerived = (input: Input) => input.observeRoleArn === undefined && input.deployRoleArn === undefined;
+
+/** The installation chooses the default trust model; an explicit mode is respected. Invalid config falls back to OIDC and is reported by the plan. */
+function resolveMode(input: Input): "oidc_web_identity" | "aws_assume_role" {
+  if (input.mode) return input.mode;
+  try { return loadCredentialsConfig().awsBrokerPrincipalArn ? "aws_assume_role" : "oidc_web_identity"; }
+  catch { return "oidc_web_identity"; }
+}
+
+/** The one-click link, when this installation has published the template and the chosen trust model is fully configured. */
+function launchFor(input: { region: string; suffix: string; trust: LaunchTrust }) {
+  const parameters = launchParameters(input.trust, input.suffix);
+  const stackName = stackNameFor(input.suffix);
+  let templateUrl: string | undefined;
+  try { templateUrl = loadCredentialsConfig().awsConnectionTemplateUrl; } catch { templateUrl = undefined; }
+  const trustReady = input.trust.mode === "oidc_web_identity" ? Boolean(input.trust.issuerHost) : Boolean(input.trust.principalArn);
+  const url = templateUrl && trustReady ? quickCreateUrl({ region: input.region, templateUrl, stackName, parameters }) : undefined;
+  return { stackName, parameters, ...(templateUrl ? { templateUrl } : {}), ...(url ? { url } : {}) };
+}
+
 function creationPlan(ctx: ActionContext, input: Input): ActionPlan {
-  const mode = input.mode ?? "oidc_web_identity";
+  const mode = resolveMode(input);
   let values: ReturnType<typeof bootstrapValues> | undefined;
   let blocked: string | undefined;
   try {
@@ -79,10 +107,15 @@ function creationPlan(ctx: ActionContext, input: Input): ActionPlan {
     details: [
       ...AWS_CONNECTION_PERMISSIONS,
       `Run ${TEMPLATE} or deploy/aws/tofu-module in your AWS account; Zenith does not create this bootstrap stack.`,
-      `Bootstrap NameSuffix: ${input.bootstrapNameSuffix || "empty"}. Use the same value in the bootstrap stack and this connection.`,
-      `OIDC subject: ${values?.subject ?? `zenith:ws:${ctx.workspaceId}:conn:<connection-id>`}. The exact connection id and subject are shown right after creation.`,
-      `Issuer host (no scheme): ${values?.issuerHost ?? "unset (ZENITH_OIDC_ISSUER)"}. AWS must reach it over public HTTPS.`,
-      ...(input.mode === "aws_assume_role" ? ["Zenith generates a random ExternalId (not a secret) at creation and returns it for the template. Supply ZenithPrincipalArn for the control plane's AWS principal; never supply an access key."] : []),
+      isDerived(input) && input.bootstrapNameSuffix === undefined
+        ? "Bootstrap NameSuffix: generated for this connection, so it never collides with another connection in the same account. Zenith derives the role ARNs from the account id and this suffix."
+        : `Bootstrap NameSuffix: ${input.bootstrapNameSuffix || "empty"}. Use the same value in the bootstrap stack and this connection.`,
+      ...(mode === "oidc_web_identity" ? [
+        `OIDC subject: ${values?.subject ?? `zenith:ws:${ctx.workspaceId}:conn:<connection-id>`}. The exact connection id and subject are shown right after creation.`,
+        `Issuer host (no scheme): ${values?.issuerHost ?? "unset (ZENITH_OIDC_ISSUER)"}. AWS must reach it over public HTTPS.`,
+      ] : [
+        "Zenith generates a random ExternalId (not a secret) at creation and returns it for the template, together with ZenithPrincipalArn, the Zenith role allowed to assume your roles. Never supply an access key.",
+      ]),
       "No live verification runs at creation. The records stay connecting / pending_verification until connection.verifyAws passes an observe-role identity check; deploy-role permissions remain unverified.",
     ], costDeltaUsd: 0, risk: "medium", warnings: [], requiresApproval: false, blocked,
   };
@@ -95,10 +128,16 @@ defineAction<Input>({
     const plan = creationPlan(ctx, input);
     if (plan.blocked) return { ok: false, summary: "AWS connection cannot be created yet.", error: plan.blocked };
     const connectionId = id();
-    const externalId = input.mode === "aws_assume_role" ? `zenith-${randomBytes(16).toString("hex")}` : undefined;
+    const mode = resolveMode(input);
+    const externalId = mode === "aws_assume_role" ? `zenith-${randomBytes(16).toString("hex")}` : undefined;
     if (externalId && !isExternalId(externalId)) throw new Error("ExternalId generation failed.");
+    const derived = isDerived(input);
+    const suffix = input.bootstrapNameSuffix ?? (derived ? generateBootstrapNameSuffix() : "");
+    try { assertAwsBootstrapLimits({ bootstrapNameSuffix: suffix, accountId: input.accountId, region: input.region }); }
+    catch { return { ok: false, summary: "AWS connection was not created.", error: "The generated resource names do not fit AWS limits for this account and region." }; }
+    const roleArns = derived ? derivedRoleArns(input.accountId, suffix) : { observeRoleArn: input.observeRoleArn!, deployRoleArn: input.deployRoleArn!, ...(input.secretWriterRoleArn ? { secretWriterRoleArn: input.secretWriterRoleArn } : {}) };
     const { label, ...identifiers } = input;
-    const config: AwsConnectionConfig = { ...identifiers, mode: input.mode ?? "oidc_web_identity", provider: "aws", ...(externalId ? { externalId } : {}) };
+    const config: AwsConnectionConfig = { ...identifiers, ...roleArns, bootstrapNameSuffix: suffix, mode, provider: "aws", ...(externalId ? { externalId } : {}) };
     try {
       const { repos } = await import("@/lib/controlplane/db");
       const sql = await bridgeDeps().connectionSql();
@@ -109,7 +148,18 @@ defineAction<Input>({
     const conn: CloudConnection = { id: connectionId, workspaceId: ctx.workspaceId, provider: "aws", label: label || `AWS ${input.accountId} ${input.region}`, region: input.region, status: "connecting", grantedPermissions: [...AWS_CONNECTION_PERMISSIONS], platformConnectionId: connectionId, createdAt: new Date().toISOString() };
     db().connections.push(conn);
     save();
-    return { ok: true, summary: "AWS connection saved; bootstrap trust and run connection.verifyAws before deploying.", data: { connectionId, platformConnectionId: connectionId, status: conn.status, ...bootstrapValues(ctx, connectionId), ...(externalId ? { externalId, requiredTemplateParameter: "ZenithPrincipalArn" } : {}) } };
+    const values = bootstrapValues(ctx, connectionId);
+    let principalArn: string | undefined;
+    try { principalArn = loadCredentialsConfig().awsBrokerPrincipalArn; } catch { principalArn = undefined; }
+    const trust: LaunchTrust = mode === "oidc_web_identity"
+      ? { mode, issuerHost: values.issuerHost ?? "", subject: values.subject }
+      : { mode, externalId: externalId!, ...(principalArn ? { principalArn } : {}) };
+    const launch = launchFor({ region: input.region, suffix, trust });
+    return { ok: true, summary: "AWS connection saved; bootstrap trust and run connection.verifyAws before deploying.", data: {
+      connectionId, platformConnectionId: connectionId, status: conn.status, ...values, mode, region: input.region, accountId: input.accountId,
+      bootstrapNameSuffix: suffix, roleArns, launch,
+      ...(externalId ? { externalId, requiredTemplateParameter: "ZenithPrincipalArn", ...(principalArn ? { zenithPrincipalArn: principalArn } : {}) } : {}),
+    } };
   },
 });
 

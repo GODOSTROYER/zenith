@@ -120,7 +120,7 @@
     "lucide-react": "^0.511.0",
     "meshoptimizer": "^1.2.0",
     "mysql2": "^3.24.5",
-    "next": "15.5.28",
+    "next": "15.5.29",
     "nodemailer": "10.2.1",
     "opa-wasm-yaml": "npm:yaml@1.10.3",
     "postgres": "^3.4.7",

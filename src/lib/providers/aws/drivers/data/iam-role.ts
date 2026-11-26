@@ -42,6 +42,7 @@
 import { AWS_ROLE_BOUNDARIES, awsBoundaryArn, environmentName, trustedAwsBoundaryArn } from "@/lib/credentials/aws/naming";
 import { isZenithTagged, TAG_RESOURCE } from "@/lib/providers/aws/drivers/shared/tags";
 import { isAwsPartition, principalForPartition, type AwsPartition } from "@/lib/credentials/aws/partition";
+import { assertTrustPolicy } from "@/lib/providers/aws/trust-guard";
 import {
   GetRoleCommand,
   GetRolePolicyCommand,
@@ -242,6 +243,15 @@ export function compileIamRole(node: ResourceNode, ctx: CompileContext): TofuFra
       ...(principal && SOURCE_ACCOUNT_CAPABLE.has(principal) ? { condition: [{ test: "StringEquals", variable: "aws:SourceAccount", values: [acct.accountId] }] } : {}),
     };
   }
+  // The trust document is a data source, so check the equivalent IAM document before it is emitted.
+  assertTrustPolicy({
+    Version: "2012-10-17",
+    Statement: [{
+      Effect: "Allow",
+      Principal: Object.fromEntries((trustStatement.principals as { type: string; identifiers: unknown[] }[]).map((pr) => [pr.type, pr.identifiers])),
+      Action: trustStatement.actions,
+    }],
+  }, node.address, { allowTerraformReferences: true });
   b.data("aws_iam_policy_document", `${label}_trust`, {
     statement: [trustStatement],
   });

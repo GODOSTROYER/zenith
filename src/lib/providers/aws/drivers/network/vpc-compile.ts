@@ -45,6 +45,7 @@ import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { NetworkSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { DriverCompileError, FragmentBuilder, cloudName, nodeName, privateRouteTableAttribute, REF, refExpr, resourceTags, tfLabel } from "../shared";
+import { assertTrustPolicy } from "@/lib/providers/aws/trust-guard";
 import { parseCidr } from "./cidr";
 import { requireSubnet, zoneLetters } from "./zones";
 
@@ -191,6 +192,7 @@ export function compileVpc(node: ResourceNode, ctx: CompileContext): TofuFragmen
       },
     ],
   };
+  assertTrustPolicy(assumeRole, node.address);
   b.resource("aws_iam_role", flow, {
     name: `${cloudName(ctx.namePrefix, `flowlogs-${nodeName(node.address)}`, 64 - "-flow".length)}-flow`,
     assume_role_policy: json(assumeRole),

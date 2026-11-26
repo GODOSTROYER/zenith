@@ -26,6 +26,7 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import { AWS_ROLE_BOUNDARIES, trustedAwsBoundaryArn, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
 import { isAwsPartition, principalForPartition } from "@/lib/credentials/aws/partition";
+import { assertTrustPolicy } from "@/lib/providers/aws/trust-guard";
 import type { ResourceNode } from "@/lib/resources/types";
 import { bareExpr, tfLiteral, FragmentBuilder as SharedFragmentBuilder } from "@/lib/providers/aws/drivers/shared";
 import { partitionOfRegion } from "@/lib/providers/aws/drivers/shared/arn";
@@ -262,10 +263,12 @@ export function policyJson(statements: readonly PolicyStatement[], where: string
 export function assumeRoleJson(servicePrincipal: string, ctx?: Pick<CompileContext, "awsBootstrap" | "region">): TfText {
   const known = ctx?.awsBootstrap?.partition ?? (ctx?.region ? partitionOfRegion(ctx.region) : "aws");
   const principal = ctx ? principalForPartition(isAwsPartition(known) ? known : "aws", servicePrincipal) : servicePrincipal;
-  return renderJsonText({
+  const doc = {
     Version: "2012-10-17",
     Statement: [{ Effect: "Allow", Principal: { Service: principal }, Action: "sts:AssumeRole" }],
-  });
+  };
+  assertTrustPolicy(doc, "aws.trust_policy");
+  return renderJsonText(doc);
 }
 
 /* ------------------------------- environment ------------------------------ */

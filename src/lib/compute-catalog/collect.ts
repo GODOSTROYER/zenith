@@ -5,6 +5,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import type { ComputeProvider, ComputeSnapshotKind, RawComputeSnapshot } from "./types";
 import { hasCredentialQuery } from "./source-url";
+import { assertComputeScopeRegions, isAwsInventoryRegion, requireComputeCollectionScope } from "./scope";
 
 const AWS_PRICE_HOST = "pricing.us-east-1.amazonaws.com";
 const GCP_COMPUTE_HOST = "compute.googleapis.com";
@@ -27,7 +28,7 @@ export interface ComputeCollectionRequest {
 }
 
 export interface ComputeCollectionDeps {
-  /** Reuse the existing catalog opt-in. The CLI never opens this gate itself. */
+  /** Existing network opt-in and approved scope-manifest path; the CLI opens neither gate itself. */
   env: Readonly<Record<string, string | undefined>>;
   fetch: typeof fetch;
   now: () => string;
@@ -114,11 +115,13 @@ async function fetchSnapshot(url: URL, kind: ComputeSnapshotKind, deps: ComputeC
   return { kind, url: url.toString(), retrievedAt: deps.now(), sha256: createHash("sha256").update(bytes).digest("hex"), ...(region ? { region } : {}), data };
 }
 
-async function* collectAws(request: ComputeCollectionRequest, deps: ComputeCollectionDeps): AsyncGenerator<RawComputeSnapshot> {
+async function* collectAws(request: ComputeCollectionRequest, deps: ComputeCollectionDeps, scope: ReturnType<typeof requireComputeCollectionScope>): AsyncGenerator<RawComputeSnapshot> {
   const indexUrl = checkedUrl(`https://${AWS_PRICE_HOST}/offers/v1.0/aws/AmazonEC2/current/region_index.json`, AWS_PRICE_HOST, "/offers/v1.0/aws/AmazonEC2/");
   const index = record((await fetchSnapshot(indexUrl, "aws_ec2_prices", deps)).data);
   const regions = record(index.regions);
   const requested = request.regions ?? Object.keys(regions).sort();
+  // Preflight the entire discovered region set before the first regional SDK call.
+  if (request.awsInventory) assertComputeScopeRegions(scope, "aws", requested.filter(isAwsInventoryRegion));
   for (const region of requested) {
     const entry = record(regions[region]);
     if (typeof entry.currentVersionUrl !== "string") throw new ComputeCollectionError(`AWS has no public EC2 price file for ${region}.`);
@@ -126,7 +129,7 @@ async function* collectAws(request: ComputeCollectionRequest, deps: ComputeColle
     yield await fetchSnapshot(url, "aws_ec2_prices", deps, region);
     // The price index can contain Local/Wavelength Zone locations. They are not
     // EC2 region endpoints and must remain separate price-only evidence.
-    if (!request.awsInventory || !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(region)) continue;
+    if (!request.awsInventory || !isAwsInventoryRegion(region)) continue;
     const client = deps.awsInventoryPage ? undefined : new EC2Client({ region, maxAttempts: 3 });
     try {
       for (const kind of ["types", "offerings"] as const) {
@@ -225,8 +228,9 @@ export async function* iterateComputeSnapshots(request: ComputeCollectionRequest
   if (request.regions && (!request.regions.length || request.regions.some((region) => !/^[a-z][a-z0-9-]{1,63}$/.test(region)) || new Set(request.regions).size !== request.regions.length)) throw new ComputeCollectionError("Regions must be unique native region identifiers.");
   if (request.gcpProject && !/^[a-z0-9][a-z0-9-]{1,127}$/.test(request.gcpProject)) throw new ComputeCollectionError("Invalid GCP project identifier.");
   if (request.azureSubscription && !/^[a-f0-9-]{1,64}$/i.test(request.azureSubscription)) throw new ComputeCollectionError("Invalid Azure subscription identifier.");
+  const scope = requireComputeCollectionScope(request, deps.env, deps.now);
   switch (request.provider) {
-    case "aws": yield* collectAws(request, deps); break;
+    case "aws": yield* collectAws(request, deps, scope); break;
     case "gcp": yield* collectGcp(request, deps); break;
     case "azure": yield* collectAzure(request, deps); break;
     default: throw new ComputeCollectionError("Unsupported compute provider.");

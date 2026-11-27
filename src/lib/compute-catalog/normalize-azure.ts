@@ -16,7 +16,7 @@ function cpuMode(sku: ObjectValue): ComputeCpuMode {
   // B-series are explicitly burstable. Other known regular VM families are sustained;
   // future or unrecognized families stay unknown instead of inheriting a naming guess.
   if (/^standardB.*Family$/i.test(family)) return "burstable";
-  if (/^standard(?:D|E|F|L|M|N|H|A|DC|EC).+Family$/i.test(family) || /^basicAFamily$/i.test(family)) return "sustained";
+  if (/^standard(?:D|E|F|L|M|N|H|A|DC|EC).*Family$/i.test(family) || /^basicAFamily$/i.test(family)) return "sustained";
   return "unknown";
 }
 

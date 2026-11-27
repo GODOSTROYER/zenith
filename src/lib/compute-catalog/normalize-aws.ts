@@ -24,11 +24,20 @@ function priceArchitecture(value: unknown): ComputeArchitecture {
   return "unknown";
 }
 
+function usesRegionalPrice(locationType: string, location: string, region: string): boolean {
+  if (locationType === "region") return true;
+  // Local/Wavelength Zones share the EC2 regional inventory endpoint, but have
+  // separate prices. Only ordinary AZ names/IDs establish a regional price join.
+  // https://docs.aws.amazon.com/local-zones/latest/ug/what-is-aws-local-zones.html
+  if (locationType === "availability-zone") return location.startsWith(region) && /^[a-z]$/.test(location.slice(region.length));
+  return locationType === "availability-zone-id" && /^[a-z]+\d+-az\d+$/.test(location);
+}
+
 /** Joins public EC2 price products with regional DescribeInstanceTypes/Offerings exports. */
 export function normalizeAwsSnapshots(snapshots: readonly RawComputeSnapshot[], asOf: string): ProviderNormalization {
   const shapes = new Map<string, Shape>();
   const prices = new Map<string, PriceCandidate[]>();
-  const locations = new Map<string, Set<string>>();
+  const locations = new Map<string, Map<string, boolean>>();
   const warnings: string[] = [];
   let unsupportedShapes = 0;
   let unsupportedPrices = 0;
@@ -73,8 +82,10 @@ export function normalizeAwsSnapshots(snapshots: readonly RawComputeSnapshot[], 
         continue;
       }
       if (snapshot.region && region !== snapshot.region) throw new Error("AWS offering region does not match its snapshot scope.");
-      const existing = locations.get(key(region, instanceType)) ?? new Set<string>();
-      existing.add(type === "region" ? "" : location);
+      const existing = locations.get(key(region, instanceType)) ?? new Map<string, boolean>();
+      const zone = type === "region" ? "" : location;
+      const regionalPrice = usesRegionalPrice(type!, location, region);
+      existing.set(zone, (existing.get(zone) ?? true) && regionalPrice);
       locations.set(key(region, instanceType), existing);
     }
   }
@@ -133,11 +144,13 @@ export function normalizeAwsSnapshots(snapshots: readonly RawComputeSnapshot[], 
   for (const [shapeKey, shape] of shapes) {
     const locationSet = locations.get(shapeKey);
     // Prefer the most specific inventory evidence if both regional and zonal exports were supplied.
-    const zones = locationSet?.size ? [...locationSet].filter(zone => zone || locationSet.size === 1) : [""];
+    const zones = locationSet?.size ? [...locationSet.keys()].filter(zone => zone || locationSet.size === 1) : [""];
     const resolved = resolvePrice(prices.get(shapeKey) ?? []);
     for (const zone of zones) {
+      const regionalPrice = !locationSet || locationSet.get(zone) === true;
       const offerWarnings = [
         ...(resolved.warning ? [resolved.warning] : []),
+        ...(!regionalPrice ? ["The supplied zonal location is not established as an ordinary Availability Zone; parent-region prices were not applied."] : []),
         ...(!locationSet ? ["Regional offering inventory was not supplied; a catalog entry does not prove availability."] : []),
         ...(shape.architecture === "unknown" ? ["CPU architecture is not established by the supplied metadata."] : []),
         ...(shape.cpuMode === "unknown" ? ["Sustained or burstable CPU behavior is not established by the supplied metadata."] : []),
@@ -146,7 +159,7 @@ export function normalizeAwsSnapshots(snapshots: readonly RawComputeSnapshot[], 
         id: offerId("aws", shape.region, shape.instanceType, zone || undefined), provider: "aws", region: shape.region,
         ...(zone ? { zone } : {}), instanceType: shape.instanceType, vcpus: shape.vcpus, memoryMiB: shape.memoryMiB,
         architecture: shape.architecture, cpuMode: shape.cpuMode, operatingSystem: "linux", tenancy: "shared", purchaseModel: "on_demand",
-        price: resolved.price, specSource: shape.source, offeringState: locationSet ? "offered" : "catalog_only", warnings: offerWarnings,
+        price: regionalPrice ? resolved.price : null, specSource: shape.source, offeringState: locationSet ? "offered" : "catalog_only", warnings: offerWarnings,
       });
     }
   }

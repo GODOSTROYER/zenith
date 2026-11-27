@@ -3,7 +3,7 @@ import { mkdir, open, rename, unlink, type FileHandle } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { ComputeCatalog, RawComputeSnapshot } from "./types";
+import type { ComputeCatalog, ComputeProvider, ComputeSnapshotKind, RawComputeSnapshot } from "./types";
 import { hasCredentialQuery } from "./source-url";
 
 /** Operator-owned local snapshots follow the existing reviewed catalog workflow. */
@@ -16,6 +16,14 @@ const SnapshotKindSchema = z.enum([
 const ProviderSchema = z.enum(["aws", "gcp", "azure"]);
 const IdentifierSchema = z.string().min(1).max(256).refine((s) => !/[\u0000-\u001f\u007f]/.test(s), "Control characters are not allowed.");
 const WarningSchema = z.string().min(1).max(2000);
+const PRICE_SOURCE_KIND: Record<ComputeProvider, ComputeSnapshotKind> = {
+  aws: "aws_ec2_prices", gcp: "gcp_skus", azure: "azure_retail_prices",
+};
+const SPEC_SOURCE_KINDS: Record<ComputeProvider, readonly ComputeSnapshotKind[]> = {
+  aws: ["aws_instance_types", "aws_ec2_prices"],
+  gcp: ["gcp_machine_types"],
+  azure: ["azure_resource_skus"],
+};
 
 function safeSourceUrl(value: string): boolean {
   try {
@@ -114,6 +122,8 @@ export function parseComputeCatalog(input: unknown): ComputeCatalog {
       if (!sourceKeys.has(sourceKey(source))) issues.push(`Offer ${offer.id} references a source absent from the catalog.`);
       if (!source.kind.startsWith(`${offer.provider}_`)) issues.push(`Offer ${offer.id} references a different provider's source.`);
     }
+    if (!SPEC_SOURCE_KINDS[offer.provider].includes(offer.specSource.kind)) issues.push(`Offer ${offer.id} hardware requires a supported ${offer.provider} specification source.`);
+    if (offer.price && offer.price.source.kind !== PRICE_SOURCE_KIND[offer.provider]) issues.push(`Offer ${offer.id} price requires a ${PRICE_SOURCE_KIND[offer.provider]} source.`);
     if (offer.price?.effectiveAt && Date.parse(offer.price.effectiveAt) > generatedAt) issues.push(`Offer ${offer.id} has a future effective price.`);
   }
   for (const coverage of catalog.coverage) {

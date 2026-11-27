@@ -15,6 +15,8 @@ const FAMILY_METERS: readonly [string, RegExp][] = [
 
 function machineRows(snapshot: RawComputeSnapshot): { machine: ObjectValue; zone?: string }[] {
   const data = object(snapshot.data);
+  const warning = object(data.warning);
+  if (warning.code && warning.code !== "NO_RESULTS_ON_PAGE") throw new Error(`Incomplete GCP machine inventory: ${String(warning.code)}.`);
   if (Array.isArray(data.items)) {
     const pathZone = new URL(snapshot.url).pathname.match(/\/zones\/([^/]+)\/machineTypes\/?$/)?.[1];
     return rows(data.items).map(machine => ({ machine, zone: text(machine.zone)?.split("/").at(-1) ?? pathZone }));

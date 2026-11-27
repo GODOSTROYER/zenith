@@ -1,10 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { collectComputeSnapshots, type ComputeCollectionDeps } from "@/lib/compute-catalog/collect";
+import { COMPUTE_SCOPE_PROJECT, COMPUTE_SCOPE_SUBSCRIPTION, writeComputeScopeFixture } from "./scope-fixture";
 
 const now = () => "2026-11-27T00:00:00.000Z";
+let scopeDirectory: string;
+let env: Record<string, string>;
+beforeEach(() => { scopeDirectory = mkdtempSync(join(tmpdir(), "zenith-compute-collection-scope-")); env = writeComputeScopeFixture(scopeDirectory); });
+afterEach(() => { rmSync(scopeDirectory, { recursive: true, force: true }); });
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 function deps(fetcher: typeof fetch): ComputeCollectionDeps {
-  return { env: { ZENITH_LIVE_CATALOG_REFRESH: "1" }, fetch: fetcher, now, sleep: async () => {} };
+  return { env, fetch: fetcher, now, sleep: async () => {} };
 }
 
 describe("read-only official compute collection", () => {
@@ -52,7 +60,7 @@ describe("read-only official compute collection", () => {
       .mockResolvedValueOnce(json({ items: {} }))
       .mockResolvedValueOnce(json({ skus: [], nextPageToken: "sku2" }))
       .mockResolvedValueOnce(json({ skus: [] }));
-    const output = await collectComputeSnapshots({ provider: "gcp", gcpProject: "zenith-test" }, { ...deps(fetcher), gcpAccessToken: "test-token" });
+    const output = await collectComputeSnapshots({ provider: "gcp", gcpProject: COMPUTE_SCOPE_PROJECT, regions: ["us-central1"] }, { ...deps(fetcher), gcpAccessToken: "test-token" });
     expect(output).toHaveLength(4);
     expect(output[1].url).toContain("pageToken=page2");
     expect(output[3].url).toContain("pageToken=sku2");
@@ -62,9 +70,9 @@ describe("read-only official compute collection", () => {
 
   it("fails closed for GCP partial inventory and repeated pagination", async () => {
     const partial = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ items: {}, unreachables: ["zones/x"] }));
-    await expect(collectComputeSnapshots({ provider: "gcp", gcpProject: "test-project" }, { ...deps(partial), gcpAccessToken: "token" })).rejects.toThrow("incomplete inventory");
+    await expect(collectComputeSnapshots({ provider: "gcp", gcpProject: COMPUTE_SCOPE_PROJECT, regions: ["us-central1"] }, { ...deps(partial), gcpAccessToken: "token" })).rejects.toThrow("incomplete inventory");
     const cycle = vi.fn<typeof fetch>().mockImplementation(async () => json({ items: {}, nextPageToken: "same" }));
-    await expect(collectComputeSnapshots({ provider: "gcp", gcpProject: "test-project" }, { ...deps(cycle), gcpAccessToken: "token" })).rejects.toThrow("pagination did not complete");
+    await expect(collectComputeSnapshots({ provider: "gcp", gcpProject: COMPUTE_SCOPE_PROJECT, regions: ["us-central1"] }, { ...deps(cycle), gcpAccessToken: "token" })).rejects.toThrow("pagination did not complete");
     expect(cycle).toHaveBeenCalledTimes(2);
   });
 
@@ -74,7 +82,7 @@ describe("read-only official compute collection", () => {
       .mockResolvedValueOnce(json({ value: [] }))
       .mockResolvedValueOnce(json({ Items: [], NextPageLink: next }))
       .mockResolvedValueOnce(json({ Items: [] }));
-    const output = await collectComputeSnapshots({ provider: "azure", azureSubscription: "1234-abcd", regions: ["centralindia"] }, { ...deps(fetcher), azureAccessToken: "arm-token" });
+    const output = await collectComputeSnapshots({ provider: "azure", azureSubscription: COMPUTE_SCOPE_SUBSCRIPTION, regions: ["centralindia"] }, { ...deps(fetcher), azureAccessToken: "arm-token" });
     expect(output).toHaveLength(3);
     expect(output[2].url).toBe(next);
     expect(fetcher.mock.calls[0][1]?.headers).toEqual({ Authorization: "Bearer arm-token" });
@@ -84,7 +92,7 @@ describe("read-only official compute collection", () => {
 
   it("rejects foreign Azure continuation links before forwarding authorization", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ value: [], nextLink: "https://example.com/steal" }));
-    await expect(collectComputeSnapshots({ provider: "azure", azureSubscription: "1234-abcd" }, { ...deps(fetcher), azureAccessToken: "secret" })).rejects.toThrow("allowed endpoint");
+    await expect(collectComputeSnapshots({ provider: "azure", azureSubscription: COMPUTE_SCOPE_SUBSCRIPTION, regions: ["eastus"] }, { ...deps(fetcher), azureAccessToken: "secret" })).rejects.toThrow("allowed endpoint");
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 

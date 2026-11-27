@@ -1,5 +1,7 @@
 # Native VM catalog and recommendations
 
+Written against branch `prepan`, based on implementation snapshot `eae645831e3cce46e1a11f2daf18995a00b2904d` (2026-11-27).
+
 This is the first `prepan` implementation of native AWS, GCP, and Azure machine
 discovery. It imports timestamped provider evidence, preserves native instance
 names, and compares Linux shared-tenancy On-Demand base VM prices against CPU,
@@ -42,6 +44,10 @@ AWS metadata that does not establish CPU mode stays unknown. Default matching
 requires sustained CPU, so price files alone generally need inventory enrichment
 before producing useful AWS recommendations.
 
+Each offer must cite the right evidence kind: pricing sources establish prices,
+and native inventory sources establish hardware. AWS Price List products can
+also establish hardware fields. Inventory-only evidence cannot establish a rate.
+
 `offeringState: offered` means the imported inventory reports an offering. It does
 not mean a tenant is eligible, has quota, has a compatible image, or can launch
 there now. Azure subscription restrictions and GCP obsolete/deleted machine types
@@ -66,7 +72,56 @@ npm run compute:catalog -- --help
 Network collection requires `ZENITH_LIVE_CATALOG_REFRESH=1`. The CLI never enables
 that gate itself. `import`, `inspect`, and `recommend` are offline commands.
 Each fetch requires either `--regions` or `--all-regions`, plus a new output
-directory. Existing archives are never replaced.
+directory. Authenticated GCP/Azure fetches require explicit `--regions`; their
+output regions must be included in the approved scope. Existing archives are
+never replaced.
+
+### Approved read scope
+
+Collection also requires a current, operator-approved scope manifest selected
+with `ZENITH_LIVE_SCOPE_FILE`. The repository's committed approval is preserved;
+it does not grant the new `compute-catalog` operation. Prepare an operator-owned
+copy with a dedicated entry under `harnesses`, granting only the provider reads
+needed for the collection:
+
+```json
+{
+  "compute-catalog": {
+    "description": "Read-only native VM catalog collection",
+    "providers": ["public", "aws", "gcp", "azure"],
+    "actions": ["read"],
+    "maxRunUsd": 0
+  }
+}
+```
+
+Public AWS price-only collection uses the `public` grant. AWS inventory uses
+`aws`; authenticated GCP and Azure reads use their corresponding grants and
+confirmed sandbox identities. The explicit GCP project and Azure subscription
+must match the manifest. Inventory/output region checks use its provider region
+allowlists. GCP/Azure APIs still return global metadata within the matched
+project/subscription; a permitted output region does not imply region-confined
+network responses.
+
+Before AWS inventory collection, the operator must ensure the SDK credential
+chain selects the intended approved account. This slice checks the scope grant
+and inventory regions but does not verify the ambient AWS account with STS.
+
+Review the complete copied manifest, including its identities, regions, grants,
+and budgets, then approve that exact copy through the existing interactive CLI:
+
+```sh
+export ZENITH_LIVE_SCOPE_FILE=/secure/compute-catalog-scope.json
+node --import tsx scripts/release/permissions-cli.ts show
+node --import tsx scripts/release/permissions-cli.ts approve --by "Your name"
+```
+
+Keep `ZENITH_LIVE_SCOPE_FILE` set for the fetch commands below. Both the CLI and
+collector check the scope before provider I/O; the CLI checks it before opening
+token files. A missing grant, mismatched identity/region, stale digest, or expired
+approval refuses collection. Offline import, inspection, and recommendation do
+not need this approval. No live scope was approved or exercised by the feature's
+offline verification.
 
 ### AWS
 
@@ -87,6 +142,10 @@ credential cannot read a requested ordinary region. Do not assume one credential
 covers every enabled region, GovCloud, or China partition. Price-index entries
 for Local/Wavelength Zone locations stay distinct price-only scopes; they are
 not sent to an EC2 regional SDK endpoint or assigned their parent region's price.
+If regional offering inventory includes Local, Wavelength, or unrecognized zone
+locations, those offerings remain visible but unpriced. Only ordinary AZ names
+and IDs can inherit their parent region's price; special zones need their own
+authoritative pricing join.
 
 ### GCP
 
@@ -104,8 +163,10 @@ ZENITH_LIVE_CATALOG_REFRESH=1 npm run compute:catalog -- fetch \
 
 The collector follows the global aggregated inventory and billing pagination.
 Import restricts the normalized offers and coverage to the requested regions.
-Partial or unreachable inventory scopes fail collection. This implementation
-does not silently accept an incomplete pagination chain.
+Partial or unreachable inventory scopes fail collection and offline import,
+including top-level and scoped incomplete-result warnings. Native
+`NO_RESULTS_ON_PAGE` empty pages remain valid. This implementation does not
+silently accept an incomplete pagination chain.
 
 ### Azure
 
@@ -126,6 +187,11 @@ Resource SKUs may return subscription-wide inventory; the Retail Prices request
 filters requested regions, and import filters the final inventory to the same
 scope. Server-provided continuations must remain on their allowlisted host and
 API path. Redirects are not followed.
+
+Source URLs reject credential query parameters, including OAuth refresh/ID and
+session-token aliases. Native `NextToken`, `pageToken`, and `$skiptoken` cursors
+remain supported. These checks supplement the operator's responsibility to
+provide credential-free evidence; they do not establish a snapshot's authenticity.
 
 ### Archive properties
 
@@ -231,7 +297,9 @@ geography cannot satisfy a residency rule. The reused geography registry is
 limited; adding worldwide residency metadata is a separate workstream.
 
 The body cannot supply a catalog, path, connection list, latency evidence, or
-apply flag. The operator catalog is read only after authorization. Missing or
+apply flag. Scoped authorization runs before body validation, so malformed
+requirements cannot reveal the existence of a forbidden environment. The
+operator catalog is read only after authorization. Missing or
 invalid catalogs return a redacted 503. As with existing placement POSTs, method
 gating during read-only maintenance also blocks this endpoint.
 
@@ -333,6 +401,7 @@ Primary API references:
 - [AWS bulk price files](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/using-ppslong.html)
 - [EC2 DescribeInstanceTypes](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypes.html)
 - [EC2 DescribeInstanceTypeOfferings](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstanceTypeOfferings.html)
+- [AWS Local Zone pricing scope](https://docs.aws.amazon.com/local-zones/latest/ug/what-is-aws-local-zones.html)
 - [EC2 billing operation/platform fields](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/billing-info-fields.html)
 - [GCP machineTypes.aggregatedList](https://cloud.google.com/compute/docs/reference/rest/v1/machineTypes/aggregatedList)
 - [GCP services.skus.list](https://cloud.google.com/billing/docs/reference/rest/v1/services.skus/list)

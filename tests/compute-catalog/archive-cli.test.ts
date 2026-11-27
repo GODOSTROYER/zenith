@@ -1,17 +1,19 @@
 import { mkdtemp, readFile, readdir, rm, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchComputeArchive, importComputeArchive } from "@/lib/compute-catalog/archive";
 import { loadComputeCatalog } from "@/lib/compute-catalog/store";
 import type { RawComputeSnapshot } from "@/lib/compute-catalog/types";
 import { runComputeCatalogCli } from "../../scripts/cost/compute-catalog";
+import { writeComputeScopeFixture } from "./scope-fixture";
 
 // Deliberately synthetic rates; these fixtures are never shipped as live pricing.
 const NOW = "2026-11-27T00:00:00.000Z";
 const options = { version: "fixture.1", generatedAt: NOW };
-const env = { ZENITH_LIVE_CATALOG_REFRESH: "1" };
+let env: Record<string, string>;
 const dirs: string[] = [];
+beforeEach(async () => { env = writeComputeScopeFixture(await directory()); });
 afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
 async function directory(): Promise<string> { const dir = await mkdtemp(join(tmpdir(), "zenith-compute-archive-")); dirs.push(dir); return dir; }
 const reply = (body: unknown): Response => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });

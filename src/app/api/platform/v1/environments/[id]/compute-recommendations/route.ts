@@ -45,13 +45,15 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
   if (!env) throw notFound();
   const project = data.projects.find((p) => p.id === env.projectId && p.workspaceId === caller.workspaceId);
   if (!project) throw notFound();
-  const input = parseWith(ComputeRecommendationRequestSchema, await readJson(req));
   const authorization = await (await platformBroker()).authorizeRead({ capability: "placement.solve", scope: {
     workspaceId: caller.workspaceId, projectId: project.id, environmentId: env.id,
   } }, caller.principal);
   if (authorization.decision.outcome !== "allow" || !authorization.claims) {
     throw new BrokerError("policy_denied", "Current policy does not authorize compute recommendations.", "Use a credential with the plan scope or ask a workspace administrator to review policy.");
   }
+  // Resolve scope access before request-shape errors can reveal whether an
+  // environment outside the caller's permitted projects or workspace exists.
+  const input = parseWith(ComputeRecommendationRequestSchema, await readJson(req));
 
   const parsed = parseManifest(project.workingManifest);
   if (!parsed.ok) throw new BrokerError("invalid_request", "The working manifest is invalid.", "Fix the working manifest before requesting compute recommendations.");

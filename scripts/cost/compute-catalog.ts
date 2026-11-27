@@ -8,6 +8,7 @@ import { fetchComputeArchive, importComputeArchive, mergeComputeCatalogs, MAX_CO
 import type { ComputeCollectionRequest } from "../../src/lib/compute-catalog/collect";
 import { normalizeComputeSnapshots } from "../../src/lib/compute-catalog/normalize";
 import { recommendCompute } from "../../src/lib/compute-catalog/recommend";
+import { requireComputeCollectionScope } from "../../src/lib/compute-catalog/scope";
 import { computeCatalogPath, loadComputeCatalog, parseRawComputeSnapshots, readBoundedBytes, readBoundedJson, saveComputeCatalog } from "../../src/lib/compute-catalog/store";
 import type { ComputeCatalog, RawComputeSnapshot } from "../../src/lib/compute-catalog/types";
 
@@ -20,7 +21,12 @@ const HELP = `Compute catalog commands:
   inspect [--catalog <catalog.json>]
   recommend --request <requirements.json> [--catalog <catalog.json>] [--latency-file <observations.json>] [--now <ISO timestamp>]
 
-fetch requires ZENITH_LIVE_CATALOG_REFRESH=1; it performs read-only API calls.
+fetch requires ZENITH_LIVE_CATALOG_REFRESH=1 and an approved compute-catalog read grant
+in the scope manifest selected by ZENITH_LIVE_SCOPE_FILE. AWS price-only uses public;
+authenticated inventory uses aws, gcp, or azure. GCP/Azure require explicit approved regions
+and the matching sandbox project/subscription; their inventory responses remain global.
+AWS inventory checks approved regions, not the ambient SDK credential account; operators
+must select credentials for the approved AWS account. Offline commands require no live scope.
 import accepts multiple archives or raw envelopes and atomically writes the explicit output.
 The API reads ZENITH_COMPUTE_CATALOG_PATH or $ZENITH_DATA/compute-catalog/catalog.json.
 See docs/platform/operations/COMPUTE-CATALOG.md for scope, permissions, and examples.`;
@@ -106,6 +112,9 @@ export async function runComputeCatalogCli(argv: string[], runtime: ComputeCatal
       ...(provider === "gcp" ? { gcpProject: need("gcp-project") } : {}),
       ...(provider === "azure" ? { azureSubscription: need("azure-subscription") } : {}),
     };
+    // Scope must be approved before reading an operator's token file. The collector
+    // independently checks again so callers of the library have the same boundary.
+    requireComputeCollectionScope(request, runtime.env, runtime.now);
     const output = resolve(need("out"));
     const manifest = await fetchComputeArchive(request, {
       env: runtime.env, fetch: runtime.fetch, now: runtime.now,

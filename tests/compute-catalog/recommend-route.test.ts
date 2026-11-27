@@ -32,7 +32,7 @@ const { placementReads } = await import("@/lib/placement/recommend");
 const catalogStore = await import("@/lib/compute-catalog/store");
 const { POST } = await import("@/app/api/platform/v1/environments/[id]/compute-recommendations/route");
 const { platformAccess } = await import("@/app/api/platform/v1/_lib/bearer-paths");
-const { BrokerError } = await import("@/lib/capabilities/errors");
+const { BrokerError, notFound } = await import("@/lib/capabilities/errors");
 
 const specKinds = { aws: "aws_instance_types", gcp: "gcp_machine_types", azure: "azure_resource_skus" } as const;
 const priceKinds = { aws: "aws_ec2_prices", gcp: "gcp_skus", azure: "azure_retail_prices" } as const;
@@ -121,6 +121,31 @@ describe("compute recommendation REST discovery", () => {
     expect(foreign.status).toBe(404);
     expect(await foreign.json()).toEqual(await missing.json());
     expect(auth.authorize).not.toHaveBeenCalled();
+    expect(catalogStore.loadComputeCatalog).not.toHaveBeenCalled();
+    expect(placementReads.connections).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal an environment outside a linked credential's project scope through malformed requirements", async () => {
+    auth.authorize.mockRejectedValue(notFound());
+    const forbidden = await request("env-a", {}, { authorization: TEST_BEARER });
+    const missing = await request("missing", {}, { authorization: TEST_BEARER });
+    expect(forbidden.status).toBe(404);
+    expect(await forbidden.json()).toEqual(await missing.json());
+    expect(auth.authorize).toHaveBeenCalledWith({ capability: "placement.solve", scope: { workspaceId: "ws-a", projectId: "proj-a", environmentId: "env-a" } },
+      expect.objectContaining({ kind: "integration", id: "int-a" }));
+    expect(catalogStore.loadComputeCatalog).not.toHaveBeenCalled();
+    expect(placementReads.connections).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal a foreign environment when a browser caller names its workspace with invalid requirements", async () => {
+    auth.authorize.mockRejectedValue(notFound());
+    const headers = { "x-zenith-workspace": "ws-b" };
+    const foreign = await request("env-b", {}, headers);
+    const missing = await request("missing", {}, headers);
+    expect(foreign.status).toBe(404);
+    expect(await foreign.json()).toEqual(await missing.json());
+    expect(auth.authorize).toHaveBeenCalledWith({ capability: "placement.solve", scope: { workspaceId: "ws-b", projectId: "proj-b", environmentId: "env-b" } },
+      expect.objectContaining({ kind: "user", id: "bob" }));
     expect(catalogStore.loadComputeCatalog).not.toHaveBeenCalled();
     expect(placementReads.connections).not.toHaveBeenCalled();
   });

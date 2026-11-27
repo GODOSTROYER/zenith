@@ -21,6 +21,7 @@ const bearerRoutes = [
   ["GET", "/environments/env_1/autonomy"], ["GET", "/workspace/policy"], ["GET", "/capability-catalog"],
   ["GET", "/environments/env_1/teardown-review"], ["POST", "/environments/env_1/teardown-review"],
   ["GET", "/environments/env_1/spend"],
+  ["POST", "/environments/env_1/compute-recommendations"],
   ["GET", "/connections"], ["GET", "/connections/conn_1"], ["POST", "/connections/conn_1/verify"], ["POST", "/connections/conn_1/revoke"],
   ["GET", "/environments/env_1/state-backend"], ["POST", "/environments/env_1/state-backend/probe"], ["POST", "/environments/env_1/state-backend/restores"],
   ["GET", "/effects"], ["GET", "/effects/fx_1"], ["POST", "/effects/fx_1/readback"],
@@ -172,7 +173,8 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(119);
+    expect(seen).toContain(`POST ${ROOT}/environments/x/compute-recommendations`);
+    expect(seen.size).toBe(120);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

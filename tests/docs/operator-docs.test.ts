@@ -56,6 +56,7 @@ const SOURCE_SNAPSHOTS: Record<string, { branch: string; commit: string }> = {
   "MIXED-RECOVERY.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
   "RESTORE-RUNBOOK.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
   "SUPPLY-CHAIN.md": { branch: "prod/compose", commit: "443bfeaf537dd5d5324d33c84fc544ede0baa632" },
+  "COMPUTE-CATALOG.md": { branch: "prepan", commit: "eae645831e3cce46e1a11f2daf18995a00b2904d" },
 };
 
 /* -------------------------------- structure ------------------------------- */

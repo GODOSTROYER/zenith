@@ -27,6 +27,13 @@ const read = (rel: string): string => readFileSync(path.join(root, rel), "utf8")
 
 /** file -> the file that enforces the scope manifest for it. */
 const COVERED_BY: Record<string, string> = {
+  // Both collection entry points call the approved-scope helper; tests use fake I/O and isolated scope files.
+  "scripts/cost/compute-catalog.ts": "src/lib/compute-catalog/scope.ts",
+  "src/lib/compute-catalog/collect.ts": "src/lib/compute-catalog/scope.ts",
+  "tests/compute-catalog/archive-cli.test.ts": "src/lib/compute-catalog/scope.ts",
+  "tests/compute-catalog/collect.test.ts": "src/lib/compute-catalog/scope.ts",
+  "tests/compute-catalog/review-boundaries.test.ts": "src/lib/compute-catalog/scope.ts",
+  "tests/compute-catalog/scope.test.ts": "src/lib/compute-catalog/scope.ts",
   "scripts/acceptance/live/dns/offline.test.ts": "scripts/acceptance/live/dns/cli.ts",
   "scripts/acceptance/live/dns/clouds.live.test.ts": "scripts/acceptance/live/dns/cli.ts",
   // The production fixture entrypoint and pre-OIDC preflight enforce both envelopes.

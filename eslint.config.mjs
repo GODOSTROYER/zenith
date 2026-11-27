@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { statSync } from "node:fs";
 import { FlatCompat } from "@eslint/eslintrc";
 
-// Next 15.5.24 uses only globSync(string, { onlyDirectories: true }) from
+// Next 15.5.29 uses only globSync(string, { onlyDirectories: true }) from
 // fast-glob, in get-root-dirs. Its scoped npm alias removes the unpatched
 // micromatch/braces chain. Adapt that call before FlatCompat loads the
 // unchanged rules: retain literal roots, include directory symlinks and

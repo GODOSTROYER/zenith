@@ -331,6 +331,8 @@ const REVIEWED: Record<string, Review> = {
   "src/lib/observability/sources/http.ts": "operator-config",
   "src/lib/ops/telemetry/otlp.ts": "operator-config",
   "src/lib/cost/catalog-fetch.ts": "operator-config",
+  // Fixed first-party price/inventory origins; continuation hosts/paths checked and redirects refused.
+  "src/lib/compute-catalog/collect.ts": "provider-api",
   "src/lib/db/pg/sync-rest.ts": "operator-config",
   "src/lib/hosted/access/mail.ts": "operator-config",
   "src/lib/providers/localstack/health.ts": "operator-config",
